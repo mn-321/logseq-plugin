@@ -1876,6 +1876,8 @@ function startTitleChrome() {
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
 const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null, inherited: [], inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
+  // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
+  const version = pageKind.version = (pageKind.version || 0) + 1;
   let kind = '', pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
   try {
     const page = await logseq.Editor.getCurrentPage?.();
@@ -1895,6 +1897,7 @@ async function loadPageKind() {
       if (kind === 'Tag') inherited = await inheritedTagProperties(pageId);
     }
   } catch (error) { console.warn('Refinements: could not tell the page type', error); }
+  if (version !== pageKind.version) return;
   pageKind.kind = kind;
   pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
@@ -2972,7 +2975,14 @@ function main() {
 
   // Every hook returns an "off" function; each is called when the plugin unloads.
   // A fold-all choice lasts while its page is open.
-  onUnload(logseq.App.onRouteChanged(() => { stopFoldState(); scheduleRefresh(); schedulePageKind(); }));
+  onUnload(logseq.App.onRouteChanged(() => {
+    stopFoldState();
+    // What is known about the page just left must not be applied to the one arriving: its list
+    // choice would hide parts of the new page until the new page's own details have loaded.
+    pdfCitations.pageUuid = null;
+    listProps.pageBlocks = new Set();
+    scheduleRefresh(); schedulePageKind();
+  }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
   onUnload(logseq.DB.onChanged(({ txData } = {}) => {
     if (foldLog.start) {
