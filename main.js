@@ -275,11 +275,8 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
 .ls-block[data-refinement-ref-row] > .block-main-container .block-content *,
 .ls-block[data-refinement-ref-row] > .block-main-container .block-content *:hover { text-decoration: none !important; border-bottom: 0 !important; }
 `],
-  ['plainProperties', `/* Properties read as "name: value": the name in normal text, the value a little firmer.
-   The capsule outline and the second bullet beside each value are dropped, so the words carry it. */
-.ls-block .property-value-container :is(.property-value-inner, .ls-number),
-.ls-page-properties .property-value-container :is(.property-value-inner, .ls-number) { font-weight: 500; }
-.property-pair .property-panel-bullet { display: none !important; }
+  ['plainProperties', `/* Block properties read as "name: value · name: value" with no capsule outline. Property lists
+   are left as Logseq draws them: its own weight, and its bullet beside every value. */
 /* Logseq draws the capsule outline on ::after; it stays while a capsule has keyboard focus. */
 .ls-block .positioned-properties.block-below .bottom-property-pill { background: transparent !important; padding-left: 0 !important; padding-right: 0 !important; }
 .ls-block .positioned-properties.block-below .bottom-property-pill:not(:focus)::after { box-shadow: none !important; }
@@ -396,6 +393,13 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref[data-refinemen
 .ls-block .ls-datetime a.page-ref[data-refinement-date]:hover,
 .ls-block .timestamp a.page-ref[data-refinement-date]:hover { background: transparent !important; padding: 0; font-size: inherit; color: inherit !important; }
 .ls-datetime::before { content: none !important; }
+/* A date is a link to its journal page, never to a block: no dot and no dashed line inside the box. */
+:is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap, a.page-ref[data-refinement-date] .block-title-wrap { background-image: none !important; padding-bottom: 0 !important; }
+:is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap::before, a.page-ref[data-refinement-date] .block-title-wrap::before { content: none !important; }
+/* The time follows the date after a space, as Logseq spaces them. */
+.ls-datetime > * + * { margin-left: .35em; }
+/* In a property list the date keeps its box but takes the weight of the values around it. */
+.property-value-container :is(.ls-datetime, .timestamp, a.page-ref[data-refinement-date]) { font-weight: inherit !important; }
 /* Inside property capsules at the side or below a block, a date is plain text in the normal text colour. */
 :is(html, .dark) .ls-block .positioned-properties :is(.ls-datetime, .timestamp, a.page-ref[data-refinement-date]),
 :is(html, .dark) .ls-block .positioned-properties :is(.ls-datetime, .timestamp, a.page-ref[data-refinement-date]):hover,
@@ -1718,6 +1722,8 @@ const settingsSchema = [
     description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
+  { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
+    description: 'Under Linked references, the link that points to the page you are on gets a very light grey wash. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
     description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
   { key: 'datesHeading', type: 'heading', title: 'Journal day as date', default: null,
@@ -1733,7 +1739,7 @@ const settingsSchema = [
   { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
     description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
   { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
-    description: 'Shows a block’s properties as “name: value” text with the value a little firmer, separated by dots, instead of outlined capsules; and removes the second bullet beside each value in a property list.' },
+    description: 'Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
     description: 'After a block’s text: ↳, a dashed circle with the number of unfinished tasks below it, and small image or PDF icons when its children are files. Point at it for details.' },
   { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
@@ -1865,7 +1871,7 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null, inherited: [], inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null, inherited: [], inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   let kind = '', pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
   try {
@@ -1890,6 +1896,7 @@ async function loadPageKind() {
   pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
   pageKind.inherited = inherited;
+  if (pageUuid) pageKind.inheritedBy.set(pageUuid, inherited);
   pageKind.plain = plain;
   pageKind.pageUuid = pageUuid;
   try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
@@ -1911,8 +1918,22 @@ function updatePageKind(doc) {
     pageKind.marked.add(target);
   }
   updateTitleTags(doc, on && titles.length === 1 ? titles[0] : null);
-  updateAliasLine(doc, setting('showAliasOf') && titles.length === 1 ? titles[0] : null);
+  // What was loaded may still describe the page just left; its lines wait until it is this page's.
+  const known = titles.length === 1 && pageKind.pageUuid && titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
+  updateAliasLine(doc, setting('showAliasOf') && known ? titles[0] : null);
   updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
+  updateReferenceHere(titles.length === 1 ? titles[0] : null);
+}
+// Under "Linked references" a block is listed because it links to the page on screen, but it may
+// hold other links too. The link that points here gets a very light wash, so it can be found at once.
+function updateReferenceHere(title) {
+  const found = setting('markReferenceHere') ? title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '' : '';
+  const uuid = UUID.test(found) ? found : '';
+  if (uuid === pageKind.referenceHere) return;
+  pageKind.referenceHere = uuid;
+  const links = `#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-uuid="${uuid}"]`;
+  logseq.provideStyle({ key: 'personal-db-reference-here', style: uuid ? `
+${links} { background: ${wash('--rf-wash-pct')}; padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : '/* no single page on screen */' });
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
 // in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its
@@ -2051,11 +2072,34 @@ async function inheritedTagProperties(tagId) {
     return tag;
   });
 }
-// "Inherited from #Media: keywords, rating, website" under a tag page's title, one line per parent tag.
+// "Inherited from #Media: keywords, rating, website" on a tag page, one line per parent tag. It
+// closes Logseq's own "Tag Properties" list, so it is there only while the title's triangle has
+// the page's properties open.
+// What is shown is looked up by the uuid of the page on screen and kept, so the line arrives with
+// the list instead of after the page's other details have loaded.
+async function loadInherited(uuid) {
+  pageKind.inheritedAsked.add(uuid);
+  let inherited = [];
+  try {
+    const rows = await dsQuery(`[:find ?p :where [?p :block/uuid #uuid "${uuid}"] [?p :block/tags ?c] [?c :db/ident :logseq.class/Tag]]`);
+    if (rows.length) inherited = await inheritedTagProperties(rows[0][0]);
+  } catch (error) { console.warn('Refinements: could not read inherited properties', error); }
+  pageKind.inheritedBy.set(uuid, inherited);
+  pageKind.inheritedAsked.delete(uuid);
+  try { updateInheritedLine(host(), currentTitle(host())); } catch (error) { /* shown on the next change */ }
+}
+function currentTitle(doc) {
+  const titles = [...pageTitles(doc)].filter(el => !el.parentElement?.closest(':is(.ls-page-title, .page-title, h1.title)'));
+  return setting('showInherited') && titles.length === 1 ? titles[0] : null;
+}
 function updateInheritedLine(doc, title) {
-  const tags = title ? pageKind.inherited : [];
+  if (pageKind.stopped) return;
+  const uuid = title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '';
+  if (UUID.test(uuid) && !pageKind.inheritedBy.has(uuid) && !pageKind.inheritedAsked.has(uuid)) loadInherited(uuid);
+  const tags = pageKind.inheritedBy.get(uuid) || [];
   let line = pageKind.inheritLine;
-  if (!tags.length) { line?.remove(); return; }
+  const section = tags.length ? title.querySelector('.ls-page-properties > :not(.properties-panel)') : null;
+  if (!section) { line?.remove(); return; }
   if (!line || line.ownerDocument !== doc) {
     line = pageKind.inheritLine = doc.createElement('div');
     line.className = 'refinement-inherited';
@@ -2065,9 +2109,7 @@ function updateInheritedLine(doc, title) {
   const tagLink = tag => `<a class="rf-tag" data-uuid="${escapeHtml(tag.uuid)}" href="#" title="Open ${escapeHtml(tag.title)}">#${escapeHtml(tag.title)}</a>`;
   const html = tags.map(tag => `<div>Inherited from ${tagLink(tag)}: ${tag.props.map(link).join(', ')}</div>`).join('');
   if (pageKind.inheritHtml !== html || !line.firstChild) { pageKind.inheritHtml = html; line.innerHTML = html; }
-  const alias = pageKind.aliasLine?.isConnected ? pageKind.aliasLine : null;
-  const target = alias || titleAnchor(doc, title);
-  if (target.nextElementSibling !== line) target.after(line);
+  if (section.lastElementChild !== line) section.appendChild(line);
 }
 // "Alias of <page>" under the title of a page that another page lists as its alias.
 function updateAliasLine(doc, title) {
@@ -2104,8 +2146,17 @@ function startPageKind() {
 }
 :is(.refinement-alias-of, .refinement-inherited) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
 .refinement-inherited a.rf-tag { text-decoration: none; }
+.ls-page-properties .refinement-inherited { margin: .25rem 0 0 1.25rem; }
 :is(.refinement-alias-of, .refinement-inherited) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
+    for (const stray of host().querySelectorAll('.refinement-inherited')) stray.remove(); // left by an earlier load
     watchDom(updatePageKind);
+    // The shared watcher waits for the next frame; the inherited line is put in the moment the
+    // property list is, so the two are painted together.
+    const lineWatch = new (host().defaultView.MutationObserver)(() => {
+      try { const doc = host(); updateInheritedLine(doc, currentTitle(doc)); } catch (error) { /* placed on the next frame */ }
+    });
+    lineWatch.observe(host().body, { subtree: true, childList: true });
+    onUnload(() => { pageKind.stopped = true; lineWatch.disconnect(); });
     // The tags are placed by measuring, so place them again when the window changes size.
     listen(host().defaultView, ['resize'], () => { try { updatePageKind(host()); } catch (error) { /* placed on the next change */ } });
     loadPageKind();

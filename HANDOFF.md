@@ -23,15 +23,11 @@ small change at a time, looking at each result in the running app.
 | Plugin settings file | `~/.logseq/settings/logseq-db-refinements.json` |
 | Other graphs | `Demo` and `Work`. **Do not touch `Work`**; it is the owner's real graph. |
 
-Git: two commits, `1324673` (0.2.96 baseline of `main.js`) and `595f068` (0.2.97, everything up
-to and including the Cmd+T command). Commit after each change the owner confirms works.
+Git: `1324673` (0.2.96 baseline of `main.js`), `595f068` (0.2.97, everything up to and including
+the Cmd+T command), `491921b` (this file and the test-graph seed) and the 0.2.98 commit (see
+the README's "Version 0.2.98" list). Commit after each change the owner confirms works.
 No global git identity is set; commits were made with
 `git -c user.name="ynmyz4hwr6" -c user.email="ynmyz4hwr6@privaterelay.appleid.com" commit ...`.
-
-### Uncommitted
-
-- `HANDOFF.md` (this file) and `test/plugin-test-graph.edn` are new and untracked. Commit them
-  if the owner agrees.
 
 ## The development loop
 
@@ -97,10 +93,11 @@ those instead of new numbers.
 | Date | grey box |
 | Link to a PDF or image | blue icon in front, text with the page underline, not blue |
 | Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons |
-| Block properties | `name: value · name: value`, value slightly firmer, no capsule outline |
-| Page property list | no second bullet beside the value |
+| Block properties | `name: value · name: value`, no capsule outline |
+| Page property list | as Logseq draws it |
 | Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle always visible |
-| Tag page | "Inherited from #Media: keywords, rating, website" line under the title |
+| Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list |
+| Linked references | the link to the page on screen sits in a very light grey box |
 
 Rules agreed along the way: the bullet says what a row is, a mark before a link says what it
 points to, anything after the text says what the block holds. The arrow symbol is no longer used.
@@ -115,17 +112,19 @@ points to, anything after the text says what the block holds. The arrow symbol i
 
 ## Open requests (start here)
 
-The owner's last two requests were interrupted before any work was done:
+None outstanding. Both requests from the previous handoff (the inherited line flickering on
+navigation, and showing it only with the tag's properties open) were done in 0.2.98.
 
-1. **Inherited-properties line flickers on navigation.** After leaving a tag page, the
-   "Inherited from …" line appears briefly on the next page, pushing content down, then
-   disappears. Cause to check: `updateInheritedLine` uses `pageKind.inherited` from the previous
-   page until `loadPageKind` finishes for the new one. `updateTitleTags` already guards against
-   this by comparing `pageKind.pageUuid` with the title block's `blockid`; apply the same guard
-   to the inherited line (and probably the alias line).
-2. **Show the inherited line only when the tag page's properties are shown**, that is, when the
-   title's triangle is expanded. Place it with the "Tag Properties" list rather than under the
-   whole property area.
+Raised in the 0.2.98 session and left open:
+
+- The owner asked for the hierarchy of Linked references to be clearer; only the fallback was
+  done (a light wash on the link that points to the page on screen). Not yet seen on a `#tag`
+  reference or a reference through a property value. The wash is the same grey as the date box.
+- Property lists were returned to Logseq's default (bullet beside every value, normal weight)
+  "for now"; the owner may want a different treatment later. Do not hide the value bullet again
+  without handling text values, which draw a bullet of their own.
+- On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions, so
+  Logseq shows an empty value instead of "Add description".
 
 ## Known loose ends
 
@@ -138,7 +137,7 @@ The owner's last two requests were interrupted before any work was done:
   them sitting slightly off.
 - The Cmd+T command only works on ordinary pages (it goes through the "Set property" button).
 - `README.md` still has stale older paragraphs near the top (for example describing block
-  references with `↳`); the accurate record is the "Version 0.2.97" list at the end.
+  references with `↳`); the accurate record is the "Version 0.2.97" and "Version 0.2.98" lists at the end.
 - Logseq leftovers from setup: an `Unlinked graphs` folder under `~/logseq/graphs`, and CLI
   worker processes for `Demo` and the test graph.
 
