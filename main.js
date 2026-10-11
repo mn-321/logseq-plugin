@@ -2996,7 +2996,7 @@ function startQuietUi() {
    perf.* call returns at once. To remove: delete this block, the two perf commands in main(), and
    each line that mentions perf (`grep -c "perf\." main.js` must then be 0). */
 const perf = {
-  on: false, win: null, since: 0, raf: 0, channel: null, observers: [], inFrame: false, ownWrite: false,
+  on: false, win: null, since: 0, raf: 0, channel: null, observers: [], inFrame: false, ownWrite: false, log: [], every: 0,
   times: new Map(), seenBy: new Map(), styles: new Map(), passes: { ok: 0, late: 0, echo: 0 },
   long: { tasks: 0, taskMs: 0, frames: 0, frameMs: 0, worst: 0, pluginMs: 0, otherMs: 0 },
   shifts: { count: 0, score: 0, afterInput: 0, sources: new Map() },
@@ -3038,6 +3038,10 @@ const perf = {
   },
   // Was the change the shared watcher is about to handle made while a frame was being drawn (so
   // its pass lands a frame late), by the plugin's own pass (an echo), or in time?
+  ownSettingsOnly(now, before) {
+    const changed = Object.keys({ ...now, ...before }).filter(key => JSON.stringify(now?.[key]) !== JSON.stringify(before?.[key]));
+    return changed.length > 0 && changed.every(key => /^(?:perf|debugPerf)/.test(key));
+  },
   frameState() { return !perf.on ? '' : perf.ownWrite ? 'echo' : perf.inFrame ? 'late' : 'ok'; },
   pass(state) { if (perf.on && state) perf.passes[state]++; },
   passDone() {
@@ -3059,6 +3063,8 @@ const perf = {
       perf.channel.port2.postMessage(0);
     };
     perf.raf = win.requestAnimationFrame(tick);
+    const seconds = Number(logseq.settings?.debugPerfEvery) || 0;
+    if (seconds > 0) perf.every = setInterval(logPerfReport, Math.max(2, seconds) * 1000);
     const watch = (type, onEntry) => {
       try {
         const observer = new win.PerformanceObserver(list => { for (const entry of list.getEntries()) onEntry(entry); });
@@ -3089,6 +3095,7 @@ const perf = {
   stop() {
     if (!perf.on) return;
     perf.on = false; perf.inFrame = false;
+    clearInterval(perf.every); perf.every = 0;
     perf.win?.cancelAnimationFrame(perf.raf);
     for (const observer of perf.observers) observer.disconnect();
     perf.observers = [];
@@ -3106,8 +3113,7 @@ function togglePerf() {
 }
 // Shows what was measured since the last report (or since measuring began), saves the same text
 // in the plugin's settings file as perfReport, and starts counting afresh.
-async function copyPerfReport() {
-  if (!perf.on) return notify('Measuring is off. Run “Refinements: Turn measuring on or off” first', 'warning');
+async function perfReportText() {
   const ms = value => value.toFixed(1);
   const lines = [await versionLine(), `measured for ${((Date.now() - perf.since) / 1000).toFixed(1)} s`, '',
     'WATCHERS  calls · changes seen (added or removed · text · attributes) · attributes that fired'];
@@ -3126,10 +3132,24 @@ async function copyPerfReport() {
     `LONG FRAMES (over 50 ms)  ${l.frames} · ${ms(l.frameMs)} ms in all · worst ${ms(l.worst)} ms · plugin's code ${ms(l.pluginMs)} ms · other code ${ms(l.otherMs)} ms`,
     `LAYOUT SHIFTS (things moving without input)  ${sh.count} · score ${sh.score.toFixed(4)} · right after input (not counted) ${sh.afterInput}`);
   for (const [name, n] of [...sh.sources].sort((a, b) => b[1] - a[1]).slice(0, 12)) lines.push(`  moved ${n}×: ${name}`);
-  const text = lines.join('\n');
-  logseq.updateSettings({ perfReport: text });
   perf.reset();
+  return lines.join('\n');
+}
+async function copyPerfReport() {
+  if (!perf.on) return notify('Measuring is off. Run “Refinements: Turn measuring on or off” first', 'warning');
+  const text = await perfReportText();
+  logseq.updateSettings({ perfReport: text });
   showDiagnostics(text);
+}
+// With the hidden setting debugPerfEvery (seconds), a report is added to perfLog in the settings
+// file at that interval, newest last, so a session can be measured without running the command.
+async function logPerfReport() {
+  try {
+    const stamp = new Date().toTimeString().slice(0, 8);
+    perf.log.push(`--- ${stamp} ---\n${await perfReportText()}`);
+    if (perf.log.length > 40) perf.log.splice(0, perf.log.length - 40);
+    logseq.updateSettings({ perfLog: perf.log.join('\n\n') });
+  } catch (error) { console.warn('Refinements: could not save a performance report', error); }
 }
 /* PERF-DEBUG end */
 
@@ -3184,6 +3204,7 @@ function main() {
     if (text && block) recentSelection = { text, blockId: block.uuid, start, end, content, at: Date.now() };
   }));
   onUnload(logseq.onSettingsChanged((now, before) => {
+    if (perf.ownSettingsOnly(now, before)) return;
     try { updateListProps(host()); } catch (error) { /* list choices apply on the next change */ }
     applyHierarchy();
     logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });

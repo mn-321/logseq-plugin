@@ -78,10 +78,10 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 1 | Send a comment instead of an empty stylesheet | A1 | 0.2.99 | done |
 | 2 | Version guard in `loadPageKind`; clear page state on route change | A2, A3 | 0.2.100 | done |
 | 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | done |
-| 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102 | tool added; baseline not recorded |
+| 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102, 0.2.103 | done on the test graph; a real graph still to measure |
 | 5 | Early exits in `updateDateLinks` | B2 (part) | | open |
 | 6 | Attribute marks replace the per-block stylesheet | B3 | | open |
-| 7 | Merge the observers; direction decided by the baseline | B1, B2 | | open |
+| 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | | open |
 | 8 | Title tags follow size changes | B6 | | open |
 | 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | | open |
 | 10 | Tighten selectors; decide the hover rule from measurements | B7 | | open |
@@ -113,6 +113,38 @@ Run **Refinements: Turn measuring on or off (troubleshooting)**, then after each
 4. Move the pointer across blocks for 10 seconds.
 5. Switch plain page → tag page with a saved list choice → journal, twice.
 
-Results:
+To measure without the command: set `debugPerf: true` and `debugPerfEvery: 10` in the settings file
+and reload the plugin; reports collect in `perfLog`. Set `debugPerf` back to `false` and reload to stop.
 
-_not recorded yet_
+### Results on the test graph, 2026-10-11 (0.2.102, Logseq 2.0.2)
+
+Run in Logseq by computer use: plugin reloaded, then journals opened and scrolled, then back and
+forward between the journals, a book page and the Book tag page. No typing, no pointer hover, and
+not the Work graph. Three plugin reloads in a row left one inherited line, one set of cues and no
+doubled elements.
+
+| What | Idle page (10 s) | Navigation and scrolling (10 s) |
+| --- | --- | --- |
+| Dates-and-cues watcher calls | 3 | 48 |
+| Other three watchers, calls each | 1 | 44 |
+| `class` changes among what the dates-and-cues watcher saw | 2 of 8 | 14 of 217 |
+| `updateDateLinks`, average per call | 0.3 ms | 0.3 ms (12 ms in all) |
+| `updateTitleChrome`, total | 0.7 ms | 9.8 ms over 34 passes |
+| `refreshCues`, start to finish | 82 ms | 48 ms, twice |
+| Per-block stylesheet | 4,021 characters | rebuilt twice, not re-sent |
+| Shared watcher passes: in time / a frame late | 1 / 0 | 25 / 9 |
+| Long tasks, long frames | 0, 1 (69 ms, at reload) | 0, 0 |
+| Layout shifts | 1 (score 0.0005) | 12 (score 0.196), mostly Logseq's own page parts |
+
+What this settles:
+
+- **A frame late does happen:** 9 of 34 shared-watcher passes while navigating and scrolling. So
+  the before-paint watchers are worth keeping, and step 7 should move flash-prone work (title
+  tags, hidden list properties, hidden sidebar buttons) into a before-paint phase rather than
+  move everything into the per-frame pass.
+- **`class` changes are a small share** of what the dates-and-cues watcher sees here (about 6%),
+  so dropping `class` from its filter would save little on this graph.
+- **Every watcher is called for every change:** 44 to 48 calls each in ten seconds, which is the
+  duplication step 7 removes.
+- **The test graph is too small to show cost.** Each call takes well under a millisecond. Scan
+  cost on long pages and the stylesheet size in a large graph still need a run on a real graph.
