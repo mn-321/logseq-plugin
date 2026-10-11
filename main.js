@@ -101,17 +101,29 @@ function openEntity(uuid, inSidebar = false) {
 
 // Tables already provide structure, so several rules leave anything inside one alone.
 const notInTable = ':not(:is(table, [role="table"], [role="grid"], .table-view, .ls-table) *)';
+/* One small scale for everything the plugin draws, so cues added at different times look alike.
+   Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
+const tokensCss = `:root {
+  --rf-quiet: .7;        /* labels and other secondary words */
+  --rf-faint: .5;        /* icons, markup and separators */
+  --rf-line-pct: 26%;    /* underlines, the active nesting line, the line beside embeds */
+  --rf-hair-pct: 10%;    /* resting nesting lines */
+  --rf-wash-pct: 8%;     /* the box behind a date */
+  --rf-wash-strong-pct: 13%;
+  --rf-small: .82em;     /* labels beside text */
+  --rf-tiny: .72rem;     /* search headings and paths */
+  --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
+}`;
+const wash = pct => `color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(${pct}), transparent)`;
 const dateStyles = selectors => {
   // Leave date values in tables at native size/color.
   selectors = selectors.map(selector => selector + notInTable);
   const select = suffix => selectors.map(selector => selector + suffix).join(',\n');
-  const dark = suffix => selectors.flatMap(selector => ['.dark ' + selector + suffix,
-    '[data-theme=dark] ' + selector + suffix]).join(',\n');
   return `
 ${select('')} {
   display: inline;
-  color: #3d4852 !important;
-  background: rgba(111, 126, 139, .12) !important;
+  color: var(--ls-primary-text-color, currentColor) !important;
+  background: ${wash('--rf-wash-pct')} !important;
   border: 0 !important;
   border-radius: .22em;
   padding: .1em .28em;
@@ -124,26 +136,25 @@ ${select('')} {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
-${select(':hover')} { background: rgba(111, 126, 139, .18) !important; }
-${dark('')} {
-  color: #d5dce2 !important;
-  background: rgba(160, 173, 184, .12) !important;
-}
-${dark(':hover')} { background: rgba(160, 173, 184, .18) !important; }
+${select(':hover')} { background: ${wash('--rf-wash-strong-pct')} !important; }
 `;
 };
 
 // Small monochrome icons use the existing text color and leave native links intact.
 const referenceIcon = (selector, path) => {
   const svg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="black" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`);
-  return `${selector}::before { content: ''; display: inline-block; width: .8em; height: .8em; margin-right: .25em; vertical-align: -.05em; background: currentColor; opacity: .55; mask: url("data:image/svg+xml,${svg}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${svg}") center / contain no-repeat; }`;
+  return `${selector}::before { content: ''; display: inline-block; width: .8em; height: .8em; margin-right: .25em; vertical-align: -.05em; background: currentColor; opacity: var(--rf-faint); mask: url("data:image/svg+xml,${svg}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${svg}") center / contain no-repeat; }`;
 };
 const documentIcon = 'M4 2h5l3 3v9H4z M9 2v4h3';
-const blockIcon = 'M3 13L13 3 M5 3h8v8';
+// A link to a block starts with a dot, a smaller version of the bullet every block has. Pages get no mark.
+// A row that is only such a link looks the same: the small dot, then the dashed words.
+// The dot is a character joined to the first word by a no-break space, so the two never end up on
+// different lines, and it sits inside the linked words so their dashed line runs under it too.
+const blockDot = selector => `${selector}::before { content: '\\2022\\00A0'; font-size: .72em; vertical-align: .14em; opacity: var(--rf-faint); }`;
+const hashMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14 M5 15h14 M11 4l-4 16 M17 4l-4 16"/></svg>');
 const imageIcon = 'M2 3h12v10H2z M2 11l4-4 3 3 2-2 3 3 M10 5h.1';
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
-const refRowArrow = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="black" stroke-width="1.3"><path d="${blockIcon}"/></svg>`);
 /* Main styles, in sections. A section with a setting's name is left out when that setting is off;
    the order never changes, because later rules rely on overriding earlier ones. */
 const cssParts = [
@@ -155,7 +166,7 @@ const cssParts = [
   height: 1em;
   vertical-align: -.08em;
   background: currentColor;
-  opacity: .65;
+  opacity: var(--rf-quiet);
   mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat;
   -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat;
 }
@@ -163,7 +174,7 @@ const cssParts = [
 :is(.page-title, .page-title-container, .sidebar-item-header, .sidebar-item .header, #left-sidebar, .left-sidebar-inner, .page-icon)
 :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description, svg.lucide-file, svg[data-icon="file"], svg[data-lucide="file"]) {
   background: currentColor !important;
-  opacity: .65;
+  opacity: var(--rf-quiet);
   mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
   -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
 }
@@ -188,7 +199,7 @@ const cssParts = [
   color: var(--ls-primary-text-color) !important;
   text-decoration-line: underline !important;
   text-decoration-style: solid;
-  text-decoration-color: color-mix(in srgb, currentColor 24%, transparent) !important;
+  text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important;
   text-decoration-thickness: 1px;
   text-underline-offset: .2em;
 }
@@ -197,49 +208,90 @@ const cssParts = [
 }
 `],
   ['childTypeCues', `/* Trailing child-type cue, independent of the native bullet. */
-.refinement-child-assets { display: inline-flex; align-items: center; gap: .18em; margin-left: .5em; color: var(--ls-secondary-text-color); opacity: .65; font-size: .82em; white-space: nowrap; user-select: none; }
+.refinement-child-assets { display: inline-flex; align-items: center; gap: .18em; margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet); font-size: var(--rf-small); white-space: nowrap; user-select: none; }
 ${referenceIcon('.refinement-child-asset-image', imageIcon)}
 ${referenceIcon('.refinement-child-asset-pdf', documentIcon)}
 ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .refinement-child-assets span::before { margin-right: 0; opacity: 1; }
+.refinement-child-task { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; border: 1px dashed currentColor; border-radius: 50%; }
 `],
   ['quietLinks', `/* Type cues on rendered references. Keep Logseq's side tags native. */
 .ls-block .block-content a.tag {
   color: var(--ls-primary-text-color) !important;
   text-decoration: none !important;
-  font-weight: 550;
+  font-weight: 600;
 }
 .ls-block .block-content a.tag:hover { text-decoration: underline !important; }
-.page-reference[data-ref] a.page-ref { text-decoration-color: color-mix(in srgb, currentColor 24%, transparent) !important; }
+/* A link to a tag's own page looks like a page link (underlined name) but its icon is grey, where a
+   page's icon is in the full text colour. The icon is the tag's own, or a # drawn as an icon. */
+a.page-ref[data-refinement-tag-page]:not(.tag) > .icon-emoji-wrap { opacity: var(--rf-faint); }
+a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap))::before {
+  content: ''; display: inline-block; width: 1em; height: 1em; margin-right: .22em; vertical-align: -.14em;
+  background: currentColor; opacity: var(--rf-faint);
+  mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat;
+}
+.page-reference[data-ref] a.page-ref { text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
   ['referenceIcons', `${referenceIcon('.ls-block .block-content a[href*=".pdf" i]:not(:has(img))', documentIcon)}
 ${referenceIcon('.ls-block .block-content a:is([href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))', imageIcon)}
+/* Links to files: the words in normal text with the same faint underline as a page link; the icon
+   alone carries the link colour. */
+.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)) {
+  color: var(--ls-primary-text-color, inherit) !important; border-bottom: 0 !important;
+  text-decoration: underline solid color-mix(in srgb, currentColor var(--rf-line-pct), transparent) 1px !important; text-underline-offset: .2em;
+}
+.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)):hover { text-decoration-color: currentColor !important; }
+.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::before { text-decoration: none; }
+.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::before {
+  background: var(--ls-link-text-color, #2563eb); opacity: 1;
+}
 .ls-datetime a::before, .timestamp a::before, a.page-ref[data-refinement-date]::before,
 a.page-ref:has(.prefix-link[data-refinement-pdf])::before { content: none !important; }
 /* A block reference contains the referenced block's title area; a page link never does.
    This lets references be styled from the rendered page, before it is painted. */
-${referenceIcon('.ls-block a.page-ref:has(.block-title-wrap):not(.tag):not(:has(.prefix-link, img))', blockIcon)}
+${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap')}
+/* The linked words of a block link sit on a light dashed line with wide gaps, so you can see where
+   the link ends; pages keep their solid underline. Drawn as a background, so no text moves. */
+.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap {
+  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 38%, transparent) 0 .34em, transparent .34em);
+  background-size: .86em 1px; background-repeat: repeat-x; background-position: 0 100%;
+  padding-bottom: .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+/* A linked task shows its status and priority icons before the link; the same line runs under them,
+   and the icons stand in for the dot. */
+.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: none !important; }
+.ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) {
+  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 38%, transparent) 0 .34em, transparent .34em);
+  background-size: .86em 1px; background-repeat: repeat-x; background-position: 0 100%;
+  padding-right: .25em;
+}
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag), .ls-block a.page-ref:has(.block-title-wrap):not(.tag):hover,
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag) *,
 .ls-block .page-reference:has(a.page-ref .block-title-wrap), .ls-block .page-reference:has(a.page-ref .block-title-wrap):hover {
   text-decoration: none !important;
   border-bottom: 0 !important;
 }
-/* A row that holds only a block reference: the bullet becomes the arrow, and the inline arrow goes. */
-.ls-block[data-refinement-ref-row]:not([data-refinement-pdf-citation-block]) > .block-main-container .bullet-container:not(.typed-list) > .bullet {
-  width: 11px !important; height: 11px !important; border: 0 !important; border-radius: 0 !important; background: currentColor !important;
-  mask: url("data:image/svg+xml,${refRowArrow}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${refRowArrow}") center / contain no-repeat;
-}
-.ls-block[data-refinement-ref-row] > .block-main-container .block-content *:not(a.tag)::before { content: none !important; }
 .ls-block[data-refinement-ref-row] > .block-main-container .block-content,
 .ls-block[data-refinement-ref-row] > .block-main-container .block-content *,
 .ls-block[data-refinement-ref-row] > .block-main-container .block-content *:hover { text-decoration: none !important; border-bottom: 0 !important; }
+`],
+  ['plainProperties', `/* Properties read as "name: value": the name in normal text, the value a little firmer.
+   The capsule outline and the second bullet beside each value are dropped, so the words carry it. */
+.ls-block .property-value-container :is(.property-value-inner, .ls-number),
+.ls-page-properties .property-value-container :is(.property-value-inner, .ls-number) { font-weight: 500; }
+.property-pair .property-panel-bullet { display: none !important; }
+/* Logseq draws the capsule outline on ::after; it stays while a capsule has keyboard focus. */
+.ls-block .positioned-properties.block-below .bottom-property-pill { background: transparent !important; padding-left: 0 !important; padding-right: 0 !important; }
+.ls-block .positioned-properties.block-below .bottom-property-pill:not(:focus)::after { box-shadow: none !important; }
+.ls-block .positioned-properties.block-below .bottom-property-pill + .bottom-property-pill::before {
+  content: '·'; margin-right: .5rem; opacity: var(--rf-faint);
+}
 `],
   ['embedLine', `/* Content shown from somewhere else (embedded blocks and pages) gets a faint left line.
    Inset shadows draw the line without moving any text. */
 :is(.ls-block.embed-block:not(.embed-block .ls-block), .embed-page) {
   position: relative;
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ls-secondary-text-color, currentColor) 35%, transparent) !important;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ls-secondary-text-color, currentColor) var(--rf-line-pct), transparent) !important;
 }
 `],
   ['quietLinks', `/* Page names that head each group in Linked references read as headings, not as links in text. */
@@ -247,10 +299,10 @@ ${referenceIcon('.ls-block a.page-ref:has(.block-title-wrap):not(.tag):not(:has(
 :is(.references, .unlinked-references) .ls-foldable-title .page-reference:has(a.page-ref) {
   font-weight: 600; text-decoration: none !important; border-bottom: 0 !important;
 }
-:is(.references, .unlinked-references) .ls-foldable-title a.page-ref:not(.tag):hover { text-decoration: underline !important; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent) !important; }
+:is(.references, .unlinked-references) .ls-foldable-title a.page-ref:not(.tag):hover { text-decoration: underline !important; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
   ['tidyPaths', `/* Brackets around dates and pages in grey paths fade, as in search. */
-::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: .5; }
+::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: var(--rf-faint); }
 `],
   ['linkLabels', `/* A lone property name above a group of references; the value's own label replaces it. */
 div:has(> .breadcrumb.block-parents[data-refinement-property-crumb]) { display: none !important; }
@@ -262,8 +314,8 @@ div:has(> .breadcrumb.block-parents[data-refinement-property-crumb]) { display: 
   ['referenceIcons', `/* A block (not a page) shown inside a reference stays without an underline. */
 .ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date]):has(.block-title-wrap),
 .ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date]):has(.block-title-wrap):hover { text-decoration: none !important; }
-/* Native block references use the same northeast-arrow cue, without underlines. */
-${referenceIcon('.block-ref:not(:has(.prefix-link))', blockIcon)}
+/* Native block references use the same dot, without underlines. */
+${blockDot('.block-ref:not(:has(.prefix-link))')}
 .block-ref, .block-ref:hover, .block-ref *,
 .page-reference:has(.block-ref), .page-reference:has(.block-ref):hover {
   text-decoration: none !important;
@@ -271,7 +323,7 @@ ${referenceIcon('.block-ref:not(:has(.prefix-link))', blockIcon)}
 }
 /* (( block )) picker is unambiguously blocks; its row label stays quiet. */
 #ui__ac.ac-block-search .menu-link::before {
-  content: '↗'; opacity: .48; margin-right: .35em;
+  content: '•'; opacity: var(--rf-faint); margin-right: .35em;
 }
 `],
   ['pdfCitations', `/* Native PDF citations: normal excerpt text and a quiet source at its start. */
@@ -318,10 +370,10 @@ ${referenceIcon('.block-ref:not(:has(.prefix-link))', blockIcon)}
 .prefix-link[data-refinement-pdf] .hl-page {
   color: var(--ls-secondary-text-color, #798087) !important;
   font-family: inherit;
-  font-size: .78em;
+  font-size: var(--rf-small);
   font-weight: 400;
   white-space: nowrap;
-  opacity: .8;
+  opacity: var(--rf-quiet);
   text-decoration: none !important;
 }
 .prefix-link[data-refinement-pdf] .hl-page > strong { display: none !important; }
@@ -366,7 +418,7 @@ ${dateStyles(['.ls-view-body .ls-foldable-header [data-refinement-date-heading]'
 
 `],
   [null, `/* Rarely used sidebar and toolbar items: still visible and findable, just smaller and lighter. */
-[data-refinement-quiet] { font-size: .86em !important; color: var(--ls-secondary-text-color) !important; opacity: .72 !important; }
+[data-refinement-quiet] { font-size: var(--rf-small) !important; color: var(--ls-secondary-text-color) !important; opacity: var(--rf-quiet) !important; }
 [data-refinement-quiet] :is(svg, .ui__icon) { transform: scale(.85); }
 
 `],
@@ -377,7 +429,7 @@ ${dateStyles(['.ls-view-body .ls-foldable-header [data-refinement-date-heading]'
 .ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date]) {
   text-decoration-line: underline !important;
   text-decoration-style: solid !important;
-  text-decoration-color: color-mix(in srgb, currentColor 24%, transparent) !important;
+  text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important;
   text-decoration-thickness: 1px !important;
   text-underline-offset: .2em !important;
 }
@@ -399,9 +451,9 @@ mark a.page-ref:not(.tag):not([data-refinement-date]):hover,
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
 .refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
-.refinement-prompt label { display: block; margin-bottom: 8px; font-size: .9em; }
+.refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.refinement-prompt-hint { margin-top: 6px; font-size: .75em; opacity: .6; }
+.refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small); opacity: var(--rf-quiet); }
 
 `],
 ];
@@ -416,13 +468,13 @@ const searchCss = `
 .cp__cmdk-search-input { font-size: 1.05rem !important; padding: 12px 16px !important; }
 .cp__cmdk-input-row + div { background: var(--ls-primary-background-color) !important; }
 .cp__cmdk__block .cp__cmdk-input-row + div { background: transparent !important; min-height: 0 !important; max-height: none !important; }
-.cp__cmdk > .hints { background: transparent !important; border-top-color: var(--ls-border-color, rgba(128,128,128,.16)) !important; opacity: .7; }
+.cp__cmdk > .hints { background: transparent !important; border-top-color: var(--ls-border-color, rgba(128,128,128,.16)) !important; opacity: var(--rf-quiet); }
 
 /* Groups: no grey bars or dividers; a small, light heading instead. */
 .cp__cmdk div:has(> .search-results) { border-bottom: 0 !important; padding-bottom: 6px !important; }
 .cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) {
   height: auto !important; padding: 10px 12px 3px !important; background: transparent !important;
-  font-size: .68rem !important; letter-spacing: .05em; text-transform: uppercase; opacity: .65;
+  font-size: var(--rf-tiny) !important; letter-spacing: .05em; text-transform: uppercase; opacity: var(--rf-quiet);
 }
 .cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) > .font-bold { font-weight: 500 !important; }
 
@@ -431,13 +483,13 @@ const searchCss = `
 .cp__cmdk [data-cmdk-item] > .flex.items-start { gap: 8px !important; }
 .cp__cmdk [data-cmdk-item] > .flex.items-start > div:first-child {
   width: 16px !important; height: 20px !important; background: none !important; box-shadow: none !important;
-  color: inherit !important; opacity: .5;
+  color: inherit !important; opacity: var(--rf-faint);
 }
-.cp__cmdk [data-cmdk-item] > .text-xs:first-child { padding-left: 24px !important; margin-top: 0 !important; font-size: .72rem !important; opacity: .75; }
+.cp__cmdk [data-cmdk-item] > .text-xs:first-child { padding-left: 24px !important; margin-top: 0 !important; font-size: var(--rf-tiny) !important; opacity: var(--rf-quiet); }
 .cp__cmdk [data-cmdk-item] .breadcrumb a { text-decoration: none !important; }
 .cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text { font-weight: 400 !important; line-height: 1.45; color: var(--ls-primary-text-color) !important; }
 .cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text a { text-decoration: none !important; }
-.cp__cmdk-current-page-badge { border: 0 !important; padding: 1px 6px !important; font-size: .68rem !important; font-weight: 400 !important; }
+.cp__cmdk-current-page-badge { border: 0 !important; padding: 1px 6px !important; font-size: var(--rf-tiny) !important; font-weight: 400 !important; }
 
 /* Matched words: slightly firmer text instead of a yellow block. */
 .cp__cmdk mark { background: transparent !important; color: inherit !important; font-weight: 600; }
@@ -735,7 +787,8 @@ function referenceOnly(row) {
   const links = [...wrap.querySelectorAll('a.page-ref')].filter(a => !a.parentElement?.closest('a.page-ref'));
   if (links.length !== 1 || !links[0].querySelector('.block-title-wrap')) return false;
   if (links[0].querySelector('.prefix-link, .hl-page, img')) return false; // PDF citations and images keep their own look
-  const squash = text => text.replace(/\s+/g, '');
+  // Brackets around the link are Logseq's own (shown when "show brackets" is on), not text of the row.
+  const squash = text => text.replace(/\s+|\[\[|\]\]/g, '');
   let text = wrap.textContent;
   for (const cue of wrap.querySelectorAll('.refinement-child-assets')) text = text.replace(cue.textContent, '');
   return squash(text) === squash(links[0].textContent);
@@ -814,6 +867,7 @@ function updateDateLinks() {
   fadeCrumbBrackets(doc);
   updatePageLabels(doc);
   updateDateHeadings(doc);
+  updateTagPageLinks(doc);
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     if (dateLinkName(link.getAttribute('data-ref')) || dateLinks.uuids.has(link.getAttribute('data-uuid')) ||
@@ -828,9 +882,28 @@ function updateDateLinks() {
     }
   }
 }
+// Tag pages: a [[link]] to one looks like any page link, and a tag's # and icon can be customised,
+// so links to them are marked from the database and their icon is drawn in grey.
+const tagPages = { uuids: new Set(), marked: new Set() };
+async function loadTagPages() {
+  try {
+    const rows = await dsQuery(`[:find ?uuid
+      :where [?tag :block/tags ?class] [?class :db/ident :logseq.class/Tag] [?tag :block/uuid ?uuid]]`);
+    tagPages.uuids = new Set(rows.map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
+  } catch (error) { console.warn('Refinements: could not find tag pages', error); }
+}
+function updateTagPageLinks(doc) {
+  const found = new Set();
+  if (tagPages.uuids.size) {
+    for (const link of doc.querySelectorAll('a.page-ref[data-uuid]:not(.tag)'))
+      if (tagPages.uuids.has(link.getAttribute('data-uuid'))) found.add(link);
+  }
+  for (const link of tagPages.marked) if (!found.has(link)) { link.removeAttribute('data-refinement-tag-page'); tagPages.marked.delete(link); }
+  for (const link of found) if (!tagPages.marked.has(link)) { link.setAttribute('data-refinement-tag-page', ''); tagPages.marked.add(link); }
+}
 async function refreshJournalDates() {
   const version = ++dateLinks.version;
-  const dates = await loadJournalDates();
+  const [dates] = await Promise.all([loadJournalDates(), loadTagPages()]);
   if (version !== dateLinks.version || !dates) return;
   dateLinks.uuids = dates.uuids;
   dateLinks.names = dates.names;
@@ -873,6 +946,8 @@ function stopDateLinks() {
     else link.setAttribute('data-refinement-date', original);
   }
   dateLinks.originals.clear();
+  for (const link of tagPages.marked) link.removeAttribute('data-refinement-tag-page');
+  tagPages.marked.clear();
   dateLinks.document = null;
 }
 
@@ -1062,33 +1137,40 @@ function restorePdfCitations() {
 }
 
 const childAssetCues = new Map();
+// What sits below a block, written after its text: ↳, then a dashed circle and a count for
+// unfinished tasks at any depth, then an icon for each kind of file directly below.
 function updateChildAssetCues(doc) {
   for (const cue of doc.querySelectorAll('.refinement-child-assets')) {
     const uuid = cue.closest('.ls-block[blockid]')?.getAttribute('blockid');
     if (!childAssetCues.has(uuid)) cue.remove();
   }
   for (const block of doc.querySelectorAll('.ls-block[blockid]')) {
-    const uuid = block.getAttribute('blockid'), types = childAssetCues.get(uuid);
+    const uuid = block.getAttribute('blockid'), kinds = childAssetCues.get(uuid);
     const wrap = [...block.querySelectorAll('.block-title-wrap')].find(el => el.closest('.ls-block[blockid]') === block);
     if (!wrap) continue;
     const old = [...wrap.children].find(el => el.classList.contains('refinement-child-assets'));
-    if (!types || block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
-    const signature = [...types].sort().join(',');
+    if (!kinds || block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
+    const types = kinds.asset ? [...kinds.assetTypes].sort() : [];
+    const signature = `${kinds.task}|${kinds.asset}|${types.join(',')}`;
     if (old?.getAttribute('data-types') === signature) continue;
     old?.remove();
+    const label = [kinds.task && `${kinds.task} unfinished task${kinds.task === 1 ? '' : 's'} below`,
+      kinds.asset && `${kinds.asset} file${kinds.asset === 1 ? '' : 's'} directly below`].filter(Boolean).join(' · ');
     const cue = doc.createElement('span');
     cue.className = 'refinement-child-assets';
     cue.setAttribute('data-types', signature);
     cue.setAttribute('contenteditable', 'false');
-    cue.setAttribute('aria-label', `Direct child assets: ${signature}`);
-    cue.setAttribute('title', `Direct child assets: ${signature}`);
+    cue.setAttribute('aria-label', label);
+    cue.setAttribute('title', label);
     cue.appendChild(doc.createTextNode('↳'));
-    for (const type of [...types].sort()) {
-      const icon = doc.createElement('span');
-      icon.className = `refinement-child-asset-${type}`;
-      icon.setAttribute('aria-hidden', 'true');
-      cue.appendChild(icon);
-    }
+    const icon = name => {
+      const el = doc.createElement('span');
+      el.className = `refinement-child-${name}`;
+      el.setAttribute('aria-hidden', 'true');
+      cue.appendChild(el);
+    };
+    if (kinds.task) { icon('task'); cue.appendChild(doc.createTextNode(String(kinds.task))); }
+    for (const type of types) icon(`asset-${type}`);
     wrap.appendChild(cue);
   }
 }
@@ -1200,24 +1282,13 @@ async function refreshCues(version = ++refreshVersion) {
     const badges = new Map();
     for (const block of tree || []) summarize(block, badges, metadata, assetTypes);
     childAssetCues.clear();
-    const childCues = setting('childTypeCues');
-    if (childCues) for (const [uuid, kinds] of badges) if (kinds.asset) childAssetCues.set(uuid, kinds.assetTypes);
+    if (setting('childTypeCues')) for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
     const styles = [];
-    for (const [uuid, kinds] of childCues ? badges : []) {
-      const counts = [kinds.task && `${kinds.task} unfinished task${kinds.task === 1 ? '' : 's'}`,
-        kinds.asset && `${kinds.asset} direct asset child${kinds.asset === 1 ? '' : 'ren'}`].filter(Boolean).join(' · ');
-      // Task descendants change the bullet; direct asset children add trailing type icons.
-      // Preserve citation quote bullets and native custom/numbered icons.
-      const anchor = `.ls-block[blockid="${uuid}"]:not([data-refinement-pdf-citation-block]) .bullet-container[blockid="${uuid}"]:not(.typed-list):has(> .bullet)`;
-      styles.push(`${anchor} { position: relative; }`);
-      if (kinds.task) styles.push(`${anchor} > .bullet { background: transparent !important; display: inline-block !important; box-sizing: border-box !important; width: 9px !important; height: 9px !important; min-width: 9px !important; min-height: 9px !important; padding: 0 !important; border: 1px dashed var(--ls-secondary-text-color, currentColor) !important; border-radius: 50% !important; }`);
-      styles.push(`${anchor}:hover::after { content: "${counts}"; position: absolute; left: .5em; bottom: 1.7em; z-index: 20; white-space: nowrap; margin: 0; padding: .22em .55em; border: 1px solid var(--ls-border-color); border-radius: .4em; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); opacity: 1; font-size: .78em; letter-spacing: normal; box-shadow: 0 2px 8px rgba(0,0,0,.08); pointer-events: none; }`);
-    }
     // UUID syntax alone also identifies pages. Only style database-confirmed blocks.
     for (const uuid of setting('referenceIcons') ? nodeIds : []) {
       const link = `.page-ref:is([data-uuid="${uuid}"], [data-ref="${uuid}" i]):not(.tag):not([data-refinement-date]):not(:has(.prefix-link, img))`;
-      styles.push(referenceIcon(link, blockIcon));
+      styles.push(blockDot(link + ':not(:has(.block-title-wrap))')); // those with a title area already have their dot
       // Browsers reject a :has() inside another :has(), and one bad selector discards a whole rule,
       // so the wrapper check uses a simpler link selector and each rule stands alone.
       const plainLink = `.page-ref:is([data-uuid="${uuid}"], [data-ref="${uuid}" i]):not(.tag):not([data-refinement-date])`;
@@ -1233,15 +1304,16 @@ async function refreshCues(version = ++refreshVersion) {
     const linkLabels = setting('linkLabels');
     for (const [uuid, name] of linkLabels ? propertyValues : []) {
       const row = `${referenceAreas} .ls-block[blockid][blockid="${uuid}"]`;
-      styles.push(`${row} > .block-main-container .block-content-wrapper::before { content: ${cssText(name + ':')}; flex: none; align-self: baseline; margin-right: .4em; color: var(--ls-secondary-text-color, inherit); opacity: .85; white-space: nowrap; }`);
+      styles.push(`${row} > .block-main-container .block-content-wrapper::before { content: ${cssText(name + ':')}; flex: none; align-self: baseline; margin-right: .4em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); white-space: nowrap; }`);
     }
     // Records listed under the tag tabs end with the property that links them: "via Diagnosis".
     // Linked references are left alone; their rows already show the property and its value.
     for (const [uuid, names] of linkLabels ? incoming : []) {
+      if (listProps.pageBlocks.has(uuid)) continue; // the page's own blocks say so in their properties
       const row = `.ls-block[blockid="${uuid}"]:not(${referenceAreas} *)`;
       // Sits right after the record's title, on the same text line, rather than at the row's far edge.
       const label = cssText('via ' + [...names].join(', '));
-      const look = 'margin-left: .6em; color: var(--ls-secondary-text-color, inherit); opacity: .8; font-size: .82em; font-weight: 400; white-space: nowrap;';
+      const look = 'margin-left: .6em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;';
       styles.push(`${row} > .block-main-container .block-content-wrapper .block-title-wrap::after { content: ${label}; display: inline; ${look} }`);
       // Fallback for rows drawn without a title area: end of the row, centred on the line.
       styles.push(`${row} > .block-main-container .block-content-wrapper:not(:has(.block-title-wrap))::after { content: ${label}; flex: none; align-self: center; ${look} }`);
@@ -1601,17 +1673,17 @@ const hierarchyParts = {
   // Faint nesting lines; the line beside the branch you point at or type in is a little firmer.
   // Logseq draws the line as a border, so nothing moves when it changes strength.
   indentGuides: `
-.ls-block { --ls-guideline-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 10%, transparent); }
+.ls-block { --ls-guideline-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-hair-pct), transparent); }
 .ls-block .block-children { border-left-color: var(--ls-guideline-color) !important; }
 .ls-block .block-children-container:hover:not(:has(.block-children-container:hover)) > .block-children,
 .ls-block .block-children-container:focus-within:not(:has(.block-children-container:focus-within)) > .block-children {
-  border-left-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 28%, transparent) !important;
+  border-left-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-line-pct), transparent) !important;
 }`,
   // Optional soft chip behind tags, inline and at the end of a block. Off by default: the plugin
   // otherwise keeps color for dates only.
   tintTags: `
 .ls-block :is(.block-content, .block-tags) a.tag:not(mark *) {
-  background: color-mix(in srgb, #8b7fc7 14%, transparent) !important;
+  background: color-mix(in srgb, var(--rf-accent) 14%, transparent) !important;
   border-radius: .25em;
   padding: 0 .25em;
 }`,
@@ -1632,6 +1704,8 @@ const settingsSchema = [
     description: 'Copies the current block and its children to a new page. Also in the right-click menu on a bullet.' },
   { key: 'searchShortcut', type: 'string', title: 'Search in the right sidebar', default: 'mod+alt+f',
     description: 'Opens Logseq search in the right sidebar, where it stays while you open results. Shift-click a result to open it in the sidebar too.' },
+  { key: 'tagShortcut', type: 'string', title: 'Add tags to this page', default: 'mod+t',
+    description: 'Opens Logseq’s Set Tags list for the page you are on, the same list that clicking #Page opens.' },
   { key: 'searchHeading', type: 'heading', title: 'Search', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
@@ -1640,10 +1714,12 @@ const settingsSchema = [
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
     description: 'Keeps buttons like “Add tag property” and the page’s tags visible next to the title, muted until you point at them. Turn off to show them only on hover, as Logseq does.' },
-  { key: 'showPageKind', type: 'boolean', title: 'Label tag and property pages', default: true,
-    description: 'Shows a small muted “Tag” or “Property” under the title of those pages, so you can tell them from ordinary pages. Applies right away.' },
+  { key: 'showPageKind', type: 'boolean', title: 'Show what a page is above its title', default: true,
+    description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
+  { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
+    description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
   { key: 'datesHeading', type: 'heading', title: 'Journal day as date', default: null,
     description: 'A record tagged with one of these tags (or a tag that extends them) gets its empty date filled with the journal day it was written on. Dates you enter yourself are never changed. For records made before this was on, run “Refinements: Fill missing dates from journal days”.' },
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
@@ -1656,8 +1732,10 @@ const settingsSchema = [
     description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
   { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
     description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
+  { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
+    description: 'Shows a block’s properties as “name: value” text with the value a little firmer, separated by dots, instead of outlined capsules; and removes the second bullet beside each value in a property list.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
-    description: 'A dashed circle bullet when unfinished tasks sit below a block, and small image or PDF icons after a block whose children are files. Point at the bullet for counts.' },
+    description: 'After a block’s text: ↳, a dashed circle with the number of unfinished tasks below it, and small image or PDF icons when its children are files. Point at it for details.' },
   { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
     description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
   { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
@@ -1671,7 +1749,7 @@ const settingsSchema = [
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
     description: 'Page links in normal text colour with a faint underline instead of bright blue; tags as bold text; page names heading Linked references read as headings; links inside highlights stay readable.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
-    description: 'A small ↗ arrow before references to blocks (as opposed to pages), and document or image icons before links to PDFs and pictures.' },
+    description: 'A small dot before links to blocks and a light dashed line under them (pages keep their solid underline), and document or image icons before links to PDFs and pictures.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
     description: 'In Linked references, puts the property name before a value (“Doctor: …”); records under a page’s tag tabs end with “via Diagnosis” when one of your properties links them.' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
@@ -1692,7 +1770,7 @@ function setting(key) {
   return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
 }
 // Settings that only take effect when the plugin starts.
-const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tidySidebar', 'tidySearch', 'quietItems', 'showTitleChrome'];
+const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tagShortcut', 'tidySidebar', 'tidySearch', 'quietItems', 'showTitleChrome'];
 
 /* Links inside a reference: Logseq lets the surrounding reference handle the click last, so it
    opens the referenced block instead. Catch clicks on the inner link first and open that page. */
@@ -1761,13 +1839,21 @@ function updateTitleChrome(doc) {
 function startTitleChrome() {
   try {
     logseq.provideStyle({ key: 'personal-db-title-chrome', style: `
-[data-refinement-always-shown] { opacity: .65 !important; visibility: visible !important; }
+[data-refinement-always-shown] { opacity: var(--rf-quiet) !important; visibility: visible !important; }
 [data-refinement-always-shown]:hover, [data-refinement-always-shown]:focus-within { opacity: 1 !important; }
 [data-refinement-always-shown="flex"] { display: flex !important; }
 [data-refinement-always-shown="block"] { display: block !important; }
 [data-refinement-always-shown="inline"] { display: inline !important; }
 [data-refinement-always-shown="inline-flex"] { display: inline-flex !important; }
 [data-refinement-always-shown="inline-block"] { display: inline-block !important; }
+/* The triangle left of a page title, which shows or hides the page's properties, is always there
+   (Logseq shows it only while you point at the title): muted, and full strength on hover. */
+#main-content-container .is-page-title-row .block-control-wrap a.block-control,
+#main-content-container .is-page-title-row .block-control-wrap a.block-control > span {
+  display: inline-flex !important; visibility: visible !important; opacity: var(--rf-faint) !important;
+}
+#main-content-container .is-page-title-row .block-control-wrap a.block-control > span { opacity: 1 !important; }
+#main-content-container .is-page-title-row:hover .block-control-wrap a.block-control { opacity: 1 !important; }
 ` });
     watchDom(updateTitleChrome);
     onUnload(() => {
@@ -1779,27 +1865,33 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null };
+const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null, inherited: [], inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
-  let kind = '', pageId = 0, aliasOf = [];
+  let kind = '', pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
   try {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
+    pageUuid = String(page?.uuid || '');
     if (isEntityId(pageId) && logseq.DB?.datascriptQuery) {
       const rows = await logseq.DB.datascriptQuery(`[:find ?ident
         :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`);
       const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
       kind = idents.has('logseq.class/Tag') ? 'Tag' : idents.has('logseq.class/Property') ? 'Property' : '';
+      plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
       // Logseq records an alias only on the original page; look it up from the alias's side.
       const originals = await logseq.DB.datascriptQuery(`[:find ?uuid ?title
         :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`);
       aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
         .sort((a, b) => a[1].localeCompare(b[1]));
+      if (kind === 'Tag') inherited = await inheritedTagProperties(pageId);
     }
   } catch (error) { console.warn('Refinements: could not tell the page type', error); }
   pageKind.kind = kind;
   pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
+  pageKind.inherited = inherited;
+  pageKind.plain = plain;
+  pageKind.pageUuid = pageUuid;
   try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
 }
 function schedulePageKind(delay = 300) {
@@ -1818,7 +1910,164 @@ function updatePageKind(doc) {
     target.setAttribute('data-refinement-page-kind', pageKind.kind);
     pageKind.marked.add(target);
   }
+  updateTitleTags(doc, on && titles.length === 1 ? titles[0] : null);
   updateAliasLine(doc, setting('showAliasOf') && titles.length === 1 ? titles[0] : null);
+  updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
+}
+// Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
+// in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its
+// built-in id (:block/tags), never by position, so no other property can be picked by mistake.
+async function openTagPicker(actions) {
+  try {
+    const doc = host(), win = doc.defaultView;
+    const button = [...(actions?.querySelectorAll('button') || [])].find(b => /^set property$/i.test(b.textContent.trim()));
+    if (!button) return notify('Could not find “Set property” above the title. Use it to add Tags.', 'warning');
+    button.click();
+    const menu = await waitFor(() => doc.querySelector('.ui__popover-content .ls-property-dialog'));
+    const input = menu?.querySelector('input.cp__select-input');
+    if (!input) return notify('The property menu did not open. Click “Set property”, then choose Tags.', 'warning');
+    const tagsEntry = () => menu.querySelector('a.menu-link:has([title=":block/tags"])');
+    // The menu lists a few properties at first; typing narrows it to Tags.
+    if (!tagsEntry()) {
+      Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, 'Tags');
+      input.dispatchEvent(new win.Event('input', { bubbles: true }));
+    }
+    const entry = await waitFor(tagsEntry, 2000);
+    if (!entry) return notify('Type “Tags” in the menu that opened to choose it.', 'info');
+    entry.click();
+  } catch (error) { console.error(error); notify(`Could not open the tag list: ${error.message}`, 'warning'); }
+}
+// Command and shortcut: open the Set Tags list for the page in the main area.
+function addTagsToPage() {
+  const actions = host().querySelector('#main-content-container .is-page-title-row .ls-page-title-actions > div');
+  if (!actions) return notify('Open a page first', 'warning');
+  return openTagPicker(actions);
+}
+// The page's tags sit beside the actions above its title ("Set property  #Person  #Client") instead
+// of at the far right edge of the title row. They are Logseq's own tags, shifted into place, so they
+// appear with the page and their # still opens Logseq's tag menu. Only the shift is the plugin's.
+// A page with no tag of its own gets a plain "#Page" in the same spot.
+function updateTitleTags(doc, title) {
+  const row = title?.querySelector('.is-page-title-row');
+  const actions = row?.querySelector('.ls-page-title-actions > div');
+  const native = row?.querySelector('.ls-block-right .block-tags');
+  const hasTags = Boolean(actions && native?.querySelector('a.tag'));
+  for (const el of pageKind.tagged) {
+    if (el === native && hasTags) continue;
+    el.style.transform = '';
+    pageKind.offsets.delete(el);
+    pageKind.tagged.delete(el);
+  }
+  let chip = pageKind.titleTags;
+  if (hasTags) {
+    chip?.remove();
+    // Where the tags are now, less the shift already applied, is where Logseq put them.
+    const last = [...actions.children].filter(el => el !== chip).pop() || actions;
+    const to = last.getBoundingClientRect(), from = native.getBoundingClientRect();
+    const [dx0, dy0] = pageKind.offsets.get(native) || [0, 0];
+    const dx = Math.round(to.right + 10 - (from.left - dx0)), dy = Math.round(to.top + (to.height - from.height) / 2 - (from.top - dy0));
+    if (dx !== dx0 || dy !== dy0 || !native.style.transform) {
+      native.style.transform = `translate(${dx}px, ${dy}px)`;
+      pageKind.offsets.set(native, [dx, dy]);
+    }
+    pageKind.tagged.add(native);
+    return;
+  }
+  // No tag of its own: "#Page", shown at once unless the title is a date (journals are not #Page),
+  // and corrected if the database then says otherwise.
+  const known = pageKind.pageUuid && title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
+  const name = row?.querySelector('.block-title-wrap')?.textContent || '';
+  const plain = actions && (known ? pageKind.plain : Boolean(name) && !isJournalDate(name));
+  if (!plain) { chip?.remove(); return; }
+  if (!chip || chip.ownerDocument !== doc) {
+    chip = pageKind.titleTags = doc.createElement('a');
+    chip.className = 'refinement-title-tags';
+    chip.textContent = '#Page';
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('title', 'Add a tag to this page');
+    // A second press closes the list. Logseq closes a pop-up as soon as you press outside it, so
+    // whether one was open has to be noted when the press starts, before the click arrives.
+    let wasOpen = false;
+    const popover = () => doc.querySelector('.ui__popover-content');
+    chip.addEventListener('pointerdown', () => { wasOpen = Boolean(popover()); }, true);
+    chip.addEventListener('mousedown', event => event.stopPropagation());
+    chip.addEventListener('click', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (!wasOpen) return openTagPicker(chip.parentElement);
+      wasOpen = false;
+      if (popover()) (doc.activeElement || doc.body).dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true }));
+    });
+  }
+  if (chip.parentElement !== actions) actions.appendChild(chip);
+}
+// Small lines under a page title go below the row the title sits in (beside its icon or buttons),
+// not squeezed in next to it.
+function titleAnchor(doc, title) {
+  let anchor = title;
+  const win = doc.defaultView;
+  while (anchor.parentElement && anchor.parentElement.id !== 'main-content-container') {
+    const cs = win.getComputedStyle(anchor.parentElement);
+    if (!cs.display.includes('flex') || cs.flexDirection.startsWith('column')) break;
+    anchor = anchor.parentElement;
+  }
+  return anchor;
+}
+function openTitleNoteLink(event) {
+  const link = event.target.closest('a[data-uuid]');
+  if (!link) return;
+  event.preventDefault();
+  openEntity(link.getAttribute('data-uuid'), event.shiftKey);
+}
+// For a tag page: the properties its records get from the tags it extends, nearest tag first.
+// Logseq's own list on a tag page shows only the properties added to that tag itself.
+async function inheritedTagProperties(tagId) {
+  const parents = new Map();
+  for (const [child, parent] of await dsQuery(`[:find ?child ?parent :where [?child :logseq.property.class/extends ?parent]]`)) {
+    if (!parents.has(child)) parents.set(child, []);
+    parents.get(child).push(parent);
+  }
+  const order = [], seen = new Set([tagId]);
+  for (let level = parents.get(tagId) || []; level.length;) {
+    const next = [];
+    for (const id of level) {
+      if (seen.has(id)) continue;
+      seen.add(id); order.push(id); next.push(...(parents.get(id) || []));
+    }
+    level = next;
+  }
+  if (!order.length) return [];
+  const rows = await dsQuery(`[:find ?t ?tuuid ?ttitle ?puuid ?ptitle
+    :where ${idsIn('?t', order)} [?t :logseq.property.class/properties ?p]
+    (not [?p :logseq.property/hide? true])
+    [?t :block/uuid ?tuuid] [?t :block/title ?ttitle] [?p :block/uuid ?puuid] [?p :block/title ?ptitle]]`);
+  const byTag = new Map();
+  for (const [t, tuuid, ttitle, puuid, ptitle] of rows) {
+    if (!byTag.has(t)) byTag.set(t, { uuid: String(tuuid), title: String(ttitle), props: [] });
+    byTag.get(t).props.push([String(puuid), String(ptitle)]);
+  }
+  return order.filter(id => byTag.has(id)).map(id => {
+    const tag = byTag.get(id);
+    tag.props.sort((a, b) => a[1].localeCompare(b[1]));
+    return tag;
+  });
+}
+// "Inherited from #Media: keywords, rating, website" under a tag page's title, one line per parent tag.
+function updateInheritedLine(doc, title) {
+  const tags = title ? pageKind.inherited : [];
+  let line = pageKind.inheritLine;
+  if (!tags.length) { line?.remove(); return; }
+  if (!line || line.ownerDocument !== doc) {
+    line = pageKind.inheritLine = doc.createElement('div');
+    line.className = 'refinement-inherited';
+    line.addEventListener('click', openTitleNoteLink);
+  }
+  const link = ([uuid, name]) => `<a data-uuid="${escapeHtml(uuid)}" href="#" title="Open ${escapeHtml(name)}">${escapeHtml(name)}</a>`;
+  const tagLink = tag => `<a class="rf-tag" data-uuid="${escapeHtml(tag.uuid)}" href="#" title="Open ${escapeHtml(tag.title)}">#${escapeHtml(tag.title)}</a>`;
+  const html = tags.map(tag => `<div>Inherited from ${tagLink(tag)}: ${tag.props.map(link).join(', ')}</div>`).join('');
+  if (pageKind.inheritHtml !== html || !line.firstChild) { pageKind.inheritHtml = html; line.innerHTML = html; }
+  const alias = pageKind.aliasLine?.isConnected ? pageKind.aliasLine : null;
+  const target = alias || titleAnchor(doc, title);
+  if (target.nextElementSibling !== line) target.after(line);
 }
 // "Alias of <page>" under the title of a page that another page lists as its alias.
 function updateAliasLine(doc, title) {
@@ -1829,60 +2078,46 @@ function updateAliasLine(doc, title) {
   if (!line || line.ownerDocument !== doc) {
     line = pageKind.aliasLine = doc.createElement('div');
     line.className = 'refinement-alias-of';
-    line.addEventListener('click', event => {
-      const link = event.target.closest('a[data-uuid]');
-      if (!link) return;
-      event.preventDefault();
-      openEntity(link.getAttribute('data-uuid'), event.shiftKey);
-    });
+    line.addEventListener('click', openTitleNoteLink);
   }
   if (line.dataset.key !== key) {
     line.dataset.key = key;
     line.innerHTML = 'Alias of ' + originals.map(([uuid, name]) =>
       `<a data-uuid="${uuid}" href="#" title="Open ${escapeHtml(name)}">${escapeHtml(name)}</a>`).join(', ');
   }
-  // Below the row the title sits in (beside its icon or buttons), not squeezed in next to it.
-  let anchor = title;
-  const win = doc.defaultView;
-  while (anchor.parentElement && anchor.parentElement.id !== 'main-content-container') {
-    const cs = win.getComputedStyle(anchor.parentElement);
-    if (!cs.display.includes('flex') || cs.flexDirection.startsWith('column')) break;
-    anchor = anchor.parentElement;
-  }
+  const anchor = titleAnchor(doc, title);
   if (anchor.nextElementSibling !== line) anchor.after(line);
 }
 function startPageKind() {
   try {
     logseq.provideStyle({ key: 'personal-db-page-kind', style: `
-[data-refinement-page-kind] { flex-wrap: wrap; }
-[data-refinement-page-kind]::after {
-  content: attr(data-refinement-page-kind);
-  display: block;
-  flex-basis: 100%;
-  margin-top: .15rem;
-  font-size: .8rem;
-  font-weight: 450;
-  letter-spacing: .02em;
-  line-height: 1.3;
-  color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 50%, transparent);
-  pointer-events: none;
-}
-.refinement-alias-of {
+/* "#Page" on a page with no tag of its own, in the row of actions above the title. */
+.refinement-title-tags { margin-left: .6rem; font-size: .75rem; line-height: 1.5rem; white-space: nowrap; color: var(--ls-link-text-color, inherit); cursor: pointer; text-decoration: none; }
+.refinement-title-tags:hover { text-decoration: underline; }
+:is(.refinement-alias-of, .refinement-inherited) {
   margin: .15rem 0 .25rem;
   font-size: .8rem;
-  font-weight: 450;
+  font-weight: 400;
   line-height: 1.3;
-  color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 50%, transparent);
+  color: var(--ls-primary-text-color, currentColor);
+  opacity: var(--rf-quiet);
 }
-.refinement-alias-of a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); cursor: pointer; }
-.refinement-alias-of a:hover { color: var(--ls-primary-text-color, currentColor); }` });
+:is(.refinement-alias-of, .refinement-inherited) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
+.refinement-inherited a.rf-tag { text-decoration: none; }
+:is(.refinement-alias-of, .refinement-inherited) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
     watchDom(updatePageKind);
+    // The tags are placed by measuring, so place them again when the window changes size.
+    listen(host().defaultView, ['resize'], () => { try { updatePageKind(host()); } catch (error) { /* placed on the next change */ } });
     loadPageKind();
     onUnload(() => {
       clearTimeout(pageKind.timer);
       for (const el of pageKind.marked) el.removeAttribute('data-refinement-page-kind');
       pageKind.marked.clear();
       pageKind.aliasLine?.remove();
+      pageKind.inheritLine?.remove();
+      pageKind.titleTags?.remove();
+      for (const el of pageKind.tagged) el.style.transform = '';
+      pageKind.tagged.clear();
     });
   } catch (error) { console.warn('Refinements: page type label is unavailable', error); }
 }
@@ -2400,8 +2635,8 @@ function startListProps() {
 .refinement-inline-values { font-weight: normal; }
 .refinement-inline-values .rt-link { cursor: pointer; color: var(--ls-link-text-color, inherit); }
 .refinement-inline-values .rt-link:hover { text-decoration: underline; }
-.refinement-inline-values .rt-label { font-size: .8em; opacity: .55; }
-.refinement-inline-values .rt-sep { opacity: .5; }` });
+.refinement-inline-values .rt-label { font-size: var(--rf-small); opacity: var(--rf-faint); }
+.refinement-inline-values .rt-sep { opacity: var(--rf-faint); }` });
     // Links inside the one-line values open their page (Shift opens it in the sidebar) without starting an edit.
     listen(win, ['mousedown', 'click'], event => {
       const link = event.target?.closest?.('.refinement-inline-values .rt-link');
@@ -2662,6 +2897,7 @@ function startQuietUi() {
 function main() {
   logseq.beforeunload(runUnloadTasks);
   logseq.useSettingsSchema(settingsSchema);
+  logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
   logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });
   applyHierarchy();
   startDateLinks();
@@ -2713,6 +2949,7 @@ function main() {
     ['labeled-page-link', 'Link selected text to a page', labeledPageLink, 'linkShortcut'],
     ['selected-text-to-page', 'Open selected text as page', selectionToPage, 'openShortcut'],
     ['search-in-sidebar', 'Search in right sidebar', searchInSidebar, 'searchShortcut'],
+    ['add-page-tags', 'Add tags to this page', addTagsToPage, 'tagShortcut'],
     ['show-settings', 'Show shortcuts and settings', () => logseq.showSettingsUI()],
     ['check-link-labels', 'Check linked-record labels (troubleshooting)', checkLinkLabels],
     ['copy-header-details', 'Copy page title area details (troubleshooting)', copyHeaderDiagnostics],
