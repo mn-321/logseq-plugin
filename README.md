@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.104.
+A personal starter plugin for Logseq DB graphs. Version 0.2.105.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -252,3 +252,5 @@ Version 0.2.102 adds a measuring tool for troubleshooting. It is off unless you 
 Version 0.2.103 lets the measuring tool from 0.2.102 report by itself. With the hidden setting `debugPerfEvery` (a number of seconds) next to `debugPerf` in the plugin's settings file, a report is added to `perfLog` in that file at that interval, so a session can be measured without running the command each time. The tool's own settings writes no longer set off the plugin's settings work. Nothing changes unless measuring is on. The first results, from the test graph, are in `AUDIT.md`.
 
 Version 0.2.104 does less work on every screen change, with no visible difference. The scan that draws the `↳` cues used to search inside every block on the page before checking whether that block has a cue at all; it now checks first, and stops at once on a page with no cues. A date link that is already marked is no longer marked again on every pass. Step 5 in `AUDIT.md` (part of B2).
+
+Version 0.2.105 replaces the stylesheet that grew with your graph. To put a dot before a labelled link to a block, and the “Doctor: …” and “via …” labels on references, the plugin used to write four style rules for every referenced block in the whole graph (about 1.7 KB each) and re-send them when they changed. It now marks the links and rows that are actually on screen, as Logseq draws them, and one fixed set of rules does the drawing. On the test graph the stylesheet went from 4,000 to 8,000 characters, depending on the page, to a constant 2,700; in a large graph the old one would have run to megabytes. Every link, label and cue on eight test pages is drawn exactly as before (compared element by element). The “via …” labels of the page you left are also dropped the moment you navigate. Step 6 in `AUDIT.md` (B3).

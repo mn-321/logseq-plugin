@@ -46,7 +46,7 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | A5 | `data-refinement-property-crumb` is not removed on unload | `stopDateLinks` 935 | L | fixed 0.2.101 |
 | B1 | Four always-on whole-page observers; one redraw causes 2–4 full passes | 26, 927, 1103, 2155 | M–H | open |
 | B2 | `updateDateLinks` runs eight page scans on every change, including any `class` change; the cue scan searches each block before checking it has a cue | 865, 929, 1153, 880 | M | open |
-| B3 | Stylesheet with four rules per referenced block in the whole graph (about 1.7 KB each) | `refreshCues` 1293 | H in a big graph | open |
+| B3 | Stylesheet with four rules per referenced block in the whole graph (about 1.7 KB each) | `refreshCues` 1293 | H in a big graph | fixed 0.2.105 |
 | B4 | Seven timers per database change, about 20 queries, settling at 800, 1000 and 1500 ms | 2979 | L–M | open |
 | B5 | Auto-date could rewrite the same record every 1.5 s if a write lands but the "no date" test still matches | `autoDateNew` 2881 | L | open |
 | B6 | Title tags are re-measured only when page content changes, so they can sit off after a sidebar toggle | `updateTitleTags` 1987 | M | open |
@@ -80,7 +80,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | done |
 | 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102, 0.2.103 | done on the test graph; a real graph still to measure |
 | 5 | Early exits in `updateDateLinks` | B2 (part) | 0.2.104 | done |
-| 6 | Attribute marks replace the per-block stylesheet | B3 | | open |
+| 6 | Attribute marks replace the per-block stylesheet | B3 | 0.2.105 | done; drawn styles identical on 8 test pages |
 | 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | | open |
 | 8 | Title tags follow size changes | B6 | | open |
 | 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | | open |

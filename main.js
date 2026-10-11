@@ -103,7 +103,7 @@ function modalHint(doc, text) {
 const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
 const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden'].map(name => 'data-refinement-' + name);
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden', 'block-link', 'prop-label', 'via'].map(name => 'data-refinement-' + name);
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
@@ -861,6 +861,68 @@ function updatePropertyCrumbs(doc) {
   for (const crumb of propertyCrumbs.marked) if (!found.has(crumb)) { crumb.removeAttribute('data-refinement-property-crumb'); propertyCrumbs.marked.delete(crumb); }
   for (const crumb of found) if (!propertyCrumbs.marked.has(crumb)) { crumb.setAttribute('data-refinement-property-crumb', ''); propertyCrumbs.marked.add(crumb); }
 }
+/* Cues that depend on what the database says about a link or a row. The answer is kept, and each
+   element it applies to is marked as it is drawn, so one fixed set of rules does the drawing however
+   large the graph is (there used to be four rules for every referenced block in the graph):
+   - a link to a block drawn without the block's title area (a link with its own label) gets the dot;
+   - a property value listed under Linked references starts with its property's name ("Doctor:");
+   - a record listed under a page's tag tabs ends with the property that links it ("via Diagnosis"). */
+const cueMarks = { blockUuids: new Set(), incoming: new Map(), marked: new Map() };
+const blockLink = '.page-ref[data-refinement-block-link]:not(.tag):not([data-refinement-date])';
+// Browsers reject a :has() inside another :has(), and one bad selector discards a whole rule, so
+// the check on the surrounding reference uses the plain form.
+const blockLinkPlain = blockLink + ':not(:has(.prefix-link, img))';
+const viaLook = 'margin-left: .6em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;';
+const cueCss = `${blockDot(blockLinkPlain + ':not(:has(.block-title-wrap))')}
+/* A block (not a page) shown inside another reference stays without an underline. */
+.ls-block .block-content a.page-ref[data-uuid] ${blockLinkPlain}.page-ref, .ls-block .block-content a.page-ref[data-uuid] ${blockLinkPlain}.page-ref:hover { text-decoration: none !important; }
+.ls-block ${blockLinkPlain}, .ls-block ${blockLinkPlain}:hover, .ls-block ${blockLinkPlain} * { text-decoration: none !important; border-bottom: 0 !important; }
+.ls-block .page-reference:has(${blockLink}):not(:has(.prefix-link, img)), .ls-block .page-reference:has(${blockLink}):not(:has(.prefix-link, img)):hover { text-decoration: none !important; border-bottom: 0 !important; }
+/* In references, a property value is introduced by its property's name in muted text. */
+${referenceAreas} .ls-block[blockid] > .block-main-container .block-content-wrapper[data-refinement-prop-label]::before { content: attr(data-refinement-prop-label); flex: none; align-self: baseline; margin-right: .4em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); white-space: nowrap; }
+/* "via Diagnosis" sits right after the record's title, on the same text line; for a row drawn
+   without a title area, at the end of the row. */
+.ls-block[blockid] > .block-main-container .block-content-wrapper .block-title-wrap[data-refinement-via]::after { content: attr(data-refinement-via); display: inline; ${viaLook} }
+.ls-block[blockid] > .block-main-container .block-content-wrapper[data-refinement-via]::after { content: attr(data-refinement-via); flex: none; align-self: center; ${viaLook} }`;
+function updateCueMarks(doc) {
+  const found = new Map(); // element -> [attribute, value]
+  if (cueMarks.blockUuids.size) {
+    for (const link of doc.querySelectorAll('.page-ref[data-uuid], .page-ref[data-ref]')) {
+      const uuid = link.getAttribute('data-uuid'), ref = link.getAttribute('data-ref');
+      if (cueMarks.blockUuids.has(uuid) || (ref && cueMarks.blockUuids.has(ref.toLowerCase()))) found.set(link, ['data-refinement-block-link', '']);
+    }
+  }
+  if (setting('linkLabels')) {
+    const wrapperOf = row => [...row.querySelectorAll('.block-content-wrapper')].find(el => el.closest('.ls-block[blockid]') === row);
+    if (propertyCrumbs.values.size) {
+      for (const row of doc.querySelectorAll(`${referenceAreas} .ls-block[blockid]`)) {
+        const name = propertyCrumbs.values.get(row.getAttribute('blockid'));
+        const wrapper = name && wrapperOf(row);
+        if (wrapper) found.set(wrapper, ['data-refinement-prop-label', name + ':']);
+      }
+    }
+    if (cueMarks.incoming.size) {
+      for (const row of doc.querySelectorAll('.ls-block[blockid]')) {
+        const uuid = row.getAttribute('blockid'), names = cueMarks.incoming.get(uuid);
+        // The page's own blocks say so in their properties, and Linked references already show the property.
+        if (!names || listProps.pageBlocks.has(uuid) || row.closest(REFERENCE_AREAS)) continue;
+        const wrapper = wrapperOf(row);
+        if (!wrapper) continue;
+        const label = 'via ' + [...names].join(', ');
+        const titles = wrapper.querySelectorAll('.block-title-wrap');
+        if (titles.length) for (const title of titles) found.set(title, ['data-refinement-via', label]);
+        else found.set(wrapper, ['data-refinement-via', label]);
+      }
+    }
+  }
+  for (const [el, [attr]] of cueMarks.marked) {
+    if (found.get(el)?.[0] !== attr) { el.removeAttribute(attr); cueMarks.marked.delete(el); }
+  }
+  for (const [el, mark] of found) {
+    if (el.getAttribute(mark[0]) !== mark[1]) el.setAttribute(mark[0], mark[1]);
+    cueMarks.marked.set(el, mark);
+  }
+}
 function fadeCrumbBrackets(doc) {
   const win = doc.defaultView;
   if (!win.CSS?.highlights || !win.Highlight) return;
@@ -900,7 +962,7 @@ function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, updatePropertyCrumbs, fadeCrumbBrackets,
-    updatePageLabels, updateDateHeadings, updateTagPageLinks]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateTagPageLinks, updateCueMarks]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     if (dateLinkName(link.getAttribute('data-ref')) || dateLinks.uuids.has(link.getAttribute('data-uuid')) ||
@@ -972,6 +1034,8 @@ function stopDateLinks() {
   dateHeadings.clear();
   for (const crumb of propertyCrumbs.marked) crumb.removeAttribute('data-refinement-property-crumb');
   propertyCrumbs.marked.clear();
+  for (const [el, [attr]] of cueMarks.marked) el.removeAttribute(attr);
+  cueMarks.marked.clear();
   ++dateLinks.version;
   clearTimeout(dateLinks.timer);
   clearTimeout(labelTitlesTimer);
@@ -1310,10 +1374,8 @@ async function incomingPropertyLinks() {
   } catch (error) { console.warn('Refinements: could not find records linking to this page', error); }
   return result;
 }
-const cssText = text => '"' + String(text).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
 let refreshTimer;
 let refreshVersion = 0;
-let lastCueStyle = null;
 async function refreshCues(version = ++refreshVersion) {
   const started = performance.now();
   try {
@@ -1330,53 +1392,20 @@ async function refreshCues(version = ++refreshVersion) {
     childAssetCues.clear();
     if (setting('childTypeCues')) for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
-    const styles = [];
-    // UUID syntax alone also identifies pages. Only style database-confirmed blocks.
-    for (const uuid of setting('referenceIcons') ? nodeIds : []) {
-      const link = `.page-ref:is([data-uuid="${uuid}"], [data-ref="${uuid}" i]):not(.tag):not([data-refinement-date]):not(:has(.prefix-link, img))`;
-      styles.push(blockDot(link + ':not(:has(.block-title-wrap))')); // those with a title area already have their dot
-      // Browsers reject a :has() inside another :has(), and one bad selector discards a whole rule,
-      // so the wrapper check uses a simpler link selector and each rule stands alone.
-      const plainLink = `.page-ref:is([data-uuid="${uuid}"], [data-ref="${uuid}" i]):not(.tag):not([data-refinement-date])`;
-      // A block (not a page) shown inside another reference stays without an underline.
-      styles.push(`.ls-block .block-content a.page-ref[data-uuid] ${link}.page-ref, .ls-block .block-content a.page-ref[data-uuid] ${link}.page-ref:hover { text-decoration: none !important; }`);
-      styles.push(`.ls-block ${link}, .ls-block ${link}:hover, .ls-block ${link} * { text-decoration: none !important; border-bottom: 0 !important; }`);
-      styles.push(`.ls-block .page-reference:has(${plainLink}):not(:has(.prefix-link, img)), .ls-block .page-reference:has(${plainLink}):not(:has(.prefix-link, img)):hover { text-decoration: none !important; border-bottom: 0 !important; }`);
-    }
+    // UUID syntax alone also identifies pages. Only database-confirmed blocks count as block links.
+    cueMarks.blockUuids = setting('referenceIcons') ? nodeIds : new Set();
     propertyCrumbs.values = propertyValues;
     if (dateLinks.document) updatePropertyCrumbs(dateLinks.document);
-    // In references, a property value is introduced by its property's name in muted text,
-    // the way Logseq shows properties on a page: "Doctor: Pashtoon Kasi".
-    const linkLabels = setting('linkLabels');
-    for (const [uuid, name] of linkLabels ? propertyValues : []) {
-      const row = `${referenceAreas} .ls-block[blockid][blockid="${uuid}"]`;
-      styles.push(`${row} > .block-main-container .block-content-wrapper::before { content: ${cssText(name + ':')}; flex: none; align-self: baseline; margin-right: .4em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); white-space: nowrap; }`);
-    }
-    // Records listed under the tag tabs end with the property that links them: "via Diagnosis".
-    // Linked references are left alone; their rows already show the property and its value.
-    for (const [uuid, names] of linkLabels ? incoming : []) {
-      if (listProps.pageBlocks.has(uuid)) continue; // the page's own blocks say so in their properties
-      const row = `.ls-block[blockid="${uuid}"]:not(${referenceAreas} *)`;
-      // Sits right after the record's title, on the same text line, rather than at the row's far edge.
-      const label = cssText('via ' + [...names].join(', '));
-      const look = 'margin-left: .6em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;';
-      styles.push(`${row} > .block-main-container .block-content-wrapper .block-title-wrap::after { content: ${label}; display: inline; ${look} }`);
-      // Fallback for rows drawn without a title area: end of the row, centred on the line.
-      styles.push(`${row} > .block-main-container .block-content-wrapper:not(:has(.block-title-wrap))::after { content: ${label}; flex: none; align-self: center; ${look} }`);
-    }
-    const style = styles.join('\n');
+    cueMarks.incoming = incoming;
+    if (dateLinks.document) updateCueMarks(dateLinks.document);
     perf.add('refreshCues (start to finish)', performance.now() - started);
-    perf.style('per-block cues', style, style !== lastCueStyle);
-    if (style !== lastCueStyle) { // unchanged styles need no re-render
-      lastCueStyle = style;
-      logseq.provideStyle({ key: 'personal-db-context-cues', style: orNoRules(style) });
-    }
   } catch (error) {
     if (version !== refreshVersion) return;
     childAssetCues.clear();
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
-    lastCueStyle = '';
-    logseq.provideStyle({ key: 'personal-db-context-cues', style: orNoRules('') });
+    cueMarks.blockUuids = new Set();
+    cueMarks.incoming = new Map();
+    if (dateLinks.document) updateCueMarks(dateLinks.document);
     console.warn('Refinements: could not refresh current-page cues', error);
   }
 }
@@ -3179,6 +3208,7 @@ function main() {
   startListProps();
   startSidebarSearchButton();
   startNestedReferenceLinks();
+  logseq.provideStyle({ key: 'personal-db-context-cues', style: cueCss });
   scheduleRefresh();
   onUnload(() => { clearTimeout(refreshTimer); ++refreshVersion; });
 
@@ -3190,6 +3220,7 @@ function main() {
     // choice would hide parts of the new page until the new page's own details have loaded.
     pdfCitations.pageUuid = null;
     listProps.pageBlocks = new Set();
+    cueMarks.incoming = new Map();
     scheduleRefresh(); schedulePageKind();
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
