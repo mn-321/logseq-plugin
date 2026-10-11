@@ -42,8 +42,8 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | A1 | Empty stylesheet is ignored, so "Faint nesting lines" and the per-block cues do not switch off until reload | `applyHierarchy` 1697; `refreshCues` 1328, 1335 | M | fixed 0.2.99 |
 | A2 | Previous page's list choice is applied to the next page until its data loads | `listRows` 2375; state set in `refreshCues` 1282 | M | fixed 0.2.100 |
 | A3 | `loadPageKind` has no version guard; an older answer can overwrite a newer one ("Alias of" goes missing) | 1875 | L–M | fixed 0.2.100 |
-| A4 | If clean-up fails on Reload, the old copy's observers keep running; nothing stops them | `runUnloadTasks` 7 | M | open |
-| A5 | `data-refinement-property-crumb` is not removed on unload | `stopDateLinks` 935 | L | open |
+| A4 | If clean-up fails on Reload, the old copy's observers keep running; nothing stops them | `runUnloadTasks` 7 | M | fixed 0.2.101 |
+| A5 | `data-refinement-property-crumb` is not removed on unload | `stopDateLinks` 935 | L | fixed 0.2.101 |
 | B1 | Four always-on whole-page observers; one redraw causes 2–4 full passes | 26, 927, 1103, 2155 | M–H | open |
 | B2 | `updateDateLinks` runs eight page scans on every change, including any `class` change; the cue scan searches each block before checking it has a cue | 865, 929, 1153, 880 | M | open |
 | B3 | Stylesheet with four rules per referenced block in the whole graph (about 1.7 KB each) | `refreshCues` 1293 | H in a big graph | open |
@@ -77,7 +77,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | --- | --- | --- | --- | --- |
 | 1 | Send a comment instead of an empty stylesheet | A1 | 0.2.99 | done |
 | 2 | Version guard in `loadPageKind`; clear page state on route change | A2, A3 | 0.2.100 | done |
-| 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | open |
+| 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | done |
 | 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102 | open |
 | 5 | Early exits in `updateDateLinks` | B2 (part) | | open |
 | 6 | Attribute marks replace the per-block stylesheet | B3 | | open |

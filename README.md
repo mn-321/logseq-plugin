@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.100.
+A personal starter plugin for Logseq DB graphs. Version 0.2.101.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -244,3 +244,5 @@ Version 0.2.98 puts property lists back to Logseq's own look and tidies three cu
 Version 0.2.99 fixes switches that did not switch off. Turning off **Faint nesting lines** (with the tag background off) left the lines faint until the plugin was reloaded, and the dot before labelled block links and the “Doctor: …” / “via …” labels could stay after their settings were turned off. Logseq ignores an empty stylesheet, so the old rules were never replaced; the plugin now sends a one-line placeholder instead. Found by the audit recorded in `AUDIT.md` (A1). The version before the audit's fixes is saved in `backups/logseq-db-refinements-0.2.98`.
 
 Version 0.2.100 fixes two cases of one page's details showing on another. (1) After leaving a page whose lists hide some properties or the Body, the next page's blocks could briefly lose their properties or the notes under them; the choice of the page you left is now dropped the moment you navigate, and the new page's own choice applies once its details have loaded. (2) The “Alias of …” line could stay missing after quick navigation, because an older page lookup could finish after a newer one and replace it; only the newest lookup's answer is used now. Audit items A2 and A3 in `AUDIT.md`.
+
+Version 0.2.101 makes Reload safe when the previous copy did not finish cleaning up. The plugin's screen watchers live in Logseq's window, so if a reload was cut short (an error, or Logseq's ten-second limit) the old copy kept running beside the new one, which could double the Search button, cues and labels. A new copy now stops any earlier copy first and removes whatever it left on screen. The marks that hide a lone property name above a group of references are also removed when the plugin is turned off; before, that line could stay hidden until Logseq redrew it. No change when a reload goes normally. Audit items A4 and A5 in `AUDIT.md`.

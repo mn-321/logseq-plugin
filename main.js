@@ -4,11 +4,16 @@
 const unloadTasks = [];
 // Also takes the "off" function every logseq.*.onXxx hook returns.
 const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-async function runUnloadTasks() {
+// Every step starts at once, in reverse order of set-up, so the screen is clean by the time this
+// returns; the promise it returns waits for any step that finishes later.
+function runUnloadTasks() {
   stopWatchingDom(); // first, so nothing re-applies while the parts below undo their changes
+  const failed = error => console.warn('Refinements: clean-up step failed', error);
+  const pending = [];
   for (const task of unloadTasks.splice(0).reverse()) {
-    try { await task(); } catch (error) { console.warn('Refinements: clean-up step failed', error); }
+    try { pending.push(Promise.resolve(task()).catch(failed)); } catch (error) { failed(error); }
   }
+  return Promise.all(pending);
 }
 
 // The Logseq window. The plugin runs in a frame inside it.
@@ -85,6 +90,28 @@ function modalHint(doc, text) {
   hint.className = 'refinement-prompt-hint';
   hint.textContent = text;
   return hint;
+}
+
+/* The plugin's watchers live in Logseq's window, so they outlive the plugin's own frame. If an
+   earlier copy was removed without its clean-up finishing (an error, or Logseq's ten-second limit),
+   they would keep running beside this copy. Each copy therefore leaves its clean-up where the next
+   one can find it, and a new copy runs it and removes anything still left on screen. */
+const STOP_KEY = '__dbRefinementsStop';
+const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
+const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden'].map(name => 'data-refinement-' + name);
+function takeOverFromEarlierCopy() {
+  let win;
+  try { win = host().defaultView; } catch (error) { return; }
+  try { win[STOP_KEY]?.(); } catch (error) { console.warn('Refinements: an earlier copy could not be stopped', error); }
+  win[STOP_KEY] = runUnloadTasks;
+  onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
+  try {
+    const doc = win.document;
+    for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
+    for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
+    for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
+  } catch (error) { console.warn('Refinements: leftovers could not be cleared', error); }
 }
 
 // Listens on Logseq's window before Logseq does (capture phase), until the plugin unloads.
@@ -941,6 +968,8 @@ function stopDateLinks() {
   refRows.clear();
   for (const el of dateHeadings) el.removeAttribute('data-refinement-date-heading');
   dateHeadings.clear();
+  for (const crumb of propertyCrumbs.marked) crumb.removeAttribute('data-refinement-property-crumb');
+  propertyCrumbs.marked.clear();
   ++dateLinks.version;
   clearTimeout(dateLinks.timer);
   clearTimeout(labelTitlesTimer);
@@ -2953,6 +2982,7 @@ function startQuietUi() {
 
 function main() {
   logseq.beforeunload(runUnloadTasks);
+  takeOverFromEarlierCopy();
   logseq.useSettingsSchema(settingsSchema);
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
   logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });
