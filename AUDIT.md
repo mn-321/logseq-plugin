@@ -79,7 +79,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 2 | Version guard in `loadPageKind`; clear page state on route change | A2, A3 | 0.2.100 | done |
 | 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | done |
 | 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102, 0.2.103 | done on the test graph; a real graph still to measure |
-| 5 | Early exits in `updateDateLinks` | B2 (part) | | open |
+| 5 | Early exits in `updateDateLinks` | B2 (part) | 0.2.104 | done |
 | 6 | Attribute marks replace the per-block stylesheet | B3 | | open |
 | 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | | open |
 | 8 | Title tags follow size changes | B6 | | open |

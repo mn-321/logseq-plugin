@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.103.
+A personal starter plugin for Logseq DB graphs. Version 0.2.104.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -250,3 +250,5 @@ Version 0.2.101 makes Reload safe when the previous copy did not finish cleaning
 Version 0.2.102 adds a measuring tool for troubleshooting. It is off unless you turn it on, and it changes nothing on screen. Run **Refinements: Turn measuring on or off (troubleshooting)**, use Logseq for a while, then run **Refinements: Copy performance report (troubleshooting)**. The report lists how often each of the plugin's screen watchers was called and for what, how long each update took, how large the per-block stylesheet is, whether the shared watcher's passes landed in time or a frame late, and the long tasks, long frames and layout shifts the browser recorded. Each report covers the time since the previous one, and is also saved as `perfReport` in the plugin's settings file. It is one marked block in `main.js` (PERF-DEBUG) and can be removed once the audit's remaining steps are done. Step 4 in `AUDIT.md`.
 
 Version 0.2.103 lets the measuring tool from 0.2.102 report by itself. With the hidden setting `debugPerfEvery` (a number of seconds) next to `debugPerf` in the plugin's settings file, a report is added to `perfLog` in that file at that interval, so a session can be measured without running the command each time. The tool's own settings writes no longer set off the plugin's settings work. Nothing changes unless measuring is on. The first results, from the test graph, are in `AUDIT.md`.
+
+Version 0.2.104 does less work on every screen change, with no visible difference. The scan that draws the `↳` cues used to search inside every block on the page before checking whether that block has a cue at all; it now checks first, and stops at once on a page with no cues. A date link that is already marked is no longer marked again on every pass. Step 5 in `AUDIT.md` (part of B2).

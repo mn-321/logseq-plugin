@@ -906,7 +906,7 @@ function updateDateLinks() {
     if (dateLinkName(link.getAttribute('data-ref')) || dateLinks.uuids.has(link.getAttribute('data-uuid')) ||
         dateLinks.names.has(String(link.getAttribute('data-ref') || '').toLowerCase())) {
       if (!dateLinks.originals.has(link)) dateLinks.originals.set(link, link.getAttribute('data-refinement-date'));
-      link.setAttribute('data-refinement-date', '');
+      if (!link.hasAttribute('data-refinement-date')) link.setAttribute('data-refinement-date', '');
     } else if (dateLinks.originals.has(link)) {
       const original = dateLinks.originals.get(link);
       if (original === null) link.removeAttribute('data-refinement-date');
@@ -1185,12 +1185,16 @@ function updateChildAssetCues(doc) {
     const uuid = cue.closest('.ls-block[blockid]')?.getAttribute('blockid');
     if (!childAssetCues.has(uuid)) cue.remove();
   }
+  // Cues of blocks that no longer have one were removed above, so only blocks with a cue to show
+  // need looking at, and with none to show there is nothing more to do.
+  if (!childAssetCues.size) return;
   for (const block of doc.querySelectorAll('.ls-block[blockid]')) {
     const uuid = block.getAttribute('blockid'), kinds = childAssetCues.get(uuid);
+    if (!kinds) continue;
     const wrap = [...block.querySelectorAll('.block-title-wrap')].find(el => el.closest('.ls-block[blockid]') === block);
     if (!wrap) continue;
     const old = [...wrap.children].find(el => el.classList.contains('refinement-child-assets'));
-    if (!kinds || block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
+    if (block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
     const types = kinds.asset ? [...kinds.assetTypes].sort() : [];
     const signature = `${kinds.task}|${kinds.asset}|${types.join(',')}`;
     if (old?.getAttribute('data-types') === signature) continue;
