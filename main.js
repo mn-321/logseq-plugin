@@ -28,13 +28,17 @@ function watchDom(update) {
   domWatch.updaters.add(update);
   if (!domWatch.observer) {
     domWatch.win = win;
-    domWatch.observer = new win.MutationObserver(() => {
+    domWatch.observer = new win.MutationObserver(records => {
+      perf.seen('shared watcher', records);
       if (domWatch.frame) return;
+      const timing = perf.frameState();
       domWatch.frame = win.requestAnimationFrame(() => {
         domWatch.frame = 0;
+        perf.pass(timing);
         for (const fn of domWatch.updaters) {
-          try { fn(doc); } catch (error) { console.warn('Refinements: a screen update failed', error); }
+          try { perf.time(fn.name, () => fn(doc)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
         }
+        perf.passDone();
       });
     });
     domWatch.observer.observe(doc.body, { subtree: true, childList: true, characterData: true });
@@ -895,13 +899,8 @@ function updateDateHeadings(doc) {
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
-  updateReferenceRows(doc);
-  updateChildAssetCues(doc);
-  updatePropertyCrumbs(doc);
-  fadeCrumbBrackets(doc);
-  updatePageLabels(doc);
-  updateDateHeadings(doc);
-  updateTagPageLinks(doc);
+  for (const part of [updateReferenceRows, updateChildAssetCues, updatePropertyCrumbs, fadeCrumbBrackets,
+    updatePageLabels, updateDateHeadings, updateTagPageLinks]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     if (dateLinkName(link.getAttribute('data-ref')) || dateLinks.uuids.has(link.getAttribute('data-uuid')) ||
@@ -954,7 +953,10 @@ function startDateLinks() {
     updateDateLinks();
     // Its own watcher, not the shared one: this runs before the screen is painted, so the native
     // look never flashes.
-    dateLinks.observer = new doc.defaultView.MutationObserver(updateDateLinks);
+    dateLinks.observer = new doc.defaultView.MutationObserver(records => {
+      perf.seen('dates and cues watcher', records);
+      perf.time('updateDateLinks (whole)', updateDateLinks);
+    });
     dateLinks.observer.observe(doc.body, { childList: true, subtree: true,
       characterData: true, attributes: true, attributeFilter: ['data-ref', 'data-uuid', 'class'] });
     onUnload(stopDateLinks);
@@ -1132,7 +1134,10 @@ function startPdfCitations() {
     if (!doc.body) return;
     pdfCitations.document = doc;
     // Runs before paint (not on the shared watcher), so the native citation never flashes.
-    pdfCitations.observer = new doc.defaultView.MutationObserver(updatePdfCitations);
+    pdfCitations.observer = new doc.defaultView.MutationObserver(records => {
+      perf.seen('PDF citations watcher', records);
+      perf.time('updatePdfCitations', updatePdfCitations);
+    });
     updatePdfCitations();
     onUnload(stopPdfCitations);
   } catch (error) {
@@ -1306,6 +1311,7 @@ let refreshTimer;
 let refreshVersion = 0;
 let lastCueStyle = null;
 async function refreshCues(version = ++refreshVersion) {
+  const started = performance.now();
   try {
     const tree = await logseq.Editor.getCurrentPageBlocksTree();
     const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), referencedNodeIds(), directAssetTypes(tree), propertyValueBlocks(), incomingPropertyLinks()]);
@@ -1355,6 +1361,8 @@ async function refreshCues(version = ++refreshVersion) {
       styles.push(`${row} > .block-main-container .block-content-wrapper:not(:has(.block-title-wrap))::after { content: ${label}; flex: none; align-self: center; ${look} }`);
     }
     const style = styles.join('\n');
+    perf.add('refreshCues (start to finish)', performance.now() - started);
+    perf.style('per-block cues', style, style !== lastCueStyle);
     if (style !== lastCueStyle) { // unchanged styles need no re-render
       lastCueStyle = style;
       logseq.provideStyle({ key: 'personal-db-context-cues', style: orNoRules(style) });
@@ -2187,8 +2195,11 @@ function startPageKind() {
     watchDom(updatePageKind);
     // The shared watcher waits for the next frame; the inherited line is put in the moment the
     // property list is, so the two are painted together.
-    const lineWatch = new (host().defaultView.MutationObserver)(() => {
-      try { const doc = host(); updateInheritedLine(doc, currentTitle(doc)); } catch (error) { /* placed on the next frame */ }
+    const lineWatch = new (host().defaultView.MutationObserver)(records => {
+      perf.seen('inherited line watcher', records);
+      perf.time('updateInheritedLine (immediate)', () => {
+        try { const doc = host(); updateInheritedLine(doc, currentTitle(doc)); } catch (error) { /* placed on the next frame */ }
+      });
     });
     lineWatch.observe(host().body, { subtree: true, childList: true });
     onUnload(() => { pageKind.stopped = true; lineWatch.disconnect(); });
@@ -2980,9 +2991,153 @@ function startQuietUi() {
   } catch (error) { console.warn('Refinements: quiet items are unavailable', error); }
 }
 
+/* PERF-DEBUG start. Measuring for troubleshooting; it changes nothing on screen. Off unless the
+   hidden setting debugPerf is true ("Refinements: Turn measuring on or off"). While off, every
+   perf.* call returns at once. To remove: delete this block, the two perf commands in main(), and
+   each line that mentions perf (`grep -c "perf\." main.js` must then be 0). */
+const perf = {
+  on: false, win: null, since: 0, raf: 0, channel: null, observers: [], inFrame: false, ownWrite: false,
+  times: new Map(), seenBy: new Map(), styles: new Map(), passes: { ok: 0, late: 0, echo: 0 },
+  long: { tasks: 0, taskMs: 0, frames: 0, frameMs: 0, worst: 0, pluginMs: 0, otherMs: 0 },
+  shifts: { count: 0, score: 0, afterInput: 0, sources: new Map() },
+  reset() {
+    perf.since = Date.now();
+    perf.times.clear(); perf.seenBy.clear(); perf.styles.clear(); perf.shifts.sources.clear();
+    Object.assign(perf.passes, { ok: 0, late: 0, echo: 0 });
+    Object.assign(perf.long, { tasks: 0, taskMs: 0, frames: 0, frameMs: 0, worst: 0, pluginMs: 0, otherMs: 0 });
+    Object.assign(perf.shifts, { count: 0, score: 0, afterInput: 0 });
+  },
+  // Time spent in one update function.
+  add(name, ms) {
+    if (!perf.on) return;
+    const s = perf.times.get(name) || { n: 0, total: 0, max: 0 };
+    s.n++; s.total += ms; if (ms > s.max) s.max = ms;
+    perf.times.set(name, s);
+  },
+  time(name, fn) {
+    if (!perf.on) return fn();
+    const started = performance.now();
+    try { return fn(); } finally { perf.add(name, performance.now() - started); }
+  },
+  // What one watcher was called for: how many changes, of which kind, and which attributes.
+  seen(name, records) {
+    if (!perf.on) return;
+    const s = perf.seenBy.get(name) || { calls: 0, records: 0, childList: 0, characterData: 0, attributes: 0, names: new Map() };
+    s.calls++; s.records += records.length;
+    for (const record of records) {
+      s[record.type]++;
+      if (record.type === 'attributes') s.names.set(record.attributeName, (s.names.get(record.attributeName) || 0) + 1);
+    }
+    perf.seenBy.set(name, s);
+  },
+  style(key, text, sent) {
+    if (!perf.on) return;
+    const s = perf.styles.get(key) || { built: 0, sent: 0, size: 0 };
+    s.built++; if (sent) s.sent++; s.size = text.length;
+    perf.styles.set(key, s);
+  },
+  // Was the change the shared watcher is about to handle made while a frame was being drawn (so
+  // its pass lands a frame late), by the plugin's own pass (an echo), or in time?
+  frameState() { return !perf.on ? '' : perf.ownWrite ? 'echo' : perf.inFrame ? 'late' : 'ok'; },
+  pass(state) { if (perf.on && state) perf.passes[state]++; },
+  passDone() {
+    if (!perf.on) return;
+    perf.ownWrite = true;
+    queueMicrotask(() => { perf.ownWrite = false; });
+  },
+  start() {
+    if (perf.on) return;
+    const win = host().defaultView;
+    perf.win = win; perf.on = true; perf.reset();
+    // inFrame is true from the start of a frame's drawing until the first task after it.
+    perf.channel = new MessageChannel();
+    perf.channel.port1.onmessage = () => { perf.inFrame = false; };
+    const tick = () => {
+      if (!perf.on) return;
+      perf.raf = win.requestAnimationFrame(tick);
+      perf.inFrame = true;
+      perf.channel.port2.postMessage(0);
+    };
+    perf.raf = win.requestAnimationFrame(tick);
+    const watch = (type, onEntry) => {
+      try {
+        const observer = new win.PerformanceObserver(list => { for (const entry of list.getEntries()) onEntry(entry); });
+        observer.observe({ type });
+        perf.observers.push(observer);
+      } catch (error) { /* this browser does not report that kind */ }
+    };
+    watch('longtask', entry => { perf.long.tasks++; perf.long.taskMs += entry.duration; });
+    watch('long-animation-frame', entry => {
+      perf.long.frames++; perf.long.frameMs += entry.duration;
+      if (entry.duration > perf.long.worst) perf.long.worst = entry.duration;
+      for (const script of entry.scripts || []) {
+        if (/main\.js\?t=/.test(script.sourceURL || '')) perf.long.pluginMs += script.duration; else perf.long.otherMs += script.duration;
+      }
+    });
+    watch('layout-shift', entry => {
+      if (entry.hadRecentInput) { perf.shifts.afterInput++; return; }
+      perf.shifts.count++; perf.shifts.score += entry.value;
+      for (const source of entry.sources || []) {
+        const node = source.node, el = node?.nodeType === 1 ? node : node?.parentElement;
+        if (!el) continue;
+        const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.') : '';
+        const name = el.tagName.toLowerCase() + (cls ? '.' + cls : '');
+        perf.shifts.sources.set(name, (perf.shifts.sources.get(name) || 0) + 1);
+      }
+    });
+  },
+  stop() {
+    if (!perf.on) return;
+    perf.on = false; perf.inFrame = false;
+    perf.win?.cancelAnimationFrame(perf.raf);
+    for (const observer of perf.observers) observer.disconnect();
+    perf.observers = [];
+    perf.channel?.port1.close();
+    perf.channel = null;
+  },
+};
+function togglePerf() {
+  try {
+    const on = !perf.on;
+    logseq.updateSettings({ debugPerf: on });
+    if (on) perf.start(); else perf.stop();
+    notify(on ? 'Measuring is on. Use Logseq, then run “Refinements: Copy performance report”' : 'Measuring is off');
+  } catch (error) { console.error(error); notify(`Could not change measuring: ${error.message}`, 'error'); }
+}
+// Shows what was measured since the last report (or since measuring began), saves the same text
+// in the plugin's settings file as perfReport, and starts counting afresh.
+async function copyPerfReport() {
+  if (!perf.on) return notify('Measuring is off. Run “Refinements: Turn measuring on or off” first', 'warning');
+  const ms = value => value.toFixed(1);
+  const lines = [await versionLine(), `measured for ${((Date.now() - perf.since) / 1000).toFixed(1)} s`, '',
+    'WATCHERS  calls · changes seen (added or removed · text · attributes) · attributes that fired'];
+  for (const [name, s] of perf.seenBy) {
+    const names = [...s.names].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([attr, n]) => `${attr} ${n}`).join(', ');
+    lines.push(`  ${name}: ${s.calls} · ${s.records} (${s.childList} · ${s.characterData} · ${s.attributes})${names ? ' · ' + names : ''}`);
+  }
+  lines.push('', 'UPDATES  calls · total ms · average ms · longest ms');
+  for (const [name, s] of [...perf.times].sort((a, b) => b[1].total - a[1].total))
+    lines.push(`  ${name}: ${s.n} · ${ms(s.total)} · ${ms(s.total / s.n)} · ${ms(s.max)}`);
+  lines.push('', 'STYLESHEETS  times built · times sent to Logseq · latest size in characters');
+  for (const [key, s] of perf.styles) lines.push(`  ${key}: ${s.built} · ${s.sent} · ${s.size}`);
+  const p = perf.passes, l = perf.long, sh = perf.shifts;
+  lines.push('', `SHARED WATCHER PASSES  in time ${p.ok} · a frame late ${p.late} · echo of the plugin's own changes ${p.echo}`,
+    `LONG TASKS (over 50 ms)  ${l.tasks} · ${ms(l.taskMs)} ms in all`,
+    `LONG FRAMES (over 50 ms)  ${l.frames} · ${ms(l.frameMs)} ms in all · worst ${ms(l.worst)} ms · plugin's code ${ms(l.pluginMs)} ms · other code ${ms(l.otherMs)} ms`,
+    `LAYOUT SHIFTS (things moving without input)  ${sh.count} · score ${sh.score.toFixed(4)} · right after input (not counted) ${sh.afterInput}`);
+  for (const [name, n] of [...sh.sources].sort((a, b) => b[1] - a[1]).slice(0, 12)) lines.push(`  moved ${n}×: ${name}`);
+  const text = lines.join('\n');
+  logseq.updateSettings({ perfReport: text });
+  perf.reset();
+  showDiagnostics(text);
+}
+/* PERF-DEBUG end */
+
 function main() {
   logseq.beforeunload(runUnloadTasks);
   takeOverFromEarlierCopy();
+  try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { console.warn('Refinements: measuring could not start', error); }
+  onUnload(perf.stop);
   logseq.useSettingsSchema(settingsSchema);
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
   logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });
@@ -3015,6 +3170,7 @@ function main() {
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
   onUnload(logseq.DB.onChanged(({ txData } = {}) => {
+    perf.add('DB.onChanged (calls only)', 0);
     if (foldLog.start) {
       const folds = (txData || []).filter(d => String(d?.[1] ?? d?.a ?? '').includes('collapsed')).length;
       logFold(`database changed (${txData?.length ?? '?'} facts${folds ? `, ${folds} saved fold changes` : ''})`);
@@ -3050,6 +3206,8 @@ function main() {
     ['fold-query-results', 'Fold all results in this query', () => foldQueryResults(null, true)],
     ['unfold-query-results', 'Unfold all results in this query', () => foldQueryResults(null, false)],
     ['copy-fold-log', 'Copy fold log (troubleshooting)', copyFoldLog],
+    ['toggle-perf', 'Turn measuring on or off (troubleshooting)', togglePerf],
+    ['copy-perf-report', 'Copy performance report (troubleshooting)', copyPerfReport],
     ['choose-list-properties', 'Choose properties shown in this list', chooseListProperties],
     ['fill-missing-dates', 'Fill missing dates from journal days', fillMissingDates],
   ];

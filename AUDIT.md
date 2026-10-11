@@ -78,7 +78,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 1 | Send a comment instead of an empty stylesheet | A1 | 0.2.99 | done |
 | 2 | Version guard in `loadPageKind`; clear page state on route change | A2, A3 | 0.2.100 | done |
 | 3 | New copy stops a leftover one and sweeps strays; crumb marks cleared on unload | A4, A5 | 0.2.101 | done |
-| 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102 | open |
+| 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102 | tool added; baseline not recorded |
 | 5 | Early exits in `updateDateLinks` | B2 (part) | | open |
 | 6 | Attribute marks replace the per-block stylesheet | B3 | | open |
 | 7 | Merge the observers; direction decided by the baseline | B1, B2 | | open |
@@ -103,8 +103,9 @@ Planned mitigation (step 11): a selector health check in the troubleshooting rep
 
 ## Baseline (to record at step 4)
 
-Turn on measuring, reload the plugin, then after each of these run
-**Refinements: Copy performance report**:
+Run **Refinements: Turn measuring on or off (troubleshooting)**, then after each of these run
+**Refinements: Copy performance report (troubleshooting)**. Each report is also saved as
+`perfReport` in `~/.logseq/settings/logseq-db-refinements.json` and covers the time since the last one:
 
 1. Open the largest page and wait 5 seconds.
 2. Scroll top to bottom for 10 seconds.

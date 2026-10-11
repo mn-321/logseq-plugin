@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.101.
+A personal starter plugin for Logseq DB graphs. Version 0.2.102.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -246,3 +246,5 @@ Version 0.2.99 fixes switches that did not switch off. Turning off **Faint nesti
 Version 0.2.100 fixes two cases of one page's details showing on another. (1) After leaving a page whose lists hide some properties or the Body, the next page's blocks could briefly lose their properties or the notes under them; the choice of the page you left is now dropped the moment you navigate, and the new page's own choice applies once its details have loaded. (2) The “Alias of …” line could stay missing after quick navigation, because an older page lookup could finish after a newer one and replace it; only the newest lookup's answer is used now. Audit items A2 and A3 in `AUDIT.md`.
 
 Version 0.2.101 makes Reload safe when the previous copy did not finish cleaning up. The plugin's screen watchers live in Logseq's window, so if a reload was cut short (an error, or Logseq's ten-second limit) the old copy kept running beside the new one, which could double the Search button, cues and labels. A new copy now stops any earlier copy first and removes whatever it left on screen. The marks that hide a lone property name above a group of references are also removed when the plugin is turned off; before, that line could stay hidden until Logseq redrew it. No change when a reload goes normally. Audit items A4 and A5 in `AUDIT.md`.
+
+Version 0.2.102 adds a measuring tool for troubleshooting. It is off unless you turn it on, and it changes nothing on screen. Run **Refinements: Turn measuring on or off (troubleshooting)**, use Logseq for a while, then run **Refinements: Copy performance report (troubleshooting)**. The report lists how often each of the plugin's screen watchers was called and for what, how long each update took, how large the per-block stylesheet is, whether the shared watcher's passes landed in time or a frame late, and the long tasks, long frames and layout shifts the browser recorded. Each report covers the time since the previous one, and is also saved as `perfReport` in the plugin's settings file. It is one marked block in `main.js` (PERF-DEBUG) and can be removed once the audit's remaining steps are done. Step 4 in `AUDIT.md`.
