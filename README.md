@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.98.
+A personal starter plugin for Logseq DB graphs. Version 0.2.99.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -240,3 +240,5 @@ Version 0.2.98 puts property lists back to Logseq's own look and tidies three cu
 - **Dates.** A date no longer picks up the dot and dashed line of a link to a block. A date with a time keeps the space between them (“Dec 31st, 2024 18:00”). In a property list the date keeps its grey box but takes the weight of the values around it.
 - **Inherited properties.** The “Inherited from #Media: …” line now closes the tag's own “Tag Properties” list, under **Add property**, so it shows only while the title's triangle has the properties open. It arrives with the list instead of a moment later, and no longer flashes on the next page when you leave a tag page. The “Alias of …” line no longer flashes there either.
 - **The link that points here.** Under Linked references, the link to the page you are on sits in a very light grey box, so it can be found among a block's other links. Turn off with **Mark the link to this page in Linked references**.
+
+Version 0.2.99 fixes switches that did not switch off. Turning off **Faint nesting lines** (with the tag background off) left the lines faint until the plugin was reloaded, and the dot before labelled block links and the “Doctor: …” / “via …” labels could stay after their settings were turned off. Logseq ignores an empty stylesheet, so the old rules were never replaced; the plugin now sends a one-line placeholder instead. Found by the audit recorded in `AUDIT.md` (A1). The version before the audit's fixes is saved in `backups/logseq-db-refinements-0.2.98`.

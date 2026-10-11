@@ -114,6 +114,9 @@ const tokensCss = `:root {
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
 }`;
+// Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
+// counts as content, so sending one is how a stylesheet is cleared.
+const orNoRules = style => style.trim() ? style : '/* no rules */';
 const wash = pct => `color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(${pct}), transparent)`;
 const dateStyles = selectors => {
   // Leave date values in tables at native size/color.
@@ -1325,14 +1328,14 @@ async function refreshCues(version = ++refreshVersion) {
     const style = styles.join('\n');
     if (style !== lastCueStyle) { // unchanged styles need no re-render
       lastCueStyle = style;
-      logseq.provideStyle({ key: 'personal-db-context-cues', style });
+      logseq.provideStyle({ key: 'personal-db-context-cues', style: orNoRules(style) });
     }
   } catch (error) {
     if (version !== refreshVersion) return;
     childAssetCues.clear();
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
     lastCueStyle = '';
-    logseq.provideStyle({ key: 'personal-db-context-cues', style: '' });
+    logseq.provideStyle({ key: 'personal-db-context-cues', style: orNoRules('') });
     console.warn('Refinements: could not refresh current-page cues', error);
   }
 }
@@ -1694,7 +1697,7 @@ const hierarchyParts = {
 };
 function applyHierarchy() {
   const style = Object.keys(hierarchyParts).filter(setting).map(key => hierarchyParts[key]).join('\n');
-  logseq.provideStyle({ key: 'personal-db-hierarchy', style });
+  logseq.provideStyle({ key: 'personal-db-hierarchy', style: orNoRules(style) });
 }
 
 const settingsSchema = [
