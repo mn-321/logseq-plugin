@@ -762,7 +762,7 @@ async function loadJournalDates() {
 
 /* Date labels are classified synchronously during DOM updates, before paint.
    Global journal styles stay installed across navigation. */
-const dateLinks = { document: null, originals: new Map(), timer: null, version: 0, uuids: new Set(), names: new Set() };
+const dateLinks = { document: null, originals: new Map(), version: 0, uuids: new Set(), names: new Set() };
 function dateLinkName(name) {
   const value = String(name || '').trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1');
   const month = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
@@ -778,11 +778,6 @@ function cleanPageLabel(value, title) {
   if (!title || !value.startsWith(title)) return value;
   const suffix = value.slice(title.length);
   return /^(?:\s+#[^#]+)+$/.test(suffix) ? title : value;
-}
-let labelTitlesTimer;
-function scheduleLabelTitles() {
-  clearTimeout(labelTitlesTimer);
-  labelTitlesTimer = setTimeout(loadPageLabelTitles, 1000);
 }
 async function loadPageLabelTitles() {
   const generation = ++pageLabelGeneration;
@@ -1029,10 +1024,6 @@ async function refreshJournalDates() {
   dateLinks.names = dates.names;
   updateDateLinks();
 }
-function scheduleJournalDates() {
-  clearTimeout(dateLinks.timer);
-  dateLinks.timer = setTimeout(refreshJournalDates, 1000);
-}
 function startDateLinks() {
   try {
     const doc = host();
@@ -1056,8 +1047,6 @@ function stopDateLinks() {
   for (const [el, [attr]] of cueMarks.marked) el.removeAttribute(attr);
   cueMarks.marked.clear();
   ++dateLinks.version;
-  clearTimeout(dateLinks.timer);
-  clearTimeout(labelTitlesTimer);
   restorePageLabels();
   childAssetCues.clear();
   for (const cue of dateLinks.document?.querySelectorAll('.refinement-child-assets') || []) cue.remove();
@@ -2463,11 +2452,6 @@ async function loadPropertyNames() {
     if (dateLinks.document) updateListProps(dateLinks.document);
   } catch (error) { console.warn('Refinements: could not load property names', error); }
 }
-let propertyNamesTimer;
-function schedulePropertyNames() {
-  clearTimeout(propertyNamesTimer);
-  propertyNamesTimer = setTimeout(loadPropertyNames, 1500);
-}
 const ownedBy = (el, row) => el.closest('.ls-block') === row;
 function ownQuery(block) {
   const query = block.querySelector('.custom-query');
@@ -2773,7 +2757,7 @@ function updateInlineValues(doc, inline) {
 // After an edit, reload the values of every one-line row on screen.
 function refreshInlineValues() {
   for (const span of listProps.injected) { const key = span.getAttribute('data-key'); if (key) listProps.pending.add(key); }
-  if (listProps.pending.size) scheduleInlineValues(800);
+  if (listProps.pending.size) scheduleInlineValues(0);
 }
 function scheduleInlineValues(delay = 800) {
   clearTimeout(listProps.inlineTimer);
@@ -2938,7 +2922,8 @@ async function chooseListProperties(event) {
    1. a block written on a journal page: that page's day;
    2. a page made from a journal block: the journal it sits under;
    3. a page created with [[Name]]#Tag in a journal: the earliest journal that links to it. */
-const autoDate = { started: Date.now(), timer: null, running: false, warned: false };
+const autoDate = { started: Date.now(), running: false, again: false, warned: false, tried: new Map() };
+const AUTO_DATE_TRIES = 3;
 const autoDateTagNames = () => setting('autoDateTags').split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
 const autoDatePropertyName = () => setting('autoDateProperty').trim() || 'Date';
 async function autoDateSetup() {
@@ -3001,20 +2986,27 @@ async function fillDates(setup, records) {
   return filled;
 }
 async function autoDateNew() {
-  if (autoDate.running || !setting('autoDate')) return;
+  if (!setting('autoDate')) return;
+  if (autoDate.running) { autoDate.again = true; return; } // looked at once more when this round ends
   autoDate.running = true;
   try {
     const setup = await autoDateSetup();
     if (!setup) return;
     // Only records made since the plugin started; older ones wait for the fill command.
     const records = await undatedRecords(setup, autoDate.started - 60000);
+    // Filling a date changes the database, which brings the plugin back here. A record whose date
+    // still counts as empty after being filled must not be filled again and again, so each record
+    // gets a few tries per session; the fill command remains for anything left over.
+    for (const uuid of [...records.keys()]) {
+      const tries = autoDate.tried.get(uuid) || 0;
+      if (tries >= AUTO_DATE_TRIES) records.delete(uuid); else autoDate.tried.set(uuid, tries + 1);
+    }
     if (records.size) await fillDates(setup, records);
   } catch (error) { console.warn('Refinements: journal dates could not be checked', error); }
-  finally { autoDate.running = false; }
-}
-function scheduleAutoDate() {
-  clearTimeout(autoDate.timer);
-  autoDate.timer = setTimeout(autoDateNew, 1500);
+  finally {
+    autoDate.running = false;
+    if (autoDate.again) { autoDate.again = false; autoDateNew(); }
+  }
 }
 function confirmBox(message, okLabel) {
   return modal(false, (box, finish, doc) => {
@@ -3229,6 +3221,28 @@ async function logPerfReport() {
 }
 /* PERF-DEBUG end */
 
+/* After the database changes, everything the plugin knows from it is looked up again in one round:
+   as soon as the changes pause, or every few seconds while they keep coming (typing). Seven
+   separate timers used to do this, finishing at three different moments after each edit. */
+const dbWork = { timer: 0, since: 0 };
+const DB_PAUSE = 800, DB_LONGEST = 2500;
+function scheduleDbWork() {
+  const now = Date.now();
+  if (!dbWork.since) dbWork.since = now;
+  clearTimeout(dbWork.timer);
+  dbWork.timer = setTimeout(runDbWork, Math.max(0, Math.min(DB_PAUSE, dbWork.since + DB_LONGEST - now)));
+}
+function runDbWork() {
+  dbWork.since = 0;
+  perf.add('database round (calls only)', 0);
+  // The page's cues and details are part of this round; a look-up still waiting from a page change is not needed too.
+  clearTimeout(refreshTimer);
+  clearTimeout(pageKind.timer);
+  const failed = error => console.warn('Refinements: a look-up after a change failed', error);
+  for (const job of [loadPageLabelTitles, refreshCues, refreshJournalDates, loadPropertyNames, loadPageKind, refreshInlineValues, autoDateNew]) {
+    try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); }
+  }
+}
 function main() {
   logseq.beforeunload(runUnloadTasks);
   takeOverFromEarlierCopy();
@@ -3273,9 +3287,9 @@ function main() {
       const folds = (txData || []).filter(d => String(d?.[1] ?? d?.a ?? '').includes('collapsed')).length;
       logFold(`database changed (${txData?.length ?? '?'} facts${folds ? `, ${folds} saved fold changes` : ''})`);
     }
-    scheduleLabelTitles(); scheduleRefresh(800); scheduleJournalDates(); schedulePropertyNames();
-    scheduleAutoDate(); schedulePageKind(800); refreshInlineValues();
+    scheduleDbWork();
   }));
+  onUnload(() => clearTimeout(dbWork.timer));
   onUnload(logseq.Editor.onInputSelectionEnd(async ({ text, start, end }) => {
     const block = await logseq.Editor.getCurrentBlock();
     const content = await logseq.Editor.getEditingBlockContent();

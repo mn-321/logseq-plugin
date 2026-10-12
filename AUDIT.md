@@ -47,8 +47,8 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | B1 | Four always-on whole-page observers; one redraw causes 2–4 full passes | 26, 927, 1103, 2155 | M–H | fixed 0.2.106 |
 | B2 | `updateDateLinks` runs eight page scans on every change, including any `class` change; the cue scan searches each block before checking it has a cue | 865, 929, 1153, 880 | M | reduced 0.2.104, 0.2.106 (one pass per change; scans are still whole-page) |
 | B3 | Stylesheet with four rules per referenced block in the whole graph (about 1.7 KB each) | `refreshCues` 1293 | H in a big graph | fixed 0.2.105 |
-| B4 | Seven timers per database change, about 20 queries, settling at 800, 1000 and 1500 ms | 2979 | L–M | open |
-| B5 | Auto-date could rewrite the same record every 1.5 s if a write lands but the "no date" test still matches | `autoDateNew` 2881 | L | open |
+| B4 | Seven timers per database change, about 20 queries, settling at 800, 1000 and 1500 ms | 2979 | L–M | fixed 0.2.108 |
+| B5 | Auto-date could rewrite the same record every 1.5 s if a write lands but the "no date" test still matches | `autoDateNew` 2881 | L | fixed 0.2.108 |
 | B6 | Title tags are re-measured only when page content changes, so they can sit off after a sidebar toggle | `updateTitleTags` 1987 | M (measured: about 800 px off with the right sidebar open) | fixed 0.2.107 |
 | B7 | Slow selectors: hover rule for nesting lines (1682), reference-row `*` rule (274), `div:has(> …crumb)` (305) | CSS | M | open |
 | B8 | Fold log observer never stops after the first fold command | 2493 | L | open |
@@ -83,7 +83,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 6 | Attribute marks replace the per-block stylesheet | B3 | 0.2.105 | done; drawn styles identical on 8 test pages |
 | 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | 0.2.106 | done; drawn output identical on 8 test pages |
 | 8 | Title tags follow size changes | B6 | 0.2.107 | done; gap stays 10 px with either sidebar opened or closed |
-| 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | | open |
+| 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | 0.2.108 | done; two quick edits gave one round. Auto-date itself not exercised (the test graph has no Occurrence or Results tag) |
 | 10 | Tighten selectors; decide the hover rule from measurements | B7 | | open |
 | 11 | Small fixes | B8, B9, C1–C6 | | open |
 
