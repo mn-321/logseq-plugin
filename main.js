@@ -1915,8 +1915,11 @@ async function searchInSidebar() {
     const existing = sidebarInput();
     if (existing && existing.offsetParent) { existing.focus(); existing.select(); return; }
     step = 'opening search';
-    // Don't wait on this call: it can finish without replying to the plugin.
-    Promise.resolve(logseq.App.invokeExternalCommand('logseq.go/search')).catch(() => {});
+    // Logseq's own search button, pressed as a click would; the command call is the fallback (it opens
+    // search too, but Logseq then logs an error about a reply it cannot clone).
+    const button = doc.getElementById('search-button') || doc.querySelector('#head button[data-keep-selection]');
+    if (button) button.click();
+    else Promise.resolve(logseq.App.invokeExternalCommand('logseq.go/search')).catch(() => {});
     const root = await waitFor(() => [...doc.querySelectorAll('.cp__cmdk')].find(el => !el.closest('#right-sidebar')));
     if (!root) { notify('Search did not open. You can also press Mod+Enter inside search to keep it in the sidebar.', 'warning'); return; }
     step = 'moving search to the sidebar';
@@ -3687,6 +3690,9 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
+
 
 
 

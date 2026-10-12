@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.127.
+A personal starter plugin for Logseq DB graphs. Version 0.2.128.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -336,3 +336,5 @@ Version 0.2.125 brings this file up to date and drops one leftover. The Commands
 Version 0.2.126 corrects one row of the Appearance table. In Logseq 2.0.2 a tag typed into a block's text is drawn as plain text (the tag itself appears at the right edge of the block), so the "Tags on a block" rule has nothing to act on there; the row now says so. No code changed.
 
 Version 0.2.127 fixes **Open selected text as page** and **Link selected text to a page** in a block that also holds a link to a block. The editor shows such a link as its id, while a link to a page is shown by name; the plugin expected both by name, so the editor's text never matched the saved text, and the command said the block had changed and added no link. A link to a block is now kept as its id when the two texts are compared. Found by the readiness review's command run.
+
+Version 0.2.128 opens search for **Search in right sidebar** by pressing Logseq's own search button, as a click would, instead of calling the search command through the plugin API. The call worked, but Logseq then wrote an error to its console each time ("could not be cloned", about the reply it tried to send back). The command call stays as a fallback if the button is not found.
