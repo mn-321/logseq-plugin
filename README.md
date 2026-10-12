@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.109.
+A personal starter plugin for Logseq DB graphs. Version 0.2.110.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -262,3 +262,5 @@ Version 0.2.107 keeps a page's tags beside the actions above its title when the 
 Version 0.2.108 looks things up once after an edit instead of in three stages. After every change to the database, seven separate timers re-read page titles, cues, journal dates, property names, the page's details, one-line values and dates to fill, finishing about 0.8, 1.0 and 1.5 seconds later, so cues could update in visible steps. One scheduler now starts them all together once the changes pause (or every 2.5 seconds while you keep typing). Checked in Logseq: two quick edits led to one round. Auto-date also gets a safety limit: filling a date changes the database, which brings the plugin back to check again, and a record whose date still counted as empty afterwards could have been refilled on every later change; each record now gets at most three tries per session, and **Fill missing dates from journal days** remains for anything left over. Step 9 in `AUDIT.md` (B4, B5).
 
 Version 0.2.109 makes one style rule cheaper, with no visible change. To hide a lone property name above a group of references, the plugin asked every `div` on the page whether it directly held such a line. The box that holds the line is now marked itself, so the rule that hides it is a plain one. Part of step 10 in `AUDIT.md` (B7); the hover rule for nesting lines and the rule for reference-only rows are unchanged.
+
+Version 0.2.110 makes the fold-all commands and their log tell the truth. **Fold all results** and **Unfold all results** used to say “Folded every result” whatever happened; they now say how many results they are changing, say so when every result is already as asked, and warn when some results have no fold arrow to press. The fold log's “database changed” line always read “0 facts”, because Logseq no longer passes change details to plugins; it now gives the number of blocks that changed. The watcher behind the fold log used to keep running for the rest of the session after the first fold command; it now stops when you leave the page, with the fold-all choice. Audit items B8, C2 and C5 in `AUDIT.md`. Not yet tried in Logseq: the test graph has no query to fold.

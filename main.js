@@ -2606,7 +2606,7 @@ const resultRow = row => [...listFold.wanted.keys()].some(key => listRows(row.ow
 function startFoldLog() {
   if (foldLog.observer) return;
   const doc = host(), win = doc.defaultView;
-  foldLog.start = Date.now();
+  foldLog.start = foldLog.start || Date.now();
   foldLog.observer = new win.MutationObserver(records => {
     let added = 0, removed = 0;
     for (const record of records) {
@@ -2624,6 +2624,8 @@ function startFoldLog() {
     if (added || removed) logFold(`results drawn: ${added} added, ${removed} removed`);
   });
   foldLog.observer.observe(doc.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-collapsed'] });
+  if (foldLog.listening) return;
+  foldLog.listening = true;
   listen(win, ['scroll'], () => { if (Date.now() - foldLog.scrollAt > 1000) { foldLog.scrollAt = Date.now(); logFold('scrolling'); } });
   listen(doc, ['focusin'], event => { if (event.target.matches?.('textarea')) logFold('started editing a block'); });
   listen(doc, ['focusout'], event => { if (event.target.matches?.('textarea')) logFold('stopped editing a block'); });
@@ -2696,6 +2698,9 @@ function watchFoldState() {
 }
 function stopFoldState() {
   if (listFold.wanted.size) logFold('page changed: fold-all choice cleared');
+  // The log's watcher looks at every change on screen, so it runs only while a choice is active.
+  foldLog.observer?.disconnect();
+  foldLog.observer = null;
   listFold.wanted.clear();
   listFold.observer?.disconnect();
   listFold.observer = null;
@@ -2732,10 +2737,17 @@ async function foldQueryResults(event, collapse) {
     listFold.wanted.set(target.key, { collapse, round: ++listFold.round });
     // A new command applies to every result again, including ones you changed by hand before.
     listFold.manual = new WeakSet();
+    // What there is to do, counted before pressing: results not yet as asked, and how many of those have no arrow.
+    const toChange = listRows(host(), target.key).filter(row => (row.getAttribute('data-collapsed') === 'true') !== collapse &&
+      !(collapse && row.getAttribute('haschild') === 'false'));
+    const noArrow = toChange.filter(row => !foldArrow(row)).length;
     watchFoldState();
     applyListFolds(host());
     recheckListFolds();
-    notify(`${collapse ? 'Folded' : 'Unfolded'} every result in ${target.label}`);
+    const done = collapse ? 'folded' : 'unfolded', n = toChange.length;
+    if (noArrow) notify(`${noArrow} of ${n} result${n === 1 ? '' : 's'} in ${target.label} ${noArrow === 1 ? 'has' : 'have'} no fold arrow to press, so ${noArrow === 1 ? 'it was' : 'they were'} left as ${noArrow === 1 ? 'it is' : 'they are'}. Run “Refinements: Copy fold log” for details`, 'warning');
+    else if (!n) notify(`Every result drawn in ${target.label} is already ${done}; results drawn later will be ${done} too`);
+    else notify(`${collapse ? 'Folding' : 'Unfolding'} ${n} result${n === 1 ? '' : 's'} in ${target.label}; results drawn later will be ${done} too`);
   } catch (error) { console.error(error); notify(`Could not fold the results: ${error.message}`, 'error'); }
 }
 /* One line per record: for lists set to the timeline layout, the chosen values are written after
@@ -3295,12 +3307,9 @@ function main() {
     scheduleRefresh(); schedulePageKind();
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
-  onUnload(logseq.DB.onChanged(({ txData } = {}) => {
+  onUnload(logseq.DB.onChanged(({ blocks } = {}) => {
     perf.add('DB.onChanged (calls only)', 0);
-    if (foldLog.start) {
-      const folds = (txData || []).filter(d => String(d?.[1] ?? d?.a ?? '').includes('collapsed')).length;
-      logFold(`database changed (${txData?.length ?? '?'} facts${folds ? `, ${folds} saved fold changes` : ''})`);
-    }
+    if (foldLog.start) logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
     scheduleDbWork();
   }));
   onUnload(() => clearTimeout(dbWork.timer));
