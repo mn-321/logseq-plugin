@@ -398,9 +398,10 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
    that points to that day) sits in a clear box, stronger than the one behind a date. */
 #main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] { background: var(--rf-here) !important; }
 /* Room around the words inside the row (no negative margin: Logseq clips a property row at its edge,
-   which used to cut the box of the last value). */
-#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here]:not([data-refinement-date]) {
-  padding: .12em .3em; margin: 0 .05em; border-radius: .35em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+   which used to cut the box of the last value). A date takes the same room and corners; marked
+   !important because a date in a property row is otherwise set to no padding and square corners. */
+#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] {
+  padding: .06em .42em !important; margin: 0 .05em; border-radius: .4em !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 `],
   ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
