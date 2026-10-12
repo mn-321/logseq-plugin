@@ -19,38 +19,63 @@ function runUnloadTasks() {
 // The Logseq window. The plugin runs in a frame inside it.
 const host = () => window.parent.document;
 
-/* One shared watcher for Logseq's screen. Each part that adjusts what Logseq draws registers an
-   update function; after any change on screen they all run once, in the next frame, so many
-   changes at once cost one pass. One part failing does not stop the others. */
-const domWatch = { updaters: new Set(), observer: null, frame: 0, win: null };
-function watchDom(update) {
-  const doc = host(), win = doc.defaultView;
-  domWatch.updaters.add(update);
-  if (!domWatch.observer) {
-    domWatch.win = win;
-    domWatch.observer = new win.MutationObserver(records => {
-      perf.seen('shared watcher', records);
-      if (domWatch.frame) return;
-      const timing = perf.frameState();
-      domWatch.frame = win.requestAnimationFrame(() => {
-        domWatch.frame = 0;
-        perf.pass(timing);
-        for (const fn of domWatch.updaters) {
-          try { perf.time(fn.name, () => fn(doc)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
-        }
-        perf.passDone();
-      });
-    });
-    domWatch.observer.observe(doc.body, { subtree: true, childList: true, characterData: true });
+/* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
+   stop the others.
+   - Early ones (watchDomEarly) run at once on every change, before the screen is drawn, so that
+     Logseq's own look never shows first. They are given the changes and must be quick.
+   - The others (watchDom) run once in the next frame, so many changes at once cost one pass.
+   The watcher does not react to what these functions change themselves: what the early ones
+   change is set aside, and what the later pass changes is shown to the early ones once. */
+const domWatch = { updaters: new Set(), early: [], observer: null, frame: 0, win: null, doc: null };
+function runEarly(records) {
+  for (const fn of domWatch.early) {
+    try { perf.time(fn.name, () => fn(domWatch.doc, records)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
   }
+  domWatch.observer?.takeRecords();
+}
+function ensureDomWatch() {
+  if (domWatch.observer) return domWatch.doc;
+  const doc = host(), win = doc.defaultView;
+  domWatch.doc = doc;
+  domWatch.win = win;
+  domWatch.observer = new win.MutationObserver(records => {
+    perf.seen('screen watcher', records);
+    runEarly(records);
+    // A change of class or id alone (pointing, selecting) needs no later pass.
+    if (domWatch.frame || !records.some(record => record.type !== 'attributes')) return;
+    const timing = perf.frameState();
+    domWatch.frame = win.requestAnimationFrame(() => {
+      domWatch.frame = 0;
+      perf.pass(timing);
+      for (const fn of domWatch.updaters) {
+        try { perf.time(fn.name, () => fn(doc)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
+      }
+      perf.passDone();
+      const own = domWatch.observer?.takeRecords() || [];
+      if (own.length) runEarly(own);
+    });
+  });
+  domWatch.observer.observe(doc.body, { subtree: true, childList: true, characterData: true,
+    attributes: true, attributeFilter: ['data-ref', 'data-uuid', 'class', 'blockid', 'data-hl-type'] });
+  return doc;
+}
+function watchDom(update) {
+  const doc = ensureDomWatch();
+  domWatch.updaters.add(update);
   update(doc);
 }
+function watchDomEarly(update) {
+  ensureDomWatch();
+  domWatch.early.push(update);
+}
+const addsElements = records => records.some(record => record.type === 'childList');
 function stopWatchingDom() {
   domWatch.observer?.disconnect();
   if (domWatch.frame) domWatch.win?.cancelAnimationFrame(domWatch.frame);
   domWatch.observer = null;
   domWatch.frame = 0;
   domWatch.updaters.clear();
+  domWatch.early.length = 0;
 }
 
 /* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
@@ -737,7 +762,7 @@ async function loadJournalDates() {
 
 /* Date labels are classified synchronously during DOM updates, before paint.
    Global journal styles stay installed across navigation. */
-const dateLinks = { document: null, observer: null, originals: new Map(), timer: null, version: 0, uuids: new Set(), names: new Set() };
+const dateLinks = { document: null, originals: new Map(), timer: null, version: 0, uuids: new Set(), names: new Set() };
 function dateLinkName(name) {
   const value = String(name || '').trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1');
   const month = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
@@ -1013,14 +1038,8 @@ function startDateLinks() {
     const doc = host();
     dateLinks.document = doc;
     updateDateLinks();
-    // Its own watcher, not the shared one: this runs before the screen is painted, so the native
-    // look never flashes.
-    dateLinks.observer = new doc.defaultView.MutationObserver(records => {
-      perf.seen('dates and cues watcher', records);
-      perf.time('updateDateLinks (whole)', updateDateLinks);
-    });
-    dateLinks.observer.observe(doc.body, { childList: true, subtree: true,
-      characterData: true, attributes: true, attributeFilter: ['data-ref', 'data-uuid', 'class'] });
+    // Early: this runs before the screen is painted, so the native look never flashes.
+    watchDomEarly(updateDateLinks);
     onUnload(stopDateLinks);
   } catch (error) { console.warn('Refinements: immediate date styling is unavailable', error); }
   refreshJournalDates();
@@ -1039,7 +1058,6 @@ function stopDateLinks() {
   ++dateLinks.version;
   clearTimeout(dateLinks.timer);
   clearTimeout(labelTitlesTimer);
-  dateLinks.observer?.disconnect();
   restorePageLabels();
   childAssetCues.clear();
   for (const cue of dateLinks.document?.querySelectorAll('.refinement-child-assets') || []) cue.remove();
@@ -1054,7 +1072,7 @@ function stopDateLinks() {
 }
 
 /* Move native PDF links, keeping Logseq's own highlight-navigation handler. */
-const pdfCitations = { document: null, observer: null, records: new Map(), blocks: new Map(), sources: new Map(), pageUuid: null };
+const pdfCitations = { document: null, records: new Map(), blocks: new Map(), sources: new Map(), pageUuid: null };
 async function pdfAnnotationSources(tree) {
   const ids = treeIds(tree);
   let page;
@@ -1100,8 +1118,7 @@ function pdfSourceContext(prefix, sourceUuid) {
 function updatePdfCitations() {
   const doc = pdfCitations.document;
   if (!doc) return;
-  pdfCitations.observer?.disconnect();
-  try {
+  {
     if (!setting('pdfCitations')) return restorePdfCitations();
     for (const [prefix] of pdfCitations.records) {
       if (!prefix.isConnected) pdfCitations.records.delete(prefix);
@@ -1187,9 +1204,6 @@ function updatePdfCitations() {
       else block.setAttribute('data-refinement-pdf-citation-block', original);
       pdfCitations.blocks.delete(block);
     }
-  } finally {
-    pdfCitations.observer?.observe(doc.body, { subtree: true, childList: true, characterData: true,
-      attributes: true, attributeFilter: ['blockid', 'data-ref', 'data-uuid', 'data-hl-type'] });
   }
 }
 function startPdfCitations() {
@@ -1197,11 +1211,8 @@ function startPdfCitations() {
     const doc = host();
     if (!doc.body) return;
     pdfCitations.document = doc;
-    // Runs before paint (not on the shared watcher), so the native citation never flashes.
-    pdfCitations.observer = new doc.defaultView.MutationObserver(records => {
-      perf.seen('PDF citations watcher', records);
-      perf.time('updatePdfCitations', updatePdfCitations);
-    });
+    // Early (before paint), so the native citation never flashes.
+    watchDomEarly(updatePdfCitations);
     updatePdfCitations();
     onUnload(stopPdfCitations);
   } catch (error) {
@@ -1210,7 +1221,6 @@ function startPdfCitations() {
   }
 }
 function stopPdfCitations() {
-  pdfCitations.observer?.disconnect();
   restorePdfCitations();
   pdfCitations.document = null;
 }
@@ -1891,6 +1901,16 @@ function pageHeaderOf(title) {
          !header.parentElement.querySelector('.ls-block, .references, .ls-page-blocks')) header = header.parentElement;
   return header;
 }
+const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
+// Whether any of these changes added something to a page title, or added a page title.
+function touchesTitle(records) {
+  for (const record of records) {
+    if (record.type !== 'childList') continue;
+    if (record.target.nodeType === 1 && record.target.closest(PAGE_TITLE)) return true;
+    for (const node of record.addedNodes) if (node.nodeType === 1 && (node.matches(PAGE_TITLE) || node.querySelector(PAGE_TITLE))) return true;
+  }
+  return false;
+}
 function pageTitles(doc) {
   return doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title, h1.title)');
 }
@@ -1935,6 +1955,7 @@ function startTitleChrome() {
 #main-content-container .is-page-title-row:hover .block-control-wrap a.block-control { opacity: 1 !important; }
 ` });
     watchDom(updateTitleChrome);
+    titleChrome.started = true;
     onUnload(() => {
       for (const el of titleChrome.marked) el.removeAttribute('data-refinement-always-shown');
       titleChrome.marked.clear();
@@ -2226,16 +2247,19 @@ function startPageKind() {
 :is(.refinement-alias-of, .refinement-inherited) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
     for (const stray of host().querySelectorAll('.refinement-inherited')) stray.remove(); // left by an earlier load
     watchDom(updatePageKind);
-    // The shared watcher waits for the next frame; the inherited line is put in the moment the
-    // property list is, so the two are painted together.
-    const lineWatch = new (host().defaultView.MutationObserver)(records => {
-      perf.seen('inherited line watcher', records);
-      perf.time('updateInheritedLine (immediate)', () => {
-        try { const doc = host(); updateInheritedLine(doc, currentTitle(doc)); } catch (error) { /* placed on the next frame */ }
-      });
+    // The later pass can land a frame after Logseq draws a title (measured: about one pass in four
+    // while moving between pages), which showed the tags at the far right first. So when a change
+    // touches a page title, the title's parts are placed at once as well.
+    watchDomEarly(function titleEarly(doc, records) {
+      if (!touchesTitle(records)) return;
+      if (titleChrome.started) updateTitleChrome(doc);
+      updatePageKind(doc);
     });
-    lineWatch.observe(host().body, { subtree: true, childList: true });
-    onUnload(() => { pageKind.stopped = true; lineWatch.disconnect(); });
+    // The inherited line is put in the moment the property list is, so the two are painted together.
+    watchDomEarly(function inheritedLineEarly(doc, records) {
+      if (addsElements(records)) updateInheritedLine(doc, currentTitle(doc));
+    });
+    onUnload(() => { pageKind.stopped = true; });
     // The tags are placed by measuring, so place them again when the window changes size.
     listen(host().defaultView, ['resize'], () => { try { updatePageKind(host()); } catch (error) { /* placed on the next change */ } });
     loadPageKind();
@@ -2783,6 +2807,9 @@ function startListProps() {
     // Remember where you last clicked, so the command palette knows which list you mean.
     listen(win, ['pointerdown'], event => { listProps.lastTarget = event.target; });
     watchDom(updateListProps);
+    watchDomEarly(function listPropsEarly(doc, records) {
+      if (addsElements(records) && listChoices().size) updateListProps(doc);
+    });
     watchDom(applyListFolds);
     loadPropertyNames();
     onUnload(() => {

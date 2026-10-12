@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.105.
+A personal starter plugin for Logseq DB graphs. Version 0.2.106.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -254,3 +254,5 @@ Version 0.2.103 lets the measuring tool from 0.2.102 report by itself. With the 
 Version 0.2.104 does less work on every screen change, with no visible difference. The scan that draws the `↳` cues used to search inside every block on the page before checking whether that block has a cue at all; it now checks first, and stops at once on a page with no cues. A date link that is already marked is no longer marked again on every pass. Step 5 in `AUDIT.md` (part of B2).
 
 Version 0.2.105 replaces the stylesheet that grew with your graph. To put a dot before a labelled link to a block, and the “Doctor: …” and “via …” labels on references, the plugin used to write four style rules for every referenced block in the whole graph (about 1.7 KB each) and re-send them when they changed. It now marks the links and rows that are actually on screen, as Logseq draws them, and one fixed set of rules does the drawing. On the test graph the stylesheet went from 4,000 to 8,000 characters, depending on the page, to a constant 2,700; in a large graph the old one would have run to megabytes. Every link, label and cue on eight test pages is drawn exactly as before (compared element by element). The “via …” labels of the page you left are also dropped the moment you navigate. Step 6 in `AUDIT.md` (B3).
+
+Version 0.2.106 merges the plugin's four always-on screen watchers into one. Before, every change Logseq made to the page called four separate watchers, and each of their own changes called the others again, so one redraw could mean two to four full passes. Now one watcher runs the quick before-paint updates (dates, cues, PDF citations, the inherited line) once per change, the rest once in the next frame, and it no longer reacts to its own changes. Measuring showed that the next-frame pass lands a frame late about one time in four while you move between pages, which is when a page's tags could show at the far right for an instant; the page title's parts (tags, `#Page`, the always-visible actions) are therefore also placed at once when a change touches a title, and newly drawn records in a list that hides properties are hidden before they are painted. Everything drawn on eight test pages is unchanged (compared element by element). Step 7 in `AUDIT.md` (B1, B2).

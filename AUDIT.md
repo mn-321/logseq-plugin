@@ -44,8 +44,8 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | A3 | `loadPageKind` has no version guard; an older answer can overwrite a newer one ("Alias of" goes missing) | 1875 | L–M | fixed 0.2.100 |
 | A4 | If clean-up fails on Reload, the old copy's observers keep running; nothing stops them | `runUnloadTasks` 7 | M | fixed 0.2.101 |
 | A5 | `data-refinement-property-crumb` is not removed on unload | `stopDateLinks` 935 | L | fixed 0.2.101 |
-| B1 | Four always-on whole-page observers; one redraw causes 2–4 full passes | 26, 927, 1103, 2155 | M–H | open |
-| B2 | `updateDateLinks` runs eight page scans on every change, including any `class` change; the cue scan searches each block before checking it has a cue | 865, 929, 1153, 880 | M | open |
+| B1 | Four always-on whole-page observers; one redraw causes 2–4 full passes | 26, 927, 1103, 2155 | M–H | fixed 0.2.106 |
+| B2 | `updateDateLinks` runs eight page scans on every change, including any `class` change; the cue scan searches each block before checking it has a cue | 865, 929, 1153, 880 | M | reduced 0.2.104, 0.2.106 (one pass per change; scans are still whole-page) |
 | B3 | Stylesheet with four rules per referenced block in the whole graph (about 1.7 KB each) | `refreshCues` 1293 | H in a big graph | fixed 0.2.105 |
 | B4 | Seven timers per database change, about 20 queries, settling at 800, 1000 and 1500 ms | 2979 | L–M | open |
 | B5 | Auto-date could rewrite the same record every 1.5 s if a write lands but the "no date" test still matches | `autoDateNew` 2881 | L | open |
@@ -81,7 +81,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 4 | Measuring tool (off by default), then record the baseline | — | 0.2.102, 0.2.103 | done on the test graph; a real graph still to measure |
 | 5 | Early exits in `updateDateLinks` | B2 (part) | 0.2.104 | done |
 | 6 | Attribute marks replace the per-block stylesheet | B3 | 0.2.105 | done; drawn styles identical on 8 test pages |
-| 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | | open |
+| 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | 0.2.106 | done; drawn output identical on 8 test pages |
 | 8 | Title tags follow size changes | B6 | | open |
 | 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | | open |
 | 10 | Tighten selectors; decide the hover rule from measurements | B7 | | open |
