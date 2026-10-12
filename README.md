@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.123.
+A personal starter plugin for Logseq DB graphs. Version 0.2.124.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -303,3 +303,5 @@ Version 0.2.121 makes the dot before a labelled link to a block (`[words]([[bloc
 Version 0.2.122 is a tidy-up with no visible change, from the readiness review. (1) A new copy of the plugin now also clears the `· n` reference counts and the one-line list values an earlier copy may have left behind. (2) The pattern that recognises a date is built once instead of for every link on every change. (3) The measuring tool's report lists the stylesheets again (its count was never filled in). (4) Two fields nobody read are gone from the page-kind state. (5) The lists of quietened sidebar items and hidden sidebar controls forget elements that Logseq has removed. (6) The tag-page and property-name look-ups keep only the newest answer, like the other look-ups. (7) The heading of every troubleshooting report no longer says "Styling details for this block".
 
 Version 0.2.123 draws the box around the link to the page on screen, under Linked references, from a mark instead of a stylesheet. The plugin used to write a small stylesheet for each page you opened, with the page's id baked into it and a rule that asked every block under the references whether it held such a link; it now marks the links that point here and the blocks that step back as Logseq draws them, before paint, and two fixed rules do the drawing, as the other cues have since 0.2.105. The look is unchanged, and the two settings (**Mark the link to this page in Linked references**, **Clearer Linked references**) still apply at once.
+
+Version 0.2.124 makes **Quiet these sidebar and toolbar items** work again in Logseq 2.0.2. A sidebar item there holds its name, its keyboard shortcut and a count as separate parts of one link ("Flashcards", "G F", "2"), and the plugin compared the names in the setting with all of that text run together, so nothing matched and no item was quietened. The name is now also compared with each part of the item on its own.

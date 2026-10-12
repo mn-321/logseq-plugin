@@ -3358,12 +3358,14 @@ function updateQuietUi(doc) {
   const names = quietItemNames();
   const clean = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
   const mark = el => { if (!el.hasAttribute('data-refinement-quiet')) { el.setAttribute('data-refinement-quiet', ''); quietUi.marked.add(el); } };
-  // Named sidebar/toolbar items: match visible text, title or aria-label.
+  // Named sidebar/toolbar items: the item's aria-label or title, its whole text, or the text of one of
+  // its own parts (a sidebar item holds its name, a keyboard shortcut and a count as separate parts).
   if (names.size) {
     for (const root of doc.querySelectorAll('#left-sidebar, #head')) {
       for (const el of root.querySelectorAll('a, button, [role="button"]')) {
-        const label = (el.getAttribute('aria-label') || el.getAttribute('title') || clean(el)).toLowerCase();
-        if (names.has(label)) mark(el);
+        if (el.parentElement?.closest('[data-refinement-quiet]')) continue;
+        const labels = [el.getAttribute('aria-label'), el.getAttribute('title'), clean(el), ...[...el.children].map(clean)];
+        if (labels.some(label => label && names.has(label.toLowerCase()))) mark(el);
       }
     }
   }
@@ -3683,6 +3685,7 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
 
 
 
