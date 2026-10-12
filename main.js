@@ -455,7 +455,8 @@ ${blockDot('.block-ref:not(:has(.prefix-link))')}
   content: '•'; opacity: var(--rf-faint); margin-right: .35em;
 }
 `],
-  ['pdfCitations', `/* Native PDF citations: normal excerpt text and a quiet source at its start. */
+  ['pdfCitations', `/* Native PDF citations: the excerpt reads as a quotation, “words” (source, p. n). The citation
+   stays Logseq's own link, moved after the words; an area selection keeps its image, citation first. */
 .block-content[data-type="annotation"] .prefix-link::before,
 .block-title-wrap > .prefix-link:has(> .hl-page)::before { content: none !important; display: none !important; }
 .block-title-wrap[data-refinement-pdf-line] { cursor: pointer; }
@@ -483,35 +484,32 @@ ${blockDot('.block-ref:not(:has(.prefix-link))')}
   transform: translateY(.15em);
   pointer-events: none;
 }
-.prefix-link[data-refinement-pdf]::before,
-.prefix-link[data-refinement-pdf] .hl-page::before { content: none !important; display: none !important; }
+.prefix-link[data-refinement-pdf="area"] .hl-page::before { content: none !important; display: none !important; }
+/* The words sit between quotation marks; the closing one is drawn at the start of Logseq's label, right
+   before the citation, in the text's own size and colour. */
+.block-title-wrap[data-refinement-pdf-line]::before { content: '“'; }
+.prefix-link[data-refinement-pdf="text"] .hl-page::before { content: '”'; display: inline; color: var(--ls-primary-text-color, currentColor); font-size: 1rem; opacity: 1; }
 .prefix-link[data-refinement-pdf] {
   display: inline !important;
   margin-left: 0 !important;
-  margin-right: .45em !important;
+  margin-right: 0 !important;
   padding: 0 !important;
   background: transparent !important;
   border: 0 !important;
   cursor: pointer;
   text-decoration: none !important;
 }
-.prefix-link[data-refinement-pdf="area"] { margin-left: 0 !important; }
-.prefix-link[data-refinement-pdf] .hl-page {
-  color: var(--ls-secondary-text-color, #798087) !important;
-  font-family: inherit;
-  font-size: var(--rf-small);
-  font-weight: 400;
-  white-space: nowrap;
-  opacity: var(--rf-quiet);
-  text-decoration: none !important;
-}
+.prefix-link[data-refinement-pdf="area"] { margin-right: .45em !important; }
+.prefix-link[data-refinement-pdf] .hl-page { font-family: inherit; font-size: inherit; color: inherit; text-decoration: none !important; }
 .prefix-link[data-refinement-pdf] .hl-page > strong { display: none !important; }
-.prefix-link[data-refinement-pdf] .hl-page::after { content: attr(data-refinement-citation); }
-.prefix-link[data-refinement-pdf]:hover .hl-page,
-.prefix-link[data-refinement-pdf]:focus-visible .hl-page {
-  opacity: 1;
-  text-decoration: none !important;
+/* The citation itself, small and quiet, a little after the words. */
+.prefix-link[data-refinement-pdf] .hl-page::after {
+  content: attr(data-refinement-citation); margin-left: .35em;
+  color: var(--ls-secondary-text-color, #798087); font-size: var(--rf-small); font-weight: 400; white-space: nowrap; opacity: var(--rf-quiet);
 }
+.prefix-link[data-refinement-pdf="area"] .hl-page::after { margin-left: 0; }
+.prefix-link[data-refinement-pdf]:hover .hl-page::after,
+.prefix-link[data-refinement-pdf]:focus-visible .hl-page::after { opacity: 1; }
 .prefix-link[data-refinement-pdf]:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
 .page-reference:has(.prefix-link[data-refinement-pdf]),
 a.page-ref:has(.prefix-link[data-refinement-pdf]) { text-decoration: none !important; }
@@ -1288,11 +1286,13 @@ function updatePdfCitations() {
         prefix.setAttribute('role', 'link');
         prefix.setAttribute('tabindex', '0');
       }
-      // Area selections keep their image in place; only the page label moves.
+      // Area selections keep their image in place, citation first; a text selection's citation follows the
+      // words, before any cue the plugin adds after the block's text.
       if (area) {
         if (label !== prefix.firstChild) prefix.insertBefore(label, prefix.firstChild);
-      } else if (prefix !== wrap.firstChild) {
-        wrap.insertBefore(prefix, wrap.firstChild);
+      } else {
+        const cue = [...wrap.children].find(el => el.classList.contains('refinement-child-assets')) || null;
+        if (prefix.nextSibling !== cue) wrap.insertBefore(prefix, cue);
       }
       const source = pdfCitations.sources.get(pdfCitationIdentity(prefix));
       const page = pageMatch[1] === '?' ? source?.page ?? '?' : pageMatch[1];
@@ -1300,7 +1300,7 @@ function updatePdfCitations() {
       const shortTitle = fullTitle.replace(/\.pdf$/i, '');
       const compactTitle = shortTitle.length > 38 ? shortTitle.slice(0, 35).trimEnd() + '…' : shortTitle;
       const suffix = `p. ${page}`;
-      const citation = source && !pdfSourceContext(prefix, source.sourceUuid) ? `${suffix} · ${compactTitle}` : suffix;
+      const citation = source && !pdfSourceContext(prefix, source.sourceUuid) ? `(${compactTitle}, ${suffix})` : `(${suffix})`;
       prefix.setAttribute('data-refinement-pdf', area ? 'area' : 'text');
       label.setAttribute('data-refinement-citation', citation);
       prefix.setAttribute('title', `${fullTitle} · ${suffix}`);
@@ -3693,6 +3693,8 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
 
 
 

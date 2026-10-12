@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.129.
+A personal starter plugin for Logseq DB graphs. Version 0.2.130.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -24,7 +24,7 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | Tags on a block | Bold, with no underline | Only tag links drawn in the text change; side tags keep Logseq’s placement and design. In Logseq 2.0.2 a tag typed in the text is drawn as plain text, so this rule has nothing to act on there. |
 | Links to a tag’s own page | Underlined like a page link, with the tag’s icon in the colour Logseq gives tags (a `#` in that colour when the tag has no icon) | A page’s own icon stays in the normal text colour, and an icon stays on the same line as the first word of the name. |
 | Links to blocks | A small dot in front, and no underline; a linked task shows its status icons in place of the dot | Nothing is drawn under the words or after them. Blocks are confirmed from the database, so a page is never marked as a block. |
-| PDF selections | A small, muted `p. 1` citation before normal excerpt text, with no underline or colored emoji. A muted double quotation mark (`“`) replaces the citation bullet. Elsewhere, the citation reads `p. 1 · Document title`. Hover shows the full title. | Clicking the excerpt or its citation opens the exact highlight through Logseq’s native link. Drag to select text; links inside the excerpt remain clickable. Text selections put the citation first; area selections keep their image and put the citation before it. Enter or Space on the citation also opens the highlight. |
+| PDF selections | The excerpt reads as a quotation: the words between quotation marks, then a small muted citation in parentheses, `(p. 1)` on the PDF’s own page and `(Document title, p. 1)` elsewhere. A muted double quotation mark (`“`) replaces the citation bullet. Hover shows the full title. | Clicking the excerpt or its citation opens the exact highlight through Logseq’s native link. Drag to select text; links inside the excerpt remain clickable. Area selections keep their image and put the citation before it. Enter or Space on the citation also opens the highlight. |
 | Links to PDFs and images | A grey document or picture icon in front, the words with a page link’s faint underline, and the file type (`pdf`, `png`…) after in small grey | The icon and file type come from the link’s address. |
 | Dates | A grey box in the normal text font | No border or calendar icon. Covers date values and links to journal pages. |
 | What sits below a block | After the block’s text: `↳`, a dashed circle with the number of unfinished tasks at any depth, and small image or PDF icons for files directly below | Hover shows the counts. Shown on ordinary pages and on the Journals list. Done and canceled tasks are not counted. |
@@ -340,3 +340,6 @@ Version 0.2.127 fixes **Open selected text as page** and **Link selected text to
 Version 0.2.128 opens search for **Search in right sidebar** by pressing Logseq's own search button, as a click would, instead of calling the search command through the plugin API. The call worked, but Logseq then wrote an error to its console each time ("could not be cloned", about the reply it tried to send back). The command call stays as a fallback if the button is not found.
 
 Version 0.2.129 gives links to files in the graph's own assets folder the same grey icon, faint underline and file type as links to files on the web. Logseq 2.0.2 draws a link to a local file without an address attribute (it keeps the path in `data-href`), so the rule that matched on the address never applied to them and they stayed plain blue. Both forms are matched now; the look of web links is unchanged, and the row of the file itself (an asset block, which has Logseq's own icon in its bullet) is left as Logseq draws it.
+
+Version 0.2.130 makes a cited PDF excerpt read as a quotation, as the owner asked: the words sit between quotation marks and the citation follows them in parentheses, `(p. 1)` on the PDF's own page and `(Document title, p. 1)` elsewhere, in the same small grey as before. The citation is still Logseq's own link, now placed after the words; an area selection keeps its image with the citation before it. The quotation-mark bullet stays.
+
