@@ -2070,6 +2070,12 @@ function updateTitleTags(doc, title) {
   const actions = row?.querySelector('.ls-page-title-actions > div');
   const native = row?.querySelector('.ls-block-right .block-tags');
   const hasTags = Boolean(actions && native?.querySelector('a.tag'));
+  // Watch the row the tags sit in: when it changes size, the tags are placed again.
+  if (pageKind.sizeWatch && (row || null) !== (pageKind.sizedRow || null)) {
+    if (pageKind.sizedRow) pageKind.sizeWatch.unobserve(pageKind.sizedRow);
+    if (row) pageKind.sizeWatch.observe(row);
+    pageKind.sizedRow = row || null;
+  }
   for (const el of pageKind.tagged) {
     if (el === native && hasTags) continue;
     el.style.transform = '';
@@ -2260,8 +2266,18 @@ function startPageKind() {
       if (addsElements(records)) updateInheritedLine(doc, currentTitle(doc));
     });
     onUnload(() => { pageKind.stopped = true; });
-    // The tags are placed by measuring, so place them again when the window changes size.
-    listen(host().defaultView, ['resize'], () => { try { updatePageKind(host()); } catch (error) { /* placed on the next change */ } });
+    // The tags are placed by measuring, so place them again when the window changes size, and
+    // whenever the page area or the title row does (a sidebar opening or closing, a title wrapping
+    // onto a second line). The browser reports those size changes before it draws the frame.
+    const place = () => { try { updatePageKind(host()); } catch (error) { /* placed on the next change */ } };
+    listen(host().defaultView, ['resize'], place);
+    const SizeWatch = host().defaultView.ResizeObserver;
+    if (SizeWatch) {
+      pageKind.sizeWatch = new SizeWatch(place);
+      const area = host().getElementById('main-content-container');
+      if (area) pageKind.sizeWatch.observe(area);
+      onUnload(() => { pageKind.sizeWatch.disconnect(); pageKind.sizeWatch = null; pageKind.sizedRow = null; });
+    }
     loadPageKind();
     onUnload(() => {
       clearTimeout(pageKind.timer);
