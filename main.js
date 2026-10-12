@@ -1431,10 +1431,71 @@ function scheduleRefresh(delay = 300) {
 /* Troubleshooting: describe how Logseq built one block, so styling can target the real structure.
    Text is shortened to a few words; nothing is changed or sent anywhere. */
 // First line of every troubleshooting report: this plugin's and Logseq's version.
+// The Logseq version whose page structure the plugin was last checked against. Most of what the
+// plugin draws depends on names Logseq uses inside its own pages, which can change in any release.
+const CHECKED_WITH = '2.0.2';
 async function versionLine() {
   let logseqVersion = '?';
   try { logseqVersion = (await logseq.App.getInfo('version')) || '?'; } catch (error) { /* ignore */ }
-  return `DB Refinements ${logseq.baseInfo?.version || '?'} · Logseq ${logseqVersion}`;
+  const note = logseqVersion !== '?' && logseqVersion !== CHECKED_WITH ? ` (the plugin was last checked against Logseq ${CHECKED_WITH})` : '';
+  return `DB Refinements ${logseq.baseInfo?.version || '?'} · Logseq ${logseqVersion}${note}`;
+}
+/* Troubleshooting after a Logseq update: how many of each thing the plugin looks for are on screen.
+   A zero is normal when the page has none of that thing; a zero for something you can see on the
+   page means Logseq renamed it, and the features listed beside it have stopped. Nothing is changed. */
+const healthChecks = () => [
+  ['the page area', '#main-content-container', 'everything'],
+  ['blocks', '.ls-block[blockid]', 'cues, reference rows, list properties, fold all'],
+  ['block text', '.block-title-wrap', 'cues after a block, block-link dot, reference rows'],
+  ['block content', '.block-content', 'tags, file icons, links inside references'],
+  ['block row', '.block-main-container .block-content-wrapper', '“Doctor:” and “via …” labels'],
+  ['bullets', '.bullet-container', 'PDF quote bullet, list properties'],
+  ['fold arrows', 'a.block-control', 'fold all, always-visible title triangle'],
+  ['fold state', '.ls-block[data-collapsed]', 'fold all'],
+  ['nesting lines', '.block-children', 'faint nesting lines'],
+  ['page links', 'a.page-ref', 'quiet links, dates, tag-page icons'],
+  ['page links with an id', 'a.page-ref[data-uuid]', 'block links, tag pages, journal dates'],
+  ['link wrappers', '.page-reference', 'quiet links'],
+  ['tags', 'a.tag', 'bold tags, tag background'],
+  ['PDF highlight labels', '.prefix-link .hl-page', 'compact PDF citations'],
+  ['date values', '.ls-datetime, .timestamp', 'date boxes'],
+  ['page title', PAGE_TITLE, 'title tags, #Page, alias and inherited lines'],
+  ['title row', '.is-page-title-row', 'title tags, title triangle'],
+  ['title actions', '.ls-page-title-actions > div', 'always-visible actions, #Page, Add tags'],
+  ['title tags', '.is-page-title-row .ls-block-right .block-tags', 'tags beside the title actions'],
+  ['page properties', '.ls-page-properties', 'inherited line'],
+  ['block properties', '.positioned-properties', 'plainer properties'],
+  ['property capsules', '.bottom-property-pill', 'plainer properties'],
+  ['property names', '.property-key, .page-property-key', 'list property picker'],
+  ['reference areas', REFERENCE_AREAS, 'reference headings, “Doctor:” labels, the wash on the link here'],
+  ['parent paths', '.breadcrumb.block-parents', 'tidy parent paths, hidden property path'],
+  ['path parts', '.breadcrumb__label', 'faded brackets in paths'],
+  ['group headings', '.ls-foldable-header', 'date headings of grouped queries'],
+  ['queries', '.custom-query', 'fold all, list properties per query'],
+  ['embedded blocks', '.embed-block', 'line beside embedded content'],
+  ['right sidebar', '#right-sidebar', 'sidebar tidy, sidebar search'],
+  ['right sidebar buttons', '.cp__right-sidebar-settings', 'Search button, hidden Page graph and (Dev) buttons'],
+  ['left sidebar', '#left-sidebar', 'quiet items, plain page icons, page labels'],
+  ['toolbar', '#head', 'quiet items'],
+  ['search window', '.cp__cmdk', 'tidy search (zero unless search is open)'],
+];
+async function checkWhatIsFound() {
+  try {
+    const doc = host();
+    const count = selector => { try { return doc.querySelectorAll(selector).length; } catch (error) { return 'bad selector'; } };
+    const lines = [await versionLine(), 'What the plugin finds on screen now. A zero is normal when this page has none of that thing.', '',
+      'LOGSEQ\'S OWN PARTS  found · what · needed for'];
+    for (const [what, selector, neededFor] of healthChecks()) lines.push(`  ${String(count(selector)).padStart(4)} · ${what} · ${neededFor}`);
+    lines.push('', 'THE PLUGIN\'S OWN MARKS  found · mark');
+    const marks = new Map();
+    for (const el of doc.querySelectorAll('*')) {
+      for (const attr of el.attributes) if (attr.name.startsWith('data-refinement-')) marks.set(attr.name, (marks.get(attr.name) || 0) + 1);
+      if (typeof el.className === 'string') for (const cls of el.classList) if (cls.startsWith('refinement-')) marks.set('.' + cls, (marks.get('.' + cls) || 0) + 1);
+    }
+    for (const [name, n] of [...marks].sort()) lines.push(`  ${String(n).padStart(4)} · ${name}`);
+    if (!marks.size) lines.push('  none');
+    showDiagnostics(lines.join('\n'));
+  } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
 }
 const innerPageUnderline = '.ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date])';
 function describeElement(el, depth, lines, nodeIds) {
@@ -3342,6 +3403,7 @@ function main() {
     ['show-settings', 'Show shortcuts and settings', () => logseq.showSettingsUI()],
     ['check-link-labels', 'Check linked-record labels (troubleshooting)', checkLinkLabels],
     ['copy-header-details', 'Copy page title area details (troubleshooting)', copyHeaderDiagnostics],
+    ['check-what-is-found', 'Check what the plugin finds on this page (troubleshooting)', checkWhatIsFound],
     ['fold-query-results', 'Fold all results in this query', () => foldQueryResults(null, true)],
     ['unfold-query-results', 'Unfold all results in this query', () => foldQueryResults(null, false)],
     ['copy-fold-log', 'Copy fold log (troubleshooting)', copyFoldLog],

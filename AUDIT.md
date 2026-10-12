@@ -98,8 +98,9 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 Most on-screen features depend on Logseq's internal class names, English labels, or pressing its
 own controls. Highest risk first: fold all, the `#Page` click and `Mod+T`, search in the sidebar,
 sidebar tidy, title tags, the property picker, PDF citations, then all link/date/cue styling.
-Planned mitigation (step 11): a selector health check in the troubleshooting report and a
-"checked against Logseq 2.0.2" note.
+Mitigation (0.2.112): **Refinements: Check what the plugin finds on this page** counts each of
+Logseq's parts the plugin relies on, and troubleshooting reports say when Logseq's version differs
+from the one the plugin was last checked against (2.0.2).
 
 ## Baseline (to record at step 4)
 
