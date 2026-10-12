@@ -375,9 +375,9 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
   content: '·'; margin-right: .5rem; opacity: var(--rf-faint);
 }
 `],
-  ['embedLine', `/* Content shown from somewhere else (embedded blocks and pages) gets a faint left line.
-   Inset shadows draw the line without moving any text. */
-:is(.ls-block.embed-block:not(.embed-block .ls-block), .embed-page) {
+  ['embedLine', `/* Content shown from somewhere else (a Node embed of a block or a page, which Logseq draws as
+   .embed-block) gets a faint left line. Inset shadows draw the line without moving any text. */
+.ls-block.embed-block:not(.embed-block .ls-block) {
   position: relative;
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ls-secondary-text-color, currentColor) var(--rf-line-pct), transparent) !important;
 }
@@ -3685,6 +3685,8 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
 
 
 

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.124.
+A personal starter plugin for Logseq DB graphs. Version 0.2.125.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -33,6 +33,11 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | Page title row | The page’s tags sit beside the actions above the title, with `#Page` on an untagged page (click it to set tags); the properties triangle is always visible | Turn off with **Show what a page is above its title**. |
 | Linked references | The link to the page on screen sits in a clear grey box (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet; fold arrows stay faintly visible | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
 | Alias pages | A small muted “Alias of …” line under the title of a page that another page lists as its alias; the name opens the original | Turn off with **Show which page an alias belongs to**. |
+| Tag pages | Under the tag's own properties, a line such as “Inherited from #Media: keywords, rating, website”, one per tag it extends; names open the tag or property | Turn off with **Show inherited properties on tag pages**. |
+| Links inside a reference | A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar); the rest of the reference still opens the block | Always on. |
+| Sidebar and toolbar items | The items named under **Quiet these sidebar and toolbar items** (default: Flashcards, Graph view) are smaller and lighter, in place | Set the list empty to turn it off; applies after a reload. |
+| Right sidebar | Flat panels with a faint divider; page properties opened and their Hide control hidden; Page graph and (Dev) buttons hidden; a **Search** button at the start of the top row | Turn off with **Tidy the right sidebar** (reload); the Search button is always there. |
+| Page labels | A page link whose shown name ends in a tag name (“Name #tag”) shows the stored title alone | Always on. |
 
 Branch cues refresh on navigation and graph edits. The plugin reads the current page’s block tree and queries DB metadata for task status, asset blocks, and references to assets. Done and canceled tasks are excluded. Counts describe blocks containing each type, rather than individual files. Some custom task or asset representations may not be recognized. This plugin does not alter the native mixed `[[` picker; labeling its rows accurately would require a supported type-aware menu extension.
 
@@ -69,6 +74,26 @@ Cancel leaves the block unchanged. The command accepts a single-line label and p
 
 1. Select text while editing a block. Within 30 seconds, run **Refinements: Open selected text as page** from the command palette or press `Mod+Alt+P` (`Cmd+Option+P` on Mac, `Ctrl+Alt+P` elsewhere; `Mod+Shift+P` is Logseq's own command palette).
 2. The selected words become a `[[link]]` in their block, then the plugin opens the page with that name (creating it if needed). Trailing tags are left out of the page name. If the block changed in the meantime, or the selection contains brackets or line breaks, the page still opens and the text is left as it was.
+
+**Add tags to this page**
+
+Press `Mod+T` (changeable in the plugin settings), run **Refinements: Add tags to this page**, or click the `#Page` above the title of an untagged page. Logseq's own Set Tags list opens for the page you are on; pick a tag there. On the Journals list, or where the “Set property” button is missing, the command says so and does nothing.
+
+**Fold all results / Unfold all results**
+
+Right-click the bullet of a query or of one of its results and choose **Refinements: Fold all results** or **Unfold all results**, or run them from the command palette for the query you last clicked in (or the one on screen). They press each result's own fold arrow, so Logseq keeps the fold while the page is open, and results drawn later get the same fold. A result you fold or unfold by hand afterwards keeps your choice. With no query on the page the command says so. **Refinements: Copy fold log (troubleshooting)** shows what happened to each result.
+
+**Choose properties shown in this list**
+
+Right-click the bullet of a record in a query (or in a list on a page such as a tag page) and choose **Refinements: Choose properties shown in this list**, or click in the list and run it from the command palette. Tick the properties to show, untick **Body** to hide the notes under each record, tick **One line per record** for a timeline layout; **Show all** returns to Logseq's view. The choice is saved in the plugin's settings, not in your notes.
+
+**Fill missing dates from journal days**
+
+Run **Refinements: Fill missing dates from journal days**. For every record tagged with one of the tags under **Journal day as date** (or a tag that extends them) that has no value in the Date property, it says how many it found and asks before filling each with the journal day the record was written on. New records get their date automatically while **Fill dates automatically** is on; both only run in the graphs listed under **Only in these graphs** (all graphs when that is empty).
+
+**Troubleshooting commands**
+
+These change nothing: **Check what the plugin finds on this page** (how many of each Logseq part the plugin relies on are on screen, and the plugin's own marks), **Copy styling details** (bullet menu: how Logseq built one block), **Copy page title area details**, **Check linked-record labels**, **Copy fold log**, **Turn measuring on or off** and **Copy performance report** (timings of the plugin's work; see `AUDIT.md`), and **Show shortcuts and settings**.
 
 Logseq themes and releases can change the names the plugin relies on; after an update, run **Refinements: Check what the plugin finds on this page**.
 
@@ -305,3 +330,5 @@ Version 0.2.122 is a tidy-up with no visible change, from the readiness review. 
 Version 0.2.123 draws the box around the link to the page on screen, under Linked references, from a mark instead of a stylesheet. The plugin used to write a small stylesheet for each page you opened, with the page's id baked into it and a rule that asked every block under the references whether it held such a link; it now marks the links that point here and the blocks that step back as Logseq draws them, before paint, and two fixed rules do the drawing, as the other cues have since 0.2.105. The look is unchanged, and the two settings (**Mark the link to this page in Linked references**, **Clearer Linked references**) still apply at once.
 
 Version 0.2.124 makes **Quiet these sidebar and toolbar items** work again in Logseq 2.0.2. A sidebar item there holds its name, its keyboard shortcut and a count as separate parts of one link ("Flashcards", "G F", "2"), and the plugin compared the names in the setting with all of that text run together, so nothing matched and no item was quietened. The name is now also compared with each part of the item on its own.
+
+Version 0.2.125 brings this file up to date and drops one leftover. The Commands section now lists every command the plugin registers (Add tags, Fold and Unfold all results, Choose properties, Fill missing dates, and the troubleshooting commands), and the Appearance table has rows for the inherited-properties line, quiet sidebar items, the right sidebar, page labels and links inside references. In the code, the rule for the line beside embedded content no longer mentions `.embed-page`, a name from file graphs that nothing in 2.0.2 carries (a Node embed is `.embed-block`, checked on screen).
