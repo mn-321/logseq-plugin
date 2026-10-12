@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.130.
+A personal starter plugin for Logseq DB graphs. Version 0.2.131.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -31,7 +31,7 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
 | Tag background (optional) | A faint violet chip behind tags, in text and at the end of a block | Off by default; turn on with **Soft background behind tags**. |
 | Page title row | The page’s tags sit beside the actions above the title, with `#Page` on an untagged page (click it to set tags); the properties triangle is always visible | Turn off with **Show what a page is above its title**. |
-| Linked references | The link to the page on screen sits in a clear grey box (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet; fold arrows stay faintly visible | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
+| Linked references | The link to the page on screen sits in a soft box in the theme’s accent colour (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet; fold arrows stay faintly visible | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
 | Alias pages | A small muted “Alias of …” line under the title of a page that another page lists as its alias; the name opens the original | Turn off with **Show which page an alias belongs to**. |
 | Tag pages | Under the tag's own properties, a line such as “Inherited from #Media: keywords, rating, website”, one per tag it extends; names open the tag or property | Turn off with **Show inherited properties on tag pages**. |
 | Links inside a reference | A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar); the rest of the reference still opens the block | Always on. |
@@ -343,3 +343,4 @@ Version 0.2.129 gives links to files in the graph's own assets folder the same g
 
 Version 0.2.130 makes a cited PDF excerpt read as a quotation, as the owner asked: the words sit between quotation marks and the citation follows them in parentheses, `(p. 1)` on the PDF's own page and `(Document title, p. 1)` elsewhere, in the same small grey as before. The citation is still Logseq's own link, now placed after the words; an area selection keeps its image with the citation before it. The quotation-mark bullet stays.
 
+Version 0.2.131 changes the box around the link to the page on screen, under Linked references, as the owner asked: it is a soft wash of the theme's accent colour (`--rf-here`, 14% of the accent) instead of the darker grey, with rounder corners and more room around the words. The box now sits inside the row rather than hanging 0.2em over the words on each side, so the last value in a property row is no longer cut off at the row's edge; the words after a boxed link move right by about 0.3em.

@@ -190,7 +190,9 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
-  --rf-here-pct: 20%;    /* the link to the page on screen, under Linked references */
+  /* the link to the page on screen, under Linked references: a wash of the theme's accent colour, so it
+     is told apart from a date's grey box by hue and the words stay easy to read */
+  --rf-here: color-mix(in srgb, var(--lx-accent-09, var(--ls-link-text-color, #3b82f6)) 14%, transparent);
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
@@ -394,8 +396,12 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
 `],
   ['markReferenceHere', `/* Under Linked references, the link that points to the page on screen (on a journal, also a date
    that points to that day) sits in a clear box, stronger than the one behind a date. */
-#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] { background: ${wash('--rf-here-pct')} !important; }
-#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here]:not([data-refinement-date]) { padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }
+#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] { background: var(--rf-here) !important; }
+/* Room around the words inside the row (no negative margin: Logseq clips a property row at its edge,
+   which used to cut the box of the last value). */
+#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here]:not([data-refinement-date]) {
+  padding: .12em .3em; margin: 0 .05em; border-radius: .35em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
 `],
   ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
 #main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below] > .block-main-container { opacity: var(--rf-quiet); }
