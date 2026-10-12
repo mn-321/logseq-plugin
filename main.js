@@ -1977,7 +1977,13 @@ const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
 function touchesTitle(records) {
   for (const record of records) {
     if (record.type !== 'childList') continue;
-    if (record.target.nodeType === 1 && record.target.closest(PAGE_TITLE)) return true;
+    const target = record.target;
+    if (target.nodeType !== 1 || !target.closest('#main-content-container')) {
+      // Outside the page area, only something that brings the page area with it counts.
+      if (![...record.addedNodes].some(node => node.nodeType === 1 && (node.id === 'main-content-container' || node.querySelector('#main-content-container')))) continue;
+      return true;
+    }
+    if (target.closest(PAGE_TITLE)) return true;
     for (const node of record.addedNodes) if (node.nodeType === 1 && (node.matches(PAGE_TITLE) || node.querySelector(PAGE_TITLE))) return true;
   }
   return false;
@@ -2800,17 +2806,20 @@ async function foldQueryResults(event, collapse) {
     listFold.wanted.set(target.key, { collapse, round: ++listFold.round });
     // A new command applies to every result again, including ones you changed by hand before.
     listFold.manual = new WeakSet();
-    // What there is to do, counted before pressing: results not yet as asked, and how many of those have no arrow.
-    const toChange = listRows(host(), target.key).filter(row => (row.getAttribute('data-collapsed') === 'true') !== collapse &&
-      !(collapse && row.getAttribute('haschild') === 'false'));
-    const noArrow = toChange.filter(row => !foldArrow(row)).length;
+    // What there is to do, counted before pressing. A result with no fold arrow has nothing under it.
+    const rows = listRows(host(), target.key);
+    const folded = row => row.getAttribute('data-collapsed') === 'true';
+    const toChange = rows.filter(row => folded(row) !== collapse && (!collapse || (row.getAttribute('haschild') !== 'false' && foldArrow(row))));
+    const noArrow = toChange.filter(row => !foldArrow(row)).length; // only a folded result that cannot be unfolded
     watchFoldState();
     applyListFolds(host());
     recheckListFolds();
-    const done = collapse ? 'folded' : 'unfolded', n = toChange.length;
-    if (noArrow) notify(`${noArrow} of ${n} result${n === 1 ? '' : 's'} in ${target.label} ${noArrow === 1 ? 'has' : 'have'} no fold arrow to press, so ${noArrow === 1 ? 'it was' : 'they were'} left as ${noArrow === 1 ? 'it is' : 'they are'}. Run “Refinements: Copy fold log” for details`, 'warning');
-    else if (!n) notify(`Every result drawn in ${target.label} is already ${done}; results drawn later will be ${done} too`);
-    else notify(`${collapse ? 'Folding' : 'Unfolding'} ${n} result${n === 1 ? '' : 's'} in ${target.label}; results drawn later will be ${done} too`);
+    const done = collapse ? 'folded' : 'unfolded', n = toChange.length, later = `results drawn later will be ${done} too`;
+    if (!rows.length) notify(`No results are drawn in ${target.label} yet; they will be ${done} as they appear`);
+    else if (noArrow) notify(`${noArrow} of ${n} folded result${n === 1 ? '' : 's'} in ${target.label} ${noArrow === 1 ? 'has' : 'have'} no fold arrow to press and stay${noArrow === 1 ? 's' : ''} folded. Run “Refinements: Copy fold log” for details`, 'warning');
+    else if (n) notify(`${collapse ? 'Folding' : 'Unfolding'} ${n} result${n === 1 ? '' : 's'} in ${target.label}; ${later}`);
+    else if (collapse && !rows.some(folded)) notify(`None of the ${rows.length} result${rows.length === 1 ? '' : 's'} drawn in ${target.label} has anything under it to fold; ${later}`);
+    else notify(`Every result drawn in ${target.label} is already ${done}; ${later}`);
   } catch (error) { console.error(error); notify(`Could not fold the results: ${error.message}`, 'error'); }
 }
 /* One line per record: for lists set to the timeline layout, the chosen values are written after
