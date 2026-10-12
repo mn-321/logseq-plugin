@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.120.
+A personal starter plugin for Logseq DB graphs. Version 0.2.121.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -297,3 +297,5 @@ Version 0.2.118 fixes two things about icons in links. (1) The `#` in front of a
 Version 0.2.119 keeps a failing part from filling the console. Each of the plugin's warnings is now written once per session instead of on every change (a look-up that failed after each edit used to repeat its warning after every pause in typing), and a screen update that throws an error five times in a row is switched off for the rest of the session with one note saying which part stopped; the rest of the plugin carries on, and reloading the plugin starts it again. Found in the readiness review recorded in `AUDIT.md`.
 
 Version 0.2.120 lets auto-date find its property whatever the case of its name. The property named under **Date property** was matched letter for letter, so “Date” did not find a property called “date” and no dates were filled, with no message. The name is now matched without regard to case, as property names are everywhere else in the plugin.
+
+Version 0.2.121 makes the dot before a labelled link to a block (`[words]([[block]])`) part of what can be clicked. Like the `#` of a tag-page link in 0.2.118, it was drawn on the link element itself, which Logseq ignores on press; it is now drawn at the start of the label, and pressing it opens the block. It looks the same.

@@ -967,7 +967,9 @@ const blockLink = '.page-ref[data-refinement-block-link]:not(.tag):not([data-ref
 // the check on the surrounding reference uses the plain form.
 const blockLinkPlain = blockLink + ':not(:has(.prefix-link, img))';
 const viaLook = 'margin-left: .6em; color: var(--ls-secondary-text-color, inherit); opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;';
-const cueCss = `${blockDot(blockLinkPlain + ':not(:has(.block-title-wrap))')}
+/* The dot of a labelled link ([words]([[block]])) is drawn at the start of the label's own span, not on
+   the link element: Logseq ignores a press whose target is the <a> itself (see the # of a tag-page link). */
+const cueCss = `${blockDot(blockLinkPlain + ':not(:has(.block-title-wrap)) > span:first-child')}
 /* A block (not a page) shown inside another reference stays without an underline. */
 .ls-block .block-content a.page-ref[data-uuid] ${blockLinkPlain}.page-ref, .ls-block .block-content a.page-ref[data-uuid] ${blockLinkPlain}.page-ref:hover { text-decoration: none !important; }
 .ls-block ${blockLinkPlain}, .ls-block ${blockLinkPlain}:hover, .ls-block ${blockLinkPlain} * { text-decoration: none !important; border-bottom: 0 !important; }
@@ -3655,6 +3657,7 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
 
 
 
