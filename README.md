@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.108.
+A personal starter plugin for Logseq DB graphs. Version 0.2.109.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -260,3 +260,5 @@ Version 0.2.106 merges the plugin's four always-on screen watchers into one. Bef
 Version 0.2.107 keeps a page's tags beside the actions above its title when the page area changes width. They are placed by measuring, and were only measured again when the page's content changed, so opening the right sidebar left them about 800 pixels from where they belong, and closing it did not bring them back. They are now placed again whenever the page area or the title row changes size (a sidebar opening or closing, the window resizing, a title wrapping onto a second line), before the frame is drawn. Checked in Logseq with both sidebars opened and closed: the gap between the actions and the tags stays at 10 pixels throughout. Step 8 in `AUDIT.md` (B6).
 
 Version 0.2.108 looks things up once after an edit instead of in three stages. After every change to the database, seven separate timers re-read page titles, cues, journal dates, property names, the page's details, one-line values and dates to fill, finishing about 0.8, 1.0 and 1.5 seconds later, so cues could update in visible steps. One scheduler now starts them all together once the changes pause (or every 2.5 seconds while you keep typing). Checked in Logseq: two quick edits led to one round. Auto-date also gets a safety limit: filling a date changes the database, which brings the plugin back to check again, and a record whose date still counted as empty afterwards could have been refilled on every later change; each record now gets at most three tries per session, and **Fill missing dates from journal days** remains for anything left over. Step 9 in `AUDIT.md` (B4, B5).
+
+Version 0.2.109 makes one style rule cheaper, with no visible change. To hide a lone property name above a group of references, the plugin asked every `div` on the page whether it directly held such a line. The box that holds the line is now marked itself, so the rule that hides it is a plain one. Part of step 10 in `AUDIT.md` (B7); the hover rule for nesting lines and the rule for reference-only rows are unchanged.

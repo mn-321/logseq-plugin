@@ -128,7 +128,7 @@ function modalHint(doc, text) {
 const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
 const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden', 'block-link', 'prop-label', 'via'].map(name => 'data-refinement-' + name);
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box'].map(name => 'data-refinement-' + name);
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
@@ -361,7 +361,7 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
 ::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: var(--rf-faint); }
 `],
   ['linkLabels', `/* A lone property name above a group of references; the value's own label replaces it. */
-div:has(> .breadcrumb.block-parents[data-refinement-property-crumb]) { display: none !important; }
+[data-refinement-crumb-box] { display: none !important; }
 `],
   ['tidyPaths', `/* Parent paths on pages use the room they have: each part is cut short only when the whole path runs out of space. */
 :is(#main-content-container, #right-sidebar) .breadcrumb.block-parents .breadcrumb__segment { max-width: none; flex-shrink: .1; }
@@ -865,7 +865,7 @@ function updateReferenceRows(doc) {
 // end up above ordinary blocks. The value carries its own label, so hide such a lone name.
 const REFERENCE_AREAS = '.references, .unlinked-references, .references-blocks-wrap';
 const referenceAreas = `:is(${REFERENCE_AREAS})`;
-const propertyCrumbs = { values: new Map(), marked: new Set() };
+const propertyCrumbs = { values: new Map(), marked: new Set(), boxes: new Map() };
 function updatePropertyCrumbs(doc) {
   const found = new Set();
   if (propertyCrumbs.values.size) {
@@ -878,8 +878,23 @@ function updatePropertyCrumbs(doc) {
       if (hasValue) found.add(crumb);
     }
   }
-  for (const crumb of propertyCrumbs.marked) if (!found.has(crumb)) { crumb.removeAttribute('data-refinement-property-crumb'); propertyCrumbs.marked.delete(crumb); }
-  for (const crumb of found) if (!propertyCrumbs.marked.has(crumb)) { crumb.setAttribute('data-refinement-property-crumb', ''); propertyCrumbs.marked.add(crumb); }
+  for (const crumb of propertyCrumbs.marked) if (!found.has(crumb)) unmarkPropertyCrumb(crumb);
+  for (const crumb of found) {
+    if (!propertyCrumbs.marked.has(crumb)) { crumb.setAttribute('data-refinement-property-crumb', ''); propertyCrumbs.marked.add(crumb); }
+    // The line is hidden through the box Logseq draws it in. The box itself is marked, so the rule
+    // that hides it is a plain one (it used to ask every div on the page whether it held such a line).
+    const box = crumb.parentElement?.tagName === 'DIV' ? crumb.parentElement : null;
+    if (propertyCrumbs.boxes.get(crumb) !== box) {
+      propertyCrumbs.boxes.get(crumb)?.removeAttribute('data-refinement-crumb-box');
+      if (box) { box.setAttribute('data-refinement-crumb-box', ''); propertyCrumbs.boxes.set(crumb, box); } else propertyCrumbs.boxes.delete(crumb);
+    }
+  }
+}
+function unmarkPropertyCrumb(crumb) {
+  crumb.removeAttribute('data-refinement-property-crumb');
+  propertyCrumbs.boxes.get(crumb)?.removeAttribute('data-refinement-crumb-box');
+  propertyCrumbs.boxes.delete(crumb);
+  propertyCrumbs.marked.delete(crumb);
 }
 /* Cues that depend on what the database says about a link or a row. The answer is kept, and each
    element it applies to is marked as it is drawn, so one fixed set of rules does the drawing however
@@ -1042,8 +1057,7 @@ function stopDateLinks() {
   refRows.clear();
   for (const el of dateHeadings) el.removeAttribute('data-refinement-date-heading');
   dateHeadings.clear();
-  for (const crumb of propertyCrumbs.marked) crumb.removeAttribute('data-refinement-property-crumb');
-  propertyCrumbs.marked.clear();
+  for (const crumb of [...propertyCrumbs.marked]) unmarkPropertyCrumb(crumb);
   for (const [el, [attr]] of cueMarks.marked) el.removeAttribute(attr);
   cueMarks.marked.clear();
   ++dateLinks.version;

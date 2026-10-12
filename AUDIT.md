@@ -50,7 +50,7 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | B4 | Seven timers per database change, about 20 queries, settling at 800, 1000 and 1500 ms | 2979 | L–M | fixed 0.2.108 |
 | B5 | Auto-date could rewrite the same record every 1.5 s if a write lands but the "no date" test still matches | `autoDateNew` 2881 | L | fixed 0.2.108 |
 | B6 | Title tags are re-measured only when page content changes, so they can sit off after a sidebar toggle | `updateTitleTags` 1987 | M (measured: about 800 px off with the right sidebar open) | fixed 0.2.107 |
-| B7 | Slow selectors: hover rule for nesting lines (1682), reference-row `*` rule (274), `div:has(> …crumb)` (305) | CSS | M | open |
+| B7 | Slow selectors: hover rule for nesting lines (1682), reference-row `*` rule (274), `div:has(> …crumb)` (305) | CSS | M | part fixed 0.2.109 (see step 10) |
 | B8 | Fold log observer never stops after the first fold command | 2493 | L | open |
 | B9 | Per-frame work that could be skipped: sidebar text scan (1553), title computed styles (1835), list choices re-parsed (2443) | — | L | open |
 | C1 | Line beside embedded pages never draws (`.embed-page` matches nothing) | 289 | M | open |
@@ -84,7 +84,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 7 | Merge the observers into one, keeping a before-paint phase (the baseline shows late passes) | B1, B2 | 0.2.106 | done; drawn output identical on 8 test pages |
 | 8 | Title tags follow size changes | B6 | 0.2.107 | done; gap stays 10 px with either sidebar opened or closed |
 | 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | 0.2.108 | done; two quick edits gave one round. Auto-date itself not exercised (the test graph has no Occurrence or Results tag) |
-| 10 | Tighten selectors; decide the hover rule from measurements | B7 | | open |
+| 10 | Tighten selectors; decide the hover rule from measurements | B7 | 0.2.109 | part done: the `div:has(…)` rule is now a plain attribute rule. The hover rule and the reference-row `*` rule are left as they are: nothing measured so far shows them costing anything, and changing them risks the look |
 | 11 | Small fixes | B8, B9, C1–C6 | | open |
 
 ## Cannot be fixed from a plugin
