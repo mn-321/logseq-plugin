@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.125.
+A personal starter plugin for Logseq DB graphs. Version 0.2.126.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -21,7 +21,7 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | Feature | What you see | How it works |
 | --- | --- | --- |
 | Page links | Normal text color and a faint underline, clearer on hover | No change to the underlying reference. |
-| Tags on a block | Bold, with no underline | Only rendered tag links change; side tags keep Logseq’s placement and design. |
+| Tags on a block | Bold, with no underline | Only tag links drawn in the text change; side tags keep Logseq’s placement and design. In Logseq 2.0.2 a tag typed in the text is drawn as plain text, so this rule has nothing to act on there. |
 | Links to a tag’s own page | Underlined like a page link, with the tag’s icon in the colour Logseq gives tags (a `#` in that colour when the tag has no icon) | A page’s own icon stays in the normal text colour, and an icon stays on the same line as the first word of the name. |
 | Links to blocks | A small dot in front, and no underline; a linked task shows its status icons in place of the dot | Nothing is drawn under the words or after them. Blocks are confirmed from the database, so a page is never marked as a block. |
 | PDF selections | A small, muted `p. 1` citation before normal excerpt text, with no underline or colored emoji. A muted double quotation mark (`“`) replaces the citation bullet. Elsewhere, the citation reads `p. 1 · Document title`. Hover shows the full title. | Clicking the excerpt or its citation opens the exact highlight through Logseq’s native link. Drag to select text; links inside the excerpt remain clickable. Text selections put the citation first; area selections keep their image and put the citation before it. Enter or Space on the citation also opens the highlight. |
@@ -332,3 +332,5 @@ Version 0.2.123 draws the box around the link to the page on screen, under Linke
 Version 0.2.124 makes **Quiet these sidebar and toolbar items** work again in Logseq 2.0.2. A sidebar item there holds its name, its keyboard shortcut and a count as separate parts of one link ("Flashcards", "G F", "2"), and the plugin compared the names in the setting with all of that text run together, so nothing matched and no item was quietened. The name is now also compared with each part of the item on its own.
 
 Version 0.2.125 brings this file up to date and drops one leftover. The Commands section now lists every command the plugin registers (Add tags, Fold and Unfold all results, Choose properties, Fill missing dates, and the troubleshooting commands), and the Appearance table has rows for the inherited-properties line, quiet sidebar items, the right sidebar, page labels and links inside references. In the code, the rule for the line beside embedded content no longer mentions `.embed-page`, a name from file graphs that nothing in 2.0.2 carries (a Node embed is `.embed-block`, checked on screen).
+
+Version 0.2.126 corrects one row of the Appearance table. In Logseq 2.0.2 a tag typed into a block's text is drawn as plain text (the tag itself appears at the right edge of the block), so the "Tags on a block" rule has nothing to act on there; the row now says so. No code changed.
