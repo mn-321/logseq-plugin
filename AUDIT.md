@@ -52,11 +52,11 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | B6 | Title tags are re-measured only when page content changes, so they can sit off after a sidebar toggle | `updateTitleTags` 1987 | M (measured: about 800 px off with the right sidebar open) | fixed 0.2.107 |
 | B7 | Slow selectors: hover rule for nesting lines (1682), reference-row `*` rule (274), `div:has(> …crumb)` (305) | CSS | M | part fixed 0.2.109 (see step 10) |
 | B8 | Fold log observer never stops after the first fold command | 2493 | L | fixed 0.2.110 |
-| B9 | Per-frame work that could be skipped: sidebar text scan (1553), title computed styles (1835), list choices re-parsed (2443) | — | L | open |
+| B9 | Per-frame work that could be skipped: sidebar text scan (1553), title computed styles (1835), list choices re-parsed (2443) | — | L | list choices fixed 0.2.111; the other two left (each measured at 0.1–0.3 ms) |
 | C1 | Line beside embedded pages never draws (`.embed-page` matches nothing) | 289 | M | open |
 | C2 | Fold log always reports "0 facts" (`txData` is empty) | 2976 | L | fixed 0.2.110 |
-| C3 | `onSettingsChanged` re-sends the main stylesheet on every settings write | 2990 | L | open |
-| C4 | Dead code: `data-refinement-page-kind` is set but no rule uses it | 1917 | L | open |
+| C3 | `onSettingsChanged` re-sends the main stylesheet on every settings write | 2990 | L | fixed 0.2.111 |
+| C4 | Dead code: `data-refinement-page-kind` is set but no rule uses it | 1917 | L | removed 0.2.111 |
 | C5 | Fold all says "Folded" even when no arrow was found | `foldQueryResults` 2621 | L | fixed 0.2.110 |
 | C6 | Settings file holds leftover `devDump` and `recordCues` keys | settings JSON | L | open |
 

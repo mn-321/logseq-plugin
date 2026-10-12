@@ -1778,9 +1778,16 @@ const hierarchyParts = {
   padding: 0 .25em;
 }`,
 };
+// Stylesheets that depend on settings are sent again only when their text has changed: every send
+// makes Logseq work out the look of the whole page again.
+const sentStyles = new Map();
+function sendStyle(key, style) {
+  if (sentStyles.get(key) === style) return;
+  sentStyles.set(key, style);
+  logseq.provideStyle({ key, style: orNoRules(style) });
+}
 function applyHierarchy() {
-  const style = Object.keys(hierarchyParts).filter(setting).map(key => hierarchyParts[key]).join('\n');
-  logseq.provideStyle({ key: 'personal-db-hierarchy', style: orNoRules(style) });
+  sendStyle('personal-db-hierarchy', Object.keys(hierarchyParts).filter(setting).map(key => hierarchyParts[key]).join('\n'));
 }
 
 const settingsSchema = [
@@ -1968,7 +1975,7 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { kind: '', pageId: 0, timer: 0, marked: new Set(), aliasOf: [], aliasLine: null, inherited: [], inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { pageId: 0, timer: 0, aliasOf: [], aliasLine: null, inherited: [], inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
   const version = pageKind.version = (pageKind.version || 0) + 1;
@@ -1992,7 +1999,6 @@ async function loadPageKind() {
     }
   } catch (error) { console.warn('Refinements: could not tell the page type', error); }
   if (version !== pageKind.version) return;
-  pageKind.kind = kind;
   pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
   pageKind.inherited = inherited;
@@ -2008,15 +2014,7 @@ function schedulePageKind(delay = 300) {
 function updatePageKind(doc) {
   const on = setting('showPageKind');
   const titles = [...pageTitles(doc)].filter(el => !el.parentElement?.closest(':is(.ls-page-title, .page-title, h1.title)'));
-  // Only a single page view (journals list several titles, and never need a label).
-  const target = on && pageKind.kind && titles.length === 1 ? titles[0] : null;
-  for (const el of pageKind.marked) {
-    if (el !== target) { el.removeAttribute('data-refinement-page-kind'); pageKind.marked.delete(el); }
-  }
-  if (target && target.getAttribute('data-refinement-page-kind') !== pageKind.kind) {
-    target.setAttribute('data-refinement-page-kind', pageKind.kind);
-    pageKind.marked.add(target);
-  }
+  // Only a single page view (journals list several titles).
   updateTitleTags(doc, on && titles.length === 1 ? titles[0] : null);
   // What was loaded may still describe the page just left; its lines wait until it is this page's.
   const known = titles.length === 1 && pageKind.pageUuid && titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
@@ -2284,8 +2282,6 @@ function startPageKind() {
     loadPageKind();
     onUnload(() => {
       clearTimeout(pageKind.timer);
-      for (const el of pageKind.marked) el.removeAttribute('data-refinement-page-kind');
-      pageKind.marked.clear();
       pageKind.aliasLine?.remove();
       pageKind.inheritLine?.remove();
       pageKind.titleTags?.remove();
@@ -2431,7 +2427,7 @@ function valuesHtml(shown, own = new Map(), { entities, titles }) {
    only hidden from view in that list, and "Show all" brings them back. */
 const listProps = { names: new Set(), marked: new Set(), pageBlocks: new Set(), lastTarget: null,
   inline: new Map(), pending: new Set(), injected: new Set(), inlineTimer: null, inlineVersion: 0,
-  localChoices: new Map() };
+  localChoices: new Map(), localEdits: 0 };
 const NO_PROPERTIES = '\u0000none'; // saved when every property is unticked
 const BODY = '\u0000body'; // ticked = show the blocks under each record (its notes, attachments)
 const BODY_LABEL = 'Body (notes and files under each record)';
@@ -2448,8 +2444,14 @@ function clickedRecord(event) {
 }
 // Saved settings arrive in the background, so choices made in this session take priority.
 const savedListChoices = () => ({ ...(logseq.settings?.listProperties || {}), ...Object.fromEntries(listProps.localChoices) });
+// Read again only when the saved settings or this session's choices have changed.
+const listChoicesMemo = { saved: undefined, local: -1, result: new Map() };
 function listChoices() {
-  const result = new Map();
+  const memo = listChoicesMemo, saved = logseq.settings?.listProperties;
+  if (memo.saved === saved && memo.local === listProps.localChoices.size + listProps.localEdits) return memo.result;
+  memo.saved = saved;
+  memo.local = listProps.localChoices.size + listProps.localEdits;
+  const result = memo.result = new Map();
   for (const [key, value] of Object.entries(savedListChoices())) {
     try {
       const names = JSON.parse(value || '[]');
@@ -2932,6 +2934,7 @@ async function chooseListProperties(event) {
     const saved = savedListChoices();
     saved[target.key] = JSON.stringify(picked);
     listProps.localChoices.set(target.key, saved[target.key]);
+    listProps.localEdits++;
     logseq.updateSettings({ listProperties: saved });
     // Settings update in the background; apply right away from what was picked.
     setTimeout(() => updateListProps(doc), 150);
@@ -3276,7 +3279,7 @@ function main() {
   onUnload(perf.stop);
   logseq.useSettingsSchema(settingsSchema);
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
-  logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });
+  sendStyle('personal-db-refinements', mainCss());
   applyHierarchy();
   startDateLinks();
   startPdfCitations();
@@ -3322,7 +3325,7 @@ function main() {
     if (perf.ownSettingsOnly(now, before)) return;
     try { updateListProps(host()); } catch (error) { /* list choices apply on the next change */ }
     applyHierarchy();
-    logseq.provideStyle({ key: 'personal-db-refinements', style: mainCss() });
+    sendStyle('personal-db-refinements', mainCss());
     if (CUE_SETTINGS.some(key => now?.[key] !== before?.[key])) scheduleRefresh(0);
     if (now?.pdfCitations !== before?.pdfCitations) updatePdfCitations();
     try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
