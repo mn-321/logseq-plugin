@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12 (evening), for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.129 on branch `readiness-0.2.119` (`main` is still at 0.2.118); the newest work is under "State after the readiness review".
+The plugin is at 0.2.131 on `main` (the readiness branch was merged, fast-forward, on 2026-10-12); the newest work is under "State after the readiness review".
 
 ## What this is
 
@@ -14,7 +14,7 @@ small change at a time, looking at each result in the running app.
 
 | Thing | Location |
 | --- | --- |
-| Plugin (git repo; `main` at 0.2.118, `readiness-0.2.119` at 0.2.129) | `/Users/claude-agent/logseq-plugin/` |
+| Plugin (git repo, branch `main` at 0.2.131; `readiness-0.2.119` points at the same commit) | `/Users/claude-agent/logseq-plugin/` |
 | Plugin code | `main.js` (about 3,800 lines, one file), entry is `loader.js` |
 | Test graph | Logseq graph named **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`) |
 | Seed for the test graph | `test/plugin-test-graph.edn` (committed; the graph has since gained things the seed lacks, see below) |
@@ -81,7 +81,7 @@ The owner asked for a readiness review before using the plugin on the real graph
 
 - **Branch.** All of it is on `readiness-0.2.119`, one version per commit, not merged into `main`. The owner's own uncommitted look changes that were in the working tree at the start (accent-coloured wash under Linked references, dimmer fold arrows, title triangle only on pages with properties) are kept, unreviewed, on `wip-uncommitted-look-changes`. Two look changes the owner asked for during the review were made as 0.2.130 (a cited PDF excerpt reads “words” (source, p. n)) and 0.2.131 (the link-here box is an accent wash, rounder, with room around the words, inside the row); the dimmer fold arrows and the conditional title triangle from the WIP branch were not brought over.
 - **How the checks were run.** A TEMP-DEV block appended to `main.js` (kept in the scratchpad as `dev-block.js`, never committed; `scratchpad/commit.sh` strips it before each commit and puts it back) reads `dev*` keys from the settings file and, after the reload, opens pages (`logseq.App.pushState`), flips settings through `logseq.updateSettings` and measures computed styles and mark counts, runs the plugin's own command functions, records every console warning of the plugin frame and of Logseq's window, and writes everything back as `devDump`, `devConsole`, `devMessages`. It also runs the measuring tool through the AUDIT's five steps. The reload loop that worked: click **…** at (989, 22), **Plugins** by coordinate (y = 288 on a journal, 316 on a page whose menu has "Convert to Tag"), **Reload** at (290, 482), Escape. Background clicks cannot open right-click menus or hover previews.
-- **Still to do (next session).** (1) Merge `readiness-0.2.119` into `main` once the owner has read AUDIT.md. (2) The cues on a 900-block page arrive about 2 s after the page (the three per-page queries list every block id); narrowing them to the blocks Logseq has drawn is the next improvement. (3) The self-check proposed under Fragility in AUDIT.md waits for the owner's yes. (4) Not exercised by hand: the bullet right-click menu entries, hover previews, the palette entries by keyboard, a second page with the same title as another (page-label shortening), the alias line (Logseq opens the original page), a real PDF highlight made in the app. (5) The synthetic graph `Readiness Synthetic App` is still in the app's list; remove it from All graphs when no longer wanted. (6) The owner's remaining WIP look changes (dimmer fold arrows, title triangle only on pages with properties) sit on `wip-uncommitted-look-changes`.
+- **Still to do (next session).** (1) Merged into `main` on 2026-10-12. (2) The cues on a 900-block page arrive about 2 s after the page (the three per-page queries list every block id); narrowing them to the blocks Logseq has drawn is the next improvement. (3) The self-check proposed under Fragility in AUDIT.md waits for the owner's yes. (4) Not exercised by hand: the bullet right-click menu entries, hover previews, the palette entries by keyboard, a second page with the same title as another (page-label shortening), the alias line (Logseq opens the original page), a real PDF highlight made in the app. (5) The synthetic graph `Readiness Synthetic App` is still in the app's list; remove it from All graphs when no longer wanted. (6) The owner's remaining WIP look changes (dimmer fold arrows, title triangle only on pages with properties) sit on `wip-uncommitted-look-changes`.
 - **Settings file.** `devDump` was removed at the start; `autoDateGraphs` was set to `Plugin Test Graph` for the session and put back to its original empty value at the end; the `dev*` keys were removed at the end.
 - **Test graph additions.** See AUDIT "Readiness review" → "Test graph". Notable: the CLI cannot give a block the built-in #PDF Annotation tag, so the PDF highlight could not be made from the shell; a link written as `[[Block title]]` through the CLI makes a new page of that name (use `[[uuid]]`); the CLI cannot make a second page with the same title as an existing one; `{{embed}}` is deprecated in 2.0.2 and a Node embed is an empty block with `:block/link` → target (made through `upsert block --content " " --update-properties '{:block/link <id>}'`); Logseq opens the original page when you navigate to an alias.
 - **Logseq 2.0.2 facts learned.** A tag typed in a block's text is drawn as plain `<span>#Idea</span>`, not as `a.tag` (only side tags and property values are `a.tag`). A sidebar navigation link's text runs name, shortcut and count together ("FlashcardsGF2"). A journal's menu has no "Convert to Tag" item, so the Plugins item sits one row higher.
@@ -308,7 +308,6 @@ points to, anything after the text says what the block holds. The arrow symbol i
 
 - The owner's uncommitted look changes on `wip-uncommitted-look-changes` (accent wash, dimmer fold arrows, triangle only on pages with properties): bring onto the readiness branch or drop; the owner asked why the wash looked different and was told.
 - The last highlighted value in a property row is clipped by Logseq's overflow clip because the wash hangs 0.2em outside the words (negative margin); the proposed fix (no negative margin, words after it move 0.4em) waits for the owner's yes.
-- Merge `readiness-0.2.119` into `main` when the owner has read AUDIT.md's Readiness review.
 
 Decided on 2026-10-12, leave as they are unless the owner raises them again:
 
