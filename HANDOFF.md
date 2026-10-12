@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12, for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.115 (commit `4c77539`); the newest work is under "State after the Linked references session".
+The plugin is at 0.2.116; the newest work is under "State after the links and journals round".
 
 ## What this is
 
@@ -24,9 +24,7 @@ small change at a time, looking at each result in the running app.
 | Plugin settings file | `~/.logseq/settings/logseq-db-refinements.json` |
 | Other graphs | `Demo` and `Work`. **Do not touch `Work`**; it is the owner's real graph. |
 
-Git: `1324673` (0.2.96 baseline of `main.js`), `595f068` (0.2.97, everything up to and including
-the Cmd+T command), `491921b` (this file and the test-graph seed) and the 0.2.98 commit (see
-the README's "Version 0.2.98" list). Commit after each change the owner confirms works.
+Git: the history is in `git log`, one version per commit where possible. Commit after each change the owner confirms works.
 No global git identity is set; commits were made with
 `git -c user.name="ynmyz4hwr6" -c user.email="ynmyz4hwr6@privaterelay.appleid.com" commit ...`.
 
@@ -77,6 +75,32 @@ How the changes were checked without clicking through Logseq (worth reusing):
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
 
+## State after the links and journals round (2026-10-12, 0.2.116)
+
+Asked for as one list; each item was looked at in the app after a reload unless it says otherwise.
+
+- **Links to blocks**: the dashed line under them is gone. They keep the small dot in front and have
+  nothing after them. Seen on **Plugin Visual Cues**, whose three example lines were reworded to match.
+- **Icons stay with their words**: a linked task's status icons, and the icon of a linked page or tag
+  page, are joined to the first word by a word joiner (U+2060) in a `::before`, so a line never breaks
+  between them. Seen holding for the task example; the page and tag icons were not seen at a line end.
+- **The `↳` cue on the Journals list**: it was missing because `getCurrentPageBlocksTree()` returns
+  nothing there. `shownPagesTree()` now reads every page whose title is on screen (up to 12).
+  Days that scroll into view later get their cue at the next refresh, not at once.
+- **Fold arrows under Linked references** stay faintly visible (section, source page, block with
+  something below). A source page's arrow hangs 27px left of its heading and was cut off by
+  `overflow: hidden` on `.ls-foldable-content-inner`, so it never showed, even under the pointer; that
+  box now has `margin-left: -27px; padding-left: 27px`. Part of `referenceLayout`.
+- **Journal references are highlighted**: on a journal, most references point to the day through a
+  date (a Scheduled or Deadline value, drawn as `a.page-ref[data-ref="oct 12th, 2026"]` with no
+  uuid), so `updateReferenceHere` now also matches the page's name, case-insensitively. It takes every
+  title on screen, so each day on the Journals list is handled inside its own `.journal-item`. Seen on
+  the single page **Oct 12th, 2026**; the Journals list was not looked at after this change.
+- **Journals list spacing**: a day's "Add icon" and "Set property" sit 2em lower, clear of the line
+  that closes the day before (`#journals .journal-item:not(:has(.is-today-page))`, padding, under
+  `showTitleChrome`). Each day is the only child of its own wrapper, so `:first-child` matches every day.
+- `README.md`: the Appearance table was brought up to date; the stale rows are gone.
+
 ## State after the Linked references session (2026-10-12)
 
 Versions 0.2.114 and 0.2.115, one commit (`4c77539`), both looked at on the **Priya Nair** page of the
@@ -124,12 +148,8 @@ What cost time, worth knowing:
 
 - A hairline between source pages, full width or short. Spacing alone is wanted.
 - A `›` closing the parent path. A path does not end with an arrow; it has a bullet now.
-
-### Offered, not decided
-
-- Hide a source-page heading when the only thing under it is that same page (**Why Block References
-  Matter** sits under itself because its `authors` property links to the page on screen).
-- Keep Logseq's three fold arrows (section, source page, block) faintly visible; they show on hover only.
+- A dashed line under links to blocks (removed in 0.2.116 after several versions).
+- A small `↗` closing a link to a block (tried in 0.2.116 and removed the same hour).
 
 ### The test graph gained things the seed does not have
 
@@ -209,8 +229,8 @@ those instead of new numbers.
 | Link to a page | faint solid underline, page's own icon in normal text colour |
 | Link to a tag's own page | same underline, icon in grey (a grey `#` icon if the tag has none) |
 | `#tag` on a block | bold, no underline |
-| Link to a block (inline or whole row) | small dot in front, light dashed underline with wide gaps |
-| Link to a task block | status/priority icons stand in for the dot, same dashed line under them |
+| Link to a block (inline or whole row) | small dot in front, nothing under or after the words |
+| Link to a task block | status/priority icons stand in for the dot |
 | Date | grey box |
 | Link to a PDF or image | blue icon in front, text with the page underline, not blue |
 | Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons |
@@ -218,7 +238,7 @@ those instead of new numbers.
 | Page property list | as Logseq draws it |
 | Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle always visible |
 | Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list |
-| Linked references | the link to the page on screen sits in a clear grey box (20%, stronger than a date); source pages set apart by a gap; plain semibold headings, `· n` after one that holds several references; bullet before the parent path, reference stepped in below; blocks below a reference quiet |
+| Linked references | the link to the page on screen sits in a clear grey box (20%, stronger than a date); on a journal the same box on a date that points to that day; source pages set apart by a gap; fold arrows faintly visible; plain semibold headings, `· n` after one that holds several references; bullet before the parent path, reference stepped in below; blocks below a reference quiet |
 | Page listed as a row | plain page icon in the bullet, as in the sidebar |
 
 Rules agreed along the way: the bullet says what a row is, a mark before a link says what it
@@ -234,33 +254,24 @@ points to, anything after the text says what the block holds. The arrow symbol i
 
 ## Open requests (start here)
 
-None outstanding. Both requests from the previous handoff (the inherited line flickering on
-navigation, and showing it only with the tag's properties open) were done in 0.2.98.
+None outstanding.
 
-Raised in the 0.2.98 session and left open:
+Decided on 2026-10-12, leave as they are unless the owner raises them again:
 
-- The hierarchy of Linked references: done in 0.2.114 and 0.2.115 (see the session notes above). Still
-  not seen on a `#tag` reference; a reference through a property value was seen (`owner`, `authors`).
-- Property lists were returned to Logseq's default (bullet beside every value, normal weight)
-  "for now"; the owner may want a different treatment later. Do not hide the value bullet again
-  without handling text values, which draw a bullet of their own.
-- On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions, so
-  Logseq shows an empty value instead of "Add description".
+- Property lists stay as Logseq draws them (bullet beside every value, normal weight). Do not hide the
+  value bullet without handling text values, which draw a bullet of their own.
+- The `↳ ◌ n` task count repeats on every ancestor, and links to PDFs/images count as "files below".
+- A source page whose only reference is the page itself shows the name twice, as heading and as row
+  (**Why Block References Matter** under Priya Nair, through its `authors` property).
 
 ## Known loose ends
 
-- Tag link with a custom tag icon in grey: only seen once, briefly; the owner changes icons often.
-- The dot before a block link can sit apart from status icons; icons do not wrap with the text.
-- `↳ ◌ n` task count repeats on every ancestor, and links to PDFs/images count as "files below".
-  The owner has not said whether to change either.
-- On the Journals list, a collapsed block with tasks showed no `↳` cue; not investigated.
-- Title tags are positioned by measuring and a CSS transform; re-measured on resize. Watch for
-  them sitting slightly off.
 - The Cmd+T command only works on ordinary pages (it goes through the "Set property" button).
-- `README.md` still has stale older paragraphs near the top (for example describing block
-  references with `↳`); the accurate record is the "Version 0.2.97" and "Version 0.2.98" lists at the end.
-- Logseq leftovers from setup: an `Unlinked graphs` folder under `~/logseq/graphs`, and CLI
-  worker processes for `Demo` and the test graph.
+- On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions, so
+  Logseq shows an empty value instead of "Add description". Test data, not plugin code.
+- The Linked references look has not been seen on a reference that comes through a `#tag`.
+- The owner asked whether the `[[ ]]` dropdown has to list every date. It is Logseq's own list of
+  pages, journals included; hiding dates there was offered and not decided.
 
 ## How the owner likes to work
 

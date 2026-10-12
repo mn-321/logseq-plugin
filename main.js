@@ -207,9 +207,10 @@ const referenceIcon = (selector, path) => {
 };
 const documentIcon = 'M4 2h5l3 3v9H4z M9 2v4h3';
 // A link to a block starts with a dot, a smaller version of the bullet every block has. Pages get no mark.
-// A row that is only such a link looks the same: the small dot, then the dashed words.
+// A row that is only such a link looks the same. Nothing is drawn under the words or after them
+// (a dashed line and a closing arrow were both tried and dropped).
 // The dot is a character joined to the first word by a no-break space, so the two never end up on
-// different lines, and it sits inside the linked words so their dashed line runs under it too.
+// different lines.
 const blockDot = selector => `${selector}::before { content: '\\2022\\00A0'; font-size: .72em; vertical-align: .14em; opacity: var(--rf-faint); }`;
 const hashMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14 M5 15h14 M11 4l-4 16 M17 4l-4 16"/></svg>');
 const imageIcon = 'M2 3h12v10H2z M2 11l4-4 3 3 2-2 3 3 M10 5h.1';
@@ -310,21 +311,13 @@ a.page-ref:has(.prefix-link[data-refinement-pdf])::before { content: none !impor
 /* A block reference contains the referenced block's title area; a page link never does.
    This lets references be styled from the rendered page, before it is painted. */
 ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap')}
-/* The linked words of a block link sit on a light dashed line with wide gaps, so you can see where
-   the link ends; pages keep their solid underline. Drawn as a background, so no text moves. */
-.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap {
-  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 38%, transparent) 0 .34em, transparent .34em);
-  background-size: .86em 1px; background-repeat: repeat-x; background-position: 0 100%;
-  padding-bottom: .1em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
-}
-/* A linked task shows its status and priority icons before the link; the same line runs under them,
-   and the icons stand in for the dot. */
-.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: none !important; }
-.ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) {
-  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 38%, transparent) 0 .34em, transparent .34em);
-  background-size: .86em 1px; background-repeat: repeat-x; background-position: 0 100%;
-  padding-right: .25em;
-}
+/* A linked task shows its status and priority icons before the link, and the icons stand in for the
+   dot. A word joiner in the dot's place keeps the icons on the same line as the first word. */
+.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: '\\2060' !important; }
+.ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) { padding-right: .25em; }
+/* The icon of a linked page or tag page stays on the same line as the first word of its name. */
+.ls-block .block-content a.page-ref:not(.tag) > .icon-emoji-wrap + span::before,
+.ls-block .block-content a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap)) > span:first-child::before { content: '\\2060'; }
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag), .ls-block a.page-ref:has(.block-title-wrap):not(.tag):hover,
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag) *,
 .ls-block .page-reference:has(a.page-ref .block-title-wrap), .ls-block .page-reference:has(a.page-ref .block-title-wrap):hover {
@@ -371,11 +364,21 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
   margin: 0 .65em 0 .15em; vertical-align: middle; background: currentColor; opacity: var(--rf-faint);
 }
 #main-content-container .references div:not([data-refinement-crumb-box]):has(> .breadcrumb.block-parents) + .content { margin-left: 1.4em; }
+/* Logseq's fold arrows (the section, a source page, a block with something below it) stay faintly
+   visible instead of showing only under the pointer. */
+:is(.references, .unlinked-references) :is(.ls-foldable-title-control, .block-control-wrap[data-has-children="true"] > .block-control) > .control-hide { display: block !important; }
+/* A source page's arrow hangs to the left of its heading, where the list is cut off; the list's edge moves out to make room. */
+:is(.references, .unlinked-references) .ls-foldable-content-inner:has(> .ls-view-body) { margin-left: -27px; padding-left: 27px; }
+:is(.references, .unlinked-references) :is(.ls-foldable-title-control, .block-control-wrap[data-has-children="true"] > .block-control):not(:hover) { opacity: calc(var(--rf-faint) * .6) !important; }
 /* How many references a source page holds, when it holds more than one. */
 .references .ls-foldable-header[data-refinement-ref-count]::after {
   content: '· ' attr(data-refinement-ref-count); margin-left: .5em; color: var(--ls-secondary-text-color, inherit);
   opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;
 }
+`],
+  ['showTitleChrome', `/* On the Journals list, the line that closes one day sat right against the next day's "Add icon" and
+   "Set property". Padding (not margin: Logseq measures each day's height) moves them down from it. */
+#journals .journal-item:not(:has(.is-today-page)) { padding-top: 2em; }
 `],
   ['tidyPaths', `/* Brackets around dates and pages in grey paths fade, as in search. */
 ::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: var(--rf-faint); }
@@ -472,8 +475,7 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref[data-refinemen
 .ls-block .ls-datetime a.page-ref[data-refinement-date]:hover,
 .ls-block .timestamp a.page-ref[data-refinement-date]:hover { background: transparent !important; padding: 0; font-size: inherit; color: inherit !important; }
 .ls-datetime::before { content: none !important; }
-/* A date is a link to its journal page, never to a block: no dot and no dashed line inside the box. */
-:is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap, a.page-ref[data-refinement-date] .block-title-wrap { background-image: none !important; padding-bottom: 0 !important; }
+/* A date is a link to its journal page, never to a block: no dot inside the box. */
 :is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap::before, a.page-ref[data-refinement-date] .block-title-wrap::before { content: none !important; }
 /* The time follows the date after a space, as Logseq spaces them. */
 .ls-datetime > * + * { margin-left: .35em; }
@@ -1431,10 +1433,29 @@ async function incomingPropertyLinks() {
 }
 let refreshTimer;
 let refreshVersion = 0;
+// The Journals list shows several pages at once and Logseq names none of them as the current page,
+// so the blocks of every page whose title is on screen are read instead.
+async function shownPagesTree() {
+  const doc = dateLinks.document;
+  if (!doc) return [];
+  const uuids = [...new Set([...pageTitles(doc)].map(title => title.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '')
+    .filter(uuid => UUID.test(uuid)))].slice(0, 12);
+  const trees = await Promise.all(uuids.map(async uuid => {
+    try {
+      const tree = await logseq.Editor.getPageBlocksTree(uuid);
+      if (tree?.length) return tree;
+      const page = await logseq.Editor.getPage(uuid);
+      const name = page?.name || page?.title || page?.originalName;
+      return name ? await logseq.Editor.getPageBlocksTree(name) || [] : [];
+    } catch { return []; }
+  }));
+  return trees.flat().filter(Boolean);
+}
 async function refreshCues(version = ++refreshVersion) {
   const started = performance.now();
   try {
-    const tree = await logseq.Editor.getCurrentPageBlocksTree();
+    let tree = await logseq.Editor.getCurrentPageBlocksTree();
+    if (!tree?.length) tree = await shownPagesTree();
     const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), referencedNodeIds(), directAssetTypes(tree), propertyValueBlocks(), incomingPropertyLinks()]);
     if (version !== refreshVersion) return;
     pdfCitations.sources = pdfSources.sources;
@@ -1951,9 +1972,9 @@ const settingsSchema = [
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
     description: 'Page links in normal text colour with a faint underline instead of bright blue; tags as bold text; page names heading Linked references read as headings; links inside highlights stay readable.' },
   { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
-    description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, and the blocks below a reference stepping back unless they link here too. Applies right away.' },
+    description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
-    description: 'A small dot before links to blocks and a light dashed line under them (pages keep their solid underline), and document or image icons before links to PDFs and pictures.' },
+    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and document or image icons before links to PDFs and pictures.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
     description: 'In Linked references, puts the property name before a value (“Doctor: …”); records under a page’s tag tabs end with “via Diagnosis” when one of your properties links them.' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
@@ -2131,24 +2152,40 @@ function updatePageKind(doc) {
   const known = titles.length === 1 && pageKind.pageUuid && titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
   updateAliasLine(doc, setting('showAliasOf') && known ? titles[0] : null);
   updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
-  updateReferenceHere(titles.length === 1 ? titles[0] : null);
+  updateReferenceHere(titles);
 }
 // Under "Linked references" a block is listed because it links to the page on screen, but it may
 // hold other links too. The link that points here gets a clear wash, stronger than the box behind a
 // date, so it can be found at once; the blocks below a reference that do not hold that link step back.
-function updateReferenceHere(title) {
+function updateReferenceHere(titles) {
   const mark = setting('markReferenceHere'), layout = setting('referenceLayout');
-  const found = mark || layout ? title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '' : '';
-  const uuid = UUID.test(found) ? found : '';
-  const state = uuid ? `${uuid} ${mark} ${layout}` : '';
+  const pages = [];
+  if (mark || layout) for (const title of titles) {
+    const block = title.querySelector('.ls-block[blockid]');
+    const uuid = block?.getAttribute('blockid') || '';
+    if (!UUID.test(uuid)) continue;
+    // A journal is also pointed at by dates (a Scheduled or Deadline value), which carry its name, not its uuid.
+    const name = (block.querySelector('.block-title-wrap') || block).textContent.trim();
+    pages.push({ uuid, name: isJournalDate(name) ? name : '', listed: !!title.closest('.journal-item') });
+  }
+  // One page on screen, or the Journals list, where every day has its own Linked references.
+  const shown = pages.length === 1 || (pages.length && pages.every(page => page.listed)) ? pages : [];
+  const state = shown.length ? `${shown.map(page => page.uuid + page.name).join(' ')} ${mark} ${layout}` : '';
   if (state === pageKind.referenceHere) return;
   pageKind.referenceHere = state;
-  const links = `#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-uuid="${uuid}"]`;
-  const below = `#main-content-container .references .ls-block[level="0"] .block-children .ls-block:not(:has(:is(a.page-ref, a.tag)[data-uuid="${uuid}"]))`;
-  logseq.provideStyle({ key: 'personal-db-reference-here', style: uuid ? orNoRules(`${mark ? `
-${links} { background: ${wash('--rf-here-pct')} !important; padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : ''}${layout ? `
+  const rules = shown.map(({ uuid, name }) => {
+    const scope = shown.length === 1 ? '#main-content-container'
+      : `#main-content-container .journal-item:has(:is(.ls-page-title, .page-title, h1.title) .ls-block[blockid="${uuid}"])`;
+    const here = `:is(a.page-ref, a.tag)[data-uuid="${uuid}"]${name ? `, a.page-ref[data-ref=${JSON.stringify(name)} i]` : ''}`;
+    const link = `${scope} .references .ls-block :is(${here})`;
+    const below = `${scope} .references .ls-block[level="0"] .block-children .ls-block:not(:has(:is(${here})))`;
+    return `${mark ? `
+${link} { background: ${wash('--rf-here-pct')} !important; }
+${link}:not([data-refinement-date]) { padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : ''}${layout ? `
 ${below} > .block-main-container { opacity: var(--rf-quiet); }
-${below}:hover > .block-main-container { opacity: 1; }` : ''}`) : '/* no single page on screen */' });
+${below}:hover > .block-main-container { opacity: 1; }` : ''}`;
+  }).join('');
+  logseq.provideStyle({ key: 'personal-db-reference-here', style: shown.length ? orNoRules(rules) : '/* no single page on screen */' });
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
 // in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its
