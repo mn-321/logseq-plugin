@@ -324,25 +324,28 @@ a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .blo
 }
 .page-reference[data-ref] a.page-ref { text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
-  ['referenceIcons', `${referenceIcon('.ls-block .block-content a[href*=".pdf" i]:not(:has(img))', documentIcon)}
-${referenceIcon('.ls-block .block-content a:is([href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))', imageIcon)}
+  ['referenceIcons', `${referenceIcon('.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url])):not(:has(img))', documentIcon)}
+${referenceIcon('.ls-block .block-content a:is([href*=".png" i], [data-href*=".png" i]:not([data-url]), [href*=".jpg" i], [data-href*=".jpg" i]:not([data-url]), [href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url]), [href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img))', imageIcon)}
 /* Links to files: the words in normal text with the same faint underline as a page link, a grey
-   icon in front, and the file type after in the same small grey as the cues after a block. */
-.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)) {
+   icon in front, and the file type after in the same small grey as the cues after a block.
+   A link to a file on the web has an href; Logseq draws a link to a file in the graph's assets folder
+   with data-href instead (seen in 2.0.2), so both are matched. The row of an asset block (the file itself,
+   listed with Logseq's own icon in its bullet) carries data-url as well and is left alone. */
+.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url]), [href*=".png" i], [data-href*=".png" i]:not([data-url]), [href*=".jpg" i], [data-href*=".jpg" i]:not([data-url]), [href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url]), [href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img)) {
   color: var(--ls-primary-text-color, inherit) !important; border-bottom: 0 !important;
   text-decoration: underline solid color-mix(in srgb, currentColor var(--rf-line-pct), transparent) 1px !important; text-underline-offset: .2em;
 }
-.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)):hover { text-decoration-color: currentColor !important; }
-.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::before { text-decoration: none; }
-.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::after {
+.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url]), [href*=".png" i], [data-href*=".png" i]:not([data-url]), [href*=".jpg" i], [data-href*=".jpg" i]:not([data-url]), [href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url]), [href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img)):hover { text-decoration-color: currentColor !important; }
+.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url]), [href*=".png" i], [data-href*=".png" i]:not([data-url]), [href*=".jpg" i], [data-href*=".jpg" i]:not([data-url]), [href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url]), [href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img))::before { text-decoration: none; }
+.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url]), [href*=".png" i], [data-href*=".png" i]:not([data-url]), [href*=".jpg" i], [data-href*=".jpg" i]:not([data-url]), [href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url]), [href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img))::after {
   display: inline-block; margin-left: .35em; text-decoration: none; color: var(--ls-secondary-text-color, inherit);
   opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap; user-select: none;
 }
-.ls-block .block-content a[href*=".pdf" i]:not(:has(img))::after { content: 'pdf'; }
-.ls-block .block-content a[href*=".png" i]:not(:has(img))::after { content: 'png'; }
-.ls-block .block-content a[href*=".jpg" i]:not(:has(img))::after { content: 'jpg'; }
-.ls-block .block-content a[href*=".jpeg" i]:not(:has(img))::after { content: 'jpeg'; }
-.ls-block .block-content a[href*=".webp" i]:not(:has(img))::after { content: 'webp'; }
+.ls-block .block-content a:is([href*=".pdf" i], [data-href*=".pdf" i]:not([data-url])):not(:has(img))::after { content: 'pdf'; }
+.ls-block .block-content a:is([href*=".png" i], [data-href*=".png" i]:not([data-url])):not(:has(img))::after { content: 'png'; }
+.ls-block .block-content a:is([href*=".jpg" i], [data-href*=".jpg" i]:not([data-url])):not(:has(img))::after { content: 'jpg'; }
+.ls-block .block-content a:is([href*=".jpeg" i], [data-href*=".jpeg" i]:not([data-url])):not(:has(img))::after { content: 'jpeg'; }
+.ls-block .block-content a:is([href*=".webp" i], [data-href*=".webp" i]:not([data-url])):not(:has(img))::after { content: 'webp'; }
 .ls-datetime a::before, .timestamp a::before, a.page-ref[data-refinement-date]::before,
 a.page-ref:has(.prefix-link[data-refinement-pdf])::before { content: none !important; }
 /* A block reference contains the referenced block's title area; a page link never does.
@@ -3690,6 +3693,7 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
 
 
 
