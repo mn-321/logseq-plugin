@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.122.
+A personal starter plugin for Logseq DB graphs. Version 0.2.123.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -301,3 +301,5 @@ Version 0.2.120 lets auto-date find its property whatever the case of its name. 
 Version 0.2.121 makes the dot before a labelled link to a block (`[words]([[block]])`) part of what can be clicked. Like the `#` of a tag-page link in 0.2.118, it was drawn on the link element itself, which Logseq ignores on press; it is now drawn at the start of the label, and pressing it opens the block. It looks the same.
 
 Version 0.2.122 is a tidy-up with no visible change, from the readiness review. (1) A new copy of the plugin now also clears the `· n` reference counts and the one-line list values an earlier copy may have left behind. (2) The pattern that recognises a date is built once instead of for every link on every change. (3) The measuring tool's report lists the stylesheets again (its count was never filled in). (4) Two fields nobody read are gone from the page-kind state. (5) The lists of quietened sidebar items and hidden sidebar controls forget elements that Logseq has removed. (6) The tag-page and property-name look-ups keep only the newest answer, like the other look-ups. (7) The heading of every troubleshooting report no longer says "Styling details for this block".
+
+Version 0.2.123 draws the box around the link to the page on screen, under Linked references, from a mark instead of a stylesheet. The plugin used to write a small stylesheet for each page you opened, with the page's id baked into it and a rule that asked every block under the references whether it held such a link; it now marks the links that point here and the blocks that step back as Logseq draws them, before paint, and two fixed rules do the drawing, as the other cues have since 0.2.105. The look is unchanged, and the two settings (**Mark the link to this page in Linked references**, **Clearer Linked references**) still apply at once.

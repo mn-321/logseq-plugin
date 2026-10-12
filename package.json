@@ -1,6 +1,6 @@
 {
   "name": "logseq-db-refinements",
-  "version": "0.2.122",
+  "version": "0.2.123",
   "private": true,
   "description": "Personal readability and page creation refinements for Logseq DB graphs",
   "main": "loader.js",

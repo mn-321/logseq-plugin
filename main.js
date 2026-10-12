@@ -150,7 +150,7 @@ const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
 // Every data-refinement-* mark the plugin sets (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box', 'ref-count'].map(name => 'data-refinement-' + name);
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box', 'ref-count', 'here', 'below'].map(name => 'data-refinement-' + name);
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
@@ -388,6 +388,15 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
   font-weight: 600; text-decoration: none !important; border-bottom: 0 !important;
 }
 :is(.references, .unlinked-references) .ls-foldable-title a.page-ref:not(.tag):hover { text-decoration: underline !important; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
+`],
+  ['markReferenceHere', `/* Under Linked references, the link that points to the page on screen (on a journal, also a date
+   that points to that day) sits in a clear box, stronger than the one behind a date. */
+#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] { background: ${wash('--rf-here-pct')} !important; }
+#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here]:not([data-refinement-date]) { padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }
+`],
+  ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
+#main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below] > .block-main-container { opacity: var(--rf-quiet); }
+#main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below]:hover > .block-main-container { opacity: 1; }
 `],
   ['referenceLayout', `/* Linked references: each source page is a group set apart from the next. */
 #main-content-container .references .group-list-view > div > div > div + div { padding-top: 1.6em; }
@@ -1078,7 +1087,7 @@ function updateReferenceCounts(doc) {
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
-  for (const part of [updateReferenceRows, updateChildAssetCues, updatePropertyCrumbs, fadeCrumbBrackets,
+  for (const part of [updateReferenceRows, updateChildAssetCues, updatePropertyCrumbs, fadeCrumbBrackets, updateReferenceHere,
     updatePageLabels, updateDateHeadings, updateReferenceCounts, updateTagPageLinks, updateCueMarks]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
@@ -1158,6 +1167,10 @@ function stopDateLinks() {
   dateLinks.originals.clear();
   for (const link of tagPages.marked) link.removeAttribute('data-refinement-tag-page');
   tagPages.marked.clear();
+  for (const el of referenceHere.links) el.removeAttribute('data-refinement-here');
+  referenceHere.links.clear();
+  for (const el of referenceHere.below) el.removeAttribute('data-refinement-below');
+  referenceHere.below.clear();
   dateLinks.document = null;
 }
 
@@ -2243,40 +2256,44 @@ function updatePageKind(doc) {
   const known = titles.length === 1 && pageKind.pageUuid && titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
   updateAliasLine(doc, setting('showAliasOf') && known ? titles[0] : null);
   updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
-  updateReferenceHere(titles);
 }
 // Under "Linked references" a block is listed because it links to the page on screen, but it may
 // hold other links too. The link that points here gets a clear wash, stronger than the box behind a
 // date, so it can be found at once; the blocks below a reference that do not hold that link step back.
-function updateReferenceHere(titles) {
+// Both are marks on the elements, set as Logseq draws them (one page on screen, or each day's own
+// references on the Journals list), and drawn by fixed rules in cssParts.
+const referenceHere = { links: new Set(), below: new Set() };
+function updateReferenceHere(doc) {
   const mark = setting('markReferenceHere'), layout = setting('referenceLayout');
-  const pages = [];
-  if (mark || layout) for (const title of titles) {
-    const block = title.querySelector('.ls-block[blockid]');
-    const uuid = block?.getAttribute('blockid') || '';
-    if (!UUID.test(uuid)) continue;
-    // A journal is also pointed at by dates (a Scheduled or Deadline value), which carry its name, not its uuid.
-    const name = (block.querySelector('.block-title-wrap') || block).textContent.trim();
-    pages.push({ uuid, name: isJournalDate(name) ? name : '', listed: !!title.closest('.journal-item') });
+  const links = new Set(), below = new Set();
+  if (mark || layout) {
+    const titles = [...pageTitles(doc)].filter(el => !el.parentElement?.closest(PAGE_TITLE));
+    const pages = [];
+    for (const title of titles) {
+      const block = title.querySelector('.ls-block[blockid]');
+      const uuid = block?.getAttribute('blockid') || '';
+      if (!UUID.test(uuid)) continue;
+      // A journal is also pointed at by dates (a Scheduled or Deadline value), which carry its name, not its uuid.
+      const name = (block.querySelector('.block-title-wrap') || block).textContent.trim();
+      pages.push({ uuid, name: isJournalDate(name) ? name.toLowerCase() : '', item: title.closest('.journal-item') });
+    }
+    // One page on screen, or the Journals list, where every day has its own Linked references.
+    const shown = pages.length === 1 ? pages : pages.length && pages.every(page => page.item) ? pages : [];
+    for (const { uuid, name, item } of shown) {
+      const scope = pages.length === 1 ? doc.getElementById('main-content-container') : item;
+      if (!scope) continue;
+      const here = link => link.getAttribute('data-uuid') === uuid ||
+        (name && (link.getAttribute('data-ref') || '').toLowerCase() === name);
+      for (const link of scope.querySelectorAll('.references .ls-block :is(a.page-ref, a.tag)[data-uuid], .references .ls-block a.page-ref[data-ref]'))
+        if (here(link)) links.add(link);
+      if (layout) for (const block of scope.querySelectorAll('.references .ls-block[level="0"] .block-children .ls-block'))
+        if (![...block.querySelectorAll(':is(a.page-ref, a.tag)[data-uuid], a.page-ref[data-ref]')].some(here)) below.add(block);
+    }
   }
-  // One page on screen, or the Journals list, where every day has its own Linked references.
-  const shown = pages.length === 1 || (pages.length && pages.every(page => page.listed)) ? pages : [];
-  const state = shown.length ? `${shown.map(page => page.uuid + page.name).join(' ')} ${mark} ${layout}` : '';
-  if (state === pageKind.referenceHere) return;
-  pageKind.referenceHere = state;
-  const rules = shown.map(({ uuid, name }) => {
-    const scope = shown.length === 1 ? '#main-content-container'
-      : `#main-content-container .journal-item:has(:is(.ls-page-title, .page-title, h1.title) .ls-block[blockid="${uuid}"])`;
-    const here = `:is(a.page-ref, a.tag)[data-uuid="${uuid}"]${name ? `, a.page-ref[data-ref=${JSON.stringify(name)} i]` : ''}`;
-    const link = `${scope} .references .ls-block :is(${here})`;
-    const below = `${scope} .references .ls-block[level="0"] .block-children .ls-block:not(:has(:is(${here})))`;
-    return `${mark ? `
-${link} { background: ${wash('--rf-here-pct')} !important; }
-${link}:not([data-refinement-date]) { padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : ''}${layout ? `
-${below} > .block-main-container { opacity: var(--rf-quiet); }
-${below}:hover > .block-main-container { opacity: 1; }` : ''}`;
-  }).join('');
-  logseq.provideStyle({ key: 'personal-db-reference-here', style: shown.length ? orNoRules(rules) : '/* no single page on screen */' });
+  for (const el of referenceHere.links) if (!mark || !links.has(el)) { el.removeAttribute('data-refinement-here'); referenceHere.links.delete(el); }
+  if (mark) for (const el of links) if (!referenceHere.links.has(el)) { el.setAttribute('data-refinement-here', ''); referenceHere.links.add(el); }
+  for (const el of referenceHere.below) if (!below.has(el)) { el.removeAttribute('data-refinement-below'); referenceHere.below.delete(el); }
+  for (const el of below) if (!referenceHere.below.has(el)) { el.setAttribute('data-refinement-below', ''); referenceHere.below.add(el); }
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
 // in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its
@@ -3628,6 +3645,7 @@ function main() {
     if (CUE_SETTINGS.some(key => now?.[key] !== before?.[key])) scheduleRefresh(0);
     if (now?.pdfCitations !== before?.pdfCitations) updatePdfCitations();
     try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
+    updateDateLinks();
     if (RELOAD_SETTINGS.some(key => now?.[key] !== before?.[key])) notify('Reload the Refinements plugin to apply this change', 'info');
   }));
 
@@ -3665,6 +3683,8 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
 
 
 
