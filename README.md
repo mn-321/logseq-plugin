@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.126.
+A personal starter plugin for Logseq DB graphs. Version 0.2.127.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -334,3 +334,5 @@ Version 0.2.124 makes **Quiet these sidebar and toolbar items** work again in Lo
 Version 0.2.125 brings this file up to date and drops one leftover. The Commands section now lists every command the plugin registers (Add tags, Fold and Unfold all results, Choose properties, Fill missing dates, and the troubleshooting commands), and the Appearance table has rows for the inherited-properties line, quiet sidebar items, the right sidebar, page labels and links inside references. In the code, the rule for the line beside embedded content no longer mentions `.embed-page`, a name from file graphs that nothing in 2.0.2 carries (a Node embed is `.embed-block`, checked on screen).
 
 Version 0.2.126 corrects one row of the Appearance table. In Logseq 2.0.2 a tag typed into a block's text is drawn as plain text (the tag itself appears at the right edge of the block), so the "Tags on a block" rule has nothing to act on there; the row now says so. No code changed.
+
+Version 0.2.127 fixes **Open selected text as page** and **Link selected text to a page** in a block that also holds a link to a block. The editor shows such a link as its id, while a link to a page is shown by name; the plugin expected both by name, so the editor's text never matched the saved text, and the command said the block had changed and added no link. A link to a block is now kept as its id when the two texts are compared. Found by the readiness review's command run.

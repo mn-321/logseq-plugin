@@ -666,9 +666,10 @@ const dsQuery = async query => {
 };
 
 // DB graphs store links as [[uuid]] and block references as ((uuid)). Swap in the titles people see.
-// pagesOnly leaves ((uuid)) alone, matching what the block editor shows.
+// pagesOnly leaves ((uuid)) alone, matching what the block editor shows; asShown also leaves a [[uuid]]
+// that points at a block (not a page) alone, because the editor shows such a link as its id.
 const storedRef = /(\(\(|\[\[)([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\)\)|\]\])/gi;
-async function readableTitle(text, { pagesOnly = false, depth = 2 } = {}) {
+async function readableTitle(text, { pagesOnly = false, depth = 2, asShown = false } = {}) {
   const value = String(text || '');
   const names = new Map();
   for (const [, open, uuid] of value.matchAll(storedRef)) {
@@ -676,6 +677,7 @@ async function readableTitle(text, { pagesOnly = false, depth = 2 } = {}) {
     if (names.has(key) || (pagesOnly && open === '((')) continue;
     let entity = null;
     try { entity = await logseq.Editor.getPage(key) || await logseq.Editor.getBlock(key); } catch (error) { /* keep the id */ }
+    if (asShown && entity && !entity.name && !entity.originalName) { names.set(key, ''); continue; } // a block: shown as its id
     let name = titleOf(entity) || entity?.originalName || entity?.name || '';
     if (name && depth > 1) name = await readableTitle(name, { pagesOnly, depth: depth - 1 });
     names.set(key, name);
@@ -1744,7 +1746,7 @@ async function toSavedRange(saved, shown, start, end) {
     const plain = saved.slice(last, m.index);
     segments.push({ link: false, saved: last, shown: built.length, length: plain.length });
     built += plain;
-    const readable = await readableTitle(m[0], { pagesOnly: true });
+    const readable = await readableTitle(m[0], { pagesOnly: true, asShown: true });
     segments.push({ link: true, saved: m.index, savedEnd: m.index + m[0].length,
       shown: built.length, shownEnd: built.length + readable.length });
     built += readable;
@@ -3685,6 +3687,8 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
 
 
 
