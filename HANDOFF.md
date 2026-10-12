@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12, for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.117; the newest work is under "State after the safety round".
+The plugin is at 0.2.118; the newest work is under "State after the safety round" (0.2.118 is its last entry).
 
 ## What this is
 
@@ -104,6 +104,16 @@ TEMP-DEV probe (removed). What each line says about checking is the state after 
   As downloaded the colour did not apply: Logseq defines `--lx-accent-11` and `--ls-link-text-color` on `body`, and a
   token declared on `:root` that refers to them resolves there, to `currentColor`. `tokensCss` is now `:root, body`.
   `--ls-tag-text-color` does not exist in 2.0.2; the colour comes from `--lx-accent-11`.
+
+- **0.2.118, icons in links.** Logseq's page link ignores a pointer press whose target is the `<a>` itself
+  (`frontend.util/link?` is true for `A` and `BUTTON`), so anything drawn as `a::before` cannot be clicked. The `#` of a
+  tag-page link is now `a > span:first-child::before`: an inline box holding a word joiner, 1em of left padding, the
+  mask at `0 calc(50% + 1px)`, 3px margin (Logseq's own link icon is a 16px svg in a 19px box, `vertical-align: middle`).
+  A probe's `elementFromPoint` on the `#` returns the span; an actual click was not made (background clicks do not
+  follow links). The same limit still applies to the dot of a labelled block link (`a::before` in `cueCss`).
+  The word joiner from 0.2.116 did **not** keep Logseq's icon with its name (seen: Ada Okafor's icon alone at a line
+  end), so a page link with an icon is now `display: inline-block; max-width: 100%` and moves as one piece. Seen on
+  **Plugin Visual Cues**. The 0.2.116 note below about icons is superseded by this.
 
 ## State after the links and journals round (2026-10-12, 0.2.116)
 

@@ -289,12 +289,16 @@ ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .ls-block .block-content a.tag:hover { text-decoration: underline !important; }
 /* A link to a tag's own page looks like a page link (underlined name) but its icon is in the colour
    Logseq gives tags, where a page's icon is in the full text colour. The icon is the tag's own, or a
-   # drawn as an icon. Only the icon takes the colour; the name stays in the text colour. */
+   # drawn as an icon. Only the icon takes the colour; the name stays in the text colour.
+   The # is drawn at the start of the name's own span, not on the link element: Logseq ignores a
+   press whose target is the <a> itself (frontend.util/link?), so a # drawn as the link's ::before
+   could not be clicked. It is an inline box holding a word joiner, so it cannot be left behind at
+   a line end either. */
 a.page-ref[data-refinement-tag-page]:not(.tag) > .icon-emoji-wrap { color: var(--rf-tag-color) !important; opacity: 1; }
-a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap))::before {
-  content: ''; display: inline-block; width: 1em; height: 1em; margin-right: .22em; vertical-align: -.14em;
-  background: var(--rf-tag-color); opacity: 1;
-  mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat;
+a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap)) > span:first-child::before {
+  content: '\\2060'; padding-left: 1em; margin-right: 3px; /* 16px and 3px: the size and gap of Logseq's own link icons */
+  background: var(--rf-tag-color);
+  mask: url("data:image/svg+xml,${hashMask}") 0 calc(50% + 1px) / 1em 1em no-repeat; -webkit-mask: url("data:image/svg+xml,${hashMask}") 0 calc(50% + 1px) / 1em 1em no-repeat;
 }
 .page-reference[data-ref] a.page-ref { text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
@@ -326,9 +330,10 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
    dot. A word joiner in the dot's place keeps the icons on the same line as the first word. */
 .ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: '\\2060' !important; }
 .ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) { padding-right: .25em; }
-/* The icon of a linked page or tag page stays on the same line as the first word of its name. */
-.ls-block .block-content a.page-ref:not(.tag) > .icon-emoji-wrap + span::before,
-.ls-block .block-content a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap)) > span:first-child::before { content: '\\2060'; }
+/* The icon of a linked page or tag page stays with its name. Logseq's icon is a box of its own, and
+   a line may break after such a box whatever follows it (a word joiner did not hold it: seen in
+   2.0.2), so the link is kept whole: it moves to the next line together when it does not fit. */
+.ls-block .block-content a.page-ref:not(.tag):has(> .icon-emoji-wrap) { display: inline-block; max-width: 100%; }
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag), .ls-block a.page-ref:has(.block-title-wrap):not(.tag):hover,
 .ls-block a.page-ref:has(.block-title-wrap):not(.tag) *,
 .ls-block .page-reference:has(a.page-ref .block-title-wrap), .ls-block .page-reference:has(a.page-ref .block-title-wrap):hover {
