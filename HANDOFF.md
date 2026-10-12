@@ -33,7 +33,7 @@ No global git identity is set; commits were made with
 
 `AUDIT.md` is the record of an audit of API use and render stability: findings, what Logseq 2.0.2's
 source says, the fix plan with a status per step, and measurements. Versions 0.2.99 to 0.2.113 are
-its fixes, one per commit, on the branch **`audit-fixes`** (not yet merged into `main`). The
+its fixes, one per commit, merged into `main` on 2026-10-11 (the branch `audit-fixes` still points at the same commit). The
 version before them is in `backups/logseq-db-refinements-0.2.98/` (untracked).
 
 What changed in how the plugin is built:
