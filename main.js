@@ -3202,11 +3202,12 @@ const AUTO_DATE_TRIES = 3;
 const autoDateTagNames = () => setting('autoDateTags').split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
 const autoDatePropertyName = () => setting('autoDateProperty').trim() || 'Date';
 async function autoDateSetup() {
-  // The date property: one of yours with that name. If there are several, prefer one a tag uses.
-  const propRows = await dsQuery(`[:find ?ident ?p ?type
-    :where [?p :block/title ${ednString(autoDatePropertyName())}]
-    [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :db/ident ?ident]
-    [(get-else $ ?p :logseq.property/type :default) ?type]]`);
+  // The date property: one of yours with that name, whatever its case ("Date" finds "date"). If there
+  // are several, prefer one a tag uses.
+  const wantedName = autoDatePropertyName().toLowerCase();
+  const propRows = (await dsQuery(`[:find ?ident ?p ?type ?title
+    :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :db/ident ?ident] [?p :block/title ?title]
+    [(get-else $ ?p :logseq.property/type :default) ?type]]`)).filter(([, , , title]) => String(title).toLowerCase() === wantedName);
   // Only a property of the Date type: a journal day is the right value for it and for no other type
   // (a "date and time" property would read the day as a timestamp near 1970).
   const props = propRows.filter(([ident, , type]) =>
@@ -3654,5 +3655,6 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
 
 

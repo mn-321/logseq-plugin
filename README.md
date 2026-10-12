@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.119.
+A personal starter plugin for Logseq DB graphs. Version 0.2.120.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -295,3 +295,5 @@ Tried in Logseq 2.0.2 on the test graph: the mapping of a selection onto the sto
 Version 0.2.118 fixes two things about icons in links. (1) The `#` in front of a link to a tag's page could not be clicked: Logseq ignores a press that lands on the link element itself, and the `#` was drawn as part of that element. It is now drawn at the start of the name, like Logseq's own icons, so pressing it opens the page; it is the same size (16px) and sits the same 3px before the name as those icons. (2) An icon could still be left at the end of a line with its name on the next. A link that has an icon is now kept whole: when it does not fit, icon and name move to the next line together.
 
 Version 0.2.119 keeps a failing part from filling the console. Each of the plugin's warnings is now written once per session instead of on every change (a look-up that failed after each edit used to repeat its warning after every pause in typing), and a screen update that throws an error five times in a row is switched off for the rest of the session with one note saying which part stopped; the rest of the plugin carries on, and reloading the plugin starts it again. Found in the readiness review recorded in `AUDIT.md`.
+
+Version 0.2.120 lets auto-date find its property whatever the case of its name. The property named under **Date property** was matched letter for letter, so “Date” did not find a property called “date” and no dates were filled, with no message. The name is now matched without regard to case, as property names are everywhere else in the plugin.
