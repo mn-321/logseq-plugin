@@ -166,6 +166,7 @@ const tokensCss = `:root {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
+  --rf-here-pct: 20%;    /* the link to the page on screen, under Linked references */
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
@@ -229,15 +230,15 @@ const cssParts = [
   mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat;
   -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat;
 }
-/* SVG icon variants used by newer DB builds and sidebar navigation. */
-:is(.page-title, .page-title-container, .sidebar-item-header, .sidebar-item .header, #left-sidebar, .left-sidebar-inner, .page-icon)
+/* SVG icon variants used by newer DB builds and sidebar navigation, and the bullet of a page listed as a row. */
+:is(.page-title, .page-title-container, .sidebar-item-header, .sidebar-item .header, #left-sidebar, .left-sidebar-inner, .page-icon, .bullet-container)
 :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description, svg.lucide-file, svg[data-icon="file"], svg[data-lucide="file"]) {
   background: currentColor !important;
   opacity: var(--rf-quiet);
   mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
   -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
 }
-:is(.page-title, .page-title-container, .sidebar-item-header, .sidebar-item .header, #left-sidebar, .left-sidebar-inner, .page-icon)
+:is(.page-title, .page-title-container, .sidebar-item-header, .sidebar-item .header, #left-sidebar, .left-sidebar-inner, .page-icon, .bullet-container)
 :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description, svg.lucide-file, svg[data-icon="file"], svg[data-lucide="file"]) > * {
   visibility: hidden !important;
 }
@@ -356,6 +357,25 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
   font-weight: 600; text-decoration: none !important; border-bottom: 0 !important;
 }
 :is(.references, .unlinked-references) .ls-foldable-title a.page-ref:not(.tag):hover { text-decoration: underline !important; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
+`],
+  ['referenceLayout', `/* Linked references: each source page is a group set apart from the next. */
+#main-content-container .references .group-list-view > div > div > div + div { padding-top: 1.6em; }
+/* One kind of heading for every source page: a journal's date reads as a heading too, without its box. */
+:is(.references, .unlinked-references) .ls-view-body .ls-foldable-header [data-refinement-date-heading],
+:is(.references, .unlinked-references) .ls-view-body .ls-foldable-header [data-refinement-date-heading]:hover {
+  background: transparent !important; padding: 0 !important; font-size: inherit !important; font-weight: 600 !important;
+}
+/* The grey path above a reference names the block it sits under, so it gets a bullet and the reference steps in below it. */
+#main-content-container .references .breadcrumb.block-parents::before {
+  content: ''; flex: none; align-self: center; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin: 0 .65em 0 .15em; vertical-align: middle; background: currentColor; opacity: var(--rf-faint);
+}
+#main-content-container .references div:not([data-refinement-crumb-box]):has(> .breadcrumb.block-parents) + .content { margin-left: 1.4em; }
+/* How many references a source page holds, when it holds more than one. */
+.references .ls-foldable-header[data-refinement-ref-count]::after {
+  content: '· ' attr(data-refinement-ref-count); margin-left: .5em; color: var(--ls-secondary-text-color, inherit);
+  opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap;
+}
 `],
   ['tidyPaths', `/* Brackets around dates and pages in grey paths fade, as in search. */
 ::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: var(--rf-faint); }
@@ -993,11 +1013,31 @@ function updateDateHeadings(doc) {
   for (const el of dateHeadings) if (!found.has(el)) { el.removeAttribute('data-refinement-date-heading'); dateHeadings.delete(el); }
   for (const el of found) { if (!el.hasAttribute('data-refinement-date-heading')) el.setAttribute('data-refinement-date-heading', ''); dateHeadings.add(el); }
 }
+// Under Linked references, the heading of a source page says how many references it holds.
+const refCounts = new Set();
+function updateReferenceCounts(doc) {
+  const found = new Map();
+  if (setting('referenceLayout')) for (const title of doc.querySelectorAll('#main-content-container .references .group-list-view .ls-foldable-title')) {
+    // The heading of a whole list (a page shown inside a reference has its own Linked references) is not a source page.
+    if (title.querySelector('.ls-view-head')) continue;
+    const header = title.querySelector('.ls-foldable-header');
+    // Only the references themselves: what an open reference shows inside it (children, property values,
+    // a page's own references) are blocks too, and are not counted.
+    const content = title.parentElement.querySelector(':scope > .ls-foldable-content');
+    const count = content ? [...content.querySelectorAll('.ls-block[level="0"]')].filter(block => {
+      const outer = block.parentElement.closest('.ls-block');
+      return !outer || !content.contains(outer);
+    }).length : 0;
+    if (header && count > 1) found.set(header, String(count));
+  }
+  for (const el of refCounts) if (!found.has(el)) { el.removeAttribute('data-refinement-ref-count'); refCounts.delete(el); }
+  for (const [el, count] of found) { if (el.getAttribute('data-refinement-ref-count') !== count) el.setAttribute('data-refinement-ref-count', count); refCounts.add(el); }
+}
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, updatePropertyCrumbs, fadeCrumbBrackets,
-    updatePageLabels, updateDateHeadings, updateTagPageLinks, updateCueMarks]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateTagPageLinks, updateCueMarks]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     if (dateLinkName(link.getAttribute('data-ref')) || dateLinks.uuids.has(link.getAttribute('data-uuid')) ||
@@ -1057,6 +1097,8 @@ function stopDateLinks() {
   refRows.clear();
   for (const el of dateHeadings) el.removeAttribute('data-refinement-date-heading');
   dateHeadings.clear();
+  for (const el of refCounts) el.removeAttribute('data-refinement-ref-count');
+  refCounts.clear();
   for (const crumb of [...propertyCrumbs.marked]) unmarkPropertyCrumb(crumb);
   for (const [el, [attr]] of cueMarks.marked) el.removeAttribute(attr);
   cueMarks.marked.clear();
@@ -1877,7 +1919,7 @@ const settingsSchema = [
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
-    description: 'Under Linked references, the link that points to the page you are on gets a very light grey wash. Applies right away.' },
+    description: 'Under Linked references, the link that points to the page you are on gets a clear grey highlight. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
     description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
   { key: 'datesHeading', type: 'heading', title: 'Journal day as date', default: null,
@@ -1908,6 +1950,8 @@ const settingsSchema = [
     description: 'Changes here apply right away.' },
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
     description: 'Page links in normal text colour with a faint underline instead of bright blue; tags as bold text; page names heading Linked references read as headings; links inside highlights stay readable.' },
+  { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
+    description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, and the blocks below a reference stepping back unless they link here too. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
     description: 'A small dot before links to blocks and a light dashed line under them (pages keep their solid underline), and document or image icons before links to PDFs and pictures.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
@@ -2090,15 +2134,21 @@ function updatePageKind(doc) {
   updateReferenceHere(titles.length === 1 ? titles[0] : null);
 }
 // Under "Linked references" a block is listed because it links to the page on screen, but it may
-// hold other links too. The link that points here gets a very light wash, so it can be found at once.
+// hold other links too. The link that points here gets a clear wash, stronger than the box behind a
+// date, so it can be found at once; the blocks below a reference that do not hold that link step back.
 function updateReferenceHere(title) {
-  const found = setting('markReferenceHere') ? title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '' : '';
+  const mark = setting('markReferenceHere'), layout = setting('referenceLayout');
+  const found = mark || layout ? title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '' : '';
   const uuid = UUID.test(found) ? found : '';
-  if (uuid === pageKind.referenceHere) return;
-  pageKind.referenceHere = uuid;
+  const state = uuid ? `${uuid} ${mark} ${layout}` : '';
+  if (state === pageKind.referenceHere) return;
+  pageKind.referenceHere = state;
   const links = `#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-uuid="${uuid}"]`;
-  logseq.provideStyle({ key: 'personal-db-reference-here', style: uuid ? `
-${links} { background: ${wash('--rf-wash-pct')}; padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : '/* no single page on screen */' });
+  const below = `#main-content-container .references .ls-block[level="0"] .block-children .ls-block:not(:has(:is(a.page-ref, a.tag)[data-uuid="${uuid}"]))`;
+  logseq.provideStyle({ key: 'personal-db-reference-here', style: uuid ? orNoRules(`${mark ? `
+${links} { background: ${wash('--rf-here-pct')} !important; padding: .05em .2em; margin: 0 -.2em; border-radius: .2em; }` : ''}${layout ? `
+${below} > .block-main-container { opacity: var(--rf-quiet); }
+${below}:hover > .block-main-container { opacity: 1; }` : ''}`) : '/* no single page on screen */' });
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
 // in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its

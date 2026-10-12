@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.113.
+A personal starter plugin for Logseq DB graphs. Version 0.2.115.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -270,3 +270,7 @@ Version 0.2.111 is a tidy-up with no visible change. The main stylesheet was sen
 Version 0.2.112 adds a check for use after a Logseq update. Most of what the plugin draws depends on names Logseq uses inside its own pages, and Logseq can change those in any release; when it does, a feature stops without any message. **Refinements: Check what the plugin finds on this page (troubleshooting)** lists how many of each part the plugin relies on are on screen (blocks, links, title actions, property capsules and so on) with the features that need each one, plus the marks the plugin itself has placed. A zero beside something you can see on the page means Logseq renamed it. Troubleshooting reports now also say when your Logseq version differs from the one the plugin was last checked against (2.0.2). It changes nothing.
 
 Version 0.2.113 refines two things from the last few versions after trying them in Logseq. (1) **Fold all results** on a query whose results have nothing under them said that the results had “no fold arrow to press”; it now says that none of them has anything to fold, and the warning is kept for a folded result that cannot be unfolded. (2) The early placing of a page title's parts (0.2.106) also ran when page names in the sidebars were redrawn; it now runs only for the page in the main area.
+
+Version 0.2.114 makes the mark under Linked references stronger. The link that points to the page on screen had the same very light grey as the box behind a date; it now has a clearly darker one (`--rf-here-pct`, 20%), and on a journal page it also applies to the date link that points to that day.
+
+Version 0.2.115 makes Linked references easier to read, under one new setting, **Clearer Linked references** (on by default). (1) Source pages are set apart by a wider gap. (2) The blocks below a reference are drawn in the quiet tone unless they link to the page on screen themselves; pointing at one brings it back. (3) A journal's date heading loses its grey box there, so every source page has the same semibold heading. (4) The grey path above a reference, which names the block it sits under, starts with a bullet, and the reference is stepped in below it. (5) A heading is followed by the number of references its page holds, when there is more than one. (6) A page listed as a row, as under Linked references, has the same plain page icon in its bullet as in the sidebar, in place of Logseq's folded-corner file icon; this one belongs to **Simpler page icons**.
