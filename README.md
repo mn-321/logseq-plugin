@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.132.
+A personal starter plugin for Logseq DB graphs. Version 0.2.133.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -346,3 +346,5 @@ Version 0.2.130 makes a cited PDF excerpt read as a quotation, as the owner aske
 Version 0.2.131 changes the box around the link to the page on screen, under Linked references, as the owner asked: it is a soft wash of the theme's accent colour (`--rf-here`, 14% of the accent) instead of the darker grey, with rounder corners and more room around the words. The box now sits inside the row rather than hanging 0.2em over the words on each side, so the last value in a property row is no longer cut off at the row's edge; the words after a boxed link move right by about 0.3em.
 
 Version 0.2.132 makes that box rounder and looser, as the owner asked: corners of 0.4em (was 0.35em) and more room beside the words (0.42em, was 0.3em), with a little less above and below (0.06em, was 0.12em). A date that points to the day on screen now takes the same room and corners; in a property row it had none, so the box sat tight and square against the text.
+
+Version 0.2.133 brings back the `· n` after a source page's heading on pages where it had gone missing. The count looked for the headings inside a wrapper (`.group-list-view`) that Logseq does not draw around every Linked references list; on the journal for Oct 12th, 2026 the wrapper was absent, so a day holding three references showed no number. The headings are now found without it. A source page with a single reference still shows no number.

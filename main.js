@@ -1078,7 +1078,8 @@ function updateDateHeadings(doc) {
 const refCounts = new Set();
 function updateReferenceCounts(doc) {
   const found = new Map();
-  if (setting('referenceLayout')) for (const title of doc.querySelectorAll('#main-content-container .references .group-list-view .ls-foldable-title')) {
+  // Not tied to .group-list-view: a journal's Linked references are drawn without that wrapper.
+  if (setting('referenceLayout')) for (const title of doc.querySelectorAll('#main-content-container .references .ls-view-body .ls-foldable-title')) {
     // The heading of a whole list (a page shown inside a reference has its own Linked references) is not a source page.
     if (title.querySelector('.ls-view-head')) continue;
     const header = title.querySelector('.ls-foldable-header');
