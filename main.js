@@ -148,8 +148,9 @@ function modalHint(doc, text) {
    one can find it, and a new copy runs it and removes anything still left on screen. */
 const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
+// Every data-refinement-* mark the plugin sets (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'page-kind', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box'].map(name => 'data-refinement-' + name);
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box', 'ref-count'].map(name => 'data-refinement-' + name);
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
@@ -822,11 +823,11 @@ async function loadJournalDates() {
 /* Date labels are classified synchronously during DOM updates, before paint.
    Global journal styles stay installed across navigation. */
 const dateLinks = { document: null, originals: new Map(), version: 0, uuids: new Set(), names: new Set() };
+const dateMonth = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const datePattern = new RegExp('^(?:' + dateMonth + ' \d{1,2},? \d{4}|\d{1,2} ' + dateMonth + ',? \d{4}|\d{4}-\d{2}-\d{2})$', 'i');
 function dateLinkName(name) {
   const value = String(name || '').trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1');
-  const month = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
-  const pattern = new RegExp('^(?:' + month + ' \\d{1,2},? \\d{4}|\\d{1,2} ' + month + ',? \\d{4}|\\d{4}-\\d{2}-\\d{2})$', 'i');
-  return pattern.test(value) && Number.isFinite(Date.parse(value));
+  return datePattern.test(value) && Number.isFinite(Date.parse(value));
 }
 // Unique page titles may append tag names as plain text, rather than tag elements.
 // Resolve the actual stored title so literal # characters and aliases remain intact.
@@ -1096,12 +1097,13 @@ function updateDateLinks() {
 // Tag pages: a [[link]] to one looks like any page link, and a tag's # and icon can be customised,
 // so links to them are marked from the database and their icon is drawn in grey.
 const tagPages = { uuids: new Set(), marked: new Set() };
+// The uuids of every tag page, or null when the look-up failed (the known set is then kept).
 async function loadTagPages() {
   try {
     const rows = await dsQuery(`[:find ?uuid
       :where [?tag :block/tags ?class] [?class :db/ident :logseq.class/Tag] [?tag :block/uuid ?uuid]]`);
-    tagPages.uuids = new Set(rows.map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
-  } catch (error) { warnOnce('could not find tag pages', error); }
+    return new Set(rows.map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
+  } catch (error) { warnOnce('could not find tag pages', error); return null; }
 }
 function updateTagPageLinks(doc) {
   const found = new Set();
@@ -1114,8 +1116,10 @@ function updateTagPageLinks(doc) {
 }
 async function refreshJournalDates() {
   const version = ++dateLinks.version;
-  const [dates] = await Promise.all([loadJournalDates(), loadTagPages()]);
-  if (version !== dateLinks.version || !dates) return;
+  const [dates, tags] = await Promise.all([loadJournalDates(), loadTagPages()]);
+  if (version !== dateLinks.version) return;
+  if (tags) tagPages.uuids = tags;
+  if (!dates) return;
   dateLinks.uuids = dates.uuids;
   dateLinks.names = dates.names;
   updateDateLinks();
@@ -1618,7 +1622,7 @@ function describeElement(el, depth, lines, nodeIds) {
 function showDiagnostics(text) {
   modal(null, (box, finish, doc) => {
     const heading = doc.createElement('label');
-    heading.textContent = 'Styling details for this block. Copy and paste them into your chat.';
+    heading.textContent = 'Report from the Refinements plugin. Copy and paste it into your chat.';
     const area = doc.createElement('textarea');
     area.readOnly = true;
     area.value = text;
@@ -1842,6 +1846,7 @@ const sidebarPresentation = { hidden: new Set(), pending: new WeakMap() };
 function updateSidebarPresentation(doc) {
   const sidebar = doc.querySelector('#right-sidebar');
   if (!sidebar) return;
+  for (const el of sidebarPresentation.hidden) if (!el.isConnected) sidebarPresentation.hidden.delete(el);
   const normalize = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
   const devTabs = new Set(['(Dev) RTC', '(Dev) Undo/Redo', '(Dev) Profiler', 'Page graph', 'Page Graph']);
   for (const el of sidebar.querySelectorAll('a, button, [role="tab"], [role="button"], span, div')) {
@@ -1990,7 +1995,9 @@ const hierarchyParts = {
 // makes Logseq work out the look of the whole page again.
 const sentStyles = new Map();
 function sendStyle(key, style) {
-  if (sentStyles.get(key) === style) return;
+  const changed = sentStyles.get(key) !== style;
+  perf.style(key, style, changed);
+  if (!changed) return;
   sentStyles.set(key, style);
   logseq.provideStyle({ key, style: orNoRules(style) });
 }
@@ -2193,11 +2200,11 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { pageId: 0, timer: 0, aliasOf: [], aliasLine: null, inherited: [], inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { timer: 0, aliasOf: [], aliasLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
   const version = pageKind.version = (pageKind.version || 0) + 1;
-  let kind = '', pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
+  let isTag = false, pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
   try {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
@@ -2206,20 +2213,18 @@ async function loadPageKind() {
       const rows = await logseq.DB.datascriptQuery(`[:find ?ident
         :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`);
       const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
-      kind = idents.has('logseq.class/Tag') ? 'Tag' : idents.has('logseq.class/Property') ? 'Property' : '';
+      isTag = idents.has('logseq.class/Tag');
       plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
       // Logseq records an alias only on the original page; look it up from the alias's side.
       const originals = await logseq.DB.datascriptQuery(`[:find ?uuid ?title
         :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`);
       aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
         .sort((a, b) => a[1].localeCompare(b[1]));
-      if (kind === 'Tag') inherited = await inheritedTagProperties(pageId);
+      if (isTag) inherited = await inheritedTagProperties(pageId);
     }
   } catch (error) { warnOnce('could not tell the page type', error); }
   if (version !== pageKind.version) return;
-  pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
-  pageKind.inherited = inherited;
   if (pageUuid) pageKind.inheritedBy.set(pageUuid, inherited);
   pageKind.plain = plain;
   pageKind.pageUuid = pageUuid;
@@ -2703,9 +2708,11 @@ function listChoices() {
   return result;
 }
 async function loadPropertyNames() {
+  const version = listProps.namesVersion = (listProps.namesVersion || 0) + 1;
   try {
     const rows = await logseq.DB.datascriptQuery(`[:find ?name
       :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :block/title ?name]]`);
+    if (version !== listProps.namesVersion) return;
     listProps.names = new Set((rows || []).map(([name]) => String(name)).filter(Boolean));
     if (dateLinks.document) updateListProps(dateLinks.document);
   } catch (error) { warnOnce('could not load property names', error); }
@@ -3330,6 +3337,7 @@ async function fillMissingDates() {
 const quietUi = { marked: new Set() };
 const quietItemNames = () => new Set(setting('quietItems').split(',').map(name => name.trim().toLowerCase()).filter(Boolean));
 function updateQuietUi(doc) {
+  for (const el of quietUi.marked) if (!el.isConnected) quietUi.marked.delete(el);
   const names = quietItemNames();
   const clean = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
   const mark = el => { if (!el.hasAttribute('data-refinement-quiet')) { el.setAttribute('data-refinement-quiet', ''); quietUi.marked.add(el); } };
@@ -3657,6 +3665,8 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+
 
 
 

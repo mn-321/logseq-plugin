@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.121.
+A personal starter plugin for Logseq DB graphs. Version 0.2.122.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -299,3 +299,5 @@ Version 0.2.119 keeps a failing part from filling the console. Each of the plugi
 Version 0.2.120 lets auto-date find its property whatever the case of its name. The property named under **Date property** was matched letter for letter, so “Date” did not find a property called “date” and no dates were filled, with no message. The name is now matched without regard to case, as property names are everywhere else in the plugin.
 
 Version 0.2.121 makes the dot before a labelled link to a block (`[words]([[block]])`) part of what can be clicked. Like the `#` of a tag-page link in 0.2.118, it was drawn on the link element itself, which Logseq ignores on press; it is now drawn at the start of the label, and pressing it opens the block. It looks the same.
+
+Version 0.2.122 is a tidy-up with no visible change, from the readiness review. (1) A new copy of the plugin now also clears the `· n` reference counts and the one-line list values an earlier copy may have left behind. (2) The pattern that recognises a date is built once instead of for every link on every change. (3) The measuring tool's report lists the stylesheets again (its count was never filled in). (4) Two fields nobody read are gone from the page-kind state. (5) The lists of quietened sidebar items and hidden sidebar controls forget elements that Logseq has removed. (6) The tag-page and property-name look-ups keep only the newest answer, like the other look-ups. (7) The heading of every troubleshooting report no longer says "Styling details for this block".
