@@ -16,6 +16,7 @@ small change at a time, looking at each result in the running app.
 | --- | --- |
 | Plugin (git repo, branch `main` at 0.2.131; `readiness-0.2.119` points at the same commit) | `/Users/claude-agent/logseq-plugin/` |
 | Plugin code | `main.js` (about 3,800 lines, one file), entry is `loader.js` |
+| Standing advice for plugin and CLI work | `GUIDE.md` |
 | Test graph | Logseq graph named **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`) |
 | Seed for the test graph | `test/plugin-test-graph.edn` (committed; the graph has since gained things the seed lacks, see below) |
 | Live legend of every cue | page **Plugin Visual Cues** in the test graph |
