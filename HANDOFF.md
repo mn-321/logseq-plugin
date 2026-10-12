@@ -1,6 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
-Written 2026-10-11 for the next chat session. Read this first, then `README.md` for the feature list.
+Written 2026-10-11, updated 2026-10-12, for the next chat session. Read this first, then `README.md` for the feature list.
+The plugin is at 0.2.115 (commit `4c77539`); the newest work is under "State after the Linked references session".
 
 ## What this is
 
@@ -16,7 +17,7 @@ small change at a time, looking at each result in the running app.
 | Plugin (git repo, branch `main`) | `/Users/claude-agent/logseq-plugin/` |
 | Plugin code | `main.js` (about 3,000 lines, one file), entry is `loader.js` |
 | Test graph | Logseq graph named **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`) |
-| Seed for the test graph | `test/plugin-test-graph.edn` (untracked, see "Uncommitted" below) |
+| Seed for the test graph | `test/plugin-test-graph.edn` (committed; the graph has since gained things the seed lacks, see below) |
 | Live legend of every cue | page **Plugin Visual Cues** in the test graph |
 | Logseq | `/Applications/Logseq.app`, version 2.0.2, DB version |
 | Logseq CLI | `~/.local/bin/logseq` |
@@ -75,6 +76,79 @@ How the changes were checked without clicking through Logseq (worth reusing):
 
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
+
+## State after the Linked references session (2026-10-12)
+
+Versions 0.2.114 and 0.2.115, one commit (`4c77539`), both looked at on the **Priya Nair** page of the
+test graph after a plugin reload.
+
+- **0.2.114**: the link to the page on screen, under Linked references, has a stronger wash
+  (`--rf-here-pct`, 20%; the date box stays at 8%). It is `!important`, so on a journal page it also
+  covers the date link to that day (not looked at on screen).
+- **0.2.115**, setting **Clearer Linked references** (`referenceLayout`, on by default):
+  - a wider gap between source pages (1.6em, no line);
+  - blocks below a reference are drawn at `--rf-quiet` unless they hold a link to the page on screen;
+    pointing at one brings it back (the hover was not tried);
+  - a journal's date heading loses its box there, so every source page has the same semibold heading;
+  - the grey parent path above a reference starts with a bullet, and the reference is stepped in
+    1.4em below it, so the two read as parent and child;
+  - a heading is followed by `· n` when its page holds two or more references (`updateReferenceCounts`).
+- Under **Simpler page icons**: a page listed as a row has the plain page icon in its bullet, as in the
+  sidebar (`.bullet-container` added to the scope of the svg page-icon rule). It applies to any page
+  row's bullet; only Linked references was looked at.
+
+Where the code is: the fixed rules are the `referenceLayout` entry in `cssParts`; the wash and the
+quiet-children rule are in `updateReferenceHere`, because both need the uuid of the page on screen;
+the count is `updateReferenceCounts`, run from `updateDateLinks`.
+
+Not looked at: Unlinked references, the right sidebar, a reference through a `#tag`.
+
+What cost time, worth knowing:
+
+- **The Linked references list measures its rows.** A `margin` on a source-page group is not counted,
+  and the bottom of the list is cut off by that much (a whole group was hidden). Use `padding`.
+- **Rows are drawn late.** A probe that ran 3 seconds after reload found the groups empty; 7 seconds
+  was enough.
+- **Blocks inside a reference are also `.ls-block[level="0"]`**: property values, the blocks of a page
+  shown as a row, and that page's own Linked references. Anything that counts or styles "the
+  references" has to leave out blocks that sit inside another block of the same group.
+- The layout, for the next change: `.references .group-list-view > div > div > div` is one source page;
+  inside it `.ls-foldable-title` (heading; a journal's has `[data-refinement-date-heading]`) and
+  `.ls-foldable-content`, which holds one `div` per reference: an optional
+  `.breadcrumb.block-parents` in a wrapper, then `.content` with the `.ls-block[level="0"]`.
+- Reload loop that worked every time: screenshot, click **…** by coordinate (993, 20), click
+  **Plugins** by index from that screenshot, screenshot again (the panel moves as it opens), find
+  **Reload** with `app_ax_find`, click it, close the panel at (1004, 77). The window was 1038 wide.
+
+### Tried and rejected in this session (do not bring back)
+
+- A hairline between source pages, full width or short. Spacing alone is wanted.
+- A `›` closing the parent path. A path does not end with an arrow; it has a bullet now.
+
+### Offered, not decided
+
+- Hide a source-page heading when the only thing under it is that same page (**Why Block References
+  Matter** sits under itself because its `authors` property links to the page on screen).
+- Keep Logseq's three fold arrows (section, source page, block) faintly visible; they show on hover only.
+
+### The test graph gained things the seed does not have
+
+Made at the owner's request, outside the plugin:
+
+- Tag **#Expectation** with properties `juncture`, `date` (date), `completed` (date) and the built-in
+  **Scheduled**. `juncture` has the choices Waiting, Updated, No change, Done, sits at the beginning of
+  the block, and uses the task icons (Todo, InProgress50, Backlog, Done), so a block tagged
+  `#Expectation` shows a circle like a task. Waiting is unchecked and Done is checked.
+- An example block on **Oct 11th, 2026**: "Example: Priya promised the beta invite list" (Waiting,
+  scheduled Oct 12 12:00). The owner's own `test` task is on **Priya Nair**.
+- The example does **not** show in the journal's grey Scheduled and Deadline boxes. Logseq 2.0.2 lists
+  there only blocks that have the built-in Status and are not Done or Canceled (read from the app's
+  source, `get-date-scheduled-or-deadlines`). The owner chose to leave this.
+
+CLI notes from that work: `upsert property` cannot add choices or a position (done in the app:
+property page, **Configure**; a submenu opens with a click and then the right-arrow key); a choice's
+icon can be set with `upsert block --id N --update-properties '{:logseq.property/icon {:type :tabler-icon :id "Todo"}}'`;
+Scheduled takes milliseconds, not a date string; the graph's `config.edn` is stored inside `db.sqlite`.
 
 ## The development loop
 
@@ -144,7 +218,8 @@ those instead of new numbers.
 | Page property list | as Logseq draws it |
 | Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle always visible |
 | Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list |
-| Linked references | the link to the page on screen sits in a very light grey box |
+| Linked references | the link to the page on screen sits in a clear grey box (20%, stronger than a date); source pages set apart by a gap; plain semibold headings, `· n` after one that holds several references; bullet before the parent path, reference stepped in below; blocks below a reference quiet |
+| Page listed as a row | plain page icon in the bullet, as in the sidebar |
 
 Rules agreed along the way: the bullet says what a row is, a mark before a link says what it
 points to, anything after the text says what the block holds. The arrow symbol is no longer used.
@@ -164,9 +239,8 @@ navigation, and showing it only with the tag's properties open) were done in 0.2
 
 Raised in the 0.2.98 session and left open:
 
-- The owner asked for the hierarchy of Linked references to be clearer; only the fallback was
-  done (a light wash on the link that points to the page on screen). Not yet seen on a `#tag`
-  reference or a reference through a property value. The wash is the same grey as the date box.
+- The hierarchy of Linked references: done in 0.2.114 and 0.2.115 (see the session notes above). Still
+  not seen on a `#tag` reference; a reference through a property value was seen (`owner`, `authors`).
 - Property lists were returned to Logseq's default (bullet beside every value, normal weight)
   "for now"; the owner may want a different treatment later. Do not hide the value bullet again
   without handling text values, which draw a bullet of their own.
