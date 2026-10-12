@@ -29,6 +29,53 @@ the README's "Version 0.2.98" list). Commit after each change the owner confirms
 No global git identity is set; commits were made with
 `git -c user.name="ynmyz4hwr6" -c user.email="ynmyz4hwr6@privaterelay.appleid.com" commit ...`.
 
+## State after the audit (2026-10-11, later session)
+
+`AUDIT.md` is the record of an audit of API use and render stability: findings, what Logseq 2.0.2's
+source says, the fix plan with a status per step, and measurements. Versions 0.2.99 to 0.2.113 are
+its fixes, one per commit, on the branch **`audit-fixes`** (not yet merged into `main`). The
+version before them is in `backups/logseq-db-refinements-0.2.98/` (untracked).
+
+What changed in how the plugin is built:
+
+- **One screen watcher** (`domWatch`). `watchDomEarly(fn)` runs `fn(doc, records)` at once on every
+  change, before paint; `watchDom(fn)` runs `fn(doc)` once in the next frame. The watcher ignores
+  its own changes. Add new on-screen work to one of these; do not create another MutationObserver.
+- **Marks, not generated stylesheets.** `updateCueMarks` marks links and rows from what the
+  database said (`cueMarks`), and `cueCss` is a fixed stylesheet. `sendStyle` sends a stylesheet
+  only when its text changed; an empty one must go through `orNoRules`, because Logseq ignores
+  empty stylesheets.
+- **One round after database changes** (`scheduleDbWork` / `runDbWork`). Add a new look-up to the
+  list in `runDbWork`, not a new timer. `DB.onChanged` gives no change details in 2.0.2 (`txData`
+  is always empty).
+- **Measuring tool** (PERF-DEBUG block): `debugPerf: true` and optionally `debugPerfEvery: 10` in
+  the settings file, then reload; reports go to `perfLog`. Or the two “measuring” commands.
+- **Check after a Logseq update:** “Refinements: Check what the plugin finds on this page”.
+
+How the changes were checked without clicking through Logseq (worth reusing):
+
+- Logseq re-reads `~/.logseq/settings/logseq-db-refinements.json` when the plugin is reloaded, so a
+  setting written to that file is a way to pass instructions in, and `logseq.updateSettings` a way
+  to get results out.
+- A temporary block appended to `main.js` (marked TEMP-DEV) read a list of page names from a
+  setting, opened each with `logseq.App.pushState`, waited, and wrote what was drawn (each link's
+  computed underline, `::before` content and background, labels, cues, title positions) to a
+  setting. Run on the old and the new build, the two results are compared. Code inside `main.js`
+  can also call the plugin's own functions, make and remove a test block, and open or close the
+  sidebars (`logseq.App.setRightSidebarVisible`).
+- With the Plugins panel left open, each reload is one click on **Reload**; the page behind the
+  panel is still drawn and can be read.
+- Do not use `scrollIntoView` in such a script: it scrolled Logseq's whole window content and hid
+  the toolbar until the window was reloaded (bring Logseq to the front, then **View > Reload**).
+- Animation-frame work does not run while the display is asleep; keep it awake during a run
+  (`caffeinate -d -u -t 120 &`).
+- Background clicks do not follow links inside a page, but they do work on the left sidebar's
+  page links and the toolbar buttons. Look at a fresh screenshot before every click by index: the
+  indexes shift whenever a sidebar opens.
+
+The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
+block (the case drawn from the database rather than from the page).
+
 ## The development loop
 
 1. Edit `main.js`.

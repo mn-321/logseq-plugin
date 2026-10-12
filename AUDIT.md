@@ -53,12 +53,12 @@ Severity: H high, M medium, L low. Line numbers are for 0.2.98.
 | B7 | Slow selectors: hover rule for nesting lines (1682), reference-row `*` rule (274), `div:has(> …crumb)` (305) | CSS | M | part fixed 0.2.109 (see step 10) |
 | B8 | Fold log observer never stops after the first fold command | 2493 | L | fixed 0.2.110 |
 | B9 | Per-frame work that could be skipped: sidebar text scan (1553), title computed styles (1835), list choices re-parsed (2443) | — | L | list choices fixed 0.2.111; the other two left (each measured at 0.1–0.3 ms) |
-| C1 | Line beside embedded pages never draws (`.embed-page` matches nothing) | 289 | M | open |
+| C1 | Line beside embedded pages never draws (`.embed-page` matches nothing) | 289 | M | probably not a defect: in a DB graph an embed is a linked block, which Logseq draws as `.embed-block`, and the rule covers that. `.embed-page` is a leftover from file graphs. Not seen on screen: the test graph has no embed |
 | C2 | Fold log always reports "0 facts" (`txData` is empty) | 2976 | L | fixed 0.2.110 |
 | C3 | `onSettingsChanged` re-sends the main stylesheet on every settings write | 2990 | L | fixed 0.2.111 |
 | C4 | Dead code: `data-refinement-page-kind` is set but no rule uses it | 1917 | L | removed 0.2.111 |
 | C5 | Fold all says "Folded" even when no arrow was found | `foldQueryResults` 2621 | L | fixed 0.2.110 |
-| C6 | Settings file holds leftover `devDump` and `recordCues` keys | settings JSON | L | open |
+| C6 | Settings file holds leftover `devDump` and `recordCues` keys | settings JSON | L | removed from the file 2026-10-11 |
 
 Checked and found fine: nothing runs before `logseq.ready`; every hook's off function is kept;
 `loader.js` cannot create duplicate instances on a normal Reload; `onInputSelectionEnd` making two
@@ -85,7 +85,7 @@ One fix per commit, version bumped and a README note each time. Backup of 0.2.98
 | 8 | Title tags follow size changes | B6 | 0.2.107 | done; gap stays 10 px with either sidebar opened or closed |
 | 9 | One scheduler for database changes; auto-date remembers what it filled | B4, B5 | 0.2.108 | done; two quick edits gave one round. Auto-date itself not exercised (the test graph has no Occurrence or Results tag) |
 | 10 | Tighten selectors; decide the hover rule from measurements | B7 | 0.2.109 | part done: the `div:has(…)` rule is now a plain attribute rule. The hover rule and the reference-row `*` rule are left as they are: nothing measured so far shows them costing anything, and changing them risks the look |
-| 11 | Small fixes | B8, B9, C1–C6 | | open |
+| 11 | Small fixes | B8, B9, C1–C6 | 0.2.110–0.2.113 | done, except C1 (see its row) |
 
 ## Cannot be fixed from a plugin
 
@@ -149,3 +149,44 @@ What this settles:
   duplication step 7 removes.
 - **The test graph is too small to show cost.** Each call takes well under a millisecond. Scan
   cost on long pages and the stylesheet size in a large graph still need a run on a real graph.
+
+## After the fixes (0.2.113, 2026-10-11)
+
+All checks were run in Logseq 2.0.2 on the test graph, driven by a temporary script inside the
+plugin (removed again; see `HANDOFF.md` for how it works).
+
+**Nothing drawn has changed.** Eight pages (Plugin Visual Cues, Atlas, Block Types, Ada Okafor,
+Book, Formatting Samples, Why Block References Matter, Designing Data-Intensive Notes) were recorded
+on 0.2.104 and again after steps 6, 7, 9 and at the end: every link's underline, dot and
+background, every label, every cue, the hidden elements and the title's parts are identical.
+
+| Check | Before | After |
+| --- | --- | --- |
+| Per-block stylesheet | 4,021 to 8,215 characters, by page, growing with the graph | 2,709, fixed |
+| Always-on watchers | 4, each called for every change | 1 |
+| Gap between title actions and tags with the right sidebar open | about 800 px off, and still wrong after closing it | 10 px in every sidebar state |
+| Look-up rounds after two quick edits | finishing at 0.8, 1.0 and 1.5 s | 1 round |
+| Fold all on a query whose results have nothing under them | “Folded every result” | says none of the 13 results has anything to fold |
+| Fold log watcher after leaving the page | still running | stopped |
+
+**A long page.** A page of 1,740 blocks was made for the test and recycled afterwards. Logseq drew
+143 of them on opening and 705 (22,000 elements) after scrolling. With 705 drawn:
+
+| What | Result |
+| --- | --- |
+| The whole before-paint pass (dates, cues, labels, marks) | 1.7 ms on average, 3.0 ms at most |
+| All of the plugin's work for one change | about 4 ms |
+| Long frames while scrolling | 20 (1,150 ms in all), none of it in the plugin's code |
+| Passes that landed a frame late | 0 of 21 |
+
+So the remaining whole-page scans (B2) are not worth narrowing: they cost a few milliseconds on
+a page far longer than Logseq draws at once, and the slow frames while scrolling are Logseq's own.
+
+**Not checked on screen**, because the test graph has no example: “Doctor: …” labels on property
+values under Linked references, “via …” labels, the hidden property path, auto-date, PDF
+citations, an actual fold or unfold, and a list that hides properties. Their code paths are the
+same functions as before, called from the new places.
+
+**Still open:** the hover rule for nesting lines and the `*` rule for reference-only rows (B7),
+the sidebar and title scans that run every frame (B9), and the measuring tool, which is still in
+`main.js` (PERF-DEBUG block, off by default) in case a real graph should be measured.
