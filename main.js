@@ -8,7 +8,7 @@ const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task
 // returns; the promise it returns waits for any step that finishes later.
 function runUnloadTasks() {
   stopWatchingDom(); // first, so nothing re-applies while the parts below undo their changes
-  const failed = error => console.warn('Refinements: clean-up step failed', error);
+  const failed = error => warnOnce('clean-up step failed', error);
   const pending = [];
   for (const task of unloadTasks.splice(0).reverse()) {
     try { pending.push(Promise.resolve(task()).catch(failed)); } catch (error) { failed(error); }
@@ -19,6 +19,27 @@ function runUnloadTasks() {
 // The Logseq window. The plugin runs in a frame inside it.
 const host = () => window.parent.document;
 
+/* A warning is written once per session for each distinct message, so a part that fails after every
+   change (a look-up after each edit, a screen update on each redraw) does not fill the console. */
+const warned = new Set();
+function warnOnce(message, ...details) {
+  if (warned.has(message)) return;
+  warned.add(message);
+  warnOnce('' + message, ...details);
+}
+/* A screen update that throws again and again is switched off for the rest of the session, with one
+   note saying which part stopped. The others carry on; a reload starts it again. */
+const UPDATER_TRIES = 5;
+const updaterFailures = new Map();
+function updaterFailed(fn, error, list) {
+  const n = (updaterFailures.get(fn) || 0) + 1;
+  updaterFailures.set(fn, n);
+  if (n < UPDATER_TRIES) return warnOnce(`a screen update failed (${fn.name || 'unnamed'})`, error);
+  if (list instanceof Set) list.delete(fn);
+  else { const at = list.indexOf(fn); if (at >= 0) list.splice(at, 1); }
+  warnOnce(`${fn.name || 'a screen update'} stopped for this session after ${n} errors`, error);
+}
+
 /* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
    stop the others.
    - Early ones (watchDomEarly) run at once on every change, before the screen is drawn, so that
@@ -28,8 +49,8 @@ const host = () => window.parent.document;
    change is set aside, and what the later pass changes is shown to the early ones once. */
 const domWatch = { updaters: new Set(), early: [], observer: null, frame: 0, win: null, doc: null };
 function runEarly(records) {
-  for (const fn of domWatch.early) {
-    try { perf.time(fn.name, () => fn(domWatch.doc, records)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
+  for (const fn of [...domWatch.early]) {
+    try { perf.time(fn.name, () => fn(domWatch.doc, records)); } catch (error) { updaterFailed(fn, error, domWatch.early); }
   }
   domWatch.observer?.takeRecords();
 }
@@ -47,8 +68,8 @@ function ensureDomWatch() {
     domWatch.frame = win.requestAnimationFrame(() => {
       domWatch.frame = 0;
       perf.pass(timing);
-      for (const fn of domWatch.updaters) {
-        try { perf.time(fn.name, () => fn(doc)); } catch (error) { console.warn('Refinements: a screen update failed', error); }
+      for (const fn of [...domWatch.updaters]) {
+        try { perf.time(fn.name, () => fn(doc)); } catch (error) { updaterFailed(fn, error, domWatch.updaters); }
       }
       perf.passDone();
       const own = domWatch.observer?.takeRecords() || [];
@@ -132,7 +153,7 @@ const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'proper
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
-  try { win[STOP_KEY]?.(); } catch (error) { console.warn('Refinements: an earlier copy could not be stopped', error); }
+  try { win[STOP_KEY]?.(); } catch (error) { warnOnce('an earlier copy could not be stopped', error); }
   win[STOP_KEY] = runUnloadTasks;
   onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
   try {
@@ -140,7 +161,7 @@ function takeOverFromEarlierCopy() {
     for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
     for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
     for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
-  } catch (error) { console.warn('Refinements: leftovers could not be cleared', error); }
+  } catch (error) { warnOnce('leftovers could not be cleared', error); }
 }
 
 // Listens on Logseq's window before Logseq does (capture phase), until the plugin unloads.
@@ -773,7 +794,7 @@ async function descendantMetadata(tree) {
     }
     return metadata;
   } catch (error) {
-    console.warn('Refinements: using block-tree type detection', error);
+    warnOnce('using block-tree type detection', error);
     return undefined;
   }
 }
@@ -793,7 +814,7 @@ async function loadJournalDates() {
     }
     return { uuids, names };
   } catch (error) {
-    console.warn('Refinements: could not load journal date identities', error);
+    warnOnce('could not load journal date identities', error);
     return undefined;
   }
 }
@@ -826,7 +847,7 @@ async function loadPageLabelTitles() {
     pageLabelTitles.clear();
     for (const [uuid, title] of rows) if (title) pageLabelTitles.set(String(uuid), String(title));
     updatePageLabels(dateLinks.document);
-  } catch (error) { console.warn('Refinements: could not resolve stored page titles', error); }
+  } catch (error) { warnOnce('could not resolve stored page titles', error); }
 }
 function pageLabelTitle(value, uuid) {
   if (uuid && pageLabelTitles.has(uuid)) return pageLabelTitles.get(uuid);
@@ -1078,7 +1099,7 @@ async function loadTagPages() {
     const rows = await dsQuery(`[:find ?uuid
       :where [?tag :block/tags ?class] [?class :db/ident :logseq.class/Tag] [?tag :block/uuid ?uuid]]`);
     tagPages.uuids = new Set(rows.map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
-  } catch (error) { console.warn('Refinements: could not find tag pages', error); }
+  } catch (error) { warnOnce('could not find tag pages', error); }
 }
 function updateTagPageLinks(doc) {
   const found = new Set();
@@ -1105,7 +1126,7 @@ function startDateLinks() {
     // Early: this runs before the screen is painted, so the native look never flashes.
     watchDomEarly(updateDateLinks);
     onUnload(stopDateLinks);
-  } catch (error) { console.warn('Refinements: immediate date styling is unavailable', error); }
+  } catch (error) { warnOnce('immediate date styling is unavailable', error); }
   refreshJournalDates();
   loadPageLabelTitles();
 }
@@ -1158,7 +1179,7 @@ async function pdfAnnotationSources(tree) {
     }
     return { sources, pageUuid: page?.uuid };
   } catch (error) {
-    console.warn('Refinements: could not resolve PDF citation titles', error);
+    warnOnce('could not resolve PDF citation titles', error);
     return { sources: new Map(), pageUuid: page?.uuid };
   }
 }
@@ -1279,7 +1300,7 @@ function startPdfCitations() {
     updatePdfCitations();
     onUnload(stopPdfCitations);
   } catch (error) {
-    console.warn('Refinements: PDF citation presentation is unavailable', error);
+    warnOnce('PDF citation presentation is unavailable', error);
     notify('PDF citation styling could not access the Logseq window.', 'warning');
   }
 }
@@ -1372,7 +1393,7 @@ async function directAssetTypes(tree) {
       if (!result.has(key)) result.set(key, new Set());
       result.get(key).add(kind);
     }
-  } catch (error) { console.warn('Refinements: could not identify child asset types', error); }
+  } catch (error) { warnOnce('could not identify child asset types', error); }
   // File-graph fallback and readable DB titles.
   for (const node of collectNodes(tree)) {
     if (result.has(node.uuid)) continue;
@@ -1399,7 +1420,7 @@ async function referencedNodeIds() {
       (not [?target :logseq.property.pdf/hl-page _]) ]`);
     return new Set((rows || []).map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
   } catch (error) {
-    console.warn('Refinements: could not identify linked nodes', error);
+    warnOnce('could not identify linked nodes', error);
     return new Set();
   }
 }
@@ -1416,7 +1437,7 @@ async function propertyValueBlocks() {
     for (const [uuid, name] of rows || []) if (UUID.test(String(uuid)) && name) result.set(String(uuid), String(name));
     return result;
   } catch (error) {
-    console.warn('Refinements: could not identify property values', error);
+    warnOnce('could not identify property values', error);
     return new Map();
   }
 }
@@ -1444,7 +1465,7 @@ async function incomingPropertyLinks() {
       if (!result.has(key)) result.set(key, new Set());
       result.get(key).add(String(name));
     }
-  } catch (error) { console.warn('Refinements: could not find records linking to this page', error); }
+  } catch (error) { warnOnce('could not find records linking to this page', error); }
   return result;
 }
 let refreshTimer;
@@ -1498,7 +1519,7 @@ async function refreshCues(version = ++refreshVersion) {
     cueMarks.blockUuids = new Set();
     cueMarks.incoming = new Map();
     if (dateLinks.document) updateCueMarks(dateLinks.document);
-    console.warn('Refinements: could not refresh current-page cues', error);
+    warnOnce('could not refresh current-page cues', error);
   }
 }
 function scheduleRefresh(delay = 300) {
@@ -1854,7 +1875,7 @@ function startSidebarPresentation() {
       for (const el of sidebarPresentation.hidden) el.removeAttribute('data-refinement-sidebar-hidden');
       sidebarPresentation.hidden.clear();
     });
-  } catch (error) { console.warn('Refinements: sidebar presentation is unavailable', error); }
+  } catch (error) { warnOnce('sidebar presentation is unavailable', error); }
 }
 
 // Opens Logseq's own search and moves it into the right sidebar (search's own Mod+Enter
@@ -1887,7 +1908,7 @@ async function searchInSidebar() {
     if (input) input.focus();
     else notify('Search stayed as a popover. Press Mod+Enter inside search to move it to the sidebar.', 'warning');
   } catch (error) {
-    console.warn('Refinements: sidebar search failed', error);
+    warnOnce('sidebar search failed', error);
     notify(`Sidebar search stopped while ${step}: ${error?.message || error}`, 'warning');
   }
 }
@@ -1910,7 +1931,7 @@ function startSidebarSearchButton() {
   try {
     watchDom(ensureSidebarSearchButton);
     onUnload(() => { for (const el of host().querySelectorAll('[data-refinement-search-button]')) el.remove(); });
-  } catch (error) { console.warn('Refinements: sidebar search button is unavailable', error); }
+  } catch (error) { warnOnce('sidebar search button is unavailable', error); }
 }
 
 // Search shows block text as typed, so links and bold come through as [[Page]] and **text**.
@@ -1938,7 +1959,7 @@ function startSearchCleanup() {
   try {
     watchDom(cleanSearchResults);
     onUnload(() => host().defaultView.CSS?.highlights?.delete('refinement-search-markup'));
-  } catch (error) { console.warn('Refinements: search text cleanup is unavailable', error); }
+  } catch (error) { warnOnce('search text cleanup is unavailable', error); }
 }
 
 /* Visual hierarchy: the shape of the outline rather than the things it links to. Each part has
@@ -2085,7 +2106,7 @@ function startNestedReferenceLinks() {
       event.preventDefault();
       openEntity(link.getAttribute('data-uuid'), event.shiftKey);
     });
-  } catch (error) { console.warn('Refinements: links inside references stay native', error); }
+  } catch (error) { warnOnce('links inside references stay native', error); }
 }
 
 /* Page title area: Logseq hides some actions ("Add tag property", "Set property") and the page's
@@ -2165,7 +2186,7 @@ function startTitleChrome() {
       for (const el of titleChrome.marked) el.removeAttribute('data-refinement-always-shown');
       titleChrome.marked.clear();
     });
-  } catch (error) { console.warn('Refinements: page title actions stay native', error); }
+  } catch (error) { warnOnce('page title actions stay native', error); }
 }
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
@@ -2192,7 +2213,7 @@ async function loadPageKind() {
         .sort((a, b) => a[1].localeCompare(b[1]));
       if (kind === 'Tag') inherited = await inheritedTagProperties(pageId);
     }
-  } catch (error) { console.warn('Refinements: could not tell the page type', error); }
+  } catch (error) { warnOnce('could not tell the page type', error); }
   if (version !== pageKind.version) return;
   pageKind.pageId = pageId;
   pageKind.aliasOf = aliasOf;
@@ -2406,7 +2427,7 @@ async function loadInherited(uuid) {
   try {
     const rows = await dsQuery(`[:find ?p :where [?p :block/uuid #uuid "${uuid}"] [?p :block/tags ?c] [?c :db/ident :logseq.class/Tag]]`);
     if (rows.length) inherited = await inheritedTagProperties(rows[0][0]);
-  } catch (error) { console.warn('Refinements: could not read inherited properties', error); }
+  } catch (error) { warnOnce('could not read inherited properties', error); }
   pageKind.inheritedBy.set(uuid, inherited);
   pageKind.inheritedAsked.delete(uuid);
   try { updateInheritedLine(host(), currentTitle(host())); } catch (error) { /* shown on the next change */ }
@@ -2507,7 +2528,7 @@ function startPageKind() {
       for (const el of pageKind.tagged) el.style.transform = '';
       pageKind.tagged.clear();
     });
-  } catch (error) { console.warn('Refinements: page type label is unavailable', error); }
+  } catch (error) { warnOnce('page type label is unavailable', error); }
 }
 // Troubleshooting: how Logseq builds the page title area, so the always-shown rule can be aimed.
 async function copyHeaderDiagnostics() {
@@ -2685,7 +2706,7 @@ async function loadPropertyNames() {
       :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :block/title ?name]]`);
     listProps.names = new Set((rows || []).map(([name]) => String(name)).filter(Boolean));
     if (dateLinks.document) updateListProps(dateLinks.document);
-  } catch (error) { console.warn('Refinements: could not load property names', error); }
+  } catch (error) { warnOnce('could not load property names', error); }
 }
 const ownedBy = (el, row) => el.closest('.ls-block') === row;
 function ownQuery(block) {
@@ -3033,7 +3054,7 @@ async function loadInlineValues() {
     for (const { key, uuid, names } of wanted)
       listProps.inline.set(key, valuesHtml(shownFor(names), values.get(idOf.get(uuid)), { entities, titles }));
     if (dateLinks.document) updateListProps(dateLinks.document);
-  } catch (error) { console.warn('Refinements: could not load values for one-line lists', error); }
+  } catch (error) { warnOnce('could not load values for one-line lists', error); }
 }
 function startListProps() {
   try {
@@ -3073,7 +3094,7 @@ function startListProps() {
       for (const el of listProps.marked) el.removeAttribute('data-refinement-prop-hidden');
       listProps.marked.clear();
     });
-  } catch (error) { console.warn('Refinements: list property choices are unavailable', error); }
+  } catch (error) { warnOnce('list property choices are unavailable', error); }
 }
 // Properties the records in a list actually use, for the picker.
 async function propertiesInList(doc, key) {
@@ -3237,7 +3258,7 @@ async function fillDates(setup, records) {
       await logseq.Editor.upsertBlockProperty(uuid, setup.ident, journalId);
       filled++;
     } catch (error) {
-      console.warn('Refinements: could not fill a date', uuid, error);
+      warnOnce('could not fill a date', uuid, error);
       if (!autoDate.warned) { autoDate.warned = true; notify(`Could not fill a journal date: ${error?.message || error}`, 'warning'); }
     }
   }
@@ -3271,7 +3292,7 @@ async function autoDateNew() {
       if (tries >= AUTO_DATE_TRIES) records.delete(uuid); else autoDate.tried.set(uuid, tries + 1);
     }
     if (records.size) await fillDates(setup, records);
-  } catch (error) { console.warn('Refinements: journal dates could not be checked', error); }
+  } catch (error) { warnOnce('journal dates could not be checked', error); }
   finally {
     autoDate.running = false;
     if (autoDate.again) { autoDate.again = false; autoDateNew(); }
@@ -3326,7 +3347,7 @@ function startQuietUi() {
       for (const el of quietUi.marked) el.removeAttribute('data-refinement-quiet');
       quietUi.marked.clear();
     });
-  } catch (error) { console.warn('Refinements: quiet items are unavailable', error); }
+  } catch (error) { warnOnce('quiet items are unavailable', error); }
 }
 
 /* PERF-DEBUG start. Measuring for troubleshooting; it changes nothing on screen. Off unless the
@@ -3487,7 +3508,7 @@ async function logPerfReport() {
     perf.log.push(`--- ${stamp} ---\n${await perfReportText()}`);
     if (perf.log.length > 40) perf.log.splice(0, perf.log.length - 40);
     logseq.updateSettings({ perfLog: perf.log.join('\n\n') });
-  } catch (error) { console.warn('Refinements: could not save a performance report', error); }
+  } catch (error) { warnOnce('could not save a performance report', error); }
 }
 /* PERF-DEBUG end */
 
@@ -3521,7 +3542,7 @@ function runDbWork() {
   // The page's cues and details are part of this round; a look-up still waiting from a page change is not needed too.
   clearTimeout(refreshTimer);
   clearTimeout(pageKind.timer);
-  const failed = error => console.warn('Refinements: a look-up after a change failed', error);
+  const failed = error => warnOnce('a look-up after a change failed', error);
   const run = jobs => { for (const job of jobs) { try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); } } };
   // About the page on screen: after every round.
   const pageJobs = [refreshCues, loadPageKind, refreshInlineValues, autoDateNew];
@@ -3541,7 +3562,7 @@ function runDbWork() {
 function main() {
   logseq.beforeunload(runUnloadTasks);
   takeOverFromEarlierCopy();
-  try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { console.warn('Refinements: measuring could not start', error); }
+  try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
   logseq.useSettingsSchema(settingsSchema);
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
@@ -3633,3 +3654,5 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
+

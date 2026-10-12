@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.118.
+A personal starter plugin for Logseq DB graphs. Version 0.2.119.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -293,3 +293,5 @@ Version 0.2.117 is a round of safety fixes, plus two changes to link icons.
 Tried in Logseq 2.0.2 on the test graph: the mapping of a selection onto the stored text (a link kept as its id, a selection inside a link refused), the Date-type check, the graph name the **Only in these graphs** setting sees (`Plugin Test Graph`, with Logseq's `logseq_db_` prefix dropped), the 30-second cache, and both icon changes on screen. Two things were fixed while trying it: the tag colour did not reach the icon, because Logseq sets its theme colours on `body` and the plugin's own values sat on `:root`; and **Open selected text as page** on words that are already a link warned that the block had changed, where it should just open the page. Not tried: the two selected-text commands run from the keyboard, auto-date filling a record (the test graph has no dated tag), fold all against a result that folds back, and the tag picker giving up.
 
 Version 0.2.118 fixes two things about icons in links. (1) The `#` in front of a link to a tag's page could not be clicked: Logseq ignores a press that lands on the link element itself, and the `#` was drawn as part of that element. It is now drawn at the start of the name, like Logseq's own icons, so pressing it opens the page; it is the same size (16px) and sits the same 3px before the name as those icons. (2) An icon could still be left at the end of a line with its name on the next. A link that has an icon is now kept whole: when it does not fit, icon and name move to the next line together.
+
+Version 0.2.119 keeps a failing part from filling the console. Each of the plugin's warnings is now written once per session instead of on every change (a look-up that failed after each edit used to repeat its warning after every pause in typing), and a screen update that throws an error five times in a row is switched off for the rest of the session with one note saying which part stopped; the rest of the plugin carries on, and reloading the plugin starts it again. Found in the readiness review recorded in `AUDIT.md`.
