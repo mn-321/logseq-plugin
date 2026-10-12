@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.116.
+A personal starter plugin for Logseq DB graphs. Version 0.2.117.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -22,9 +22,10 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | --- | --- | --- |
 | Page links | Normal text color and a faint underline, clearer on hover | No change to the underlying reference. |
 | Tags on a block | Bold, with no underline | Only rendered tag links change; side tags keep Logseq’s placement and design. |
-| Links to a tag’s own page | Underlined like a page link, with the tag’s icon in grey (a grey `#` when the tag has no icon) | A page’s own icon stays in the normal text colour, and an icon stays on the same line as the first word of the name. |
+| Links to a tag’s own page | Underlined like a page link, with the tag’s icon in the colour Logseq gives tags (a `#` in that colour when the tag has no icon) | A page’s own icon stays in the normal text colour, and an icon stays on the same line as the first word of the name. |
 | Links to blocks | A small dot in front, and no underline; a linked task shows its status icons in place of the dot | Nothing is drawn under the words or after them. Blocks are confirmed from the database, so a page is never marked as a block. |
 | PDF selections | A small, muted `p. 1` citation before normal excerpt text, with no underline or colored emoji. A muted double quotation mark (`“`) replaces the citation bullet. Elsewhere, the citation reads `p. 1 · Document title`. Hover shows the full title. | Clicking the excerpt or its citation opens the exact highlight through Logseq’s native link. Drag to select text; links inside the excerpt remain clickable. Text selections put the citation first; area selections keep their image and put the citation before it. Enter or Space on the citation also opens the highlight. |
+| Links to PDFs and images | A grey document or picture icon in front, the words with a page link’s faint underline, and the file type (`pdf`, `png`…) after in small grey | The icon and file type come from the link’s address. |
 | Dates | A grey box in the normal text font | No border or calendar icon. Covers date values and links to journal pages. |
 | What sits below a block | After the block’s text: `↳`, a dashed circle with the number of unfinished tasks at any depth, and small image or PDF icons for files directly below | Hover shows the counts. Shown on ordinary pages and on the Journals list. Done and canceled tasks are not counted. |
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
@@ -69,13 +70,13 @@ Cancel leaves the block unchanged. The command accepts a single-line label and p
 1. Select text while editing a block. Within 30 seconds, run **Refinements: Open selected text as page** from the command palette or press `Mod+Alt+P` (`Cmd+Option+P` on Mac, `Ctrl+Alt+P` elsewhere; `Mod+Shift+P` is Logseq's own command palette).
 2. The selected words become a `[[link]]` in their block, then the plugin opens the page with that name (creating it if needed). Trailing tags are left out of the page name. If the block changed in the meantime, or the selection contains brackets or line breaks, the page still opens and the text is left as it was.
 
-The plugin has not been tested in a live Logseq instance here. Try it in a sample DB graph first; Logseq themes and releases can change rendered CSS selectors.
+Logseq themes and releases can change the names the plugin relies on; after an update, run **Refinements: Check what the plugin finds on this page**.
 
-Page links keep their subtle underline without an icon; recognized block references use a bent arrow. Tag pages retain their native #. PDF file links use a document icon, and common image file links use a landscape icon. Dates, PDF citations, and embedded images are excluded. Asset-link icons depend on a recognizable file extension in the rendered URL.
+## Version history
+
+The notes below are in the order the versions were made; where an early note describes a look that a later one changed, the later one and the Appearance table are right.
 
 Reference page labels omit appended tag names such as `#doctor`, including linked-reference headings and Recent/Favorites sidebar labels. The stored page title is resolved before shortening, preserving titles containing literal # characters and custom aliases. Tags on the original page are unchanged.
-
-Linked non-page nodes use a small connected-node icon; explicit block references use a bent arrow. These links have no underline. Ordinary page links retain the subtle underline without a document icon. Classification excludes journal, tag, asset, and PDF annotation targets.
 
 Version 0.2.30 extends the plain page rectangle to SVG file icons and left-sidebar navigation. Dates use a desaturated blue-gray tint.
 
@@ -277,3 +278,16 @@ Version 0.2.114 makes the mark under Linked references stronger. The link that p
 Version 0.2.115 makes Linked references easier to read, under one new setting, **Clearer Linked references** (on by default). (1) Source pages are set apart by a wider gap. (2) The blocks below a reference are drawn in the quiet tone unless they link to the page on screen themselves; pointing at one brings it back. (3) A journal's date heading loses its grey box there, so every source page has the same semibold heading. (4) The grey path above a reference, which names the block it sits under, starts with a bullet, and the reference is stepped in below it. (5) A heading is followed by the number of references its page holds, when there is more than one. (6) A page listed as a row, as under Linked references, has the same plain page icon in its bullet as in the sidebar, in place of Logseq's folded-corner file icon; this one belongs to **Simpler page icons**.
 
 Version 0.2.116 is a round of fixes to links and references. (1) A link to a block no longer sits on a dashed line: it keeps the small dot in front and nothing else (a closing arrow was tried and dropped). (2) Icons stay with their words: a linked task's status icons, and the icon of a linked page or tag page, no longer end up on a different line from the first word. (3) The `↳` cue for unfinished tasks and files below a block now shows on the Journals list too; it was missing there because Logseq names no current page on that list, and the plugin now reads every day whose title is on screen. (4) Under Linked references, Logseq's fold arrows (the section, each source page, each block with something below it) stay faintly visible; a source page's arrow used to be cut off by the edge of the list and never showed. (5) On a journal page, and for each day on the Journals list, a date that points to that day (a Scheduled or Deadline value, or a date link) gets the same grey highlight as a link to the page on screen. (6) On the Journals list, a day's "Add icon" and "Set property" sit lower, clear of the line that closes the day before. The table under Appearance was brought up to date.
+
+Version 0.2.117 is a round of safety fixes, plus two changes to link icons.
+
+- **Selected-text commands keep your other links exactly as they were.** **Link selected text to a page** and **Open selected text as page** used to save the whole block back with its links written as names, and Logseq then had to find each page again by name. With two pages of the same name, or a link to a block, a link you didn't touch could end up pointing somewhere else. The new link is now put into the block as it is stored, and every other link is left alone. If the selection runs across an existing link, the command stops and says so.
+- **Auto-date only writes to a Date property.** If the property named under **Date property** is a "Date and time" property, it is left alone, instead of getting a wrong value near 1970.
+- **Auto-date can be kept to some graphs.** Plugin settings are shared by all your graphs. The new setting **Only in these graphs** (under **Journal day as date**) lists the graphs where dates are filled; empty means every graph. Check once that your graph's name is recognised.
+- **Less work while you type in a big graph.** After an edit, the look-ups about the page on screen still run at once, but the ones that cover the whole graph (every linked block, page titles, journals, property names, the auto-date setup) run at most every 30 seconds, plus once after you stop. Opening a page reads them fresh. A brand-new link to a block can take up to 30 seconds to get its dot.
+- **Fold all results gives up on a tug-of-war.** If Logseq keeps folding a result back, the plugin presses its arrow at most six times per command, then leaves it and notes it in the fold log.
+- **Add tags to this page** no longer leaves "Tags" typed in the property menu when it can't find the Tags entry, so Enter can't create a property called "Tags".
+- **Links to a tag's page:** the icon is now in the colour Logseq gives tags, instead of grey. The name keeps the text colour and underline. Links to ordinary pages are unchanged.
+- **Links to PDFs and images:** the icon in front is grey instead of blue, and the file type (`pdf`, `png`, `jpg`, `jpeg`, `webp`) follows the link in the same small grey as the cues after a block.
+
+Tried in Logseq 2.0.2 on the test graph: the mapping of a selection onto the stored text (a link kept as its id, a selection inside a link refused), the Date-type check, the graph name the **Only in these graphs** setting sees (`Plugin Test Graph`, with Logseq's `logseq_db_` prefix dropped), the 30-second cache, and both icon changes on screen. Two things were fixed while trying it: the tag colour did not reach the icon, because Logseq sets its theme colours on `body` and the plugin's own values sat on `:root`; and **Open selected text as page** on words that are already a link warned that the block had changed, where it should just open the page. Not tried: the two selected-text commands run from the keyboard, auto-date filling a record (the test graph has no dated tag), fold all against a result that folds back, and the tag picker giving up.

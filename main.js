@@ -159,7 +159,9 @@ function openEntity(uuid, inSidebar = false) {
 const notInTable = ':not(:is(table, [role="table"], [role="grid"], .table-view, .ls-table) *)';
 /* One small scale for everything the plugin draws, so cues added at different times look alike.
    Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
-const tokensCss = `:root {
+// On body as well as :root: Logseq defines its theme colours on body, and a value that refers to
+// them (--rf-tag-color) is worked out where it is declared, so on :root alone it found none of them.
+const tokensCss = `:root, body {
   --rf-quiet: .7;        /* labels and other secondary words */
   --rf-faint: .5;        /* icons, markup and separators */
   --rf-line-pct: 26%;    /* underlines, the active nesting line, the line beside embeds */
@@ -170,6 +172,8 @@ const tokensCss = `:root {
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
+  /* the icon of a link to a tag's page: the colour Logseq's theme gives tags */
+  --rf-tag-color: var(--ls-tag-text-color, var(--lx-accent-11, var(--ls-link-text-color, currentColor)));
 }`;
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
@@ -283,29 +287,36 @@ ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
   font-weight: 600;
 }
 .ls-block .block-content a.tag:hover { text-decoration: underline !important; }
-/* A link to a tag's own page looks like a page link (underlined name) but its icon is grey, where a
-   page's icon is in the full text colour. The icon is the tag's own, or a # drawn as an icon. */
-a.page-ref[data-refinement-tag-page]:not(.tag) > .icon-emoji-wrap { opacity: var(--rf-faint); }
+/* A link to a tag's own page looks like a page link (underlined name) but its icon is in the colour
+   Logseq gives tags, where a page's icon is in the full text colour. The icon is the tag's own, or a
+   # drawn as an icon. Only the icon takes the colour; the name stays in the text colour. */
+a.page-ref[data-refinement-tag-page]:not(.tag) > .icon-emoji-wrap { color: var(--rf-tag-color) !important; opacity: 1; }
 a.page-ref[data-refinement-tag-page]:not(.tag):not(:has(> .icon-emoji-wrap, .block-title-wrap))::before {
   content: ''; display: inline-block; width: 1em; height: 1em; margin-right: .22em; vertical-align: -.14em;
-  background: currentColor; opacity: var(--rf-faint);
+  background: var(--rf-tag-color); opacity: 1;
   mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat; -webkit-mask: url("data:image/svg+xml,${hashMask}") center / contain no-repeat;
 }
 .page-reference[data-ref] a.page-ref { text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
   ['referenceIcons', `${referenceIcon('.ls-block .block-content a[href*=".pdf" i]:not(:has(img))', documentIcon)}
 ${referenceIcon('.ls-block .block-content a:is([href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))', imageIcon)}
-/* Links to files: the words in normal text with the same faint underline as a page link; the icon
-   alone carries the link colour. */
+/* Links to files: the words in normal text with the same faint underline as a page link, a grey
+   icon in front, and the file type after in the same small grey as the cues after a block. */
 .ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)) {
   color: var(--ls-primary-text-color, inherit) !important; border-bottom: 0 !important;
   text-decoration: underline solid color-mix(in srgb, currentColor var(--rf-line-pct), transparent) 1px !important; text-underline-offset: .2em;
 }
 .ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img)):hover { text-decoration-color: currentColor !important; }
 .ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::before { text-decoration: none; }
-.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::before {
-  background: var(--ls-link-text-color, #2563eb); opacity: 1;
+.ls-block .block-content a:is([href*=".pdf" i], [href*=".png" i], [href*=".jpg" i], [href*=".jpeg" i], [href*=".webp" i]):not(:has(img))::after {
+  display: inline-block; margin-left: .35em; text-decoration: none; color: var(--ls-secondary-text-color, inherit);
+  opacity: var(--rf-quiet); font-size: var(--rf-small); font-weight: 400; white-space: nowrap; user-select: none;
 }
+.ls-block .block-content a[href*=".pdf" i]:not(:has(img))::after { content: 'pdf'; }
+.ls-block .block-content a[href*=".png" i]:not(:has(img))::after { content: 'png'; }
+.ls-block .block-content a[href*=".jpg" i]:not(:has(img))::after { content: 'jpg'; }
+.ls-block .block-content a[href*=".jpeg" i]:not(:has(img))::after { content: 'jpeg'; }
+.ls-block .block-content a[href*=".webp" i]:not(:has(img))::after { content: 'webp'; }
 .ls-datetime a::before, .timestamp a::before, a.page-ref[data-refinement-date]::before,
 a.page-ref:has(.prefix-link[data-refinement-pdf])::before { content: none !important; }
 /* A block reference contains the referenced block's title area; a page link never does.
@@ -1456,7 +1467,7 @@ async function refreshCues(version = ++refreshVersion) {
   try {
     let tree = await logseq.Editor.getCurrentPageBlocksTree();
     if (!tree?.length) tree = await shownPagesTree();
-    const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), referencedNodeIds(), directAssetTypes(tree), propertyValueBlocks(), incomingPropertyLinks()]);
+    const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), graphWide('referenced', referencedNodeIds), directAssetTypes(tree), graphWide('propertyValues', propertyValueBlocks), incomingPropertyLinks()]);
     if (version !== refreshVersion) return;
     pdfCitations.sources = pdfSources.sources;
     pdfCitations.pageUuid = pdfSources.pageUuid;
@@ -1675,13 +1686,52 @@ function askPageTitle(label) {
   } catch (error) { return Promise.resolve(window.prompt('Page title:', '')); }
 }
 
-// The selection was measured in the editor, which shows links by name; the saved block
-// stores them as ids. Use the editor's text when the saved block still matches it.
-// Returns null when the selected words are no longer where they were.
-async function selectedBlockText(selection, before) {
+// The editor shows links by name; the saved block stores them as ids. Finds where a stretch of
+// the shown text sits in the saved text, so new text can go in without rewriting existing links
+// (rewriting them by name could point a link at another page with the same title, or turn a
+// link to a block into a new page). Returns null when the two texts don't match, or when either
+// end of the stretch falls inside a link.
+async function toSavedRange(saved, shown, start, end) {
+  const segments = [];
+  let built = '', last = 0;
+  for (const m of saved.matchAll(storedRef)) {
+    if (m[1] !== '[[' || m[3] !== ']]') continue; // ((uuid)) is shown as stored
+    const plain = saved.slice(last, m.index);
+    segments.push({ link: false, saved: last, shown: built.length, length: plain.length });
+    built += plain;
+    const readable = await readableTitle(m[0], { pagesOnly: true });
+    segments.push({ link: true, saved: m.index, savedEnd: m.index + m[0].length,
+      shown: built.length, shownEnd: built.length + readable.length });
+    built += readable;
+    last = m.index + m[0].length;
+  }
+  segments.push({ link: false, saved: last, shown: built.length, length: saved.length - last });
+  built += saved.slice(last);
+  if (built.trim() !== shown.trim()) return null;
+  // The editor may show leading spaces the saved text lacks (or the other way round).
+  const shift = (shown.length - shown.trimStart().length) - (built.length - built.trimStart().length);
+  const map = pos => {
+    pos -= shift;
+    for (const s of segments) {
+      if (s.link) {
+        if (pos === s.shown) return s.saved;
+        if (pos === s.shownEnd) return s.savedEnd;
+        if (pos > s.shown && pos < s.shownEnd) return null;
+      } else if (pos >= s.shown && pos <= s.shown + s.length) return s.saved + pos - s.shown;
+    }
+    return null;
+  };
+  const from = map(start), to = map(end);
+  return from === null || to === null ? null : { start: from, end: to };
+}
+// The saved block and where the selection sits in it, or null when the selected words are no
+// longer there (or the selection runs across a link).
+async function selectedRange(selection, before) {
   const saved = titleOf(await logseq.Editor.getBlock(selection.blockId));
-  const shown = before && await readableTitle(saved, { pagesOnly: true }) === before.trim() ? before : saved;
-  return shown.slice(selection.start, selection.end) === selection.text ? shown : null;
+  const range = !before || before === saved ? { start: selection.start, end: selection.end }
+    : await toSavedRange(saved, before, selection.start, selection.end);
+  if (!range || saved.slice(range.start, range.end) !== selection.text) return null;
+  return { saved, ...range };
 }
 
 async function labeledPageLink() {
@@ -1704,11 +1754,11 @@ async function labeledPageLink() {
     return notify('Enter a page title without brackets or line breaks', 'warning');
   try {
     await logseq.Editor.exitEditingMode();
-    const shown = await selectedBlockText(selection, before);
-    if (shown === null) return notify('The block changed; select the display text again', 'warning');
+    const range = await selectedRange(selection, before);
+    if (!range) return notify('The block changed, or the selection runs across a link; select the display text again', 'warning');
     const link = `[${label}]([[${target}]])`;
     await logseq.Editor.updateBlock(selection.blockId,
-      shown.slice(0, selection.start) + link + shown.slice(selection.end));
+      range.saved.slice(0, range.start) + link + range.saved.slice(range.end));
     recentSelection = null;
     await logseq.Editor.editBlock(selection.blockId, { pos: selection.start + link.length });
   } catch (error) { console.error(error); notify(`Could not insert labeled link: ${error.message}`, 'error'); }
@@ -1723,16 +1773,22 @@ async function linkSelection(selection, name) {
   try {
     if (await logseq.Editor.getCurrentBlock()) await logseq.Editor.exitEditingMode();
     const before = selection.content;
-    const shown = await selectedBlockText(selection, before);
-    if (shown === null) return notify('Opened the page; the block had changed, so no link was added', 'warning');
+    // Already a link: checked in the text as the editor showed it, because inside the saved text a
+    // link is an id and the selected name is not there to be found.
+    const shown = before || '';
     if (shown.slice(Math.max(0, selection.start - 2), selection.start) === '[[' &&
-        shown.slice(selection.end, selection.end + 2) === ']]') return; // already a link
+        shown.slice(selection.end, selection.end + 2) === ']]') return;
+    const range = await selectedRange(selection, before);
+    if (!range) return notify('Opened the page; the block had changed, or the selection runs across a link, so no link was added', 'warning');
+    const { saved } = range;
+    if (saved.slice(Math.max(0, range.start - 2), range.start) === '[[' &&
+        saved.slice(range.end, range.end + 2) === ']]') return; // already a link
     // Spaces around the words, and tags after them, stay outside the brackets.
     const core = words.trim();
     if (!core.startsWith(name)) return notify('Opened the page; the selected text was left as it was', 'info');
     const link = words.match(/^\s*/)[0] + `[[${name}]]` + core.slice(name.length) + words.match(/\s*$/)[0];
     await logseq.Editor.updateBlock(selection.blockId,
-      shown.slice(0, selection.start) + link + shown.slice(selection.end));
+      saved.slice(0, range.start) + link + saved.slice(range.end));
     recentSelection = null;
   } catch (error) { console.error(error); notify(`Opened the page, but could not add the link: ${error.message}`, 'warning'); }
 }
@@ -1950,7 +2006,9 @@ const settingsSchema = [
   { key: 'autoDateTags', type: 'string', title: 'Tags', default: 'Occurrence, Results',
     description: 'Comma-separated tag names, without #. Tags that extend these are included. To cover a new tag, add its name here.' },
   { key: 'autoDateProperty', type: 'string', title: 'Date property', default: 'Date',
-    description: 'The name of the date property to fill.' },
+    description: 'The name of the date property to fill. It must be a Date property, not Date and time.' },
+  { key: 'autoDateGraphs', type: 'string', title: 'Only in these graphs', default: '',
+    description: 'Comma-separated graph names. Leave empty to fill dates in every graph. Plugin settings are shared by all your graphs, so this is how to keep date filling out of a graph.' },
   { key: 'hierarchyHeading', type: 'heading', title: 'Visual hierarchy', default: null,
     description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
   { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
@@ -1974,7 +2032,7 @@ const settingsSchema = [
   { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
     description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
-    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and document or image icons before links to PDFs and pictures.' },
+    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures, with the file type after them.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
     description: 'In Linked references, puts the property name before a value (“Doctor: …”); records under a page’s tag tabs end with “via Diagnosis” when one of your properties links them.' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
@@ -2200,13 +2258,15 @@ async function openTagPicker(actions) {
     const input = menu?.querySelector('input.cp__select-input');
     if (!input) return notify('The property menu did not open. Click “Set property”, then choose Tags.', 'warning');
     const tagsEntry = () => menu.querySelector('a.menu-link:has([title=":block/tags"])');
-    // The menu lists a few properties at first; typing narrows it to Tags.
-    if (!tagsEntry()) {
-      Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, 'Tags');
+    const setValue = value => {
+      Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, value);
       input.dispatchEvent(new win.Event('input', { bubbles: true }));
-    }
+    };
+    // The menu lists a few properties at first; typing narrows it to Tags.
+    if (!tagsEntry()) setValue('Tags');
     const entry = await waitFor(tagsEntry, 2000);
-    if (!entry) return notify('Type “Tags” in the menu that opened to choose it.', 'info');
+    // Leave nothing typed: Enter on a leftover "Tags" could make Logseq create a new property.
+    if (!entry) { if (input.isConnected) setValue(''); return notify('Choose Tags in the menu that opened.', 'info'); }
     entry.click();
   } catch (error) { console.error(error); notify(`Could not open the tag list: ${error.message}`, 'warning'); }
 }
@@ -2801,6 +2861,7 @@ const listFold = { wanted: new Map(), pressed: new WeakMap(), manual: new WeakSe
 // A press takes Logseq a moment; until the result changes, pressing again would undo it.
 const PRESS_WAIT = 600;
 const MAX_MISSES = 3; // presses that changed nothing, so a result Logseq refuses to change can't loop
+const MAX_PRESSES = 6; // in all, per result per command, so a tug-of-war with Logseq ends
 // The fold arrow a record draws for itself (not one of its children's).
 const foldArrow = row => [...row.querySelectorAll('a.block-control')].find(el => el.closest('.ls-block') === row);
 function applyListFolds(doc) {
@@ -2821,12 +2882,14 @@ function applyListFolds(doc) {
       if (earlier && Date.now() - earlier.at < PRESS_WAIT) continue;
       // A press that changed nothing counts as a miss; one that worked (and Logseq later undid) does not.
       const misses = earlier ? earlier.misses + 1 : 0;
-      if (!arrow || misses >= MAX_MISSES) {
-        if (!earlier?.gaveUp) logFold(`${rowName(row)} left as is: ${arrow ? 'pressing did not change it' : 'no fold arrow found'}`);
-        listFold.pressed.set(row, { round, at: Date.now(), misses, gaveUp: true });
+      // A press that worked but that Logseq keeps undoing would otherwise be repeated forever.
+      const total = (last?.round === round ? last.total || 0 : 0) + 1;
+      if (!arrow || misses >= MAX_MISSES || total > MAX_PRESSES) {
+        if (!last?.gaveUp) logFold(`${rowName(row)} left as is: ${!arrow ? 'no fold arrow found' : total > MAX_PRESSES ? 'Logseq kept changing it back' : 'pressing did not change it'}`);
+        listFold.pressed.set(row, { round, at: Date.now(), misses, total, gaveUp: true });
         continue;
       }
-      listFold.pressed.set(row, { round, at: Date.now(), misses, changed: false });
+      listFold.pressed.set(row, { round, at: Date.now(), misses, total, changed: false });
       foldLog.pressedAt.set(row, Date.now());
       logFold(`plugin presses ${rowName(row)}${misses ? ` (again: ${misses} without effect)` : ''}`);
       arrow.click();
@@ -3114,10 +3177,14 @@ const autoDateTagNames = () => setting('autoDateTags').split(',').map(name => na
 const autoDatePropertyName = () => setting('autoDateProperty').trim() || 'Date';
 async function autoDateSetup() {
   // The date property: one of yours with that name. If there are several, prefer one a tag uses.
-  const propRows = await dsQuery(`[:find ?ident ?p
+  const propRows = await dsQuery(`[:find ?ident ?p ?type
     :where [?p :block/title ${ednString(autoDatePropertyName())}]
-    [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :db/ident ?ident]]`);
-  const props = propRows.filter(([ident]) => /^:?user\.property\//.test(String(ident)));
+    [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :db/ident ?ident]
+    [(get-else $ ?p :logseq.property/type :default) ?type]]`);
+  // Only a property of the Date type: a journal day is the right value for it and for no other type
+  // (a "date and time" property would read the day as a timestamp near 1970).
+  const props = propRows.filter(([ident, , type]) =>
+    /^:?user\.property\//.test(String(ident)) && bareIdent(type) === 'date');
   if (!props.length) return null;
   const tagProps = await dsQuery(`[:find ?t ?p :where [?t :logseq.property.class/properties ?p]]`);
   const usedProps = new Set(tagProps.map(([, p]) => p));
@@ -3171,12 +3238,23 @@ async function fillDates(setup, records) {
   }
   return filled;
 }
+// Plugin settings are shared by every graph; this keeps date filling to the graphs named in the settings.
+async function autoDateAllowedHere() {
+  const names = setting('autoDateGraphs').split(',').map(n => n.trim().toLowerCase()).filter(Boolean);
+  if (!names.length) return true;
+  const graph = await logseq.App.getCurrentGraph().catch(() => null);
+  // A DB graph's name may carry an internal prefix ("logseq_db_"), and its url or path ends in the name.
+  const strip = value => String(value || '').toLowerCase().replace(/^logseq_db_/, '');
+  const candidates = [graph?.name, graph?.url, String(graph?.path || '').split(/[\\/]/).pop()]
+    .map(strip).map(value => value.replace(/^.*[\\/]/, '')).filter(Boolean);
+  return candidates.some(value => names.includes(value));
+}
 async function autoDateNew() {
-  if (!setting('autoDate')) return;
+  if (!setting('autoDate') || !await autoDateAllowedHere()) return;
   if (autoDate.running) { autoDate.again = true; return; } // looked at once more when this round ends
   autoDate.running = true;
   try {
-    const setup = await autoDateSetup();
+    const setup = await graphWide('autoDateSetup', autoDateSetup);
     if (!setup) return;
     // Only records made since the plugin started; older ones wait for the fill command.
     const records = await undatedRecords(setup, autoDate.started - 60000);
@@ -3207,8 +3285,9 @@ function confirmBox(message, okLabel) {
 }
 async function fillMissingDates() {
   try {
+    if (!await autoDateAllowedHere()) return notify('This graph is not listed under “Only in these graphs” in the plugin settings, so no dates were filled', 'warning');
     const setup = await autoDateSetup();
-    if (!setup) return notify(`Couldn't find the tags (${autoDateTagNames().join(', ')}) or a property named “${autoDatePropertyName()}”. Check the plugin settings.`, 'warning');
+    if (!setup) return notify(`Couldn't find the tags (${autoDateTagNames().join(', ')}) or a Date-type property named “${autoDatePropertyName()}”. Check the plugin settings.`, 'warning');
     const records = await undatedRecords(setup, 0);
     if (!records.size) return notify('Every record already has a date, or none was written on a journal day');
     const ok = await confirmBox(`${records.size} record${records.size === 1 ? '' : 's'} tagged ${autoDateTagNames().map(n => '#' + n).join(' or ')} (or a tag that extends them) ${records.size === 1 ? 'has' : 'have'} no ${autoDatePropertyName()}. Fill each with the journal day it was written on? Dates you've already entered are not touched.`, 'Fill dates');
@@ -3410,7 +3489,20 @@ async function logPerfReport() {
 /* After the database changes, everything the plugin knows from it is looked up again in one round:
    as soon as the changes pause, or every few seconds while they keep coming (typing). Seven
    separate timers used to do this, finishing at three different moments after each edit. */
-const dbWork = { timer: 0, since: 0 };
+const dbWork = { timer: 0, since: 0, slowTimer: 0, slowAt: 0 };
+// Lists that cover the whole graph (every linked block, every property value, the auto-date setup,
+// page titles, journals, property names) change rarely; while you edit, they are read again at most
+// this often, plus once more after you stop. Looking at a new page reads them fresh.
+const GRAPH_WIDE_EVERY = 30000;
+const graphCache = new Map();
+function graphWide(name, load) {
+  const hit = graphCache.get(name);
+  if (hit && Date.now() - hit.at < GRAPH_WIDE_EVERY) return hit.promise;
+  const promise = Promise.resolve().then(load);
+  graphCache.set(name, { at: Date.now(), promise });
+  promise.catch(() => { if (graphCache.get(name)?.promise === promise) graphCache.delete(name); });
+  return promise;
+}
 const DB_PAUSE = 800, DB_LONGEST = 2500;
 function scheduleDbWork() {
   const now = Date.now();
@@ -3425,9 +3517,21 @@ function runDbWork() {
   clearTimeout(refreshTimer);
   clearTimeout(pageKind.timer);
   const failed = error => console.warn('Refinements: a look-up after a change failed', error);
-  for (const job of [loadPageLabelTitles, refreshCues, refreshJournalDates, loadPropertyNames, loadPageKind, refreshInlineValues, autoDateNew]) {
-    try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); }
-  }
+  const run = jobs => { for (const job of jobs) { try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); } } };
+  // About the page on screen: after every round.
+  const pageJobs = [refreshCues, loadPageKind, refreshInlineValues, autoDateNew];
+  // Whole-graph lists: now if they are due; otherwise one full round when they fall due.
+  const fullRound = () => {
+    clearTimeout(dbWork.slowTimer);
+    dbWork.slowTimer = 0;
+    dbWork.slowAt = Date.now();
+    graphCache.clear();
+    run([loadPageLabelTitles, refreshJournalDates, loadPropertyNames, ...pageJobs]);
+  };
+  const wait = dbWork.slowAt + GRAPH_WIDE_EVERY - Date.now();
+  if (wait <= 0) return fullRound();
+  run(pageJobs);
+  if (!dbWork.slowTimer) dbWork.slowTimer = setTimeout(fullRound, wait);
 }
 function main() {
   logseq.beforeunload(runUnloadTasks);
@@ -3464,6 +3568,7 @@ function main() {
     pdfCitations.pageUuid = null;
     listProps.pageBlocks = new Set();
     cueMarks.incoming = new Map();
+    graphCache.clear(); // a new page (or a new graph) reads the whole-graph lists fresh
     scheduleRefresh(); schedulePageKind();
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
@@ -3472,7 +3577,7 @@ function main() {
     if (foldLog.start) logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
     scheduleDbWork();
   }));
-  onUnload(() => clearTimeout(dbWork.timer));
+  onUnload(() => { clearTimeout(dbWork.timer); clearTimeout(dbWork.slowTimer); });
   onUnload(logseq.Editor.onInputSelectionEnd(async ({ text, start, end }) => {
     const block = await logseq.Editor.getCurrentBlock();
     const content = await logseq.Editor.getEditingBlockContent();

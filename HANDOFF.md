@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12, for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.116; the newest work is under "State after the links and journals round".
+The plugin is at 0.2.117; the newest work is under "State after the safety round".
 
 ## What this is
 
@@ -74,6 +74,36 @@ How the changes were checked without clicking through Logseq (worth reusing):
 
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
+
+## State after the safety round (2026-10-12, 0.2.117)
+
+Made in a cloud session from a code review, then loaded into Logseq from the branch `safety-0.2.117` and tried with a
+TEMP-DEV probe (removed). What each line says about checking is the state after that.
+
+- `selectedRange` / `toSavedRange` replace `selectedBlockText`: the two selected-text commands insert into the
+  stored text (`[[uuid]]` kept) instead of re-saving the block with names. `toSavedRange` checked in Logseq on a legend
+  line whose link is stored as an id: words before and after the link map to the right place, a selection inside the link
+  gives null, a whole link maps to the stored `[[uuid]]`. The commands themselves were not run from the keyboard.
+  Fixed here: `linkSelection` now checks "already a link" in the shown text first; in the stored text a link is an id,
+  so the old check never matched and the command warned that the block had changed.
+  Note: `getBlock().title` is the stored text, and some seed blocks store page links by name (`PM for [[Atlas]]`), so
+  shown and stored can be equal.
+- Auto-date: `autoDateSetup` keeps only a property whose `:logseq.property/type` is `:date`;
+  `autoDateAllowedHere` reads the new setting `autoDateGraphs` and compares with `App.getCurrentGraph()`
+  (name, url, path; `logseq_db_` stripped). In 2.0.2 `name` and `url` are both `logseq_db_Plugin Test Graph` and `path`
+  ends in the plain name, so a setting of `Plugin Test Graph` matches. The Date-type query was run against the test graph
+  (`due date` is `:date`, `published at` is `:datetime`). Filling itself not tried: no dated tag in the test graph.
+- `graphWide(name, load)` caches whole-graph look-ups for 30 s (`GRAPH_WIDE_EVERY`); `runDbWork` runs the page
+  jobs every round and a full round (cache cleared, plus titles, journals, property names) when due.
+  The cache is also cleared on route change. Seen: two calls with one name share a promise. The timing was not watched.
+- Fold all: `MAX_PRESSES` (6) per result per command. Read, not exercised.
+- `openTagPicker` clears the typed "Tags" when no entry appears. Read, not exercised.
+- Tag-page link icons use `--rf-tag-color` (Logseq's tag colour variables, falling back to the link colour); the
+  owner asked for this, replacing the grey icon. File links: grey icon, file type as `::after`. Both seen on
+  **Plugin Visual Cues** (blue Book and `#` icons; `pdf` and `png` after the file links), whose three lines were reworded.
+  As downloaded the colour did not apply: Logseq defines `--lx-accent-11` and `--ls-link-text-color` on `body`, and a
+  token declared on `:root` that refers to them resolves there, to `currentColor`. `tokensCss` is now `:root, body`.
+  `--ls-tag-text-color` does not exist in 2.0.2; the colour comes from `--lx-accent-11`.
 
 ## State after the links and journals round (2026-10-12, 0.2.116)
 
@@ -227,12 +257,12 @@ those instead of new numbers.
 | Thing | How it looks |
 | --- | --- |
 | Link to a page | faint solid underline, page's own icon in normal text colour |
-| Link to a tag's own page | same underline, icon in grey (a grey `#` icon if the tag has none) |
+| Link to a tag's own page | same underline, icon in the tag colour (`--rf-tag-color`; a `#` icon in that colour if the tag has none) |
 | `#tag` on a block | bold, no underline |
 | Link to a block (inline or whole row) | small dot in front, nothing under or after the words |
 | Link to a task block | status/priority icons stand in for the dot |
 | Date | grey box |
-| Link to a PDF or image | blue icon in front, text with the page underline, not blue |
+| Link to a PDF or image | grey icon in front, text with the page underline, file type (`pdf`, `png`…) after in small grey |
 | Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons |
 | Block properties | `name: value · name: value`, no capsule outline |
 | Page property list | as Logseq draws it |

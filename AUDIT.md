@@ -190,3 +190,10 @@ same functions as before, called from the new places.
 **Still open:** the hover rule for nesting lines and the `*` rule for reference-only rows (B7),
 the sidebar and title scans that run every frame (B9), and the measuring tool, which is still in
 `main.js` (PERF-DEBUG block, off by default) in case a real graph should be measured.
+
+## After the safety round (0.2.117, 2026-10-12)
+
+From a later code review, since checked in part in Logseq (see `HANDOFF.md`, "State after the safety round"): selected-text commands no longer rewrite existing links
+by name; auto-date only fills a Date-type property and can be limited to named graphs; whole-graph look-ups
+after edits run at most every 30 s; fold all stops after six presses per result; the tag picker clears its
+typed text when it gives up. Auto-date and a real graph's typing cost remain unmeasured.
