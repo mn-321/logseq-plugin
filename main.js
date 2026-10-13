@@ -190,9 +190,9 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
-  /* the link to the page on screen, under Linked references: a wash of the theme's accent colour, so it
-     is told apart from a date's grey box by hue and the words stay easy to read */
-  --rf-here: color-mix(in srgb, var(--lx-accent-09, var(--ls-link-text-color, #3b82f6)) 14%, transparent);
+  /* the link to the page on screen, under Linked references: a neutral grey wash of the text colour,
+     stronger than the grey box behind a date (--rf-wash-pct) */
+  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 28%, transparent);
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
@@ -403,8 +403,11 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
    which used to cut the box of the last value). A date takes the same room and corners; marked
    !important because a date in a property row is otherwise set to no padding and square corners. */
 #main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] {
-  padding: .1em .25em !important; margin: 0 .05em; border-radius: .3em !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  padding: 0 .12em !important; margin: 0 .1em; border-radius: 2px !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
+/* Logseq cuts each property (name and values) to a pill shape, which rounded off the end of a
+   highlight on the last value. The pill has no fill of its own here, so its corners are made square. */
+#main-content-container .references .bottom-property-pill:has([data-refinement-here]) { border-radius: 0 !important; }
 `],
   ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
 #main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below] > .block-main-container { opacity: var(--rf-quiet); }
