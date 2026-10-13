@@ -355,9 +355,9 @@ a.page-ref:has(.prefix-link[data-refinement-pdf])::before { content: none !impor
 ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap')}
 /* A linked task shows its status and priority icons before the link. The dot stays, moved in front of
    the icons (dot, icons, words); a word joiner in its old place keeps the icons on the same line as
-   the first word. */
+   the first word. (:has() may not sit inside another :has(), so the exclusions stand beside it.) */
 .ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: '\\2060' !important; }
-${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left):has(a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-title-wrap)')}
+${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left):has(a.page-ref:not(.tag) .block-title-wrap):not(:has(.prefix-link, a.page-ref img))')}
 .ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) { padding-right: .25em; }
 /* The icon of a linked page or tag page stays with its name. Logseq's icon is a box of its own, and
    a line may break after such a box whatever follows it (a word joiner did not hold it: seen in

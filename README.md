@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.138.
+A personal starter plugin for Logseq DB graphs. Version 0.2.139.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -358,3 +358,5 @@ Version 0.2.136 gives a journal's Linked references the same gap between source 
 Version 0.2.137 makes two changes under Linked references, as the owner asked. (1) The `· n` after a source page's heading stays when that source page is folded. A folded source page draws none of its references, so the plugin keeps the number it last counted; a source page that is already folded when the page opens shows its number once it has been unfolded. (2) The fold arrows are no longer kept faintly visible: they show under the pointer, as Logseq draws them.
 
 Version 0.2.138 turns the box around the link to the page on screen into a plain highlight, as the owner asked: a neutral grey (a wash of the text colour at 28%; the grey box behind an ordinary date is 8%) that sits close to the words like a marker stroke, with almost square corners (2px) and only 0.12em beside the words. The accent-coloured, rounded box of 0.2.131 read as a button and is gone. Logseq cuts each property under a block to a pill shape, which rounded off the right end of a highlight on the last value; where a property holds such a link the pill's corners are now square, so both ends of the highlight match.
+
+Version 0.2.139 makes the dot of 0.2.134 actually appear. The rule that draws the dot in front of a linked task's icons had one `:has()` inside another, which CSS does not allow, so the browser dropped the whole rule and no dot was drawn. The exclusions (PDF citations, links that hold an image) now stand beside the `:has()` instead of inside it. Seen on the Block Types page of the test graph: dot, status icon, priority icon, words.
