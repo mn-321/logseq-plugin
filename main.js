@@ -659,6 +659,64 @@ const searchCss = `
 .cp__cmdk [data-cmdk-item] :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description) > * { visibility: hidden !important; }
 `;
 
+// Roomier search: a bigger popover with more space around rows and group headings.
+// Only the popover (.ls-dialog-cmdk); the copy kept in the right sidebar stays as it is.
+const roomySearchCss = `
+.ls-dialog-cmdk { max-width: none !important; }
+.ls-dialog-cmdk .cp__cmdk__modal { width: min(1180px, 94dvw) !important; max-width: none !important; }
+.ls-dialog-cmdk .cp__cmdk-input-row + div { min-height: 76dvh !important; max-height: 76dvh !important; }
+.ls-dialog-cmdk .cp__cmdk-search-input { font-size: 1.3rem !important; padding: 18px 22px !important; }
+
+/* Groups: more room above each one, a plain heading in normal capitals. */
+.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) { padding-bottom: 12px !important; }
+.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) {
+  height: auto !important; padding: 20px 22px 8px !important;
+  font-size: .85rem !important; letter-spacing: 0 !important; text-transform: none !important;
+}
+.ls-dialog-cmdk .cp__cmdk-input-row + div > div:first-child > div:first-child:not(.search-results) { padding-top: 12px !important; }
+
+/* Rows: more padding, larger text, up to three lines of a block. */
+.ls-dialog-cmdk .cp__cmdk .search-results { padding: 0 8px !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] { padding: 9px 14px !important; gap: 3px !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .flex.items-start { gap: 10px !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text { font-size: .97rem !important; line-height: 1.55 !important; -webkit-line-clamp: 3 !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child { font-size: .8rem !important; padding-left: 26px !important; }
+
+/* Steady while typing. Logseq redraws the results in a few quick steps; new rows and headings fade in
+   instead of snapping. "Show more" shows only under the pointer, and the key hints at the bottom
+   (which change with the selected row) are hidden; the keys still work. */
+@keyframes rf-search-in { from { opacity: 0; } to { opacity: 1; } }
+.ls-dialog-cmdk .cp__cmdk :is([data-cmdk-item], div:has(> .search-results) > div:first-child:not(.search-results)) { animation: rf-search-in 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .ls-dialog-cmdk .cp__cmdk :is([data-cmdk-item], div:has(> .search-results) > div:first-child) { animation: none; } }
+.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) > div:first-child a.select-node { opacity: 0 !important; transition: opacity .15s; }
+.ls-dialog-cmdk .cp__cmdk div:has(> .search-results):hover > div:first-child a.select-node { opacity: .7 !important; }
+.ls-dialog-cmdk .cp__cmdk > .hints { display: none !important; }
+/* The page and parent above a block are shown in full; a long path wraps instead of ending in "…". */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child { white-space: normal !important; flex-wrap: wrap !important; overflow: visible !important; row-gap: 2px; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb { flex-wrap: wrap !important; white-space: normal !important; overflow: visible !important; max-width: none !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child :is(.breadcrumb__segment, .breadcrumb__label) {
+  max-width: none !important; overflow: visible !important; text-overflow: clip !important; white-space: normal !important;
+}
+/* Logseq's "···" for skipped levels is drawn as a plain "…" in the line's own tone, right after the page name. */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"] {
+  display: inline-flex !important; align-items: center; font-size: 0 !important; opacity: 1 !important; padding: 0 !important; margin-left: 8px !important;
+}
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"]::after { content: '…'; font-size: .8rem; }
+/* After the "…" the bullet sits as far from it as the "…" sits from the page name. */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"] ~ .breadcrumb__segment::before { margin-left: 8px !important; }
+/* The page name is firmer than the blocks after it: medium weight, in the normal text colour (still quiet, like the whole line). */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > .breadcrumb__segment:first-child { font-weight: 500 !important; color: var(--ls-primary-text-color) !important; }
+/* The first part names the page; each part after it is a block, so it gets a small bullet instead of "/". */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > :not(.breadcrumb__segment, [role="button"]) { display: none !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb__segment ~ .breadcrumb__segment::before {
+  content: ''; flex: none; display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+  margin: 0 7px 0 9px; background: currentColor; opacity: .8;
+}
+/* Key shortcuts beside results show only on the row under the pointer; they keep their room, so nothing moves. */
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] [data-shortcut-binding] { visibility: hidden !important; }
+.ls-dialog-cmdk .cp__cmdk [data-cmdk-item]:hover [data-shortcut-binding] { visibility: visible !important; }
+`;
+
 const titleOf = block => (block?.title || block?.content || '').trim();
 // Drops a leading bullet, every trailing tag (#work, #[[Long tag]]), and the brackets around links.
 const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
@@ -2063,6 +2121,8 @@ const settingsSchema = [
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
     description: 'Compact result rows, quieter group headings, bold matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
+  { key: 'roomySearch', type: 'boolean', title: 'Roomier search window', default: true,
+    description: 'A larger search window with bigger text, more space between results and groups, and up to three lines of each block. The page and parent blocks above a result are named in full, with a small bullet before each parent block. Results fade in as you type, “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. Turn off to get Logseq’s normal size.' },
   { key: 'pageHeading', type: 'heading', title: 'Pages', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
@@ -2129,7 +2189,7 @@ function setting(key) {
   return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
 }
 // Settings that only take effect when the plugin starts.
-const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tagShortcut', 'tidySidebar', 'tidySearch', 'quietItems', 'showTitleChrome'];
+const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tagShortcut', 'tidySidebar', 'tidySearch', 'roomySearch', 'quietItems', 'showTitleChrome'];
 
 /* Links inside a reference: Logseq lets the surrounding reference handle the click last, so it
    opens the referenced block instead. Catch clicks on the inner link first and open that page. */
@@ -3633,6 +3693,7 @@ function main() {
     logseq.provideStyle({ key: 'personal-db-search', style: searchCss });
     startSearchCleanup();
   }
+  if (setting('roomySearch')) logseq.provideStyle({ key: 'personal-db-search-roomy', style: roomySearchCss });
   startQuietUi();
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();

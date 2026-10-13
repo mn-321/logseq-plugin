@@ -45,6 +45,8 @@ Branch cues refresh on navigation and graph edits. The plugin reads the current 
 
 Logseq's search window is calmer and easier to read. Typing markup in result text and paths, such as `[[ ]]` and `**`, is faded so the words stand out (your blocks are unchanged). It also has compact rows, small light group headings instead of grey bars, a quiet icon and path, bold matched words instead of yellow highlights, and a faint grey wash on the selected row. Page results use the plugin's plain page rectangle. Results, ranking and keyboard keys are Logseq's own. Turn this off with **Tidy the search window** in the plugin settings.
 
+**Roomier search window** (on by default): a larger search window with bigger text and more room between results and groups. Results fade in as you type. “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. The page and parent blocks above a result are named in full, with the page in firmer text, a small bullet before each parent block, and “…” where Logseq skips levels. Turn it off in the plugin settings.
+
 **Search in right sidebar**
 
 1. Click **Search** at the top of the right sidebar, press `Mod+Alt+F` (`Cmd+Option+F` on Mac, `Ctrl+Alt+F` elsewhere), or run **Refinements: Search in right sidebar** from the command palette.
