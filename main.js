@@ -427,12 +427,9 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
   margin: 0 .65em 0 .15em; vertical-align: middle; background: currentColor; opacity: var(--rf-faint);
 }
 #main-content-container .references div:not([data-refinement-crumb-box]):has(> .breadcrumb.block-parents) + .content { margin-left: 1.4em; }
-/* Logseq's fold arrows (the section, a source page, a block with something below it) stay faintly
-   visible instead of showing only under the pointer. */
-:is(.references, .unlinked-references) :is(.ls-foldable-title-control, .block-control-wrap[data-has-children="true"] > .block-control) > .control-hide { display: block !important; }
-/* A source page's arrow hangs to the left of its heading, where the list is cut off; the list's edge moves out to make room. */
+/* Logseq's fold arrows are left as Logseq shows them (under the pointer). A source page's arrow hangs to
+   the left of its heading, where the list is cut off; the list's edge moves out to make room. */
 :is(.references, .unlinked-references) .ls-foldable-content-inner:has(> .ls-view-body) { margin-left: -27px; padding-left: 27px; }
-:is(.references, .unlinked-references) :is(.ls-foldable-title-control, .block-control-wrap[data-has-children="true"] > .block-control):not(:hover) { opacity: calc(var(--rf-faint) * .6) !important; }
 /* How many references a source page holds, when it holds more than one. */
 .references .ls-foldable-header[data-refinement-ref-count]::after {
   content: '· ' attr(data-refinement-ref-count); margin-left: .5em; color: var(--ls-secondary-text-color, inherit);
@@ -1082,6 +1079,7 @@ function updateDateHeadings(doc) {
 }
 // Under Linked references, the heading of a source page says how many references it holds.
 const refCounts = new Set();
+const refCountSeen = new Map();
 function updateReferenceCounts(doc) {
   const found = new Map();
   // Not tied to .group-list-view: a journal's Linked references are drawn without that wrapper.
@@ -1096,7 +1094,12 @@ function updateReferenceCounts(doc) {
       const outer = block.parentElement.closest('.ls-block');
       return !outer || !content.contains(outer);
     }).length : 0;
-    if (header && count > 1) found.set(header, String(count));
+    if (!header) continue;
+    // A folded source page draws no references, so its last counted number is kept (per page on screen).
+    const key = pageKind.pageUuid + '|' + header.textContent.trim();
+    if (count) { if (refCountSeen.size > 500) refCountSeen.clear(); refCountSeen.set(key, count); }
+    const shown = count || refCountSeen.get(key) || 0;
+    if (shown > 1) found.set(header, String(shown));
   }
   for (const el of refCounts) if (!found.has(el)) { el.removeAttribute('data-refinement-ref-count'); refCounts.delete(el); }
   for (const [el, count] of found) { if (el.getAttribute('data-refinement-ref-count') !== count) el.setAttribute('data-refinement-ref-count', count); refCounts.add(el); }

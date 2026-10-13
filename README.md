@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.136.
+A personal starter plugin for Logseq DB graphs. Version 0.2.137.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -31,7 +31,7 @@ Open the plugin's settings from Plugins (`t p`), or run **Refinements: Show shor
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
 | Tag background (optional) | A faint violet chip behind tags, in text and at the end of a block | Off by default; turn on with **Soft background behind tags**. |
 | Page title row | The page’s tags sit beside the actions above the title, with `#Page` on an untagged page (click it to set tags); the properties triangle is always visible | Turn off with **Show what a page is above its title**. |
-| Linked references | The link to the page on screen sits in a soft box in the theme’s accent colour (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet; fold arrows stay faintly visible | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
+| Linked references | The link to the page on screen sits in a soft box in the theme’s accent colour (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
 | Alias pages | A small muted “Alias of …” line under the title of a page that another page lists as its alias; the name opens the original | Turn off with **Show which page an alias belongs to**. |
 | Tag pages | Under the tag's own properties, a line such as “Inherited from #Media: keywords, rating, website”, one per tag it extends; names open the tag or property | Turn off with **Show inherited properties on tag pages**. |
 | Links inside a reference | A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar); the rest of the reference still opens the block | Always on. |
@@ -354,3 +354,5 @@ Version 0.2.134 keeps the small dot on a link to a block that has a status or pr
 Version 0.2.135 returns the box around the link to the page on screen to the owner's earlier look: the same accent wash, slightly rounded corners (0.3em) and 0.1em by 0.25em of room around the words. Two things from later versions stay: the box does not hang over the words to its left (that is what got it cut off at the edge of a property row), and a date in a property row gets the same box instead of a square one.
 
 Version 0.2.136 gives a journal's Linked references the same gap between source pages as other pages have, as the owner asked. The gap was tied to a wrapper (`.group-list-view`) that Logseq does not draw on a journal, so the source pages sat close together there. Unlinked references get the same gap between source pages, on every page.
+
+Version 0.2.137 makes two changes under Linked references, as the owner asked. (1) The `· n` after a source page's heading stays when that source page is folded. A folded source page draws none of its references, so the plugin keeps the number it last counted; a source page that is already folded when the page opens shows its number once it has been unfolded. (2) The fold arrows are no longer kept faintly visible: they show under the pointer, as Logseq draws them.
