@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12 (evening), for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.139 on `main` (the readiness branch was merged, fast-forward, on 2026-10-12, and the look round after it on the same day); the newest work is under "State after the Linked references look round".
+The plugin is at 0.2.141 on `main`; the newest work is under "State after the 1.0 round", and the open requests say what is left before 1.0.0.
 
 ## What this is
 
@@ -75,6 +75,13 @@ How the changes were checked without clicking through Logseq (worth reusing):
 
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
+
+## State after the 1.0 round (2026-10-13, 0.2.141)
+
+- **Warnings print.** `warnOnce` called itself instead of `console.warn` from 0.2.119 to 0.2.140, so nothing was ever logged. Seen fixed: one line, `Refinements: …`, for a message sent twice.
+- **Self-check after a Logseq update** (`selfChecks`, `runSelfCheck`, `versionNotice`, `startSelfCheck`, after `checkWhatIsFound`). Pairs of "the page has this / but none of that" are looked at 4 s after start and after each route change, and again 3 s later before anything is said; one in-app note per missing part per session, and a warning line. Nothing is switched off (the AUDIT's proposal had that; a feature that cannot find its part already draws nothing). `versionNotice` notes once per Logseq version other than `CHECKED_WITH`, remembered in the setting `selfCheckSeenVersion` (ignored by `onSettingsChanged` like the perf keys). Counts seen on the test graph, has/needs: blocks 21/22, 21/21, 13/2, 3/3, 36/38; title 1/1 everywhere; references 1/2 and 1/3; sidebar buttons 1/1 with the sidebar open. Forced failure (the `is-page-title-row` class removed for a moment) gave the one note.
+- **Auto-date in `Work`.** The owner chose to let it run there. The settings file had `Date, Scheduled` as the property (read as one name, so nothing was filled anywhere) and `Occurence` as a tag; now `Date` and `Occurrence`, graphs `Plugin Test Graph, Work`. Seen on the test graph: a new record "Auto-date check for 1.0 (test)" #Occurrence on Oct 13th, 2026 got that day as its Date within 9 s.
+- **Working beside another thread.** The "Bigger, clearer search panel" thread edited `main.js` at the same time. Each write went through a re-read of the device copy just before it, with an mtime guard. A computer-use lock held by a session whose connection dropped could only be cleared by quitting Logseq.
 
 ## State after the Linked references look round (2026-10-12, 0.2.132 → 0.2.139, branch `look-0.2.132`)
 
@@ -302,7 +309,7 @@ those instead of new numbers.
 | Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons |
 | Block properties | `name: value · name: value`, no capsule outline |
 | Page property list | as Logseq draws it |
-| Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle always visible |
+| Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle as Logseq draws it (0.2.140: the owner asked for Logseq's default; always-visible and only-with-properties were both dropped) |
 | Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list |
 | Linked references | the link to the page on screen sits in a clear grey box (20%, stronger than a date); on a journal the same box on a date that points to that day; source pages set apart by a gap; fold arrows faintly visible; plain semibold headings, `· n` after one that holds several references; bullet before the parent path, reference stepped in below; blocks below a reference quiet |
 | Page listed as a row | plain page icon in the bullet, as in the sidebar |
@@ -313,6 +320,7 @@ points to, anything after the text says what the block holds. The arrow symbol i
 ### Things the owner tried and rejected (do not bring back)
 
 - Square bullet / square before links for "tagged record".
+- A `#` in the tag colour in place of the bullet dot on tagged blocks (0.2.140, removed the same day): the tags at the right of the block already say it, so a mark in the bullet adds nothing.
 - Bold, italic, a framed icon, or an underlined icon for links to tag pages.
 - A `#` written into a tag page's title.
 - Muted property names (removed back in 0.2.94).
@@ -320,8 +328,8 @@ points to, anything after the text says what the block holds. The arrow symbol i
 
 ## Open requests (start here)
 
-- The owner's uncommitted look changes on `wip-uncommitted-look-changes` (accent wash, dimmer fold arrows, triangle only on pages with properties): bring onto the readiness branch or drop; the owner asked why the wash looked different and was told.
-- The last highlighted value in a property row is clipped by Logseq's overflow clip because the wash hangs 0.2em outside the words (negative margin); the proposed fix (no negative margin, words after it move 0.4em) waits for the owner's yes.
+- **Road to 1.0.0 (asked 2026-10-13).** Done in 0.2.141: warnings print again, the self-check after a Logseq update is built, auto-date may run in `Work`. What is left is a quiet week of use in `Work`; if nothing surprises the owner, bump to 1.0.0. Not needed for 1.0: faster cues on very large pages, hand checks of hover previews and the bullet menu.
+- Settled on 2026-10-13: the look changes on `wip-uncommitted-look-changes` (accent wash, dimmer fold arrows) were dropped at the owner's word, and the branch deleted. The clipped highlight in a property row was already fixed in 0.2.138 (square pill corners).
 
 Decided on 2026-10-12, leave as they are unless the owner raises them again:
 

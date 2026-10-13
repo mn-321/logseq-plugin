@@ -25,7 +25,7 @@ const warned = new Set();
 function warnOnce(message, ...details) {
   if (warned.has(message)) return;
   warned.add(message);
-  warnOnce('' + message, ...details);
+  console.warn('Refinements: ' + message, ...details);
 }
 /* A screen update that throws again and again is switched off for the rest of the session, with one
    note saying which part stopped. The others carry on; a reload starts it again. */
@@ -1699,6 +1699,50 @@ async function checkWhatIsFound() {
     showDiagnostics(lines.join('\n'));
   } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
 }
+/* Self-check after a Logseq update. Once a page has settled, a few pairs are compared: when the page
+   plainly has a thing (blocks, a title, references) but the part the plugin finds inside it is missing,
+   Logseq has most likely renamed that part, and the features listed beside it have quietly stopped.
+   One note in the app per problem per session. Nothing is switched off: a feature that cannot find its
+   part already draws nothing. A Logseq version other than CHECKED_WITH gets one note per version. */
+// [what is missing, the page has this (at least min), but none of this, what stops, min]
+const selfChecks = () => [
+  ['the page area', '#head', '#main-content-container', 'almost everything the plugin draws', 1],
+  ['block text', '#main-content-container .ls-block[blockid]', '#main-content-container .block-title-wrap', 'cues after blocks, block-link dots, reference rows', 2],
+  ['the title row', `#main-content-container :is(${PAGE_TITLE})`, '#main-content-container .is-page-title-row', 'tags beside the title, #Page, Add tags', 1],
+  ['reference headings', '#main-content-container .references', '#main-content-container .references .ls-foldable-title', 'the Linked references layout, counts and labels', 1],
+  ['the sidebar buttons', '#right-sidebar .sidebar-item', '#right-sidebar .cp__right-sidebar-settings', 'the sidebar Search button and sidebar tidy', 1],
+];
+const selfCheck = { timer: 0, noted: new Set() };
+// Looks twice, a few seconds apart, so a page caught half-drawn does not count.
+function scheduleSelfCheck() {
+  clearTimeout(selfCheck.timer);
+  selfCheck.timer = setTimeout(() => runSelfCheck(true), 4000);
+}
+function runSelfCheck(first) {
+  const doc = host();
+  const count = selector => { try { return doc.querySelectorAll(selector).length; } catch (error) { return 0; } };
+  const missing = selfChecks().filter(([what, has, needs, , min]) => !selfCheck.noted.has(what) && count(has) >= min && count(needs) === 0);
+  if (!missing.length) return;
+  if (first) { selfCheck.timer = setTimeout(() => runSelfCheck(false), 3000); return; }
+  for (const [what, has, needs] of missing) {
+    selfCheck.noted.add(what);
+    warnOnce(`self-check: ${what} not found (the page has ${has}, but no ${needs})`);
+  }
+  notify(`Part of DB Refinements may have stopped, probably after a Logseq update: ${missing.map(([, , , stops]) => stops).join('; ')}. For details, run “Refinements: Check what the plugin finds on this page”.`, 'warning');
+}
+async function versionNotice() {
+  let version = '';
+  try { version = (await logseq.App.getInfo('version')) || ''; } catch (error) { return; }
+  if (!version || version === CHECKED_WITH || logseq.settings?.selfCheckSeenVersion === version) return;
+  logseq.updateSettings({ selfCheckSeenVersion: version });
+  notify(`You are on Logseq ${version}; DB Refinements was last checked with ${CHECKED_WITH}. If something looks off, run “Refinements: Check what the plugin finds on this page”.`, 'warning');
+}
+function startSelfCheck() {
+  versionNotice();
+  scheduleSelfCheck();
+  onUnload(logseq.App.onRouteChanged(scheduleSelfCheck));
+  onUnload(() => clearTimeout(selfCheck.timer));
+}
 const innerPageUnderline = '.ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date])';
 function describeElement(el, depth, lines, nodeIds) {
   if (depth > 14 || lines.length > 150) return;
@@ -2281,14 +2325,6 @@ function startTitleChrome() {
 [data-refinement-always-shown="inline"] { display: inline !important; }
 [data-refinement-always-shown="inline-flex"] { display: inline-flex !important; }
 [data-refinement-always-shown="inline-block"] { display: inline-block !important; }
-/* The triangle left of a page title, which shows or hides the page's properties, is always there
-   (Logseq shows it only while you point at the title): muted, and full strength on hover. */
-#main-content-container .is-page-title-row .block-control-wrap a.block-control,
-#main-content-container .is-page-title-row .block-control-wrap a.block-control > span {
-  display: inline-flex !important; visibility: visible !important; opacity: var(--rf-faint) !important;
-}
-#main-content-container .is-page-title-row .block-control-wrap a.block-control > span { opacity: 1 !important; }
-#main-content-container .is-page-title-row:hover .block-control-wrap a.block-control { opacity: 1 !important; }
 ` });
     watchDom(updateTitleChrome);
     titleChrome.started = true;
@@ -3517,7 +3553,7 @@ const perf = {
   // its pass lands a frame late), by the plugin's own pass (an echo), or in time?
   ownSettingsOnly(now, before) {
     const changed = Object.keys({ ...now, ...before }).filter(key => JSON.stringify(now?.[key]) !== JSON.stringify(before?.[key]));
-    return changed.length > 0 && changed.every(key => /^(?:perf|debugPerf)/.test(key));
+    return changed.length > 0 && changed.every(key => /^(?:perf|debugPerf|selfCheck)/.test(key));
   },
   frameState() { return !perf.on ? '' : perf.ownWrite ? 'echo' : perf.inFrame ? 'late' : 'ok'; },
   pass(state) { if (perf.on && state) perf.passes[state]++; },
@@ -3699,6 +3735,7 @@ function main() {
   startPageKind();
   startListProps();
   startSidebarSearchButton();
+  startSelfCheck();
   startNestedReferenceLinks();
   logseq.provideStyle({ key: 'personal-db-context-cues', style: cueCss });
   scheduleRefresh();
@@ -3774,6 +3811,7 @@ function main() {
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
 logseq.ready(main).catch(console.error);
+
 
 
 
