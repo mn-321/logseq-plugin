@@ -403,7 +403,7 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
    which used to cut the box of the last value). A date takes the same room and corners; marked
    !important because a date in a property row is otherwise set to no padding and square corners. */
 #main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] {
-  padding: .06em .42em !important; margin: 0 .05em; border-radius: .4em !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  padding: .1em .25em !important; margin: 0 .05em; border-radius: .3em !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 `],
   ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
