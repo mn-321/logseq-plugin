@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12 (evening), for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.131 on `main` (the readiness branch was merged, fast-forward, on 2026-10-12); the newest work is under "State after the readiness review".
+The plugin is at 0.2.139 on `main` (the readiness branch was merged, fast-forward, on 2026-10-12, and the look round after it on the same day); the newest work is under "State after the Linked references look round".
 
 ## What this is
 
@@ -14,7 +14,7 @@ small change at a time, looking at each result in the running app.
 
 | Thing | Location |
 | --- | --- |
-| Plugin (git repo, branch `main` at 0.2.131; `readiness-0.2.119` points at the same commit) | `/Users/claude-agent/logseq-plugin/` |
+| Plugin (git repo, branch `main` at 0.2.139; `look-0.2.132` points at the same commit, `readiness-0.2.119` at 0.2.131) | `/Users/claude-agent/logseq-plugin/` |
 | Plugin code | `main.js` (about 3,800 lines, one file), entry is `loader.js` |
 | Standing advice for plugin and CLI work | `GUIDE.md` |
 | Test graph | Logseq graph named **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`) |
@@ -75,6 +75,19 @@ How the changes were checked without clicking through Logseq (worth reusing):
 
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
+
+## State after the Linked references look round (2026-10-12, 0.2.132 → 0.2.139, branch `look-0.2.132`)
+
+Look changes the owner asked for one at a time, each seen in Logseq 2.0.2 on the Plugin Test Graph unless a line says otherwise. One version per commit on `look-0.2.132`, merged into `main` fast-forward. The README has a note per version.
+
+- **The link-here mark is a plain grey highlight (0.2.138).** After a round of tries (rounder, accent blue, tag blue, grey box) the owner settled on: `--rf-here` = 28% of the text colour, no room above and below, 0.12em beside the words, 0.1em margin, 2px corners. Rounded and padded read as "a button, not a highlight". A date in a property row takes the same mark (the rule is `!important` because `dateStyle` sets a date there to no padding and square corners). Seen in the dark and the light theme.
+- **The property pill clips.** Logseq cuts each property under a block (`.bottom-property-pill`, `overflow: hidden`, a huge `border-radius`) to a pill shape, which rounded off the right end of a highlight on the last value. Where a pill holds a `[data-refinement-here]` link its corners are set square. A margin on the link does not cure it.
+- **Counts after a source page's heading (0.2.133, 0.2.137).** While a Linked references list is still being drawn, Logseq has `div.content` where `.group-list-view` will be; the owner's screenshot caught a journal in that state with no `· n`. The count now looks under `.references .ls-view-body` instead. A folded source page draws no references, so the last counted number is kept per page on screen (`refCountSeen`); a source page folded from the start shows its number once it has been unfolded. A source page with one reference shows no number, by the owner's earlier choice (they were told and did not ask to change it).
+- **Gap between source pages (0.2.136).** Also applied in the half-drawn state above and under Unlinked references. The half-drawn state was measured once (16:29) and never caught again, so the rule for it is unseen; the Unlinked references gap was seen on Atlas.
+- **Fold arrows (0.2.137).** No longer kept faintly visible under Linked and Unlinked references; they show under the pointer as Logseq draws them. The margin that makes room for a source page's arrow stays.
+- **Dot before a linked task (0.2.134, fixed in 0.2.139).** A link to a block with a status or priority keeps its dot: dot, icons, words. The first version of the rule had a `:has()` inside a `:has()`, which CSS does not allow, so the whole rule was dropped and no dot was drawn until 0.2.139. Seen on Block Types ("Block reference to a bug"). The legend page **Plugin Visual Cues** still says "Status icons instead of the dot"; that text was left alone.
+- **How the checks were run.** Background computer use on Logseq (the owner expects this; do not ask them to reload). Reload: `t` then `p` opens the Plugins panel from any page, then the Reload link, then Escape. The … menu also works, but its Plugins item moves down a row on pages that have "Convert to Tag", so press it by its accessibility element, not by coordinates (a click by coordinates once opened Settings). View → Reload in the menu bar does nothing while Logseq is in the background. A background click cannot fold a source page; a synthetic pointerdown/mousedown/pointerup/mouseup/click on `.ls-foldable-title-control .rotating-arrow` from a TEMP-DEV block does. Never call `scrollIntoView` from a probe: it scrolled `<html>` and pushed Logseq's toolbar out of the window (put back by setting `scrollTop = 0` on it); scroll `#main-content-container` instead.
+- **Left as found.** The theme is back on "system". The settings file still has the `dev*` keys, emptied (`devGoto`, `devStep`, `devClick`, `devSelectors`, `devStyleOf`) and the last `devDump`. Unlinked references on Atlas was left open.
 
 ## State after the readiness review (2026-10-12, 0.2.119 → 0.2.131, branch `readiness-0.2.119`)
 
