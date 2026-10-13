@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal starter plugin for Logseq DB graphs. Version 0.2.135.
+A personal starter plugin for Logseq DB graphs. Version 0.2.136.
 
 Generic page icons in page headings and sidebar labels use a small soft-corner rectangle with no fold or internal lines. Custom icons and inline asset icons remain unchanged. Right-sidebar panels have transparent backgrounds, no shadows, and square edges, with a faint divider between items.
 
@@ -352,3 +352,5 @@ Version 0.2.133 brings back the `· n` after a source page's heading on pages wh
 Version 0.2.134 keeps the small dot on a link to a block that has a status or priority, as the owner asked. The icons used to stand in for the dot; now the dot comes first, then the icons, then the words.
 
 Version 0.2.135 returns the box around the link to the page on screen to the owner's earlier look: the same accent wash, slightly rounded corners (0.3em) and 0.1em by 0.25em of room around the words. Two things from later versions stay: the box does not hang over the words to its left (that is what got it cut off at the edge of a property row), and a date in a property row gets the same box instead of a square one.
+
+Version 0.2.136 gives a journal's Linked references the same gap between source pages as other pages have, as the owner asked. The gap was tied to a wrapper (`.group-list-view`) that Logseq does not draw on a journal, so the source pages sat close together there. Unlinked references get the same gap between source pages, on every page.

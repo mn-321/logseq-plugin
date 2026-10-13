@@ -410,8 +410,12 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
 #main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below] > .block-main-container { opacity: var(--rf-quiet); }
 #main-content-container .references .ls-block[level="0"] .block-children .ls-block[data-refinement-below]:hover > .block-main-container { opacity: 1; }
 `],
-  ['referenceLayout', `/* Linked references: each source page is a group set apart from the next. */
-#main-content-container .references .group-list-view > div > div > div + div { padding-top: 1.6em; }
+  ['referenceLayout', `/* Linked and Unlinked references: each source page is a group set apart from the next. */
+#main-content-container :is(.references, .unlinked-references) .group-list-view > div > div > div + div { padding-top: 1.6em; }
+/* A journal's Linked references (and Unlinked references, on any page where the wrapper is missing) are drawn without .group-list-view; the same gap goes before every
+   source page after the first there (the box that holds a source page's heading, or the one around it). */
+#main-content-container :is(.references, .unlinked-references):not(:has(.group-list-view)) .ls-view-body > div > div.content + div.content:has(> div > .ls-foldable-title),
+#main-content-container :is(.references, .unlinked-references):not(:has(.group-list-view)) .ls-view-body > div > div.content > div + div:has(> .ls-foldable-title) { padding-top: 1.6em; }
 /* One kind of heading for every source page: a journal's date reads as a heading too, without its box. */
 :is(.references, .unlinked-references) .ls-view-body .ls-foldable-header [data-refinement-date-heading],
 :is(.references, .unlinked-references) .ls-view-body .ls-foldable-header [data-refinement-date-heading]:hover {
