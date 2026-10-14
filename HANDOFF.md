@@ -1,7 +1,7 @@
 # Handoff: Logseq DB Refinements plugin
 
 Written 2026-10-11, updated 2026-10-12 (evening), for the next chat session. Read this first, then `README.md` for the feature list.
-The plugin is at 0.2.141 on `main`; the newest work is under "State after the 1.0 round", and the open requests say what is left before 1.0.0.
+The plugin is at 0.2.144 on `main`; the newest work is under "Typed search filters", and the open requests say what is left before 1.0.0.
 
 ## What this is
 
@@ -75,6 +75,25 @@ How the changes were checked without clicking through Logseq (worth reusing):
 
 The legend page **Plugin Visual Cues** gained one example in this session: a labelled link to a
 block (the case drawn from the database rather than from the page).
+
+## Typed search filters (2026-10-13, 0.2.144)
+
+- **Codes.** `parseSearchFilters` splits the box with `filterTokens` (a code's value may be `"quoted"` or `[[bracketed]]`): `#`, `in:`, `property:`/`prop:` (with `=value`), `is:`, `edited:`. Any code turns on filter mode: `data-rf-filtering` on the dialog's `.cp__cmdk`, which hides Logseq's own results (CSS) and adds `.rf-filter-results` at the end of the results scroller.
+- **Finding.** `runSearchFilters` builds one Datascript query from the codes (tags widened by `withExtendingTags`; built-in, hidden and property-value blocks left out), then checks `property:Name=value` against value text (`valueTexts`), then requires every other word in the text with links read as names. Newest edit first, phrase-at-start first when words are given; 100 shown. Logseq's search engine is not used here, so there is no 100-result cap from it and no fuzzy matching.
+- **Suggestions.** `codeAtCursor` finds the code at the caret; `filterSuggestions` ranks names from `filterCatalog` (tags, pages, public properties, read once per opening of the window) and `propertyValues`. Picking a property inserts `property:Name=` and shows its values. A name typed out in full closes the list. `searchFilterKeys` (capture keydown, before `searchArrowKeys`) handles arrows, Tab, Enter, Esc for the list, then arrows and Enter for the results.
+- **Opening.** `openFilterResult` closes the window with Logseq's own Escape twice (the first clears the box) and opens a block at its place (`pushState('page', {name: pageUuid}, {anchor: 'ls-block-…'})`, as Logseq does), a page with `openEntity`, Shift/⌘ in the sidebar.
+- **Gotcha.** `edited:` cutoffs are rounded to the minute; a cutoff from `Date.now()` changed the filter key on every redraw and the list stayed on "Looking…".
+- Not tried yet: the `Work` graph, a graph with many thousands of blocks (`is:block` alone reads every block), clicking a suggestion with the mouse.
+- **Later in 0.2.144 (owner's requests, after trying it).** `--rf-here` is `color-mix(in srgb, #2e5894 35%, transparent)` on the link-here mark, normal weight, square, tight padding (the plain grey and the bold underline were both turned down). `plainProperties` turns `.bottom-property-control-btn.bottom-property-expand-btn` (Logseq renders it only when the pills strip overflows; the row carries `data-expanded`) into a CSS triangle at `order: -1`, rotated when `data-expanded=true`. The search peek line's `::before` is "•". Matches get a wash of the text colour (`--rf-mark`, 18%) in rows and preview. Loose matches: `whereSearchMatched` works per set of words missing from the row's shown text (≥3 letters), not on Logseq's `<mark>`, which also bolds stray letters of a near match; `nearMatchReason` names the closest word sharing ≥3 letters, else the letters spread across words, else "no word close". The preview: `previewPath` walks `:block/parent` to the page; `markHtml` marks words in HTML between tags and entities; it scrolls its own scroller to the first mark; the focus ring of the Tailwind forms layer (`textarea:focus`, a blue box-shadow) is cancelled on `.rf-pv-edit`; Enter splits into a new block, Backspace on an empty one removes it, Escape stops editing; properties of the page or block are listed under the title, tags left out.
+
+## Search details, grouping and preview (2026-10-13, 0.2.142 → 0.2.143)
+
+- **0.2.142.** `tidySearchTables` rewrites the text of a search row whose block is a markdown table (rule row dropped, cells ` · `, rows ` / `, both faded through `refinement-search-markup`); it runs early (`searchTablesEarly`) and in `cleanSearchResults`. One of only two places the plugin edits Logseq's text (the other is `revealSearchMatch`); React puts the text back when the row changes and it is redone. `searchCss` hides the plain page rectangle on a page row whose title already has an icon.
+- **Rows carry no ids.** Logseq 2.0.2's cmdk rows (`frontend.components.cmdk.list-item/root`) have no uuid in the DOM, and their props are cljs data. `pairSearchRows` calls `logseq.App.search(query, {limit 100, search-limit 100, built-in? true, enable-snippet? true})` (the API's `search`, same engine as the window) and pairs results with rows in order, checking the words (`searchAgreement`); rows without a path (Recently updated) are looked up by title with trailing tags stripped. Commands, themes and Create rows are skipped by their icon. Pairs are kept on the row as `data-rf-uuid` with `data-rf-sig`, because Logseq keys rows by index and reuses them.
+- **Details.** `loadSearchMeta` runs four queries per batch of ids (updated-at and name, tags, page, children with order). `whereSearchMatched` looks at the block's attributes when no `<mark>` is shown.
+- **Grouping.** `groupSearchRows` sets `style.order` on each `[data-item-index]` wrapper and makes `.search-results` a flex column. `searchArrowKeys` (capture on the document) takes Up/Down only where the shown order differs from Logseq's, and selects the target by a synthetic `mousemove` with `movementX` set, which is how cmdk's own `on-mouse-move` highlights a row.
+- **Preview.** The panel is a sibling of `.cp__cmdk__modal` inside `.ui__dialog-main-content` (marked `data-rf-with-preview`, made a flex row). Moving the selection only changes `data-highlighted`, which the shared screen watcher ignores, so the panel has its own small MutationObserver for that attribute. Edits go through `logseq.Editor.updateBlock`; `[[id]]` is shown as `[[Name]]` and turned back on save (`editableText`). Seed blocks that store links by name are saved with ids afterwards (Logseq resolves them); block 817a4b69 ("Kicked off Atlas…") in the test graph was edited and put back this way, so its links are now ids and it reads "edited today".
+- **Not checked.** A real mouse click and blur in the panel (background clicks are accessibility presses; a programmatic blur in a background window fired no blur event, so the line stayed a text box in that test); Escape while a line is being edited closes the whole search window (Radix), and the pending save still runs. The `Work` graph has not been searched with this version.
 
 ## State after the 1.0 round (2026-10-13, 0.2.141)
 

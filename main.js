@@ -190,9 +190,11 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
-  /* the link to the page on screen, under Linked references: a neutral grey wash of the text colour,
-     stronger than the grey box behind a date (--rf-wash-pct) */
-  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 28%, transparent);
+  /* the link to the page on screen, under Linked references: a see-through highlighter in the owner's blue */
+  --rf-here: color-mix(in srgb, #2e5894 35%, transparent);
+  /* searched words in the search preview: a soft wash of the text's own colour, so it is a light grey
+     on a dark theme and a pale grey on a light one, and the text keeps full contrast */
+  --rf-mark: color-mix(in srgb, currentColor 24%, transparent);
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
@@ -381,6 +383,22 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
 .ls-block .positioned-properties.block-below .bottom-property-pill + .bottom-property-pill::before {
   content: '·'; margin-right: .5rem; opacity: var(--rf-faint);
 }
+/* When the row is too long, Logseq adds an outlined "Expand" capsule after it. It becomes a small
+   triangle at the start of the row instead, like the one beside a parent block: pointing right while
+   the row is cut short, down while it is open. Logseq marks the row data-expanded. */
+.ls-block .positioned-properties.block-below .bottom-property-expand-btn {
+  order: -1; align-self: flex-start !important; flex: none; width: 1rem !important; height: 1.5rem !important;
+  padding: 0 !important; margin-right: -.125rem; background: transparent !important; border-radius: 0 !important;
+  font-size: 0 !important; color: var(--ls-primary-text-color); opacity: var(--rf-faint);
+}
+.ls-block .positioned-properties.block-below .bottom-property-expand-btn:hover { opacity: 1; }
+.ls-block .positioned-properties.block-below .bottom-property-expand-btn:not(:focus-visible) { box-shadow: none !important; }
+.ls-block .positioned-properties.block-below .bottom-property-expand-btn .bottom-property-action-icon { display: none; }
+.ls-block .positioned-properties.block-below .bottom-property-expand-btn::before {
+  content: ''; width: 7px; height: 8px; background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transition: transform .16s ease;
+}
+.ls-block .positioned-properties.block-below .bottom-properties-row[data-expanded=true] .bottom-property-expand-btn::before { transform: rotate(90deg); }
 `],
   ['embedLine', `/* Content shown from somewhere else (a Node embed of a block or a page, which Logseq draws as
    .embed-block) gets a faint left line. Inset shadows draw the line without moving any text. */
@@ -397,16 +415,15 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
 :is(.references, .unlinked-references) .ls-foldable-title a.page-ref:not(.tag):hover { text-decoration: underline !important; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent) !important; }
 `],
   ['markReferenceHere', `/* Under Linked references, the link that points to the page on screen (on a journal, also a date
-   that points to that day) sits in a clear box, stronger than the one behind a date. */
-#main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] { background: var(--rf-here) !important; }
-/* Room around the words inside the row (no negative margin: Logseq clips a property row at its edge,
-   which used to cut the box of the last value). A date takes the same room and corners; marked
-   !important because a date in a property row is otherwise set to no padding and square corners. */
+   that points to that day) is marked the way a highlighter marks words: a see-through deep blue (#2e5894) behind the text,
+   square, close to the letters, in the text's own weight (a padded, rounded grey box read as a button).
+   A date's own grey box gives way to it. */
 #main-content-container .references .ls-block :is(a.page-ref, a.tag)[data-refinement-here] {
-  padding: 0 .12em !important; margin: 0 .1em; border-radius: 2px !important; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  background: var(--rf-here) !important; padding: 0 .06em !important; border-radius: 0 !important;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
-/* Logseq cuts each property (name and values) to a pill shape, which rounded off the end of a
-   highlight on the last value. The pill has no fill of its own here, so its corners are made square. */
+/* Logseq cuts each property (name and values) to a pill shape, which would round off the end of the
+   highlight on the last value; the pill has no fill of its own here, so its corners are made square. */
 #main-content-container .references .bottom-property-pill:has([data-refinement-here]) { border-radius: 0 !important; }
 `],
   ['referenceLayout', `/* The blocks below a reference step back unless they hold a link to the page on screen themselves. */
@@ -637,8 +654,11 @@ const searchCss = `
 .cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text a { text-decoration: none !important; }
 .cp__cmdk-current-page-badge { border: 0 !important; padding: 1px 6px !important; font-size: var(--rf-tiny) !important; font-weight: 400 !important; }
 
-/* Matched words: slightly firmer text instead of a yellow block. */
-.cp__cmdk mark { background: transparent !important; color: inherit !important; font-weight: 600; }
+/* Matched words: the soft wash used in the preview, in place of Logseq's yellow block. In a loose match
+   Logseq marks stray letters; those stay plain, and the closest word gets the wash instead. */
+.cp__cmdk mark { background: var(--rf-mark) !important; color: inherit !important; font-weight: inherit; padding: 0 .06em; border-radius: 2px; }
+.cp__cmdk [data-rf-loose] mark { background: transparent !important; padding: 0; }
+::highlight(refinement-search-near) { background-color: color-mix(in srgb, var(--ls-primary-text-color, #888) 24%, transparent); }
 /* Typing markup such as [[ ]] and ** stays visible but faded. */
 ::highlight(refinement-search-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); }
 
@@ -657,6 +677,9 @@ const searchCss = `
   -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
 }
 .cp__cmdk [data-cmdk-item] :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description) > * { visibility: hidden !important; }
+/* A page that has its own icon shows it beside its name, so the plain rectangle (which read as an
+   empty checkbox) is left out there; the name stays in line with the other rows. */
+.cp__cmdk [data-cmdk-item] > .flex.items-start:has(.cp__cmdk-item-main-text :is(svg, img, .ui__icon)) > div:first-child:has(:is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description)) { visibility: hidden !important; }
 `;
 
 // Roomier search: a bigger popover with more space around rows and group headings.
@@ -2086,11 +2109,37 @@ function startSidebarSearchButton() {
 
 // Search shows block text as typed, so links and bold come through as [[Page]] and **text**.
 // Fade that markup in result text and paths. Uses the browser's highlight ranges, so
-// Logseq's own text is never edited.
-const searchMarkup = /\[\[|\]\]|\*\*|__|~~|\^\^|==|`/g;
+// Logseq's own text is never edited. The one exception is a block holding a table: its
+// pipes and "| --- |" rule are rewritten (in the search row only) into cells split by " · "
+// and rows split by " / ", and those separators are faded too.
+const searchMarkup = /\[\[|\]\]|\*\*|__|~~|\^\^|==|`| · | \/ /g;
+const tableCell = ' · ', tableRow = ' / ';
+function tidyTableText(text, first, last) {
+  let out = text
+    .replace(/\|(?:[ \t]*:?-{3,}:?[ \t]*\|)+/g, '|')  // the rule under the header row
+    .replace(/\|(?:\s*\|)+/g, '\u0000')              // end of one row and start of the next
+    .replace(/\s*\|\s*/g, tableCell);
+  if (first) out = out.replace(/^\s*(?:\u0000|· )\s*/, '');
+  if (last) out = out.replace(/\s*(?:\u0000| ·)\s*$/, '');
+  return out.replace(/\s*\u0000\s*/g, tableRow);
+}
+function tidySearchTables(doc) {
+  for (const area of doc.querySelectorAll('.cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text')) {
+    if (!/^\s*\|[^|\n]*\|/.test(area.textContent)) continue;
+    const walker = doc.createTreeWalker(area, doc.defaultView.NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
+    nodes.forEach((node, i) => {
+      if (!node.nodeValue.includes('|')) return;
+      const tidy = tidyTableText(node.nodeValue, i === 0, i === nodes.length - 1);
+      if (tidy !== node.nodeValue) node.nodeValue = tidy;
+    });
+  }
+}
 function cleanSearchResults(doc) {
   const win = doc.defaultView;
   if (!win.CSS?.highlights || !win.Highlight || !doc.querySelector('.cp__cmdk')) return;
+  tidySearchTables(doc);
   const ranges = [];
   for (const area of doc.querySelectorAll('[data-cmdk-item] .cp__cmdk-item-main-text, [data-cmdk-item] > .text-xs:first-child')) {
     const walker = doc.createTreeWalker(area, win.NodeFilter.SHOW_TEXT);
@@ -2107,10 +2156,1229 @@ function cleanSearchResults(doc) {
 }
 function startSearchCleanup() {
   try {
+    // Tables are rewritten before the screen is drawn, so their pipes never show.
+    watchDomEarly(function searchTablesEarly(doc) { if (doc.querySelector('.cp__cmdk')) tidySearchTables(doc); });
     watchDom(cleanSearchResults);
-    onUnload(() => host().defaultView.CSS?.highlights?.delete('refinement-search-markup'));
+    onUnload(() => { for (const name of ['refinement-search-markup', 'refinement-search-near']) host().defaultView.CSS?.highlights?.delete(name); });
   } catch (error) { warnOnce('search text cleanup is unavailable', error); }
 }
+
+/* Search details, grouping and the preview panel. Logseq's search rows carry no block ids, so the
+   plugin asks Logseq's own search (App.search, the same engine with the same options) for the same
+   words, and pairs its answers with the rows in order, checking that the words agree. With the ids
+   it can add, per row: what the result is (its tags) and when it was last edited; the first line of
+   what sits under a result whose own text is only a heading; and, when the searched words are not
+   in the text shown, where they were found. Rows of a group are put page by page (the arrow keys
+   follow that order), and a panel to the right of the search popover shows the selected result
+   with its blocks, each of which can be edited there. */
+const searchExtras = {
+  results: new Map(),   // query -> { list, done } from App.search
+  meta: new Map(),      // uuid -> { tags, updated, page, pageTitle, isPage, children, first, where }
+  pending: new Set(),   // uuids being looked up
+  byTitle: new Map(),   // page title -> uuid or '' (rows without a path, such as Recently updated)
+  doc: null, failed: false,
+};
+const searchLetters = text => String(text || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '');
+const searchMarkers = /\$pfts_2lqh>\$|\$<pfts_2lqh\$/g;
+const rowMainText = row => row.querySelector('.cp__cmdk-item-main-text');
+// What a row says, for telling rows and results apart: its main text and its path.
+function rowSignature(row) {
+  const main = rowMainText(row), header = row.querySelector(':scope > .text-xs:first-child');
+  return searchLetters(main?.textContent) + '|' + searchLetters(header?.textContent);
+}
+// Rows that can stand for a page or a block: not commands, themes or "Create" rows (told by their
+// icon or key hints), not filters (they end in "— Add filter").
+const notNodeIcon = /tabler-icon-(command|palette|plus|file-plus|square-plus|circle-plus|new-section|search)\b/;
+const searchableRow = row => rowMainText(row) && !row.querySelector('.shui-shortcut-row') &&
+  !rowMainText(row).querySelector(':scope > span.text-xs') &&
+  ![...row.querySelectorAll(':scope > .flex.items-start > div:first-child svg')].some(svg => notNodeIcon.test(svg.getAttribute('class') || ''));
+
+function searchResultsFor(query) {
+  const known = searchExtras.results.get(query);
+  if (known) return known.done ? known.list : null;
+  const entry = { done: false, list: [] };
+  searchExtras.results.set(query, entry);
+  if (searchExtras.results.size > 30) searchExtras.results.delete(searchExtras.results.keys().next().value);
+  Promise.resolve(logseq.App.search(query, { limit: 100, 'search-limit': 100, 'built-in?': true,
+    'enable-snippet?': true }))
+    .then(found => {
+      const blocks = Array.isArray(found?.blocks) ? found.blocks : Array.isArray(found) ? found : [];
+      entry.list = blocks.map(block => {
+        const strings = Object.values(block || {}).filter(value => typeof value === 'string');
+        const uuid = [block?.uuid, block?.['block/uuid'], block?.id, ...strings].map(String).find(value => UUID.test(value));
+        const fields = strings.filter(value => !UUID.test(value))
+          .map(value => searchLetters(value.replace(searchMarkers, '').replace(storedRef, ' ')));
+        return { uuid: uuid?.toLowerCase(), fields, blob: fields.join('|') };
+      }).filter(result => result.uuid);
+    })
+    .catch(error => { warnOnce('search details: Logseq search did not answer', error); })
+    .finally(() => { entry.done = true; if (searchExtras.doc) updateSearchExtras(searchExtras.doc); });
+  return null;
+}
+// How well a row's words agree with a search result: 2 the same text, 1 parts of it, 0 no.
+function searchAgreement(rowWords, result) {
+  if (!rowWords) return 0;
+  if (result.fields.includes(rowWords)) return 2;
+  if (rowWords.length <= 12) return result.blob.includes(rowWords) ? 1 : 0;
+  const size = 10, spots = [0, Math.floor((rowWords.length - size) / 2), rowWords.length - size];
+  return spots.some(at => result.blob.includes(rowWords.slice(at, at + size))) ? 1 : 0;
+}
+
+// Gives each result row its block or page id (data-rf-uuid), refreshed when Logseq reuses a row.
+function pairSearchRows(root) {
+  const query = root.querySelector('.cp__cmdk-search-input')?.value?.trim() || '';
+  const results = query ? searchResultsFor(query) : [];
+  if (results === null) return false;
+  for (const list of root.querySelectorAll('.search-results')) {
+    let next = 0;
+    for (const row of list.querySelectorAll('[data-cmdk-item]')) {
+      const signature = rowSignature(row);
+      if (row.dataset.rfSig === signature && row.dataset.rfQuery === query) {
+        const at = results.findIndex(result => result.uuid === row.dataset.rfUuid);
+        if (at >= 0) next = at + 1;
+        continue;
+      }
+      row.dataset.rfSig = signature;
+      row.dataset.rfQuery = query;
+      delete row.dataset.rfUuid;
+      if (!searchableRow(row)) continue;
+      // A page's row may add its tags to its name ("Atlas #Project"); the name alone is tried too.
+      const shown = rowMainText(row).textContent, words = searchLetters(shown);
+      const bare = searchLetters(shown.replace(trailingTags, ''));
+      let found = -1;
+      for (let i = next; i < results.length && found < 0; i++) {
+        if (searchAgreement(words, results[i]) || (bare && bare !== words && searchAgreement(bare, results[i]))) found = i;
+      }
+      if (found >= 0) { row.dataset.rfUuid = results[found].uuid; next = found + 1; continue; }
+      // A row with no path, such as a page under Recently updated: look the page up by its title.
+      if (row.querySelector(':scope > .text-xs:first-child')) continue;
+      const title = rowMainText(row).textContent.replace(trailingTags, '').trim();
+      if (!title || title.length > 200) continue;
+      if (searchExtras.byTitle.has(title)) {
+        if (searchExtras.byTitle.get(title)) row.dataset.rfUuid = searchExtras.byTitle.get(title);
+      } else {
+        searchExtras.byTitle.set(title, '');
+        Promise.resolve(logseq.Editor.getPage(title)).then(page => {
+          if (page?.uuid) searchExtras.byTitle.set(title, String(page.uuid).toLowerCase());
+        }).catch(() => {}).finally(() => {
+          for (const el of root.querySelectorAll('[data-cmdk-item][data-rf-sig]')) delete el.dataset.rfSig;
+          if (searchExtras.doc) updateSearchExtras(searchExtras.doc);
+        });
+      }
+    }
+  }
+  return true;
+}
+
+// Tags, last edit, page, first child and number of children of the given ids, in four queries.
+async function loadSearchMeta(uuids) {
+  const ids = uuids.filter(uuid => !searchExtras.meta.has(uuid) && !searchExtras.pending.has(uuid));
+  if (!ids.length) return;
+  ids.forEach(uuid => searchExtras.pending.add(uuid));
+  try {
+    const where = `${uuidsIn('?u', ids)} [?b :block/uuid ?u]`;
+    const [basics, tags, pages, children] = await Promise.all([
+      dsQuery(`[:find ?u ?updated ?name :where ${where}
+        [(get-else $ ?b :block/updated-at 0) ?updated] [(get-else $ ?b :block/name "") ?name]]`),
+      dsQuery(`[:find ?u ?title :where ${where} [?b :block/tags ?t] [?t :block/title ?title]]`),
+      dsQuery(`[:find ?u ?pu ?title :where ${where} [?b :block/page ?p] [?p :block/uuid ?pu] [?p :block/title ?title]]`),
+      dsQuery(`[:find ?u ?order ?title :where ${where} [?c :block/parent ?b] [?c :block/order ?order] [?c :block/title ?title]]`),
+    ]);
+    const entry = uuid => {
+      const key = String(uuid).toLowerCase();
+      if (!searchExtras.meta.has(key)) searchExtras.meta.set(key, { tags: [], updated: 0, isPage: false, children: 0, first: null });
+      return searchExtras.meta.get(key);
+    };
+    ids.forEach(entry);
+    for (const [u, updated, name] of basics) Object.assign(entry(u), { updated: Number(updated) || 0, isPage: !!name });
+    for (const [u, title] of tags) entry(u).tags.push(String(title));
+    for (const [u, pu, title] of pages) Object.assign(entry(u), { page: String(pu).toLowerCase(), pageTitle: String(title) });
+    const firsts = new Map();
+    for (const [u, order, title] of children) {
+      const meta = entry(u);
+      meta.children++;
+      if (!firsts.has(meta) || String(order) < firsts.get(meta).order) firsts.set(meta, { order: String(order), title: String(title) });
+    }
+    const names = await mentionedTitles([...firsts.values()].map(first => first.title));
+    for (const [meta, first] of firsts) meta.first = plainSearchText(first.title, names);
+    if (searchExtras.meta.size > 2000) searchExtras.meta.clear();
+  } catch (error) { warnOnce('search details: could not look up results', error); }
+  finally {
+    ids.forEach(uuid => searchExtras.pending.delete(uuid));
+    if (searchExtras.doc) updateSearchExtras(searchExtras.doc);
+  }
+}
+// Stored text as words: links by name, without markup.
+const plainSearchText = (text, names) => String(text || '')
+  .replace(storedRef, (match, open, uuid) => names.get(uuid.toLowerCase()) || '…')
+  .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\*\*|__|~~|\^\^|==|`/g, '').replace(/\s*\n\s*/g, ' ').trim();
+
+// Why Logseq may have listed a block that holds none of the searched words: a word in it that
+// shares a run of letters with a searched word ("testing" for "meeting"), or the searched word's
+// letters spread through the text in order.
+function nearMatchReason(terms, text, near = []) {
+  const words = [...new Set(text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])];
+  const common = (a, b) => {
+    let best = '';
+    for (let i = 0; i < a.length; i++) for (let j = i + best.length + 1; j <= a.length; j++) {
+      if (b.includes(a.slice(i, j))) best = a.slice(i, j); else break;
+    }
+    return best;
+  };
+  const reasons = terms.map(term => {
+    let pick = null;
+    for (const word of words) {
+      const part = common(term, word);
+      if (part.length >= 3 && (!pick || part.length > pick.part.length)) pick = { word, part };
+    }
+    if (pick) { near.push(pick.word); return `closest word “${pick.word}” shares “${pick.part}”`; }
+    const spread = [];
+    let at = 0;
+    for (const letter of term) {
+      const found = text.toLowerCase().indexOf(letter, at);
+      if (found < 0) return `no word close to “${term}”`;
+      const word = text.slice(text.lastIndexOf(' ', found) + 1).split(/\s/)[0];
+      if (spread[spread.length - 1] !== word) spread.push(word);
+      at = found + 1;
+    }
+    return `the letters of “${term}” are spread across ${spread.length > 3 ? `${spread[0]} … ${spread[spread.length - 1]}` : spread.join(', ')}`;
+  });
+  return `Loose match: ${reasons.map((reason, i) => terms.length > 1 ? `${terms[i]}, ${reason}` : reason).join('; ')}`;
+}
+// The searched words, lower case, without quotes; one letter alone is left out.
+const searchTerms = query => String(query || '').toLowerCase().split(/\s+/).map(term => term.replace(/^"|"$/g, '')).filter(term => term.length > 1);
+// When searched words are not in the text shown: where in the block they are. Logseq also lists
+// near matches, which hold none of them; those are said to be near matches. Kept per set of words.
+async function whereSearchMatched(uuid, terms) {
+  const meta = searchExtras.meta.get(uuid), key = terms.join(' ');
+  if (!meta || meta.whereFor === key) return;
+  meta.whereFor = key;
+  meta.where = '';
+  meta.near = [];
+  const hit = text => terms.some(term => String(text || '').toLowerCase().includes(term));
+  const say = text => { if (meta.whereFor === key) meta.where = text; };
+  try {
+    const tag = meta.tags.find(hit);
+    if (tag) { say(`Found in its tag ${tag}`); return; }
+    const rows = await dsQuery(`[:find ?a ?v :where [?b :block/uuid #uuid "${uuid}"] [?b ?a ?v]]`);
+    const refs = rows.filter(([a, v]) => Number.isSafeInteger(v) && !/^:?(block|db|logseq\.property\.embedding)\//.test(String(a)));
+    const titles = new Map(refs.length ? await dsQuery(`[:find ?e ?t :where ${idsIn('?e', refs.map(([, v]) => v))} [?e :block/title ?t]]`) : []);
+    for (const [a, v] of rows) {
+      const ident = bareIdent(a);
+      if (/^(block|db)\//.test(ident) && ident !== 'block/title') continue;
+      const value = typeof v === 'string' ? v : titles.get(v);
+      if (!hit(value)) continue;
+      if (ident === 'block/title') { say('Found further into the text'); return; }
+      const [name] = (await dsQuery(`[:find ?t :where [?p :db/ident ${keyword(ident)}] [?p :block/title ?t]]`))[0] || [ident.split('/').pop()];
+      say(`Found in ${name}: ${String(value).replace(storedRef, '…').slice(0, 80)}`);
+      return;
+    }
+    const [[title] = []] = await dsQuery(`[:find ?t :where [?b :block/uuid #uuid "${uuid}"] [?b :block/title ?t]]`);
+    const near = [];
+    say(nearMatchReason(terms, String(title || '').replace(storedRef, ' '), near));
+    if (meta.whereFor === key) meta.near = near;
+  } catch (error) { warnOnce('search details: could not tell where a result matched', error); }
+  finally { if (searchExtras.doc) updateSearchExtras(searchExtras.doc); }
+}
+
+function editedLabel(ms) {
+  if (!ms) return '';
+  const day = value => { const d = new Date(value); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const days = Math.round((day(Date.now()) - day(ms)) / 864e5);
+  if (days <= 0) return 'edited today';
+  if (days === 1) return 'edited yesterday';
+  if (days < 7) return `edited ${days} days ago`;
+  const date = new Date(ms), sameYear = date.getFullYear() === new Date().getFullYear();
+  return 'edited ' + date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+// What a result is, in a few words: its tags (or Page / Journal for a page without others).
+function kindLabel(meta) {
+  const tags = meta.tags.filter(tag => !(meta.isPage && tag === 'Page'));
+  return (tags.length ? tags : meta.isPage ? ['Page'] : []).slice(0, 3).join(' · ');
+}
+function setExtra(parent, className, text, before = null) {
+  let el = parent.querySelector(`:scope > .${className}`);
+  if (!text) { el?.remove(); return; }
+  if (!el) { el = parent.ownerDocument.createElement('div'); el.className = className; parent.insertBefore(el, before); }
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// Rows of one group put page by page: a page first, then its blocks, in the order each first appears.
+function groupSearchRows(list) {
+  const wrappers = [...list.children];
+  const keyOf = wrapper => {
+    const uuid = wrapper.querySelector('[data-cmdk-item]')?.dataset.rfUuid;
+    const meta = uuid && searchExtras.meta.get(uuid);
+    return meta ? (meta.isPage ? uuid : meta.page || uuid) : wrapper;
+  };
+  const groups = new Map();
+  wrappers.forEach(wrapper => { const key = keyOf(wrapper); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(wrapper); });
+  let position = 0, moved = false;
+  for (const members of groups.values()) {
+    members.forEach((wrapper, i) => {
+      const order = String(position++);
+      if (wrapper.style.order !== order) wrapper.style.order = order;
+      if (Number(order) !== wrappers.indexOf(wrapper)) moved = true;
+      const row = wrapper.querySelector('[data-cmdk-item]');
+      if (row) row.toggleAttribute('data-rf-same-page', i > 0);
+      if (row) row.toggleAttribute('data-rf-group-end', i === members.length - 1 && members.length > 1);
+    });
+  }
+  list.toggleAttribute('data-rf-grouped', true);
+  list.toggleAttribute('data-rf-moved', moved);
+}
+// The rows of a search window in the order they are shown.
+function shownSearchRows(root) {
+  const rows = [];
+  for (const list of root.querySelectorAll('.search-results')) {
+    const wrappers = [...list.children];
+    if (list.hasAttribute('data-rf-grouped')) wrappers.sort((a, b) => (Number(a.style.order) || 0) - (Number(b.style.order) || 0));
+    for (const wrapper of wrappers) { const row = wrapper.querySelector('[data-cmdk-item]'); if (row) rows.push(row); }
+  }
+  return rows;
+}
+// Up and Down follow the rows as shown. Logseq moves through its own order, so where the two
+// differ the key is taken here and the row is selected the way pointing at it would.
+function searchArrowKeys(event) {
+  if (event.defaultPrevented || event.metaKey || event.altKey || event.isComposing) return;
+  const down = event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n');
+  const up = event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p');
+  if (!down && !up) return;
+  const root = event.target?.closest?.('.cp__cmdk');
+  if (!root || root.hasAttribute('data-rf-filtering') || !root.querySelector('.search-results[data-rf-moved]')) return;
+  const shown = shownSearchRows(root), logseqOrder = [...root.querySelectorAll('[data-cmdk-item]')];
+  const current = root.querySelector('[data-cmdk-item][data-highlighted]') || logseqOrder[0];
+  const at = shown.indexOf(current);
+  if (at < 0) return;
+  const target = shown[at + (down ? 1 : -1)];
+  const logseqTarget = logseqOrder[logseqOrder.indexOf(current) + (down ? 1 : -1)];
+  if (!target || target === logseqTarget) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const win = root.ownerDocument.defaultView;
+  target.dispatchEvent(new win.MouseEvent('mousemove', { bubbles: true, movementX: 1, movementY: 1 }));
+  const scroller = root.querySelector('.cp__cmdk-input-row + div');
+  if (scroller) {
+    const box = scroller.getBoundingClientRect(), r = target.getBoundingClientRect();
+    if (r.top < box.top + 40) scroller.scrollTop -= box.top + 40 - r.top;
+    else if (r.bottom > box.bottom - 40) scroller.scrollTop += r.bottom - box.bottom + 40;
+  }
+}
+
+function updateSearchExtras(doc) {
+  searchExtras.doc = doc;
+  const roots = doc.querySelectorAll('.cp__cmdk');
+  if (!roots.length) { searchPreview.uuid = searchPreview.key = null; updateSearchFilters(doc); return; }
+  if (typeof logseq.App.search !== 'function' && !searchExtras.failed) {
+    searchExtras.failed = true;
+    warnOnce('search details: this Logseq has no search for plugins');
+  }
+  updateSearchFilters(doc);
+  for (const root of roots) {
+    if (root.hasAttribute('data-rf-filtering')) { refreshFilterLabels(root); continue; }
+    if (!pairSearchRows(root)) continue;
+    const rows = [...root.querySelectorAll('[data-cmdk-item][data-rf-uuid]')];
+    nearRanges.length = 0;
+    loadSearchMeta(rows.map(row => row.dataset.rfUuid));
+    const query = root.querySelector('.cp__cmdk-search-input')?.value?.trim() || '';
+    for (const row of root.querySelectorAll('[data-cmdk-item]')) {
+      const meta = row.dataset.rfUuid && searchExtras.meta.get(row.dataset.rfUuid);
+      const mainRow = row.querySelector(':scope > .flex.items-start'), column = rowMainText(row)?.parentElement;
+      if (!mainRow || !column) continue;
+      if (!meta || !setting('searchDetails')) {
+        for (const el of row.querySelectorAll('.rf-search-meta, .rf-search-peek, .rf-search-where')) el.remove();
+        continue;
+      }
+      setExtra(mainRow, 'rf-search-meta', [kindLabel(meta), editedLabel(meta.updated)].filter(Boolean).join(' · '));
+      // Under a heading-like result: the first line beneath it.
+      const own = searchLetters(rowMainText(row).textContent);
+      const peek = meta.first && meta.children && (meta.isPage || own.length <= 40)
+        ? meta.first.slice(0, 160) + (meta.children > 1 ? `  · ${meta.children - 1} more` : '') : '';
+      setExtra(column, 'rf-search-peek', peek);
+      // Searched words (of three letters or more) that are not in the text shown: say where they
+      // were found. Told by the text, not by Logseq's bold, which also marks letters of a near match.
+      const marked = rowMainText(row).querySelector('mark');
+      const shown = rowMainText(row).textContent.toLowerCase();
+      const absent = meta.isPage ? [] : searchTerms(query).filter(term => term.length > 2 && !shown.includes(term));
+      if (absent.length) whereSearchMatched(row.dataset.rfUuid, absent);
+      const answered = absent.length && meta.whereFor === absent.join(' ');
+      setExtra(column, 'rf-search-where', answered ? meta.where || '' : '');
+      // A loose match: Logseq's marks on stray letters are left plain, and the closest word is marked.
+      const loose = !!(answered && meta.where?.startsWith('Loose match'));
+      row.toggleAttribute('data-rf-loose', loose);
+      if (loose && meta.near?.length) nearRanges.push(...wordRanges(rowMainText(row), meta.near));
+      if (marked && !loose) revealSearchMatch(row);
+    }
+    const win = doc.defaultView;
+    if (win.CSS?.highlights && win.Highlight) win.CSS.highlights.set('refinement-search-near', new win.Highlight(...nearRanges));
+    if (setting('groupSearch')) for (const list of root.querySelectorAll('.search-results')) groupSearchRows(list);
+  }
+  if (setting('searchPreview')) updateSearchPreview(doc);
+}
+// The closest words of loose matches, drawn with the CSS highlight API so Logseq's own text is untouched.
+const nearRanges = [];
+// The first place each word appears in an element's text, as a whole word.
+function wordRanges(main, words) {
+  const ranges = [];
+  if (!main) return ranges;
+  const doc = main.ownerDocument;
+  for (const word of words) {
+    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?![\\p{L}\\p{N}])`, 'iu');
+    const walker = doc.createTreeWalker(main, doc.defaultView.NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const found = pattern.exec(node.nodeValue);
+      if (!found) continue;
+      const range = doc.createRange(), start = found.index + found[1].length;
+      range.setStart(node, start);
+      range.setEnd(node, start + found[2].length);
+      ranges.push(range);
+      break;
+    }
+  }
+  return ranges;
+}
+// A long block whose matched words fall below the lines shown: start the text a little before them.
+function revealSearchMatch(row) {
+  const main = rowMainText(row), mark = main.querySelector('mark');
+  if (main.scrollHeight <= main.clientHeight + 2) return;
+  if (mark.getBoundingClientRect().bottom <= main.getBoundingClientRect().bottom) return;
+  const doc = main.ownerDocument, walker = doc.createTreeWalker(main, doc.defaultView.NodeFilter.SHOW_TEXT);
+  const before = [];
+  for (let node = walker.nextNode(); node && !mark.contains(node); node = walker.nextNode()) before.push(node);
+  let keep = 60;
+  for (let i = before.length - 1; i >= 0; i--) {
+    const node = before[i], text = node.nodeValue;
+    if (keep <= 0) { if (text) node.nodeValue = ''; continue; }
+    if (text.length > keep) { node.nodeValue = '… ' + text.slice(text.length - keep).replace(/^\S*\s/, ''); keep = 0; }
+    else keep -= text.length;
+  }
+}
+
+/* The preview panel: the selected result, its tags and last edit, and its blocks (up to 80, four
+   levels down). Each line shows its text with links by name; click it to edit. A change is saved a
+   moment after you stop typing, and when you leave the line. Links keep pointing at the same page:
+   the names shown are turned back into the ids the block stores. */
+const searchPreview = { uuid: null, key: null, generation: 0, timer: 0, watcher: null };
+function previewPane(doc) {
+  const modal = doc.querySelector('.ls-dialog-cmdk .cp__cmdk__modal');
+  if (!modal?.parentElement) return null;
+  let pane = modal.parentElement.querySelector(':scope > .rf-search-preview');
+  if (!pane) {
+    pane = doc.createElement('div');
+    pane.className = 'rf-search-preview';
+    pane.innerHTML = '<div class="rf-pv-empty">Select a result to see it here.</div>';
+    modal.parentElement.setAttribute('data-rf-with-preview', '');
+    modal.after(pane);
+    pane.addEventListener('click', previewClick);
+    pane.addEventListener('keydown', event => event.stopPropagation());
+    searchPreview.uuid = searchPreview.key = null;
+    // Moving the selection only changes an attribute, which the plugin's screen watcher leaves
+    // alone; this watcher follows it while the panel is open.
+    searchPreview.watcher?.disconnect();
+    const watcher = searchPreview.watcher = new doc.defaultView.MutationObserver(() => {
+      if (!pane.isConnected) { watcher.disconnect(); return; }
+      updateSearchPreview(doc);
+    });
+    watcher.observe(modal, { subtree: true, attributes: true, attributeFilter: ['data-highlighted'] });
+  }
+  return pane;
+}
+function updateSearchPreview(doc) {
+  const pane = previewPane(doc);
+  if (!pane) return;
+  const root = pane.parentElement.querySelector('.cp__cmdk');
+  const row = root?.hasAttribute('data-rf-filtering') ? root.querySelector('.rf-fr-row[data-rf-current]')
+    : root?.querySelector('[data-cmdk-item][data-highlighted]') || root?.querySelector('[data-cmdk-item][data-rf-uuid]');
+  const uuid = row?.dataset.rfUuid || null;
+  // Shown again once the result's details are in (they say whether it is a page).
+  const key = uuid && uuid + (searchExtras.meta.has(uuid) ? '' : '?') + '|' + previewWords(pane, uuid).join(' ');
+  if (key === searchPreview.key || pane.querySelector('textarea')) return;
+  searchPreview.uuid = uuid;
+  searchPreview.key = key;
+  clearTimeout(searchPreview.timer);
+  const generation = ++searchPreview.generation;
+  searchPreview.timer = setTimeout(() => fillPreview(pane, uuid, generation), 120);
+}
+// The words being searched for, to mark in the panel: the plain words of the box (codes left out).
+function previewWords(pane, uuid) {
+  const root = pane.parentElement?.querySelector('.cp__cmdk');
+  if (root?.hasAttribute('data-rf-filtering')) return searchFilter.words.filter(word => word.length > 1);
+  // For a loose match, its closest words are marked too.
+  return [...searchTerms(root?.querySelector('.cp__cmdk-search-input')?.value), ...(searchExtras.meta.get(uuid)?.near || [])];
+}
+// The properties set on a page or block, as [name, values] pairs, the owner's own properties first;
+// hidden and internal ones (and tags, which the line above already names) are left out.
+async function previewProperties(uuid) {
+  const rows = await dsQuery(`[:find ?a ?name ?v :where [?b :block/uuid #uuid "${uuid}"] [?b ?a ?v] [?p :db/ident ?a]
+    [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :block/title ?name]
+    (not [?p :logseq.property/hide? true]) (not [?p :logseq.property/public? false])]`);
+  const kept = rows.filter(([a]) => !/^(block|db)\/|(^|\/)tags$/.test(bareIdent(a)));
+  const texts = await valueTexts(kept.map(([, , v]) => v));
+  const byName = new Map();
+  for (const [a, name, v] of kept) {
+    const text = v === true ? 'Yes' : v === false ? 'No' : texts.get(v);
+    if (!text) continue;
+    const entry = byName.get(name) || byName.set(name, { user: bareIdent(a).startsWith('user.'), values: [] }).get(name);
+    if (!entry.values.includes(text)) entry.values.push(text);
+  }
+  return [...byName].sort(([a, x], [b, y]) => Number(y.user) - Number(x.user) || a.localeCompare(b))
+    .map(([name, { values }]) => [name, values.join(', ')]);
+}
+// The page and the blocks above a block, outermost first, as the result row names them.
+async function previewPath(uuid) {
+  const path = [];
+  if (!UUID.test(uuid)) return path;
+  let from = `[?b :block/uuid #uuid "${uuid}"]`;
+  for (let level = 0; level < 12; level++) {
+    const [above] = await dsQuery(`[:find ?p ?title ?name :where ${from} [?b :block/parent ?p] [?p :block/title ?title]
+      [(get-else $ ?p :block/name "") ?name]]`);
+    if (!above || !isEntityId(above[0])) break;
+    path.unshift(String(above[1]));
+    if (above[2]) break;
+    from = `[(identity ${above[0]}) ?b]`;
+  }
+  const names = await mentionedTitles(path);
+  return path.map(title => plainSearchText(title, names).replace(/\[\[([^\]]+)\]\]/g, '$1')).filter(Boolean);
+}
+// Block text as simple HTML: links by name, bold, code, tags, and a table as a table.
+function previewHtml(text, names) {
+  const lines = String(text || '').split('\n');
+  if (lines.length > 1 && lines.every(line => /^\s*\|.*\|\s*$/.test(line))) {
+    const cells = line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => `<td>${previewInline(cell.trim(), names)}</td>`).join('');
+    return '<table>' + lines.filter(line => !/^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(line)).map(line => `<tr>${cells(line)}</tr>`).join('') + '</table>';
+  }
+  return lines.map(line => previewInline(line, names)).join('<br>');
+}
+function previewInline(text, names) {
+  return escapeHtml(text)
+    .replace(/\[\[([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\]\]/gi, (m, uuid) => `<span class="rf-pv-ref">${escapeHtml(names.get(uuid.toLowerCase()) || '…')}</span>`)
+    .replace(/\(\(([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\)\)/gi, (m, uuid) => `<span class="rf-pv-bref">${escapeHtml(names.get(uuid.toLowerCase()) || '…')}</span>`)
+    .replace(/\[\[([^\]]+)\]\]/g, '<span class="rf-pv-ref">$1</span>')
+    .replace(/\[([^\]]+)\]\((?:[^)]+)\)/g, '<span class="rf-pv-ref">$1</span>')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/(^|\s)#([^\s#<]+)/g, '$1<span class="rf-pv-tag">#$2</span>');
+}
+// Stored text for editing: [[id]] shown as [[Name]], and the names that can be turned back.
+function editableText(text, names) {
+  const back = new Map();
+  const shown = String(text || '').replace(/\[\[([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\]\]/gi, (m, uuid) => {
+    const name = names.get(uuid.toLowerCase());
+    if (!name || /[\[\]]/.test(name) || (back.has(name) && back.get(name) !== uuid)) return m;
+    back.set(name, uuid);
+    return `[[${name}]]`;
+  });
+  return { shown, back };
+}
+async function fillPreview(pane, uuid, generation) {
+  if (!uuid) { pane.innerHTML = '<div class="rf-pv-empty">Select a result to see it here.</div>'; return; }
+  try {
+    const meta = searchExtras.meta.get(uuid) || { tags: [] };
+    const isPage = meta.isPage;
+    const top = isPage ? await logseq.Editor.getPageBlocksTree(uuid) : [await logseq.Editor.getBlock(uuid, { includeChildren: true })];
+    const page = isPage ? await logseq.Editor.getPage(uuid) : null;
+    if (generation !== searchPreview.generation) return;
+    const lines = [];
+    const walk = (blocks, depth) => {
+      for (const block of blocks || []) {
+        if (!block || Array.isArray(block) || lines.length >= 80) continue;
+        lines.push({ uuid: String(block.uuid), text: titleOf(block), depth });
+        if (depth < 4) walk(block.children, depth + 1);
+      }
+    };
+    walk(top.filter(Boolean), 0);
+    const names = await mentionedTitles(lines.map(line => line.text));
+    const blockRefs = new Set(lines.flatMap(line => [...line.text.matchAll(/\(\(([0-9a-f-]{36})\)\)/gi)].map(m => m[1].toLowerCase())));
+    if (blockRefs.size) for (const [u, t] of await dsQuery(`[:find ?u ?t :where ${uuidsIn('?u', blockRefs)} [?e :block/uuid ?u] [?e :block/title ?t]]`)) names.set(String(u).toLowerCase(), plainSearchText(t, names));
+    let path = [];
+    if (!isPage) try { path = await previewPath(uuid); } catch (error) { warnOnce('search preview could not read where a result is', error); }
+    if (!path.length && meta.pageTitle) path = [meta.pageTitle];
+    if (generation !== searchPreview.generation) return;
+    const kind = kindLabel(meta), edited = editedLabel(meta.updated);
+    const heading = isPage ? (page?.title || page?.originalName || page?.name || '') : '';
+    let props = [];
+    try { props = await previewProperties(uuid); } catch (error) { warnOnce('search preview could not read properties', error); }
+    if (generation !== searchPreview.generation) return;
+    const words = previewWords(pane, uuid);
+    pane.innerHTML = `
+      ${path.length ? `<div class="rf-pv-path">${path.map(part => `<span>${escapeHtml(part.length > 80 ? part.slice(0, 80) + '…' : part)}</span>`).join('')}</div>` : ''}
+      ${heading ? `<div class="rf-pv-title">${escapeHtml(heading)}</div>` : ''}
+      <div class="rf-pv-meta">${escapeHtml([kind, edited].filter(Boolean).join(' · '))}</div>
+      ${props.length ? `<div class="rf-pv-props">${props.map(([name, value]) => `<span class="rf-pv-pname">${escapeHtml(name)}</span><span>${markHtml(escapeHtml(value), words)}</span>`).join('')}</div>` : ''}
+      <div class="rf-pv-actions"><button data-rf-act="open">Open</button><button data-rf-act="side">Open in sidebar</button></div>
+      <div class="rf-pv-body">${lines.map(line => `<div class="rf-pv-block" data-uuid="${escapeHtml(line.uuid)}" style="--rf-depth:${line.depth}"><div class="rf-pv-text">${markHtml(previewHtml(line.text, names), words) || '<span class="rf-pv-blank">Empty</span>'}</div></div>`).join('')}
+        ${lines.length ? '' : '<div class="rf-pv-empty">Nothing written here yet.</div>'}
+        ${lines.length >= 80 ? '<div class="rf-pv-empty">Open it to see the rest.</div>' : ''}</div>`;
+    pane.rfNames = names;
+    pane.rfWords = words;
+    // The first marked word is brought into view when it is further down (the panel scrolls on its own).
+    const first = pane.querySelector('.rf-pv-body mark');
+    const below = first ? first.getBoundingClientRect().top - pane.getBoundingClientRect().top : 0;
+    pane.scrollTop = below > pane.clientHeight * .7 ? below - pane.clientHeight / 3 : 0;
+    pane.rfTexts = new Map(lines.map(line => [line.uuid, line.text]));
+  } catch (error) {
+    warnOnce('search preview could not load a result', error);
+    if (generation === searchPreview.generation) pane.innerHTML = '<div class="rf-pv-empty">This result could not be shown.</div>';
+  }
+}
+function previewClick(event) {
+  const pane = event.currentTarget, action = event.target.closest('[data-rf-act]');
+  if (action) {
+    const root = pane.parentElement.querySelector('.cp__cmdk');
+    if (root?.hasAttribute('data-rf-filtering')) { openFilterResult(root, searchPreview.uuid, action.dataset.rfAct === 'side'); return; }
+    const row = pane.parentElement.querySelector(`.cp__cmdk [data-cmdk-item][data-rf-uuid="${searchPreview.uuid}"]`);
+    if (!row) return;
+    const win = pane.ownerDocument.defaultView;
+    row.dispatchEvent(new win.MouseEvent('click', { bubbles: true, shiftKey: action.dataset.rfAct === 'side' }));
+    return;
+  }
+  const line = event.target.closest('.rf-pv-block');
+  if (!line || line.querySelector('textarea') || event.target.closest('a')) return;
+  editPreviewLine(pane, line);
+}
+// One line of the panel as a text box, saved as you type. As on a page, Enter starts a new bullet
+// below (taking the words after the cursor with it), Backspace at the start of an empty bullet
+// removes it, and Escape stops editing.
+function editPreviewLine(pane, line, caret = null) {
+  const doc = pane.ownerDocument;
+  const uuid = line.dataset.uuid, stored = pane.rfTexts?.get(uuid) ?? '';
+  const { shown, back } = editableText(stored, pane.rfNames || new Map());
+  const box = doc.createElement('textarea');
+  box.className = 'rf-pv-edit';
+  box.value = shown;
+  const fit = () => { box.style.height = 'auto'; box.style.height = box.scrollHeight + 'px'; };
+  line.querySelector('.rf-pv-text, .rf-pv-edit').replaceWith(box);
+  fit();
+  box.focus();
+  if (caret !== null) box.setSelectionRange(Math.min(caret, box.value.length), Math.min(caret, box.value.length));
+  let timer = 0, removed = false;
+  const toStored = (text = box.value) => text.replace(/\[\[([^\]]+)\]\]/g, (m, name) => back.has(name) ? `[[${back.get(name)}]]` : m);
+  const save = async () => {
+    clearTimeout(timer);
+    const text = toStored();
+    if (text === pane.rfTexts.get(uuid)) return;
+    pane.rfTexts.set(uuid, text);
+    try { await logseq.Editor.updateBlock(uuid, text); searchExtras.meta.delete(searchPreview.uuid); }
+    catch (error) { notify(`Could not save this line: ${error.message || error}`, 'warning'); }
+  };
+  const depthOf = el => Number(el?.style.getPropertyValue('--rf-depth')) || 0;
+  const below = () => {
+    const lines = [...pane.querySelectorAll('.rf-pv-block')];
+    return lines.slice(lines.indexOf(line) + 1);
+  };
+  // A new bullet: the first child when this one's children are shown under it, else the next sibling.
+  const split = async () => {
+    const rest = toStored(box.value.slice(box.selectionEnd));
+    box.value = box.value.slice(0, box.selectionStart);
+    const depth = depthOf(line), after = below();
+    const intoChildren = depthOf(after[0]) > depth;
+    box.blur();
+    let block;
+    try { block = await logseq.Editor.insertBlock(uuid, rest, { sibling: !intoChildren }); }
+    catch (error) { notify(`Could not add a bullet: ${error.message || error}`, 'warning'); return; }
+    if (!block?.uuid) return;
+    searchExtras.meta.delete(searchPreview.uuid);
+    const added = doc.createElement('div');
+    added.className = 'rf-pv-block';
+    added.dataset.uuid = String(block.uuid);
+    added.style.setProperty('--rf-depth', intoChildren ? depth + 1 : depth);
+    added.innerHTML = '<div class="rf-pv-text"></div>';
+    let last = line;
+    if (!intoChildren) for (const el of after) { if (depthOf(el) <= depth) break; last = el; }
+    last.after(added);
+    pane.rfTexts.set(added.dataset.uuid, rest);
+    editPreviewLine(pane, added, 0);
+  };
+  const remove = async prev => {
+    removed = true;
+    clearTimeout(timer);
+    try { await logseq.Editor.removeBlock(uuid); }
+    catch (error) { removed = false; notify(`Could not remove this bullet: ${error.message || error}`, 'warning'); return; }
+    searchExtras.meta.delete(searchPreview.uuid);
+    pane.rfTexts.delete(uuid);
+    line.remove();
+    editPreviewLine(pane, prev, Infinity);
+  };
+  box.addEventListener('input', () => { fit(); clearTimeout(timer); timer = setTimeout(save, 700); });
+  box.addEventListener('keydown', key => {
+    if (key.isComposing) return;
+    if (key.key === 'Enter' && !key.shiftKey) { key.preventDefault(); split(); }
+    else if (key.key === 'Escape') { key.preventDefault(); box.blur(); }
+    else if (key.key === 'Backspace' && !box.value && uuid !== searchPreview.uuid) {
+      // Only a bullet with nothing under it, and with a line above to move to.
+      const prev = line.previousElementSibling;
+      if (!prev?.matches('.rf-pv-block') || depthOf(below()[0]) > depthOf(line)) return;
+      key.preventDefault();
+      remove(prev);
+    }
+  });
+  box.addEventListener('blur', async () => {
+    if (removed) return;
+    await save();
+    if (removed) return;
+    const text = doc.createElement('div');
+    text.className = 'rf-pv-text';
+    text.innerHTML = markHtml(previewHtml(pane.rfTexts.get(uuid), pane.rfNames || new Map()), pane.rfWords || []) || '<span class="rf-pv-blank">Empty</span>';
+    if (box.isConnected) box.replaceWith(text);
+  });
+}
+
+/* Typed filters. Codes in the search box narrow what is found:
+     #Tag                     tagged with it, or with a tag that extends it
+     in:Page                  on that page
+     property:Name            has that property; property:Name=word, a value of it holds the word
+     is:page / journal / block / task / todo / done
+     edited:today / yesterday / week / month / year, or a count such as 3d or 2w
+   A name with spaces goes in [[ ]] or quotes: in:[[Plugin Test]]. Logseq's search does not know
+   these codes, so when the box has one the plugin finds the results itself, straight from the graph
+   (each other word must be in the text), and lists them in place of Logseq's. While a code is being
+   typed, a list under the box suggests tags, pages, properties or values, narrowing as you type;
+   the arrow keys move in it, and Tab or Enter takes one. */
+const searchFilter = {
+  key: '', generation: 0, timer: 0, loading: false, list: [], total: 0, note: '', heading: '', words: [], current: 0,
+  catalog: null, values: new Map(), suggest: [], suggestAt: 0, suggestFor: '', dismissed: '',
+};
+const filterKinds = {
+  page: 'page', pages: 'page', journal: 'journal', journals: 'journal', block: 'block', blocks: 'block',
+  task: 'task', tasks: 'task', todo: 'todo', open: 'todo', done: 'done',
+};
+const filterKindWords = { page: 'pages', journal: 'journal days', block: 'blocks', task: 'tasks', todo: 'tasks not done', done: 'finished tasks' };
+const filterPrefix = /^(#|in:|is:|edited:|property:|prop:)/i;
+const unwrapName = value => String(value || '').trim().replace(/^"|"$/g, '').replace(/^\[\[|\]\]$/g, '').trim();
+const wrapName = name => /[\s"=]/.test(name) ? `[[${name}]]` : name;
+// The search box as words and codes, each with where it starts and ends.
+function filterTokens(input) {
+  return [...String(input).matchAll(/(?:#|in:|is:|edited:|prop(?:erty)?:)?(?:"[^"]*"?|\[\[[^\]]*(?:\]\]?)?|[^\s"[]+|\[)(?:=(?:"[^"]*"?|\[\[[^\]]*(?:\]\]?)?|\S*))?/gi)]
+    .map(m => ({ text: m[0], start: m.index, end: m.index + m[0].length }));
+}
+function parseSearchFilters(input) {
+  const parsed = { any: false, tags: [], pages: [], props: [], kinds: [], since: 0, sinceLabel: '', bad: [], words: [] };
+  for (const { text } of filterTokens(input)) {
+    const prefix = text.match(filterPrefix)?.[1]?.toLowerCase();
+    if (!prefix) { const word = unwrapName(text).toLowerCase(); if (word) parsed.words.push(word); continue; }
+    parsed.any = true;
+    const rest = text.slice(prefix.length);
+    if (prefix === 'property:' || prefix === 'prop:') {
+      const [, name, value] = rest.match(/^("[^"]*"?|\[\[[^\]]*(?:\]\]?)?|[^=]*)(?:=(.*))?$/) || [];
+      if (unwrapName(name)) parsed.props.push({ name: unwrapName(name), value: unwrapName(value).toLowerCase() || null });
+      continue;
+    }
+    const value = unwrapName(rest);
+    if (!value) continue;
+    if (prefix === '#') parsed.tags.push(value);
+    else if (prefix === 'in:') parsed.pages.push(value);
+    else if (prefix === 'is:') { const kind = filterKinds[value.toLowerCase()]; if (kind) parsed.kinds.push(kind); else parsed.bad.push(text); }
+    else { const since = editedSince(value); if (since) Object.assign(parsed, { since: since.ms, sinceLabel: since.label }); else parsed.bad.push(text); }
+  }
+  return parsed;
+}
+function editedSince(value) {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const v = value.toLowerCase();
+  if (v === 'today') return { ms: start.getTime(), label: 'edited today' };
+  if (v === 'yesterday') return { ms: start.getTime() - 864e5, label: 'edited since yesterday' };
+  const m = v.match(/^(\d+)\s*([dwmy])$/);
+  const days = { week: 7, month: 30, year: 365 }[v] || (m && Number(m[1]) * { d: 1, w: 7, m: 30, y: 365 }[m[2]]);
+  // To the minute, so the same words give the same filter while the window stays open.
+  return days ? { ms: Math.floor(Date.now() / 6e4) * 6e4 - days * 864e5, label: `edited in the last ${days} day${days === 1 ? '' : 's'}` } : null;
+}
+
+// Tags, pages and properties of the graph, read once each time the search window opens.
+function filterCatalog() {
+  searchFilter.catalog ||= (async () => {
+    const [tags, pages, props] = await Promise.all([
+      allTags(),
+      dsQuery(`[:find ?p ?title :where [?p :block/name _] [?p :block/title ?title] (not [?p :logseq.property/hide? true])]`),
+      dsQuery(`[:find ?p ?ident ?title :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property] [?p :db/ident ?ident]
+        [?p :block/title ?title] (not [?p :logseq.property/hide? true]) (not [?p :logseq.property/public? false])]`),
+    ]);
+    const named = rows => rows.map(([id, ...rest]) => ({ id, title: String(rest[rest.length - 1]), lower: String(rest[rest.length - 1]).toLowerCase(), ident: rest.length > 1 ? bareIdent(rest[0]) : null }));
+    const properties = named(props).sort((a, b) => Number(b.ident.startsWith('user.')) - Number(a.ident.startsWith('user.')));
+    return { tags: named(tags), pages: named(pages), props: properties };
+  })().catch(error => { searchFilter.catalog = null; throw error; });
+  return searchFilter.catalog;
+}
+// The values a property has across the graph, as text, for suggesting.
+async function propertyValues(prop) {
+  if (searchFilter.values.has(prop.ident)) return searchFilter.values.get(prop.ident);
+  const rows = await dsQuery(`[:find ?v :where [_ ${keyword(prop.ident)} ?v]]`);
+  const texts = await valueTexts(rows.map(([v]) => v));
+  const list = [...new Set([...texts.values()].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  searchFilter.values.set(prop.ident, list);
+  return list;
+}
+// Property values as text: what a linked page or value is called, or the value itself.
+async function valueTexts(values) {
+  const ids = values.filter(isEntityId);
+  const known = new Map(ids.length ? await dsQuery(`[:find ?e ?t :where ${idsIn('?e', ids)}
+    (or-join [?e ?t] [?e :block/title ?t] (and [(missing? $ ?e :block/title)] [?e :logseq.property/value ?t]))]`) : []);
+  const names = await mentionedTitles([...known.values()].map(String));
+  const texts = new Map();
+  for (const v of values) texts.set(v, known.has(v) ? plainSearchText(String(known.get(v)), names) : typeof v === 'object' ? '' : String(v));
+  return texts;
+}
+
+// Finds what the codes and words ask for, newest edit first (texts that start with the words first).
+async function runSearchFilters(parsed) {
+  const catalog = await filterCatalog();
+  const where = [], described = [];
+  const pick = (list, name) => list.filter(item => item.lower === name.toLowerCase());
+  // A name that is only the start of one is still being typed.
+  const missing = (list, name, what) => ({ note: list.some(item => item.lower.startsWith(name.toLowerCase()))
+    ? `Keep typing, or pick a ${what} from the list.` : `No ${what} is called “${name}”.` });
+  for (const [i, name] of parsed.tags.entries()) {
+    const found = pick(catalog.tags, name);
+    if (!found.length) return missing(catalog.tags, name, 'tag');
+    const all = await withExtendingTags(new Set(found.map(tag => tag.id)));
+    where.push(`${idsIn(`?tag${i}`, [...all])} [?b :block/tags ?tag${i}]`);
+    described.push(`tagged ${found[0].title}`);
+  }
+  for (const [i, name] of parsed.pages.entries()) {
+    const found = pick(catalog.pages, name);
+    if (!found.length) return missing(catalog.pages, name, 'page');
+    where.push(`${idsIn(`?in${i}`, found.map(page => page.id))} [?b :block/page ?in${i}]`);
+    described.push(`in ${found[0].title}`);
+  }
+  const valueChecks = [];
+  for (const [i, prop] of parsed.props.entries()) {
+    const found = pick(catalog.props, prop.name);
+    if (!found.length) return missing(catalog.props, prop.name, 'property');
+    where.push(`[?b ${keyword(found[0].ident)} _]`);
+    if (prop.value) valueChecks.push({ ident: found[0].ident, value: prop.value });
+    described.push(prop.value ? `${found[0].title} has “${prop.value}”` : `with ${found[0].title}`);
+  }
+  for (const [i, kind] of parsed.kinds.entries()) {
+    where.push({
+      page: '[?b :block/name _]',
+      journal: '[?b :block/journal-day _]',
+      block: '[?b :block/page _]',
+      task: `(or-join [?b] [?b :logseq.property/status _] (and [?b :block/tags ?task${i}] [?task${i} :db/ident :logseq.class/Task]))`,
+      todo: `[?b :logseq.property/status ?st${i}] (not [?st${i} :db/ident :logseq.property/status.done]) (not [?st${i} :db/ident :logseq.property/status.canceled])`,
+      done: `[?b :logseq.property/status ?st${i}] [?st${i} :db/ident :logseq.property/status.done]`,
+    }[kind]);
+    described.push(filterKindWords[kind]);
+  }
+  if (parsed.since) {
+    where.push(`[?b :block/updated-at ?edited] [(>= ?edited ${Math.floor(parsed.since)})]`);
+    described.push(parsed.sinceLabel);
+  }
+  if (parsed.bad.length) described.push(`not understood: ${parsed.bad.join(' ')}`);
+  if (!where.length) return { note: parsed.bad.length ? `Not understood: ${parsed.bad.join(' ')}` : 'Type a name after the code, or pick one from the list.' };
+  let rows = await dsQuery(`[:find ?b ?u ?title ?updated ?p ?name :where ${where.join(' ')}
+    [?b :block/uuid ?u] [?b :block/title ?title]
+    [(get-else $ ?b :block/updated-at 0) ?updated] [(get-else $ ?b :block/page 0) ?p] [(get-else $ ?b :block/name "") ?name]
+    (not [?b :logseq.property/built-in? true]) (not [?b :logseq.property/hide? true])
+    [(missing? $ ?b :logseq.property/created-from-property)]]`);
+  // property:Name=word: keep what has a value holding the word.
+  for (const check of valueChecks) {
+    const pairs = await dsQuery(`[:find ?b ?v :where ${idsIn('?b', rows.map(([b]) => b))} [?b ${keyword(check.ident)} ?v]]`);
+    const texts = await valueTexts(pairs.map(([, v]) => v));
+    const keep = new Set(pairs.filter(([, v]) => String(texts.get(v) || '').toLowerCase().includes(check.value)).map(([b]) => b));
+    rows = rows.filter(([b]) => keep.has(b));
+  }
+  // Each word in the text, with links read as the names they show.
+  let names = new Map();
+  if (parsed.words.length) {
+    const raw = ([, , title]) => String(title).toLowerCase();
+    const linked = rows.filter(row => !parsed.words.every(word => raw(row).includes(word)) && /\[\[[0-9a-f-]{36}\]\]/i.test(row[2]));
+    names = await mentionedTitles(linked.slice(0, 3000).map(row => String(row[2])));
+    rows = rows.filter(row => {
+      const plain = plainSearchText(String(row[2]), names).toLowerCase();
+      return parsed.words.every(word => plain.includes(word));
+    });
+  }
+  const phrase = parsed.words.join(' ');
+  rows.sort((a, b) => {
+    if (phrase) {
+      const starts = row => plainSearchText(String(row[2]), names).toLowerCase().startsWith(phrase) ? 0 : 1;
+      const order = starts(a) - starts(b);
+      if (order) return order;
+    }
+    return (Number(b[3]) || 0) - (Number(a[3]) || 0);
+  });
+  const shown = rows.slice(0, 100);
+  if (!parsed.words.length) names = await mentionedTitles(shown.map(row => String(row[2])));
+  const pageIds = [...new Set(shown.map(row => row[4]).filter(isEntityId))];
+  const pages = new Map(pageIds.length ? (await dsQuery(`[:find ?p ?u ?t :where ${idsIn('?p', pageIds)} [?p :block/uuid ?u] [?p :block/title ?t]]`))
+    .map(([p, u, t]) => [p, { uuid: String(u).toLowerCase(), title: String(t) }]) : []);
+  const list = shown.map(([, u, title, updated, p, name]) => ({
+    uuid: String(u).toLowerCase(), isPage: !!name, updated: Number(updated) || 0,
+    text: plainSearchText(String(title), names).replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 400) || 'Untitled',
+    pageUuid: pages.get(p)?.uuid || null, pageTitle: pages.get(p)?.title || '',
+  }));
+  return { list, total: rows.length, heading: described.join(', ') };
+}
+
+const dialogSearch = doc => doc.querySelector('.ls-dialog-cmdk .cp__cmdk');
+function updateSearchFilters(doc) {
+  const root = dialogSearch(doc);
+  if (!root) { Object.assign(searchFilter, { catalog: null, key: '', dismissed: '' }); searchFilter.values.clear(); return; }
+  const input = root.querySelector('.cp__cmdk-search-input');
+  const parsed = setting('searchFilters') && input ? parseSearchFilters(input.value) : { any: false };
+  if (!parsed.any) {
+    if (root.hasAttribute('data-rf-filtering')) {
+      root.removeAttribute('data-rf-filtering');
+      for (const el of root.querySelectorAll('.rf-filter-results, .rf-filter-suggest')) el.remove();
+      searchFilter.key = '';
+      if (setting('searchPreview')) updateSearchPreview(doc);
+    }
+    return;
+  }
+  root.setAttribute('data-rf-filtering', '');
+  updateFilterSuggestions(root, input);
+  const key = JSON.stringify(parsed);
+  if (key === searchFilter.key) {
+    if (!root.querySelector('.rf-filter-results')) renderFilterResults(root);
+    return;
+  }
+  searchFilter.key = key;
+  clearTimeout(searchFilter.timer);
+  const generation = ++searchFilter.generation;
+  searchFilter.loading = true;
+  renderFilterResults(root);
+  searchFilter.timer = setTimeout(async () => {
+    let found;
+    try { found = await runSearchFilters(parsed); } catch (error) {
+      warnOnce('search filters could not be run', error);
+      found = { note: 'These filters could not be run.' };
+    }
+    if (generation !== searchFilter.generation) return;
+    Object.assign(searchFilter, { loading: false, list: found.list || [], total: found.total || 0, note: found.note || '',
+      heading: found.heading || '', words: parsed.words, current: 0 });
+    const now = dialogSearch(doc);
+    if (now) renderFilterResults(now);
+    loadSearchMeta(searchFilter.list.map(item => item.uuid));
+  }, 180);
+}
+
+const filterHelp = '<b>#</b>tag · <b>in:</b>page · <b>property:</b>name=value · <b>is:</b>task, todo, done, page, journal, block · <b>edited:</b>today, week, month, 3d';
+// Marks each word in HTML, in the text between tags and character entities only.
+function markHtml(html, words) {
+  for (const word of words) {
+    if (!word) continue;
+    const pattern = new RegExp(escapeHtml(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    html = html.replace(/(<[^>]*>|&[#\w]+;)|([^<&]+|&)/g, (m, whole, plain) => whole || plain.replace(pattern, found => `<mark>${found}</mark>`));
+  }
+  return html;
+}
+const markWords = (text, words) => markHtml(escapeHtml(text), words);
+function renderFilterResults(root) {
+  const scroller = root.querySelector('.cp__cmdk-input-row + div');
+  if (!scroller) return;
+  let box = scroller.querySelector(':scope > .rf-filter-results');
+  if (!box) {
+    box = root.ownerDocument.createElement('div');
+    box.className = 'rf-filter-results';
+    box.addEventListener('mousemove', event => {
+      const row = event.target.closest('.rf-fr-row');
+      if (row && (event.movementX || event.movementY)) setFilterCurrent(root, Number(row.dataset.i));
+    });
+    box.addEventListener('click', event => {
+      const row = event.target.closest('.rf-fr-row');
+      if (row) openFilterResult(root, row.dataset.rfUuid, event.shiftKey || event.metaKey || event.ctrlKey);
+    });
+    scroller.appendChild(box);
+  }
+  const f = searchFilter;
+  const head = f.loading ? 'Looking…' : f.note ||
+    `${f.total} found${f.heading ? ' · ' + f.heading : ''}${f.total > f.list.length ? ` · showing the first ${f.list.length}` : ''}`;
+  const rows = f.loading || f.note ? '' : f.list.map((item, i) => `
+    <div class="rf-fr-row" data-i="${i}" data-rf-uuid="${escapeHtml(item.uuid)}"${i === f.current ? ' data-rf-current' : ''}>
+      ${item.isPage ? '' : `<div class="rf-fr-path">${escapeHtml(item.pageTitle)}</div>`}
+      <div class="rf-fr-line"><span class="rf-fr-icon">${item.isPage ? '▢' : '•'}</span><span class="rf-fr-text">${markWords(item.text, f.words)}</span><span class="rf-fr-meta"></span></div>
+    </div>`).join('');
+  box.innerHTML = `<div class="rf-fr-head">${escapeHtml(head)}</div>${rows}
+    ${!f.loading && !f.note && !f.list.length ? '<div class="rf-fr-none">Nothing matches.</div>' : ''}
+    <div class="rf-fr-help">${filterHelp}</div>`;
+  refreshFilterLabels(root);
+  if (setting('searchPreview')) updateSearchPreview(root.ownerDocument);
+}
+// What each listed result is and when it was edited, once its details are in.
+function refreshFilterLabels(root) {
+  for (const row of root.querySelectorAll('.rf-fr-row')) {
+    const meta = searchExtras.meta.get(row.dataset.rfUuid), item = searchFilter.list[Number(row.dataset.i)];
+    const label = [meta ? kindLabel(meta) : item?.isPage ? 'Page' : '', editedLabel(meta?.updated || item?.updated)].filter(Boolean).join(' · ');
+    const el = row.querySelector('.rf-fr-meta');
+    if (el && el.textContent !== label) el.textContent = label;
+  }
+}
+function setFilterCurrent(root, i) {
+  const rows = root.querySelectorAll('.rf-fr-row');
+  if (!rows.length) return;
+  i = Math.max(0, Math.min(rows.length - 1, i));
+  searchFilter.current = i;
+  rows.forEach(row => row.toggleAttribute('data-rf-current', Number(row.dataset.i) === i));
+  rows[i].scrollIntoView({ block: 'nearest' });
+  if (setting('searchPreview')) updateSearchPreview(root.ownerDocument);
+}
+// Logseq's own Escape: the first clears the box, the next closes the window.
+function closeSearchWindow(root) {
+  const input = root.querySelector('.cp__cmdk-search-input'), win = root.ownerDocument.defaultView;
+  const escape = () => input?.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+  escape();
+  setTimeout(() => { if (root.isConnected) escape(); }, 30);
+}
+function openFilterResult(root, uuid, inSidebar) {
+  if (!uuid) return;
+  const item = searchFilter.list.find(entry => entry.uuid === uuid);
+  closeSearchWindow(root);
+  if (inSidebar) logseq.Editor.openInRightSidebar(uuid);
+  else if (item && !item.isPage && item.pageUuid) logseq.App.pushState('page', { name: item.pageUuid }, { anchor: `ls-block-${uuid}` });
+  else openEntity(uuid);
+}
+
+// The code being typed at the cursor, if any.
+function codeAtCursor(input) {
+  const at = input.selectionStart ?? input.value.length;
+  return filterTokens(input.value).find(token => token.start < at && at <= token.end && filterPrefix.test(token.text)) || null;
+}
+async function filterSuggestions(token) {
+  const prefix = token.text.match(filterPrefix)[1].toLowerCase(), rest = token.text.slice(prefix.length);
+  const rank = (list, typed, label) => {
+    const want = unwrapName(typed).toLowerCase();
+    return list.map(item => ({ item, at: label(item).toLowerCase().indexOf(want) }))
+      .filter(entry => entry.at >= 0)
+      .sort((a, b) => (a.at > 0) - (b.at > 0) || label(a.item).length - label(b.item).length)
+      .slice(0, 8).map(entry => entry.item);
+  };
+  if (prefix === 'is:') {
+    return rank(['task', 'todo', 'done', 'page', 'journal', 'block'], rest, kind => kind)
+      .map(kind => ({ label: kind, hint: filterKindWords[kind], insert: `is:${kind} ` }));
+  }
+  if (prefix === 'edited:') {
+    return rank(['today', 'yesterday', 'week', 'month', 'year'], rest, word => word)
+      .map(word => ({ label: word, hint: editedSince(word).label, insert: `edited:${word} ` }))
+      .concat(/^\d+$/.test(rest) ? ['d', 'w'].map(unit => ({ label: rest + unit, hint: editedSince(rest + unit).label, insert: `edited:${rest}${unit} ` })) : []);
+  }
+  const catalog = await filterCatalog();
+  if (prefix === '#') return rank(catalog.tags, rest, tag => tag.title).map(tag => ({ label: tag.title, hint: 'tag', insert: `#${wrapName(tag.title)} ` }));
+  if (prefix === 'in:') return rank(catalog.pages, rest, page => page.title).map(page => ({ label: page.title, hint: 'page', insert: `in:${wrapName(page.title)} ` }));
+  const [, name, value] = rest.match(/^("[^"]*"?|\[\[[^\]]*(?:\]\]?)?|[^=]*)(?:=(.*))?$/) || [];
+  if (value === undefined) {
+    return rank(catalog.props, name || '', prop => prop.title)
+      .map(prop => ({ label: prop.title, hint: 'property · add =value or a space', insert: `${prefix}${wrapName(prop.title)}=`, keepOpen: true }));
+  }
+  const prop = catalog.props.find(p => p.lower === unwrapName(name).toLowerCase());
+  if (!prop) return [];
+  return rank(await propertyValues(prop), value, text => text)
+    .map(text => ({ label: text, hint: prop.title, insert: `${prefix}${wrapName(prop.title)}=${/[\s"]/.test(text) ? `"${text.replace(/"/g, '')}"` : text} ` }));
+}
+function updateFilterSuggestions(root, input) {
+  const token = root.ownerDocument.activeElement === input ? codeAtCursor(input) : null;
+  const key = token ? `${token.start}:${token.text}` : '';
+  if (!token || key === searchFilter.dismissed) { closeFilterSuggestions(root); return; }
+  if (key === searchFilter.suggestFor && root.querySelector('.rf-filter-suggest')) return;
+  searchFilter.suggestFor = key;
+  filterSuggestions(token).then(list => {
+    if (searchFilter.suggestFor !== key) return;
+    // A name typed out in full needs no list (so Enter opens the selected result).
+    const typed = unwrapName(token.text.replace(filterPrefix, '')).toLowerCase();
+    if (list.some(entry => !entry.keepOpen && entry.label.toLowerCase() === typed.replace(/^.*?=/, ''))) list = [];
+    searchFilter.suggest = list.map(entry => ({ ...entry, token }));
+    searchFilter.suggestAt = 0;
+    renderFilterSuggestions(root);
+  }).catch(error => warnOnce('search filters could not suggest names', error));
+}
+function closeFilterSuggestions(root) {
+  searchFilter.suggest = [];
+  searchFilter.suggestFor = '';
+  root.querySelector('.rf-filter-suggest')?.remove();
+}
+function renderFilterSuggestions(root) {
+  let box = root.querySelector(':scope > .rf-filter-suggest');
+  if (!searchFilter.suggest.length) { box?.remove(); return; }
+  if (!box) {
+    box = root.ownerDocument.createElement('div');
+    box.className = 'rf-filter-suggest';
+    box.addEventListener('mousedown', event => {
+      const item = event.target.closest('.rf-fs-item');
+      if (!item) return;
+      event.preventDefault();
+      takeFilterSuggestion(root, Number(item.dataset.i));
+    });
+    root.appendChild(box);
+  }
+  const row = root.querySelector('.cp__cmdk-input-row');
+  if (row) box.style.top = row.offsetHeight + 'px';
+  box.innerHTML = searchFilter.suggest.map((entry, i) => `
+    <div class="rf-fs-item" data-i="${i}"${i === searchFilter.suggestAt ? ' data-rf-current' : ''}>
+      <span class="rf-fs-label">${escapeHtml(entry.label)}</span><span class="rf-fs-hint">${escapeHtml(entry.hint || '')}</span>
+    </div>`).join('') + '<div class="rf-fs-keys">↑ ↓ to choose · Tab or Enter to use · Esc to close</div>';
+}
+function takeFilterSuggestion(root, i) {
+  const entry = searchFilter.suggest[i], input = root.querySelector('.cp__cmdk-search-input');
+  if (!entry || !input) return;
+  const { start, end } = entry.token, value = input.value;
+  const after = value.slice(end).replace(/^\s+/, '');
+  const next = value.slice(0, start) + entry.insert + (entry.keepOpen && after ? ' ' : '') + after;
+  const win = root.ownerDocument.defaultView;
+  Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, next);
+  const caret = start + entry.insert.length;
+  input.setSelectionRange(caret, caret);
+  closeFilterSuggestions(root);
+  input.dispatchEvent(new win.Event('input', { bubbles: true }));
+  input.focus();
+}
+
+// Keys while filtering: the suggestion list first, then the results the plugin lists.
+function searchFilterKeys(event) {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+  const root = event.target?.closest?.('.ls-dialog-cmdk .cp__cmdk');
+  if (!root?.hasAttribute('data-rf-filtering')) return;
+  const down = event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n');
+  const up = event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p');
+  const take = () => { event.preventDefault(); event.stopPropagation(); };
+  if (searchFilter.suggest.length && root.querySelector('.rf-filter-suggest')) {
+    if (down || up) {
+      take();
+      searchFilter.suggestAt = (searchFilter.suggestAt + (down ? 1 : -1) + searchFilter.suggest.length) % searchFilter.suggest.length;
+      renderFilterSuggestions(root);
+      return;
+    }
+    if ((event.key === 'Tab' || event.key === 'Enter') && !event.shiftKey) { take(); takeFilterSuggestion(root, searchFilter.suggestAt); return; }
+    if (event.key === 'Escape') { take(); searchFilter.dismissed = searchFilter.suggestFor; closeFilterSuggestions(root); return; }
+  }
+  if (down || up) { take(); setFilterCurrent(root, searchFilter.current + (down ? 1 : -1)); return; }
+  if (event.key === 'Enter') {
+    take();
+    const row = root.querySelector('.rf-fr-row[data-rf-current]');
+    if (row) openFilterResult(root, row.dataset.rfUuid, event.shiftKey || event.metaKey || event.ctrlKey);
+  }
+}
+// Typing, and moving the cursor, update the filters at once (Logseq redraws its rows a little later).
+function searchFilterInput(event) {
+  if (!event.target?.matches?.('.ls-dialog-cmdk .cp__cmdk-search-input')) return;
+  if (event.type === 'keyup' && !/^(Arrow(Left|Right)|Home|End)$/.test(event.key)) return;
+  updateSearchFilters(event.target.ownerDocument);
+}
+
+function startSearchExtras() {
+  try {
+    if (!setting('searchDetails') && !setting('groupSearch') && !setting('searchPreview') && !setting('searchFilters')) return;
+    logseq.provideStyle({ key: 'personal-db-search-extras', style: searchExtrasCss });
+    watchDom(updateSearchExtras);
+    const doc = host();
+    doc.addEventListener('keydown', searchFilterKeys, true);
+    doc.addEventListener('keydown', searchArrowKeys, true);
+    for (const type of ['input', 'keyup', 'focusin']) doc.addEventListener(type, searchFilterInput, true);
+    onUnload(() => {
+      doc.removeEventListener('keydown', searchFilterKeys, true);
+      doc.removeEventListener('keydown', searchArrowKeys, true);
+      for (const type of ['input', 'keyup', 'focusin']) doc.removeEventListener(type, searchFilterInput, true);
+      for (const el of doc.querySelectorAll('.rf-filter-results, .rf-filter-suggest')) el.remove();
+      for (const el of doc.querySelectorAll('[data-rf-filtering]')) el.removeAttribute('data-rf-filtering');
+      searchPreview.watcher?.disconnect();
+      for (const el of doc.querySelectorAll('.rf-search-preview, .rf-search-meta, .rf-search-peek, .rf-search-where')) el.remove();
+      for (const el of doc.querySelectorAll('[data-rf-with-preview]')) el.removeAttribute('data-rf-with-preview');
+      for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) {
+        el.removeAttribute('data-rf-grouped'); el.removeAttribute('data-rf-moved');
+        for (const child of el.children) child.style.order = '';
+      }
+    });
+  } catch (error) { warnOnce('search details are unavailable', error); }
+}
+const searchExtrasCss = `
+/* Search details: what a result is and when it was edited, at the right of its row; the first line
+   under a heading-like result, and where an unseen match was found, under its text. */
+.cp__cmdk [data-cmdk-item] > .flex.items-start > .rf-search-meta {
+  margin-left: auto; padding-left: 12px; flex: 0 0 auto; max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: var(--rf-tiny); line-height: 20px; color: var(--ls-primary-text-color); opacity: var(--rf-faint);
+}
+/* The text column may shrink, so a long first line ends in "…" instead of pushing the label out. */
+.cp__cmdk [data-cmdk-item] > .flex.items-start > .flex-1 { min-width: 0; }
+.cp__cmdk [data-cmdk-item] :is(.rf-search-peek, .rf-search-where) {
+  font-size: .8rem; line-height: 1.4; color: var(--ls-primary-text-color); opacity: var(--rf-quiet);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
+}
+.cp__cmdk [data-cmdk-item] .rf-search-peek::before { content: '• '; opacity: var(--rf-faint); }
+.cp__cmdk [data-cmdk-item] .rf-search-where { font-style: italic; }
+
+/* Results put page by page: rows after the first of a page leave out the page name and sit a little in. */
+.cp__cmdk .search-results[data-rf-grouped] { display: flex; flex-direction: column; }
+.cp__cmdk [data-cmdk-item][data-rf-same-page] { margin-left: 18px; }
+.cp__cmdk [data-cmdk-item][data-rf-same-page] > .text-xs:first-child .breadcrumb > .breadcrumb__segment:first-child { display: none !important; }
+.cp__cmdk [data-cmdk-item][data-rf-same-page] > .text-xs:first-child .breadcrumb > .breadcrumb__segment:first-child + * + .breadcrumb__segment::before,
+.cp__cmdk [data-cmdk-item][data-rf-same-page] > .text-xs:first-child .breadcrumb > .breadcrumb__segment:first-child ~ .breadcrumb__segment:nth-child(3)::before { margin-left: 0 !important; }
+.cp__cmdk [data-cmdk-item][data-rf-same-page] > .text-xs:first-child:not(:has(.breadcrumb__segment ~ .breadcrumb__segment)) { display: none !important; }
+.cp__cmdk [data-cmdk-item][data-rf-group-end] { margin-bottom: 6px; }
+
+/* The preview panel at the right of the search popover. */
+[data-rf-with-preview] { display: flex !important; flex-direction: row !important; align-items: stretch !important; max-width: none !important; width: auto !important; }
+[data-rf-with-preview] > .cp__cmdk__modal { flex: 0 1 auto; width: min(780px, 58dvw) !important; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.rf-search-preview {
+  flex: 1 1 0; min-width: 300px; max-width: 640px; min-height: 0; overflow-y: auto; box-sizing: border-box;
+  padding: 20px 24px 28px; border-left: 1px solid var(--ls-border-color, rgba(128,128,128,.16));
+  background: var(--ls-primary-background-color); color: var(--ls-primary-text-color);
+  font-size: .93rem; line-height: 1.55; border-radius: 0 8px 8px 0;
+}
+.rf-search-preview .rf-pv-empty { opacity: var(--rf-faint); font-size: .85rem; padding: 8px 0; }
+.rf-search-preview .rf-pv-path { font-size: var(--rf-tiny); opacity: var(--rf-quiet); margin-bottom: 2px; }
+/* The path reads as in the result row: the page, then a small bullet before each block above the result. */
+.rf-search-preview .rf-pv-path > span:first-child { font-weight: 600; }
+.rf-search-preview .rf-pv-path > span + span::before { content: '•'; margin: 0 .5em; opacity: var(--rf-faint); }
+/* The searched words, marked the way a highlighter would. */
+.rf-search-preview mark { background: var(--rf-mark); color: inherit; padding: 0 .06em; border-radius: 2px; }
+.rf-search-preview .rf-pv-title { font-size: 1.3rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+.rf-search-preview .rf-pv-meta { font-size: var(--rf-tiny); opacity: var(--rf-faint); min-height: 1em; }
+/* Properties: names in a faint column, values beside them, as on the page itself. */
+.rf-search-preview .rf-pv-props { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin-top: 8px; font-size: .88rem; }
+.rf-search-preview .rf-pv-pname { opacity: var(--rf-quiet); }
+.rf-search-preview .rf-pv-props > span { overflow-wrap: anywhere; }
+.rf-search-preview .rf-pv-actions { display: flex; gap: 6px; margin: 10px 0 14px; }
+.rf-search-preview .rf-pv-actions button {
+  font: inherit; font-size: .78rem; padding: 2px 9px; border-radius: 5px; cursor: pointer;
+  border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); background: transparent; color: inherit; opacity: var(--rf-quiet);
+}
+.rf-search-preview .rf-pv-actions button:hover { opacity: 1; background: rgba(128,128,128,.08); }
+.rf-search-preview .rf-pv-block { position: relative; padding: 2px 4px 2px calc(18px + var(--rf-depth) * 20px); border-radius: 5px; cursor: text; }
+.rf-search-preview .rf-pv-block::before {
+  content: ''; position: absolute; left: calc(6px + var(--rf-depth) * 20px); top: .78em; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; opacity: var(--rf-faint);
+}
+.rf-search-preview .rf-pv-block:hover { background: rgba(128,128,128,.06); }
+.rf-search-preview .rf-pv-text { overflow-wrap: anywhere; }
+.rf-search-preview .rf-pv-text table { border-collapse: collapse; font-size: .85rem; margin: 2px 0; }
+.rf-search-preview .rf-pv-text td { border: 1px solid var(--ls-border-color, rgba(128,128,128,.2)); padding: 2px 6px; }
+.rf-search-preview .rf-pv-text tr:first-child td { font-weight: 600; }
+.rf-search-preview .rf-pv-ref { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); text-underline-offset: 2px; }
+.rf-search-preview .rf-pv-bref::before { content: '• '; opacity: var(--rf-faint); }
+.rf-search-preview .rf-pv-tag { font-weight: 600; }
+.rf-search-preview .rf-pv-blank { opacity: var(--rf-faint); font-style: italic; }
+.rf-search-preview code { font-size: .88em; padding: 0 .25em; border-radius: 3px; background: rgba(128,128,128,.12); }
+.rf-search-preview .rf-pv-edit {
+  display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; font: inherit; line-height: inherit; color: inherit;
+  background: rgba(128,128,128,.07); border: 0; outline: 1px solid var(--ls-border-color, rgba(128,128,128,.3)); border-radius: 4px; padding: 1px 4px; margin: -1px -4px;
+}
+/* Logseq rings a focused text box in its accent blue; the line being edited keeps only the faint grey edge. */
+.rf-search-preview .rf-pv-edit:focus, .rf-search-preview .rf-pv-edit:focus-visible {
+  outline: 1px solid var(--ls-border-color, rgba(128,128,128,.3)) !important; box-shadow: none !important; border: 0 !important;
+}
+/* Typed filters: Logseq's rows give way to the plugin's list; suggestions open under the box. */
+.cp__cmdk[data-rf-filtering] .cp__cmdk-input-row + div > :not(.rf-filter-results) { display: none !important; }
+.rf-filter-results { padding: 4px 8px 24px; }
+.rf-filter-results .rf-fr-head { font-size: var(--rf-tiny); opacity: var(--rf-quiet); padding: 8px 10px 6px; }
+.rf-filter-results .rf-fr-row { padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.rf-filter-results .rf-fr-row[data-rf-current] { background: rgba(128,128,128,.12); }
+.rf-filter-results .rf-fr-path { font-size: var(--rf-tiny); opacity: var(--rf-quiet); margin-left: 22px; }
+.rf-filter-results .rf-fr-line { display: flex; align-items: baseline; gap: 8px; }
+.rf-filter-results .rf-fr-icon { flex: 0 0 14px; text-align: center; opacity: var(--rf-faint); }
+.rf-filter-results .rf-fr-text { flex: 1 1 auto; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.rf-filter-results .rf-fr-meta { flex: 0 0 auto; max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--rf-tiny); opacity: var(--rf-faint); }
+.rf-filter-results mark { background: none; color: inherit; font-weight: 600; }
+.rf-filter-results .rf-fr-none { padding: 8px 10px; opacity: var(--rf-faint); }
+.rf-filter-results .rf-fr-help { margin-top: 14px; padding: 8px 10px; font-size: var(--rf-tiny); opacity: var(--rf-faint); }
+.rf-filter-suggest {
+  position: absolute; left: 12px; z-index: 30; min-width: 300px; max-width: 75%; padding: 4px; border-radius: 8px;
+  background: var(--ls-primary-background-color); color: var(--ls-primary-text-color);
+  border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.rf-filter-suggest .rf-fs-item { display: flex; gap: 16px; justify-content: space-between; align-items: baseline; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+.rf-filter-suggest .rf-fs-item[data-rf-current], .rf-filter-suggest .rf-fs-item:hover { background: rgba(128,128,128,.14); }
+.rf-filter-suggest .rf-fs-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-filter-suggest .rf-fs-hint, .rf-filter-suggest .rf-fs-keys { font-size: var(--rf-tiny); opacity: var(--rf-faint); white-space: nowrap; }
+.rf-filter-suggest .rf-fs-keys { padding: 4px 10px 2px; }
+`;
 
 /* Visual hierarchy: the shape of the outline rather than the things it links to. Each part has
    its own setting and applies as soon as it changes. Colors are mixed from the theme's text
@@ -2164,9 +3432,17 @@ const settingsSchema = [
   { key: 'searchHeading', type: 'heading', title: 'Search', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
-    description: 'Compact result rows, quieter group headings, bold matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
+    description: 'Compact result rows, quieter group headings, a soft grey wash on matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
   { key: 'roomySearch', type: 'boolean', title: 'Roomier search window', default: true,
     description: 'A larger search window with bigger text, more space between results and groups, and up to three lines of each block. The page and parent blocks above a result are named in full, with a small bullet before each parent block. Results fade in as you type, “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. Turn off to get Logseq’s normal size.' },
+  { key: 'searchDetails', type: 'boolean', title: 'Say more about each search result', default: true,
+    description: 'At the right of each result: what it is (its tags, or Page) and when it was last edited. Under a result that is only a heading, such as “Timeline”, the first line beneath it and how many more there are. When the searched words are not in the text shown, where they were found (a property, a tag, further into the text).' },
+  { key: 'groupSearch', type: 'boolean', title: 'Put search results page by page', default: true,
+    description: 'Results from the same page sit together, under the page if it is among the results, with the page name shown once. The arrow keys follow this order.' },
+  { key: 'searchPreview', type: 'boolean', title: 'Preview the selected result', default: true,
+    description: 'A panel at the right of the search window shows the selected result with its blocks. Click a line to edit it; changes are saved as you type. “Open” and “Open in sidebar” are at the top of the panel.' },
+  { key: 'searchFilters', type: 'boolean', title: 'Filter search with codes', default: true,
+    description: 'Type codes in the search box to narrow what is found: #tag, in:page, property:name or property:name=value, is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text.' },
   { key: 'pageHeading', type: 'heading', title: 'Pages', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
@@ -2176,7 +3452,7 @@ const settingsSchema = [
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
-    description: 'Under Linked references, the link that points to the page you are on gets a clear grey highlight. Applies right away.' },
+    description: 'Under Linked references, the link that points to the page you are on is marked with a see-through deep blue highlight. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
     description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
   { key: 'datesHeading', type: 'heading', title: 'Journal day as date', default: null,
@@ -2194,7 +3470,7 @@ const settingsSchema = [
   { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
     description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
   { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
-    description: 'Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules.' },
+    description: 'Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules. When a row is too long to fit, a small triangle at its start opens it, in place of Logseq\u2019s Expand button.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
     description: 'After a block’s text: ↳, a dashed circle with the number of unfinished tasks below it, and small image or PDF icons when its children are files. Point at it for details.' },
   { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
@@ -2233,7 +3509,7 @@ function setting(key) {
   return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
 }
 // Settings that only take effect when the plugin starts.
-const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tagShortcut', 'tidySidebar', 'tidySearch', 'roomySearch', 'quietItems', 'showTitleChrome'];
+const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'searchShortcut', 'tagShortcut', 'tidySidebar', 'tidySearch', 'roomySearch', 'searchDetails', 'groupSearch', 'searchPreview', 'searchFilters', 'quietItems', 'showTitleChrome'];
 
 /* Links inside a reference: Logseq lets the surrounding reference handle the click last, so it
    opens the referenced block instead. Catch clicks on the inner link first and open that page. */
@@ -3730,6 +5006,7 @@ function main() {
     startSearchCleanup();
   }
   if (setting('roomySearch')) logseq.provideStyle({ key: 'personal-db-search-roomy', style: roomySearchCss });
+  startSearchExtras();
   startQuietUi();
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();
