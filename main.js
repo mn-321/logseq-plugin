@@ -203,8 +203,8 @@ const tokensCss = `:root, body {
   --rf-small: .82em;     /* labels beside text */
   --rf-tiny: .72rem;     /* search headings and paths */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
-  /* the icon of a link to a tag's page: the colour Logseq's theme gives tags */
-  --rf-tag-color: var(--ls-tag-text-color, var(--lx-accent-11, var(--ls-link-text-color, currentColor)));
+  /* the icon of a link to a tag's page: the colour Logseq's theme gives tags, checked in Logseq's order */
+  --rf-tag-color: var(--lx-accent-11, var(--ls-tag-text-color, var(--ls-link-text-color, currentColor)));
 }`;
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
@@ -565,6 +565,10 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref[data-refinemen
   background: transparent !important; padding: 0 !important; border-radius: 0 !important;
   color: var(--ls-primary-text-color, currentColor) !important; font-size: inherit !important; font-weight: inherit !important; text-decoration: none !important;
 }
+/* An overdue Scheduled or Deadline date keeps Logseq's yellow warning colour inside its box. */
+:is(html, .dark) .ls-block .overdue.overdue :is(.ls-datetime, .timestamp, a.page-ref[data-refinement-date]),
+:is(html, .dark) .ls-block .overdue.overdue :is(.ls-datetime, .timestamp, a.page-ref[data-refinement-date]):hover,
+:is(html, .dark) .ls-block .overdue.overdue :is(.ls-datetime, .timestamp) :is(a, .page-reference) { color: inherit !important; }
 /* Date headings of a query grouped by date: one plain date box, no link styling inside it. */
 ${dateStyles(['.ls-view-body .ls-foldable-header [data-refinement-date-heading]']).replaceAll(notInTable, '')}
 .ls-view-body .ls-foldable-header [data-refinement-date-heading] * { color: inherit !important; background: transparent !important; text-decoration: none !important; border: 0 !important; padding: 0 !important; font: inherit !important; }
@@ -2198,10 +2202,16 @@ function searchResultsFor(query) {
   const entry = { done: false, list: [] };
   searchExtras.results.set(query, entry);
   if (searchExtras.results.size > 30) searchExtras.results.delete(searchExtras.results.keys().next().value);
-  Promise.resolve(logseq.App.search(query, { limit: 100, 'search-limit': 100, 'built-in?': true,
-    'enable-snippet?': true }))
-    .then(found => {
-      const blocks = Array.isArray(found?.blocks) ? found.blocks : Array.isArray(found) ? found : [];
+  const options = { limit: 100, 'search-limit': 100, 'built-in?': true, 'enable-snippet?': true };
+  const blocksOf = found => Array.isArray(found?.blocks) ? found.blocks : Array.isArray(found) ? found : [];
+  // The "Current page" group is searched within the open page, in its own order, so its results
+  // are asked for the same way and added after the whole-graph ones.
+  const onPage = Promise.resolve(logseq.Editor.getCurrentPage())
+    .then(page => page?.uuid && !page.page ? logseq.App.search(query, { ...options, page: String(page.uuid) }) : null)
+    .catch(() => null);
+  Promise.all([Promise.resolve().then(() => logseq.App.search(query, options)), onPage])
+    .then(([found, foundOnPage]) => {
+      const blocks = [...blocksOf(found), ...blocksOf(foundOnPage)];
       entry.list = blocks.map(block => {
         const strings = Object.values(block || {}).filter(value => typeof value === 'string');
         const uuid = [block?.uuid, block?.['block/uuid'], block?.id, ...strings].map(String).find(value => UUID.test(value));
@@ -2244,10 +2254,12 @@ function pairSearchRows(root) {
       // A page's row may add its tags to its name ("Atlas #Project"); the name alone is tried too.
       const shown = rowMainText(row).textContent, words = searchLetters(shown);
       const bare = searchLetters(shown.replace(trailingTags, ''));
+      // Results come in the rows' order, so the search goes on from the last match; a group with its
+      // own order (Current page) is then looked for from the start.
+      const agrees = result => searchAgreement(words, result) || (bare && bare !== words && searchAgreement(bare, result));
       let found = -1;
-      for (let i = next; i < results.length && found < 0; i++) {
-        if (searchAgreement(words, results[i]) || (bare && bare !== words && searchAgreement(bare, results[i]))) found = i;
-      }
+      for (let i = next; i < results.length && found < 0; i++) if (agrees(results[i])) found = i;
+      for (let i = 0; i < Math.min(next, results.length) && found < 0; i++) if (agrees(results[i])) found = i;
       if (found >= 0) { row.dataset.rfUuid = results[found].uuid; next = found + 1; continue; }
       // A row with no path, such as a page under Recently updated: look the page up by its title.
       if (row.querySelector(':scope > .text-xs:first-child')) continue;
@@ -2359,15 +2371,19 @@ async function whereSearchMatched(uuid, terms) {
   try {
     const tag = meta.tags.find(hit);
     if (tag) { say(`Found in its tag ${tag}`); return; }
+    // Logseq gives Logseq's own attributes (:block/…, :db/…) by their bare name ("title", "refs"),
+    // and keeps the full name, with its slash, for properties.
     const rows = await dsQuery(`[:find ?a ?v :where [?b :block/uuid #uuid "${uuid}"] [?b ?a ?v]]`);
-    const refs = rows.filter(([a, v]) => Number.isSafeInteger(v) && !/^:?(block|db|logseq\.property\.embedding)\//.test(String(a)));
+    const internal = ident => !ident.includes('/') || /^(block|db)\//.test(ident);
+    const isText = ident => ident === 'title' || ident === 'block/title';
+    const refs = rows.filter(([a, v]) => Number.isSafeInteger(v) && !internal(bareIdent(a)) && !/^logseq\.property\.embedding\//.test(bareIdent(a)));
     const titles = new Map(refs.length ? await dsQuery(`[:find ?e ?t :where ${idsIn('?e', refs.map(([, v]) => v))} [?e :block/title ?t]]`) : []);
     for (const [a, v] of rows) {
       const ident = bareIdent(a);
-      if (/^(block|db)\//.test(ident) && ident !== 'block/title') continue;
+      if (internal(ident) && !isText(ident)) continue;
       const value = typeof v === 'string' ? v : titles.get(v);
       if (!hit(value)) continue;
-      if (ident === 'block/title') { say('Found further into the text'); return; }
+      if (isText(ident)) { say('Found further into the text'); return; }
       const [name] = (await dsQuery(`[:find ?t :where [?p :db/ident ${keyword(ident)}] [?p :block/title ?t]]`))[0] || [ident.split('/').pop()];
       say(`Found in ${name}: ${String(value).replace(storedRef, '…').slice(0, 80)}`);
       return;
@@ -2830,6 +2846,7 @@ function editPreviewLine(pane, line, caret = null) {
     return lines.slice(lines.indexOf(line) + 1);
   };
   // A new bullet: the first child when this one's children are shown under it, else the next sibling.
+  // Logseq puts a child last unless asked for the start, so `start` keeps the page and the panel in step.
   const split = async () => {
     const rest = toStored(box.value.slice(box.selectionEnd));
     box.value = box.value.slice(0, box.selectionStart);
@@ -2837,7 +2854,7 @@ function editPreviewLine(pane, line, caret = null) {
     const intoChildren = depthOf(after[0]) > depth;
     box.blur();
     let block;
-    try { block = await logseq.Editor.insertBlock(uuid, rest, { sibling: !intoChildren }); }
+    try { block = await logseq.Editor.insertBlock(uuid, rest, intoChildren ? { sibling: false, start: true } : { sibling: true }); }
     catch (error) { notify(`Could not add a bullet: ${error.message || error}`, 'warning'); return; }
     if (!block?.uuid) return;
     searchExtras.meta.delete(searchPreview.uuid);
@@ -2989,6 +3006,10 @@ async function runSearchFilters(parsed) {
   // A name that is only the start of one is still being typed.
   const missing = (list, name, what) => ({ note: list.some(item => item.lower.startsWith(name.toLowerCase()))
     ? `Keep typing, or pick a ${what} from the list.` : `No ${what} is called “${name}”.` });
+  // A lone #word that names no tag is left to Logseq, whose search then offers to create that tag.
+  const loneTag = parsed.tags.length === 1 && !parsed.words.length && !parsed.pages.length && !parsed.props.length &&
+    !parsed.kinds.length && !parsed.since && !parsed.bad.length;
+  if (loneTag && !pick(catalog.tags, parsed.tags[0]).length) return { handBack: true };
   for (const [i, name] of parsed.tags.entries()) {
     const found = pick(catalog.tags, name);
     if (!found.length) return missing(catalog.tags, name, 'tag');
@@ -3075,9 +3096,19 @@ async function runSearchFilters(parsed) {
 const dialogSearch = doc => doc.querySelector('.ls-dialog-cmdk .cp__cmdk');
 function updateSearchFilters(doc) {
   const root = dialogSearch(doc);
-  if (!root) { Object.assign(searchFilter, { catalog: null, key: '', dismissed: '' }); searchFilter.values.clear(); return; }
+  if (!root) { Object.assign(searchFilter, { catalog: null, key: '', dismissed: '', handBack: '' }); searchFilter.values.clear(); return; }
   const input = root.querySelector('.cp__cmdk-search-input');
   const parsed = setting('searchFilters') && input ? parseSearchFilters(input.value) : { any: false };
+  const key = JSON.stringify(parsed);
+  // A lone #word that names no tag: Logseq's own rows stay (with its "Create tag"), and only the
+  // list of tag names is offered; Escape closes it so Enter reaches Logseq.
+  if (parsed.any && key === searchFilter.handBack) {
+    root.removeAttribute('data-rf-filtering');
+    root.querySelector('.rf-filter-results')?.remove();
+    searchFilter.key = '';
+    updateFilterSuggestions(root, input);
+    return;
+  }
   if (!parsed.any) {
     if (root.hasAttribute('data-rf-filtering')) {
       root.removeAttribute('data-rf-filtering');
@@ -3089,7 +3120,6 @@ function updateSearchFilters(doc) {
   }
   root.setAttribute('data-rf-filtering', '');
   updateFilterSuggestions(root, input);
-  const key = JSON.stringify(parsed);
   if (key === searchFilter.key) {
     if (!root.querySelector('.rf-filter-results')) renderFilterResults(root);
     return;
@@ -3106,6 +3136,11 @@ function updateSearchFilters(doc) {
       found = { note: 'These filters could not be run.' };
     }
     if (generation !== searchFilter.generation) return;
+    if (found.handBack) {
+      Object.assign(searchFilter, { loading: false, handBack: key });
+      updateSearchFilters(doc);
+      return;
+    }
     Object.assign(searchFilter, { loading: false, list: found.list || [], total: found.total || 0, note: found.note || '',
       heading: found.heading || '', words: parsed.words, current: 0 });
     const now = dialogSearch(doc);
@@ -3293,7 +3328,8 @@ function takeFilterSuggestion(root, i) {
 function searchFilterKeys(event) {
   if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
   const root = event.target?.closest?.('.ls-dialog-cmdk .cp__cmdk');
-  if (!root?.hasAttribute('data-rf-filtering')) return;
+  const filtering = root?.hasAttribute('data-rf-filtering');
+  if (!filtering && !root?.querySelector('.rf-filter-suggest')) return;
   const down = event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n');
   const up = event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p');
   const take = () => { event.preventDefault(); event.stopPropagation(); };
@@ -3307,6 +3343,7 @@ function searchFilterKeys(event) {
     if ((event.key === 'Tab' || event.key === 'Enter') && !event.shiftKey) { take(); takeFilterSuggestion(root, searchFilter.suggestAt); return; }
     if (event.key === 'Escape') { take(); searchFilter.dismissed = searchFilter.suggestFor; closeFilterSuggestions(root); return; }
   }
+  if (!filtering) return;
   if (down || up) { take(); setFilterCurrent(root, searchFilter.current + (down ? 1 : -1)); return; }
   if (event.key === 'Enter') {
     take();
@@ -3847,11 +3884,23 @@ async function openTagPicker(actions) {
     entry.click();
   } catch (error) { console.error(error); notify(`Could not open the tag list: ${error.message}`, 'warning'); }
 }
-// Command and shortcut: open the Set Tags list for the page in the main area.
-function addTagsToPage() {
-  const actions = host().querySelector('#main-content-container .is-page-title-row .ls-page-title-actions > div');
-  if (!actions) return notify('Open a page first', 'warning');
-  return openTagPicker(actions);
+// Command and shortcut: open the Set Tags list for the page in the main area. This is Logseq's own
+// "Set tags" command (p t), which picks the page when no block is being edited or is selected, so
+// first nothing is. If no dialog opens, the plugin falls back to opening the list from the title.
+async function addTagsToPage() {
+  const doc = host();
+  const actions = () => doc.querySelector('#main-content-container .is-page-title-row .ls-page-title-actions > div');
+  if (!actions()) return notify('Open a page first', 'warning');
+  const dialog = () => doc.querySelector('.ls-property-dialog');
+  try {
+    await logseq.Editor.exitEditingMode(false);
+    await logseq.Editor.clearSelectedBlocks();
+    // Not awaited: Logseq runs the command, then cannot send its reply back and reports an error
+    // (as with search); whether the dialog opened is what counts.
+    Promise.resolve(logseq.App.invokeExternalCommand('logseq.editor/set-tags')).catch(() => {});
+    if (await waitFor(dialog, 1500)) return;
+  } catch (error) { warnOnce('Logseq\'s Set tags command could not be called', error); }
+  if (actions()) return openTagPicker(actions());
 }
 // The page's tags sit beside the actions above its title ("Set property  #Person  #Client") instead
 // of at the far right edge of the title row. They are Logseq's own tags, shifted into place, so they
@@ -5219,7 +5268,6 @@ function main() {
   takeOverFromEarlierCopy();
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
-  logseq.useSettingsSchema(settingsSchema);
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
   sendStyle('personal-db-refinements', mainCss());
   applyHierarchy();
@@ -5279,7 +5327,9 @@ function main() {
     if (now?.pdfCitations !== before?.pdfCitations) updatePdfCitations();
     try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
     updateDateLinks();
-    if (RELOAD_SETTINGS.some(key => now?.[key] !== before?.[key])) notify('Reload the Refinements plugin to apply this change', 'info');
+    // Logseq rewrites every setting when the plugin starts, so a setting with no earlier value is a
+    // default being filled in (first install, or a new setting after an update), not a change.
+    if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');
   }));
 
   // Command palette entries: [key, label, action, shortcut setting]. A shortcut left empty in the settings is not bound.
@@ -5315,6 +5365,8 @@ function main() {
   ];
   for (const [label, action] of blockMenu) logseq.Editor.registerBlockContextMenuItem('Refinements: ' + label, action);
 }
+// Given before ready, so the settings already hold their defaults when main runs.
+logseq.useSettingsSchema(settingsSchema);
 logseq.ready(main).catch(console.error);
 
 
