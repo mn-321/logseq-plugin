@@ -147,10 +147,13 @@ function modalHint(doc, text) {
    they would keep running beside this copy. Each copy therefore leaves its clean-up where the next
    one can find it, and a new copy runs it and removes anything still left on screen. */
 const STOP_KEY = '__dbRefinementsStop';
-const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop';
-// Every data-refinement-* mark the plugin sets (grep "data-refinement-" when adding one).
-const STRAY_ATTRIBUTES = ['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box', 'ref-count', 'here', 'below'].map(name => 'data-refinement-' + name);
+const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, [data-refinement-search-button], .refinement-prompt-backdrop, ' +
+  '.rf-search-preview, .rf-search-guide, .rf-search-meta, .rf-search-peek, .rf-search-where, .rf-filter-results, .rf-filter-suggest';
+// Every mark the plugin sets on Logseq's own elements: data-refinement-* for pages and blocks, data-rf-* for
+// search (grep "data-refinement-" and "data-rf-" / "dataset.rf" when adding one).
+const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu'].map(name => 'data-refinement-' + name),
+  ...['filtering', 'with-preview', 'grouped', 'moved', 'group-end', 'same-page', 'current', 'loose', 'sig', 'query', 'uuid'].map(name => 'data-rf-' + name)];
 function takeOverFromEarlierCopy() {
   let win;
   try { win = host().defaultView; } catch (error) { return; }
@@ -160,6 +163,8 @@ function takeOverFromEarlierCopy() {
   try {
     const doc = win.document;
     for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
+    // Search results the plugin grouped by page carry an order; read the mark before it is removed.
+    for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
     for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
     for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
   } catch (error) { warnOnce('leftovers could not be cleared', error); }
@@ -306,13 +311,7 @@ ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .refinement-child-assets span::before { margin-right: 0; opacity: 1; }
 .refinement-child-task { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; border: 1px dashed currentColor; border-radius: 50%; }
 `],
-  ['quietLinks', `/* Type cues on rendered references. Keep Logseq's side tags native. */
-.ls-block .block-content a.tag {
-  color: var(--ls-primary-text-color) !important;
-  text-decoration: none !important;
-  font-weight: 600;
-}
-.ls-block .block-content a.tag:hover { text-decoration: underline !important; }
+  ['quietLinks', `/* Type cues on rendered references. Tags keep Logseq's own look. */
 /* A link to a tag's own page looks like a page link (underlined name) but its icon is in the colour
    Logseq gives tags, where a page's icon is in the full text colour. The icon is the tag's own, or a
    # drawn as an icon. Only the icon takes the colour; the name stays in the text colour.
@@ -930,7 +929,7 @@ async function loadJournalDates() {
    Global journal styles stay installed across navigation. */
 const dateLinks = { document: null, originals: new Map(), version: 0, uuids: new Set(), names: new Set() };
 const dateMonth = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
-const datePattern = new RegExp('^(?:' + dateMonth + ' \d{1,2},? \d{4}|\d{1,2} ' + dateMonth + ',? \d{4}|\d{4}-\d{2}-\d{2})$', 'i');
+const datePattern = new RegExp('^(?:' + dateMonth + ' \\d{1,2},? \\d{4}|\\d{1,2} ' + dateMonth + ',? \\d{4}|\\d{4}-\\d{2}-\\d{2})$', 'i');
 function dateLinkName(name) {
   const value = String(name || '').trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1');
   return datePattern.test(value) && Number.isFinite(Date.parse(value));
@@ -1681,7 +1680,7 @@ const healthChecks = () => [
   ['page links', 'a.page-ref', 'quiet links, dates, tag-page icons'],
   ['page links with an id', 'a.page-ref[data-uuid]', 'block links, tag pages, journal dates'],
   ['link wrappers', '.page-reference', 'quiet links'],
-  ['tags', 'a.tag', 'bold tags, tag background'],
+  ['tags', 'a.tag', 'tag background'],
   ['PDF highlight labels', '.prefix-link .hl-page', 'compact PDF citations'],
   ['date values', '.ls-datetime, .timestamp', 'date boxes'],
   ['page title', PAGE_TITLE, 'title tags, #Page, alias and inherited lines'],
@@ -2571,6 +2570,27 @@ function previewPane(doc) {
     modal.after(pane);
     pane.addEventListener('click', previewClick);
     pane.addEventListener('keydown', event => event.stopPropagation());
+    // A slim bar along the bottom of the window names the search codes. Clicking one puts it in the
+    // box (its suggestions then open); “? More tips” shows the full guide in the panel.
+    const guide = doc.createElement('div');
+    guide.className = 'rf-search-guide';
+    guide.innerHTML = [['#', '<b>#</b>tag'], ['in:', '<b>in:</b>page'], ['property:', '<b>property:</b>name=value'],
+      ['is:', '<b>is:</b>task · todo · done · page · journal · block'], ['edited:', '<b>edited:</b>today · week · 3d']]
+      .map(([code, label]) => `<span data-rf-insert="${code}" title="Add ${code} to the search">${label}</span>`).join('')
+      + '<span class="rf-sg-quiet">Names with spaces in [[ ]]</span><span class="rf-sg-more" data-rf-tips title="Show the full guide">? More tips</span>';
+    guide.addEventListener('mousedown', event => event.preventDefault()); // keeps the cursor in the box
+    guide.addEventListener('click', event => {
+      if (event.target.closest('[data-rf-tips]')) { showSearchTips(pane); return; }
+      const code = event.target.closest('[data-rf-insert]')?.dataset.rfInsert;
+      const input = modal.querySelector('.cp__cmdk-search-input');
+      if (!code || !input) return;
+      const win = doc.defaultView, value = input.value.replace(/\s+$/, '');
+      Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, (value ? value + ' ' : '') + code);
+      input.dispatchEvent(new win.Event('input', { bubbles: true }));
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+    pane.after(guide);
     searchPreview.uuid = searchPreview.key = null;
     // Moving the selection only changes an attribute, which the plugin's screen watcher leaves
     // alone; this watcher follows it while the panel is open.
@@ -2589,6 +2609,11 @@ function updateSearchPreview(doc) {
   const root = pane.parentElement.querySelector('.cp__cmdk');
   const row = root?.hasAttribute('data-rf-filtering') ? root.querySelector('.rf-fr-row[data-rf-current]')
     : root?.querySelector('[data-cmdk-item][data-highlighted]') || root?.querySelector('[data-cmdk-item][data-rf-uuid]');
+  // A lone ? in the box shows the guide to the search codes.
+  if (root?.querySelector('.cp__cmdk-search-input')?.value.trim() === '?') {
+    if (searchPreview.key !== 'tips') { searchPreview.key = 'tips'; searchPreview.uuid = null; showSearchTips(pane); }
+    return;
+  }
   const uuid = row?.dataset.rfUuid || null;
   // Shown again once the result's details are in (they say whether it is a page).
   const key = uuid && uuid + (searchExtras.meta.has(uuid) ? '' : '?') + '|' + previewWords(pane, uuid).join(' ');
@@ -2598,6 +2623,33 @@ function updateSearchPreview(doc) {
   clearTimeout(searchPreview.timer);
   const generation = ++searchPreview.generation;
   searchPreview.timer = setTimeout(() => fillPreview(pane, uuid, generation), 120);
+}
+// The guide to the search codes, shown in the panel until another result is selected. Each example
+// can be clicked to put it in the search box.
+const searchTipRows = [
+  ['#tag', 'tagged with it, or with a tag that extends it', '#Project'],
+  ['in:page', 'blocks on that page', 'in:Atlas'],
+  ['property:name', 'has that property', 'property:status'],
+  ['property:name=word', 'a value of that property holds the word', 'property:status=doing'],
+  ['is:task, todo, done', 'tasks; tasks not done; finished tasks', 'is:todo'],
+  ['is:page, journal, block', 'only pages, journal days or blocks', 'is:journal'],
+  ['edited:today, week, month', 'changed since then (also yesterday, year)', 'edited:week'],
+  ['edited:3d, 2w', 'changed in the last 3 days, 2 weeks', 'edited:3d'],
+];
+function showSearchTips(pane) {
+  clearTimeout(searchPreview.timer);
+  searchPreview.generation++;
+  pane.innerHTML = `
+    <div class="rf-pv-title">Search tips</div>
+    <p class="rf-tips-lead">Type words to find the pages and blocks that hold them. Add codes to narrow the results; codes and words can be used together.</p>
+    <div class="rf-tips">${searchTipRows.map(([code, what, example]) => `<code>${escapeHtml(code)}</code><span>${escapeHtml(what)}</span><button data-rf-try="${escapeHtml(example)}" title="Search for this">${escapeHtml(example)}</button>`).join('')}</div>
+    <ul class="rf-tips-notes">
+      <li>Names with spaces go in [[ ]] or quotes: <code>in:[[Team Handbook]]</code></li>
+      <li>With a code, every other word must be in the text: <code>in:Atlas sync</code> finds blocks on Atlas that say “sync”.</li>
+      <li>While you type a code, a list suggests names; ↑ ↓ to choose, Tab or Enter to use one.</li>
+      <li>Type <code>?</code> in the box, or click “? More tips” at the bottom, to see these tips again.</li>
+    </ul>`;
+  pane.scrollTop = 0;
 }
 // The words being searched for, to mark in the panel: the plain words of the box (codes left out).
 function previewWords(pane, uuid) {
@@ -2724,6 +2776,16 @@ async function fillPreview(pane, uuid, generation) {
 }
 function previewClick(event) {
   const pane = event.currentTarget, action = event.target.closest('[data-rf-act]');
+  const example = event.target.closest('[data-rf-try]');
+  if (example) {
+    const input = pane.parentElement.querySelector('.cp__cmdk-search-input');
+    if (!input) return;
+    const win = pane.ownerDocument.defaultView;
+    Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, example.dataset.rfTry + ' ');
+    input.dispatchEvent(new win.Event('input', { bubbles: true }));
+    input.focus();
+    return;
+  }
   if (action) {
     const root = pane.parentElement.querySelector('.cp__cmdk');
     if (root?.hasAttribute('data-rf-filtering')) { openFilterResult(root, searchPreview.uuid, action.dataset.rfAct === 'side'); return; }
@@ -3109,7 +3171,13 @@ function setFilterCurrent(root, i) {
   i = Math.max(0, Math.min(rows.length - 1, i));
   searchFilter.current = i;
   rows.forEach(row => row.toggleAttribute('data-rf-current', Number(row.dataset.i) === i));
-  rows[i].scrollIntoView({ block: 'nearest' });
+  // Only the list scrolls (scrollIntoView would also move the window around it).
+  const row = rows[i], list = row.closest('.rf-filter-results')?.parentElement;
+  if (list) {
+    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    if (top < 0) list.scrollTop += top;
+    else if (top + row.offsetHeight > list.clientHeight) list.scrollTop += top + row.offsetHeight - list.clientHeight;
+  }
   if (setting('searchPreview')) updateSearchPreview(root.ownerDocument);
 }
 // Logseq's own Escape: the first clears the box, the next closes the window.
@@ -3269,7 +3337,7 @@ function startSearchExtras() {
       for (const el of doc.querySelectorAll('.rf-filter-results, .rf-filter-suggest')) el.remove();
       for (const el of doc.querySelectorAll('[data-rf-filtering]')) el.removeAttribute('data-rf-filtering');
       searchPreview.watcher?.disconnect();
-      for (const el of doc.querySelectorAll('.rf-search-preview, .rf-search-meta, .rf-search-peek, .rf-search-where')) el.remove();
+      for (const el of doc.querySelectorAll('.rf-search-preview, .rf-search-guide, .rf-search-meta, .rf-search-peek, .rf-search-where')) el.remove();
       for (const el of doc.querySelectorAll('[data-rf-with-preview]')) el.removeAttribute('data-rf-with-preview');
       for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) {
         el.removeAttribute('data-rf-grouped'); el.removeAttribute('data-rf-moved');
@@ -3304,10 +3372,20 @@ const searchExtrasCss = `
 .cp__cmdk [data-cmdk-item][data-rf-group-end] { margin-bottom: 6px; }
 
 /* The preview panel at the right of the search popover. */
-[data-rf-with-preview] { display: flex !important; flex-direction: row !important; align-items: stretch !important; max-width: none !important; width: auto !important; }
-[data-rf-with-preview] > .cp__cmdk__modal { flex: 0 1 auto; width: min(780px, 58dvw) !important; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+/* Logseq's window is overflow:hidden, which still lets a scrollIntoView inside it shift its contents
+   up out of reach; clip makes it a plain box that never scrolls. */
+.ls-dialog-cmdk { overflow: clip !important; }
+/* The window has a set width that grows with the screen, shared by the list and the panel (about
+   55/45); left to size itself it filled the whole screen width, with the panel stuck at 640px and an
+   empty strip beside it, and clicks on that strip counted as inside, so they did not close search. */
+[data-rf-with-preview] { display: flex !important; flex-direction: row !important; align-items: stretch !important; max-width: none !important; width: min(1760px, 96dvw) !important; }
+/* When the row above sits inside Logseq's window box, that box shrinks to it. */
+.ls-dialog-cmdk:has([data-rf-with-preview]) { width: fit-content !important; max-width: 96dvw !important; }
+[data-rf-with-preview] > .cp__cmdk__modal { flex: 11 1 0; min-width: 420px; width: auto !important; border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+/* The panel takes the height of the search list beside it and scrolls inside; without contain, a long
+   result made the whole popover taller, and Logseq, which centres it, slid it up the screen. */
 .rf-search-preview {
-  flex: 1 1 0; min-width: 300px; max-width: 640px; min-height: 0; overflow-y: auto; box-sizing: border-box;
+  flex: 9 1 0; min-width: 300px; min-height: 0; overflow-y: auto; box-sizing: border-box; contain: size;
   padding: 20px 24px 28px; border-left: 1px solid var(--ls-border-color, rgba(128,128,128,.16));
   background: var(--ls-primary-background-color); color: var(--ls-primary-text-color);
   font-size: .93rem; line-height: 1.55; border-radius: 0 8px 8px 0;
@@ -3331,6 +3409,29 @@ const searchExtrasCss = `
   border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); background: transparent; color: inherit; opacity: var(--rf-quiet);
 }
 .rf-search-preview .rf-pv-actions button:hover { opacity: 1; background: rgba(128,128,128,.08); }
+/* The guide to the search codes, and the button that opens it at the bottom right of the panel. */
+/* The slim guide to the codes along the bottom: the window's row wraps so the bar takes a line of its own. */
+[data-rf-with-preview] { flex-wrap: wrap !important; }
+.rf-search-guide {
+  flex: 0 0 100%; order: 9; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 18px; box-sizing: border-box;
+  padding: 7px 18px; border-top: 1px solid var(--ls-border-color, rgba(128,128,128,.16));
+  font-size: var(--rf-tiny); color: var(--ls-primary-text-color); background: var(--ls-primary-background-color);
+}
+.rf-search-guide > span { white-space: nowrap; opacity: var(--rf-quiet); cursor: pointer; }
+.rf-search-guide > span:hover { opacity: 1; }
+.rf-search-guide > span b { font-weight: 600; }
+.rf-search-guide > .rf-sg-quiet { opacity: var(--rf-faint); cursor: default; }
+.rf-search-guide > .rf-sg-more { margin-left: auto; }
+.rf-search-preview .rf-tips-lead { margin: 6px 0 14px; opacity: var(--rf-quiet); }
+.rf-search-preview .rf-tips { display: grid; grid-template-columns: max-content 1fr max-content; gap: 7px 14px; align-items: baseline; font-size: .88rem; }
+.rf-search-preview .rf-tips code { white-space: nowrap; }
+.rf-search-preview .rf-tips button {
+  font: inherit; font-size: var(--rf-tiny); padding: 1px 8px; border-radius: 5px; white-space: nowrap; cursor: pointer;
+  color: inherit; background: transparent; border: 1px solid var(--ls-border-color, rgba(128,128,128,.25));
+}
+.rf-search-preview .rf-tips button:hover { background: rgba(128,128,128,.12); }
+.rf-search-preview .rf-tips-notes { margin: 16px 0 0; padding-left: 1.1em; font-size: .85rem; opacity: var(--rf-quiet); }
+.rf-search-preview .rf-tips-notes li { margin: 4px 0; list-style: disc; }
 .rf-search-preview .rf-pv-block { position: relative; padding: 2px 4px 2px calc(18px + var(--rf-depth) * 20px); border-radius: 5px; cursor: text; }
 .rf-search-preview .rf-pv-block::before {
   content: ''; position: absolute; left: calc(6px + var(--rf-depth) * 20px); top: .78em; width: 5px; height: 5px; border-radius: 50%;
@@ -3442,7 +3543,7 @@ const settingsSchema = [
   { key: 'searchPreview', type: 'boolean', title: 'Preview the selected result', default: true,
     description: 'A panel at the right of the search window shows the selected result with its blocks. Click a line to edit it; changes are saved as you type. “Open” and “Open in sidebar” are at the top of the panel.' },
   { key: 'searchFilters', type: 'boolean', title: 'Filter search with codes', default: true,
-    description: 'Type codes in the search box to narrow what is found: #tag, in:page, property:name or property:name=value, is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text.' },
+    description: 'Type codes in the search box to narrow what is found: #tag, in:page, property:name or property:name=value, is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text. A bar along the bottom of the search window names the codes (click one to add it); type ? or click “? More tips” for a short guide.' },
   { key: 'pageHeading', type: 'heading', title: 'Pages', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
@@ -3484,7 +3585,7 @@ const settingsSchema = [
   { key: 'linksHeading', type: 'heading', title: 'Links and references', default: null,
     description: 'Changes here apply right away.' },
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
-    description: 'Page links in normal text colour with a faint underline instead of bright blue; tags as bold text; page names heading Linked references read as headings; links inside highlights stay readable.' },
+    description: 'Page links in normal text colour with a faint underline instead of bright blue; page names heading Linked references read as headings; links inside highlights stay readable.' },
   { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
     description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
@@ -3493,6 +3594,10 @@ const settingsSchema = [
     description: 'In Linked references, puts the property name before a value (“Doctor: …”); records under a page’s tag tabs end with “via Diagnosis” when one of your properties links them.' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
     description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade.' },
+  { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
+    description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
+  { key: 'dateLinkFormats', type: 'boolean', title: 'Year-first dates in [[ ]] link to journals', default: true,
+    description: 'Inside [[ ]], a date typed year first (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014, month and day with two digits) turns into that day\'s journal name, so the menu offers the journal page.' },
   { key: 'pdfCitations', type: 'boolean', title: 'Compact PDF citations', default: true,
     description: 'PDF highlights show as normal text with a quote-mark bullet and a small page and source label at the start; click the line to open the PDF there.' },
   { key: 'appearanceHeading', type: 'heading', title: 'Right sidebar', default: null,
@@ -3662,7 +3767,28 @@ function updatePageKind(doc) {
 // date, so it can be found at once; the blocks below a reference that do not hold that link step back.
 // Both are marks on the elements, set as Logseq draws them (one page on screen, or each day's own
 // references on the Journals list), and drawn by fixed rules in cssParts.
-const referenceHere = { links: new Set(), below: new Set() };
+const referenceHere = { links: new Set(), below: new Set(), names: new Map() };
+// A page and its aliases are one page to Logseq: Linked references also list links written with an
+// alias. The uuids that count as the page on screen (itself, its aliases, the page it is an alias of
+// and that page's other aliases) are looked up once per page shown and kept until the route changes.
+function samePageUuids(uuid) {
+  const known = referenceHere.names.get(uuid);
+  if (known) return known;
+  const names = new Set([uuid]);
+  referenceHere.names.set(uuid, names);
+  (async () => {
+    const id = (await logseq.Editor.getPage?.(uuid))?.id;
+    if (!isEntityId(id) || !logseq.DB?.datascriptQuery) return;
+    const rows = await logseq.DB.datascriptQuery(`[:find ?u
+      :where [(identity ${id}) ?p]
+      (or-join [?p ?a] [?p :block/alias ?a] [?a :block/alias ?p] (and [?o :block/alias ?p] [?o :block/alias ?a]))
+      [?a :block/uuid ?u]]`);
+    let added = false;
+    for (const row of rows || []) { const other = String(row[0]); if (UUID.test(other) && !names.has(other)) { names.add(other); added = true; } }
+    if (added && referenceHere.names.get(uuid) === names && dateLinks.document) updateReferenceHere(dateLinks.document);
+  })().catch(error => warnOnce('aliases are not marked in Linked references', error));
+  return names;
+}
 function updateReferenceHere(doc) {
   const mark = setting('markReferenceHere'), layout = setting('referenceLayout');
   const links = new Set(), below = new Set();
@@ -3682,7 +3808,8 @@ function updateReferenceHere(doc) {
     for (const { uuid, name, item } of shown) {
       const scope = pages.length === 1 ? doc.getElementById('main-content-container') : item;
       if (!scope) continue;
-      const here = link => link.getAttribute('data-uuid') === uuid ||
+      const uuids = samePageUuids(uuid);
+      const here = link => uuids.has(link.getAttribute('data-uuid')) ||
         (name && (link.getAttribute('data-ref') || '').toLowerCase() === name);
       for (const link of scope.querySelectorAll('.references .ls-block :is(a.page-ref, a.tag)[data-uuid], .references .ls-block a.page-ref[data-ref]'))
         if (here(link)) links.add(link);
@@ -4780,6 +4907,104 @@ function startQuietUi() {
   } catch (error) { warnOnce('quiet items are unavailable', error); }
 }
 
+/* Typing [[ opens Logseq's page menu at once, filled with date words (Today, Tomorrow, Next week ...)
+   before anything is typed. While nothing follows the [[ the menu stays hidden, and the keys that would
+   pick from it (arrows, Enter, Tab) do nothing; the first letter typed brings it back as usual. */
+const quietLinkMenu = { menu: null };
+function linkMenuIsEmpty(doc) {
+  const box = doc.activeElement;
+  if (!box || box.tagName !== 'TEXTAREA' || box.selectionStart !== box.selectionEnd) return false;
+  return box.value.slice(Math.max(0, box.selectionStart - 2), box.selectionStart) === '[[';
+}
+function updateQuietLinkMenu(doc) {
+  const menu = setting('quietLinkMenu') ? doc.getElementById('ui__ac') : null;
+  const quiet = !!menu && !menu.classList.contains('ac-block-search') && linkMenuIsEmpty(doc);
+  if (quietLinkMenu.menu && (quietLinkMenu.menu !== menu || !quiet)) quietLinkMenu.menu.removeAttribute('data-refinement-quiet-menu');
+  quietLinkMenu.menu = quiet ? menu : null;
+  if (quiet && !menu.hasAttribute('data-refinement-quiet-menu')) menu.setAttribute('data-refinement-quiet-menu', '');
+}
+function startQuietLinkMenu() {
+  try {
+    const doc = ensureDomWatch(), win = doc.defaultView;
+    watchDomEarly(function updateQuietLinkMenuEarly(d) { updateQuietLinkMenu(d); });
+    listen(win, ['input', 'keyup'], () => updateQuietLinkMenu(doc));
+    listen(win, ['keydown'], event => {
+      if (!quietLinkMenu.menu?.isConnected || !['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(event.key)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    });
+    logseq.provideStyle({ key: 'personal-db-quiet-link-menu', style: `
+#ui__ac[data-refinement-quiet-menu],
+[data-radix-popper-content-wrapper]:has(#ui__ac[data-refinement-quiet-menu]),
+.ui__popover-content:has(#ui__ac[data-refinement-quiet-menu]) { visibility: hidden !important; }` });
+    onUnload(() => { quietLinkMenu.menu?.removeAttribute('data-refinement-quiet-menu'); quietLinkMenu.menu = null; });
+  } catch (error) { warnOnce('the quiet [[ menu is unavailable', error); }
+}
+
+/* A date typed year first inside [[ ]] (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014)
+   becomes that day's journal name ("Oct 14th, 2026") once the day's second digit is typed, so
+   Logseq's own menu offers the journal page and Enter links to it. Month and day need two digits,
+   so the change waits until the date is complete. Typed text, so Undo brings the digits back. */
+const YEAR_FIRST_DATE = /^(\d{4})([ ./_-]?)(\d{2})\2(\d{2})$/;
+const dateLinkSwap = { busy: false, format: null };
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+// The journal title formats Logseq offers (MMM do, yyyy; E, dd.MM.yyyy; yyyyMMdd ...).
+function formatJournalTitle(date, format) {
+  const pad = n => String(n).padStart(2, '0');
+  const parts = {
+    yyyy: date.getFullYear(), yy: pad(date.getFullYear() % 100),
+    MMMM: MONTH_NAMES[date.getMonth()], MMM: MONTH_NAMES[date.getMonth()].slice(0, 3), MM: pad(date.getMonth() + 1), M: date.getMonth() + 1,
+    do: ordinal(date.getDate()), dd: pad(date.getDate()), d: date.getDate(),
+    EEEE: DAY_NAMES[date.getDay()], EEE: DAY_NAMES[date.getDay()].slice(0, 3), E: DAY_NAMES[date.getDay()].slice(0, 3),
+  };
+  return format.replace(/yyyy|yy|MMMM|MMM|MM|M|do|dd|d|EEEE|EEE|E/g, token => parts[token]);
+}
+async function journalTitleFor(year, month, day) {
+  const journalDay = year * 10000 + month * 100 + day;
+  try {
+    const [[title] = []] = await dsQuery(`[:find ?t :where [?p :block/journal-day ${journalDay}] [?p :block/title ?t]]`);
+    if (title) return String(title);
+  } catch (error) { /* no such journal yet: use the format below */ }
+  if (!dateLinkSwap.format) {
+    try { dateLinkSwap.format = (await logseq.App.getUserConfigs())?.preferredDateFormat || null; } catch (error) { /* default below */ }
+  }
+  return formatJournalTitle(new Date(year, month - 1, day), dateLinkSwap.format || 'MMM do, yyyy');
+}
+// What is typed between an open [[ and the caret, if the caret is inside one.
+function openLinkQuery(box) {
+  if (!box || box.tagName !== 'TEXTAREA' || box.selectionStart !== box.selectionEnd) return null;
+  const before = box.value.slice(0, box.selectionStart), open = before.lastIndexOf('[[');
+  if (open < 0 || before.indexOf(']]', open) >= 0) return null;
+  return { start: open + 2, end: box.selectionStart, text: before.slice(open + 2) };
+}
+async function swapDateInLink(doc) {
+  if (dateLinkSwap.busy || !setting('dateLinkFormats')) return;
+  const box = doc.activeElement, query = openLinkQuery(box);
+  const m = query && YEAR_FIRST_DATE.exec(query.text);
+  if (!m) return;
+  const [year, month, day] = [Number(m[1]), Number(m[3]), Number(m[4])];
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return; // 2026 02 30
+  dateLinkSwap.busy = true;
+  try {
+    const title = await journalTitleFor(year, month, day);
+    const now = openLinkQuery(doc.activeElement);
+    // Only when nothing moved while the name was looked up.
+    if (doc.activeElement !== box || !now || now.start !== query.start || now.text !== query.text || title === query.text) return;
+    box.setSelectionRange(query.start, query.end);
+    if (!doc.execCommand('insertText', false, title)) box.setSelectionRange(query.end, query.end);
+  } catch (error) { warnOnce('a typed date could not become a journal link', error); }
+  finally { dateLinkSwap.busy = false; }
+}
+function startDateLinkSwap() {
+  try {
+    const doc = host();
+    listen(doc.defaultView, ['input'], () => { swapDateInLink(doc); });
+  } catch (error) { warnOnce('typed dates in links are unavailable', error); }
+}
+
 /* PERF-DEBUG start. Measuring for troubleshooting; it changes nothing on screen. Off unless the
    hidden setting debugPerf is true ("Refinements: Turn measuring on or off"). While off, every
    perf.* call returns at once. To remove: delete this block, the two perf commands in main(), and
@@ -5008,6 +5233,8 @@ function main() {
   if (setting('roomySearch')) logseq.provideStyle({ key: 'personal-db-search-roomy', style: roomySearchCss });
   startSearchExtras();
   startQuietUi();
+  startQuietLinkMenu();
+  startDateLinkSwap();
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();
   startListProps();
@@ -5028,6 +5255,7 @@ function main() {
     listProps.pageBlocks = new Set();
     cueMarks.incoming = new Map();
     graphCache.clear(); // a new page (or a new graph) reads the whole-graph lists fresh
+    referenceHere.names.clear(); // and looks up the page's aliases again
     scheduleRefresh(); schedulePageKind();
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
