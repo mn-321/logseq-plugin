@@ -7,7 +7,7 @@
    the plugin notices the click on the three-dots button and puts its item under “Plugins”.
    Settings are saved with logseq.updateSettings, the same place Logseq's own settings page writes. */
 
-const host = () => window.parent.document;
+const { host } = window.refinementShared; // the shared plumbing (parts/shared.js)
 const PANEL_CLASS = 'refinement-settings-backdrop';
 const ITEM_CLASS = 'refinement-settings-menu-item';
 const PLUGIN_ID = 'logseq-db-refinements';

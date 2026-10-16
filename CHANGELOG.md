@@ -393,3 +393,5 @@ Version 0.4.40 (2026-10-16, cleanup) adds parts/shared.js, one copy of the helpe
 Version 0.4.41 (2026-10-16, cleanup) makes parts/journal-dates.js take its helpers (the Logseq document, warnOnce, the clean-up list and stop key, the dialog box with its own jdd- class names, notify) from parts/shared.js. Seen on screen after a reload and three more reloads: nothing changed; the probe's dump matches the baseline and the console is quiet.
 
 Version 0.4.42 (2026-10-16, cleanup) makes parts/rich-copy.js take notify and Logseq's window from parts/shared.js. Seen on screen: the Copy page as rich text window (page menu) opens as before, with the same layout and choices; after a reload and three more reloads the probe's dump matches the baseline and the console is quiet.
+
+Version 0.4.43 (2026-10-16, cleanup) makes parts/settings-panel.js take the Logseq document from parts/shared.js. Seen on screen: the Refinements settings window opens as before, with the same sections and counts; after a reload and three more reloads the probe's dump matches the baseline and the console is quiet.
