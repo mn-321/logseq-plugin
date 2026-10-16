@@ -448,8 +448,8 @@ function openTroubleshooting() {
 
 function start() {
   const core = window.refinementCore;
-  ({ CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS, referencedNodeIds, incomingPropertyLinks } = core);
-  ({ pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName } = core.provided); // from the pages and properties parts
+  ({ CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS } = core);
+  ({ pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName, referencedNodeIds, incomingPropertyLinks } = core.provided); // from the pages, properties and links parts
   core.onFoldAll(startFoldLog);
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
