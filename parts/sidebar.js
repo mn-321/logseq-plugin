@@ -8,32 +8,11 @@
    (id sidebar-panel-header-<n>: the arrow span, then the title div) and the item's content in
    #sidebar-panel-content-<n> (right_sidebar.cljs sidebar-item-inner). A page item's content starts
    is the page; a block item's content starts with the block as .ls-block[blockid]. */
-const unloadTasks = [];
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-function runUnloadTasks() {
-  const pending = [];
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { pending.push(Promise.resolve(task()).catch(error => warnOnce('clean-up step failed', error))); } catch (error) { warnOnce('clean-up step failed', error); }
-  }
-  return Promise.all(pending);
-}
-// The Logseq window. The plugin runs in a frame inside it.
-const host = () => window.parent.document;
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements (sidebar): ' + message, ...details);
-}
-// A copy removed without its clean-up finishing is stopped by the next one.
-const STOP_KEY = '__refinementSidebarStop';
-function takeOverFromEarlierCopy() {
-  let win;
-  try { win = host().defaultView; } catch (error) { return; }
-  try { win[STOP_KEY]?.(); } catch (error) { warnOnce('an earlier copy could not be stopped', error); }
-  win[STOP_KEY] = runUnloadTasks;
-  onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
-}
+// The shared plumbing (parts/shared.js): its header says what each helper does.
+const shared = window.refinementShared;
+const { host } = shared;
+// This part's own clean-up list and stop key: a copy removed without its clean-up finishing is stopped by the next one.
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (sidebar): ', stopKey: '__refinementSidebarStop' });
 
 const settingsSchema = [
   { key: 'sidebarTitleOpens', type: 'boolean', title: 'Sidebar titles open their page', default: true,
@@ -41,11 +20,7 @@ const settingsSchema = [
   { key: 'sidebarThickDividers', type: 'boolean', title: 'Thick line between sidebar items', default: true,
     description: 'A thick line separates the items in the right sidebar, so each page or block stands apart from the next.' },
 ];
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+const setting = shared.settingReader(settingsSchema);
 
 // Items that show a page or a block, which can be opened in the main view. Search, Help, Page graph,
 // Shortcuts and plugin panels have nothing to open, so their title still folds them.

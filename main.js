@@ -4196,8 +4196,9 @@ function main() {
 /* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
    window.refinementParts; they are loaded here, in order, before the settings are given, because
    Logseq can keep an older loader.js cached that only loads this file. */
-// sidebar.js first: its settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
-const PART_FILES = ['parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+// shared.js first: the other parts read window.refinementShared as they load. sidebar.js next: its
+// settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
+const PART_FILES = ['parts/shared.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {
