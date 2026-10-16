@@ -3601,11 +3601,23 @@ function runDbWork() {
   run(pageJobs);
   if (!dbWork.slowTimer) dbWork.slowTimer = setTimeout(fullRound, wait);
 }
-// What the other files may read of this one: published before any part starts (the diagnostics
-// part reads most of it; onFoldAll(fn) runs fn when a fold-all command starts).
+/* The core, as the other files see it: window.refinementCore, published by main() before any part
+   starts. It holds the core's own tools (the screen watcher, the database round, stylesheets, settings,
+   the query helpers) and a registry for the area parts (parts/editor.js, pages.js, … in step 7 of the
+   cleanup): each part gives its functions and state to the core by name (core.provide, in its provide()
+   step) and takes what it needs from core.provided in its start() step, after every part has provided,
+   so the order of the parts does not matter. Database look-ups register with core.onDbRound(name, fn);
+   runDbWork runs them in its own fixed order (one database round, GUIDE.md). */
+const provided = {}; // what the area parts give the core and each other, by name
+const dbJobs = {};   // database-round jobs by name (core.onDbRound)
 function publishCore() {
-  window.refinementCore = { host, setting, CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS, referencedNodeIds, incomingPropertyLinks, pageTitles, pageHeaderOf,
-    listFold, listRows, foldLog, logFold, rowName, onFoldAll: fn => foldAllListeners.push(fn) };
+  window.refinementCore = {
+    host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, tokensCss, watchDom, watchDomEarly, addsElements, ensureDomWatch,
+    STRAY_ELEMENTS, STRAY_ATTRIBUTES, RELOAD_SETTINGS, CUE_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
+    CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS, referencedNodeIds, incomingPropertyLinks, pageTitles, pageHeaderOf,
+    listFold, listRows, foldLog, logFold, rowName, onFoldAll: fn => foldAllListeners.push(fn),
+    provided, provide: things => Object.assign(provided, things), onDbRound: (name, fn) => { dbJobs[name] = fn; },
+  };
 }
 // The troubleshooting tools live in parts/diagnostics.js; the palette entries below call them by name.
 const diag = name => (...args) => window.refinementDiagnostics?.[name]?.(...args);
@@ -3613,8 +3625,12 @@ function main() {
   logseq.beforeunload(runUnloadTasks);
   takeOverFromEarlierCopy();
   publishCore();
-  // Search, journal-day dates and copy as rich text (parts/*.js, loaded before this file). Each keeps
-  // its own clean-up, run from here; one that fails to start leaves the rest of the plugin working.
+  // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
+  // that fails to start leaves the rest of the plugin working. A part that has a provide() step gives
+  // the core its functions and state first, so that every part's start() can take the others' things.
+  for (const part of plugInParts) {
+    try { part.provide?.(window.refinementCore); } catch (error) { warnOnce(`the ${part.name} part could not provide its functions`, error); }
+  }
   for (const part of plugInParts) {
     try { part.start(); } catch (error) { warnOnce(`the ${part.name} part could not start`, error); }
     onUnload(part.stop);
