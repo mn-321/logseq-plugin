@@ -2,44 +2,13 @@
 (() => {
 /* Search part of DB Refinements (was the Calmer Search plugin 1.0.1): Logseq's own search window, easier to read, with details, grouping, a preview
    panel and typed filters. Split out of DB Refinements 0.2.156, which kept it under "Search". */
-const unloadTasks = [];
-// Also takes the "off" function every logseq.*.onXxx hook returns.
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-// Every step starts at once, in reverse order of set-up, so the screen is clean by the time this
-// returns; the promise it returns waits for any step that finishes later.
-function runUnloadTasks() {
-  stopWatchingDom(); // first, so nothing re-applies while the parts below undo their changes
-  const failed = error => warnOnce('clean-up step failed', error);
-  const pending = [];
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { pending.push(Promise.resolve(task()).catch(failed)); } catch (error) { failed(error); }
-  }
-  return Promise.all(pending);
-}
-
-// The Logseq window. The plugin runs in a frame inside it.
-const host = () => window.parent.document;
-
-/* A warning is written once per session for each distinct message, so a part that fails after every
-   change (a look-up after each edit, a screen update on each redraw) does not fill the console. */
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements (search): ' + message, ...details);
-}
-/* A screen update that throws again and again is switched off for the rest of the session, with one
-   note saying which part stopped. The others carry on; a reload starts it again. */
-const UPDATER_TRIES = 5;
-const updaterFailures = new Map();
-function updaterFailed(fn, error, list) {
-  const n = (updaterFailures.get(fn) || 0) + 1;
-  updaterFailures.set(fn, n);
-  if (n < UPDATER_TRIES) return warnOnce(`a screen update failed (${fn.name || 'unnamed'})`, error);
-  if (list instanceof Set) list.delete(fn);
-  else { const at = list.indexOf(fn); if (at >= 0) list.splice(at, 1); }
-  warnOnce(`${fn.name || 'a screen update'} stopped for this session after ${n} errors`, error);
-}
+// The shared plumbing (parts/shared.js): its header says what each helper does.
+const shared = window.refinementShared;
+const { host, notify, openEntity, waitFor } = shared;
+// This part's own clean-up list and stop key. The clean-up stops this part's screen watcher first, so
+// nothing re-applies while the steps undo their changes; a new copy sweeps what an earlier one left.
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop',
+  before: () => stopWatchingDom(), sweep: sweepEarlierCopy });
 
 /* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
    stop the others.
@@ -101,30 +70,15 @@ function stopWatchingDom() {
 
 /* The plugin's watchers live in Logseq's window, so they outlive the plugin's own frame. A new copy
    runs the previous copy's clean-up and removes anything still left on screen. */
-const STOP_KEY = '__calmerSearchStop';
 const STRAY_ELEMENTS = '[data-refinement-search-button], .rf-search-preview, .rf-search-guide, .rf-search-meta, .rf-search-peek, .rf-search-where, .rf-filter-results, .rf-filter-suggest';
 // Every mark this plugin sets on Logseq's own elements (grep "data-rf-" / "dataset.rf" when adding one).
 const STRAY_ATTRIBUTES = ['filtering', 'with-preview', 'grouped', 'moved', 'group-end', 'same-page', 'current', 'loose', 'sig', 'query', 'uuid'].map(name => 'data-rf-' + name);
-function takeOverFromEarlierCopy() {
-  let win;
-  try { win = host().defaultView; } catch (error) { return; }
-  try { win[STOP_KEY]?.(); } catch (error) { warnOnce('an earlier copy could not be stopped', error); }
-  win[STOP_KEY] = runUnloadTasks;
-  onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
-  try {
-    const doc = win.document;
-    for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
-    // Search results grouped by page carry an order; read the mark before it is removed.
-    for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
-    for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
-  } catch (error) { warnOnce('leftovers could not be cleared', error); }
-}
-
-// Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
-function openEntity(uuid, inSidebar = false) {
-  if (!uuid) return;
-  if (inSidebar) logseq.Editor.openInRightSidebar(uuid);
-  else logseq.App.pushState('page', { name: uuid });
+// What an earlier copy may have left on screen (run by takeOverFromEarlierCopy, from shared.js).
+function sweepEarlierCopy(doc) {
+  for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
+  // Search results grouped by page carry an order; read the mark before it is removed.
+  for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
+  for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
 }
 
 // DB Refinements measures its screen watcher; this plugin keeps the same watcher without the measuring.
@@ -150,7 +104,6 @@ const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg
 const titleOf = block => (block?.title || block?.content || '').trim();
 // Every trailing tag (#work, #[[Long tag]]).
 const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
-const notify = (message, level = 'info') => logseq.UI.showMsg(message, level);
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -315,11 +268,6 @@ const roomySearchCss = `
 
 // Opens Logseq's own search and moves it into the right sidebar (search's own Mod+Enter
 // action), so results stay listed while you open them. Reuses a search already there.
-const waitFor = (find, ms = 1500) => new Promise(resolve => {
-  const started = Date.now();
-  const tick = () => { const found = find(); if (found || Date.now() - started > ms) resolve(found || null); else setTimeout(tick, 50); };
-  tick();
-});
 async function searchInSidebar() {
   let step = 'finding the sidebar';
   try {
@@ -1910,11 +1858,7 @@ const settingsSchema = [
   { key: 'searchFilters', type: 'boolean', title: 'Filter search with codes', default: true,
     description: 'Type codes in the search box to narrow what is found: #tag, in:page, p:name or p:name=value (for a property; property: works too), is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text. A bar along the bottom of the search window names the codes (click one to add it); type ? or click “? More tips” for a short guide. Shift+Enter or Shift-click opens a result in the right sidebar.' },
 ];
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+const setting = shared.settingReader(settingsSchema);
 // Settings that only take effect when the plugin starts: all of them.
 const RELOAD_SETTINGS = settingsSchema.filter(item => item.type !== 'heading').map(item => item.key);
 
