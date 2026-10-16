@@ -11,20 +11,11 @@
    - New tags are made inside the tag they belong to, with the + on its row or the n key.
    Shown as a full view in the main area (a plugin route, #/refinement-tags) or as a panel in the
    right sidebar, both drawn with Logseq's own React like Todos. */
-const host = () => window.parent.document;
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements (tag tree): ' + message, ...details);
-}
-const unloadTasks = [];
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-function runUnloadTasks() {
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { task(); } catch (error) { warnOnce('clean-up step failed', error); }
-  }
-}
+// The shared plumbing (parts/shared.js): its header says what each helper does.
+const shared = window.refinementShared;
+const { host } = shared;
+// This part's own clean-up list; main.js runs it when the plugin unloads.
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (tag tree): ' });
 
 const settingsSchema = [
   { key: 'tagTreeHeading', type: 'heading', title: 'Tag tree', default: null,
@@ -38,11 +29,7 @@ const settingsSchema = [
   { key: 'tagTreeShortcut', type: 'string', title: 'Open the tag tree', default: 'mod+alt+g',
     description: 'mod+alt+g is Cmd+Option+G on a Mac. Leave empty for no shortcut. Applies after you reload the plugin.' },
 ];
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+const setting = shared.settingReader(settingsSchema);
 // Roots changed from the tree are used at once; Logseq hands the saved setting back a little later.
 let rootsOverride = null;
 const openViews = new Set(); // the draw function of every tree on screen, redrawn when the settings change
