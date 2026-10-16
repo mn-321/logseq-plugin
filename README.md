@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs that changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart. Version 0.4.52.
+A personal plugin for Logseq DB graphs that changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart. Version 0.4.53.
 
 Besides the look of pages, it holds:
 
