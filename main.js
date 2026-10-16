@@ -1,43 +1,19 @@
 /* Personal Logseq DB refinements. All commands preserve their source blocks. */
-/* Logseq keeps only the most recent beforeunload callback a plugin registers, so every part of
-   the plugin adds its clean-up here and main() registers one callback that runs them all. */
-const unloadTasks = [];
-// Also takes the "off" function every logseq.*.onXxx hook returns.
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-// Every step starts at once, in reverse order of set-up, so the screen is clean by the time this
-// returns; the promise it returns waits for any step that finishes later.
-function runUnloadTasks() {
-  stopWatchingDom(); // first, so nothing re-applies while the parts below undo their changes
-  const failed = error => warnOnce('clean-up step failed', error);
-  const pending = [];
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { pending.push(Promise.resolve(task()).catch(failed)); } catch (error) { failed(error); }
-  }
-  return Promise.all(pending);
-}
-
-// The Logseq window. The plugin runs in a frame inside it.
-const host = () => window.parent.document;
-
-/* A warning is written once per session for each distinct message, so a part that fails after every
-   change (a look-up after each edit, a screen update on each redraw) does not fill the console. */
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements: ' + message, ...details);
-}
-/* A screen update that throws again and again is switched off for the rest of the session, with one
-   note saying which part stopped. The others carry on; a reload starts it again. */
-const UPDATER_TRIES = 5;
-const updaterFailures = new Map();
-function updaterFailed(fn, error, list) {
-  const n = (updaterFailures.get(fn) || 0) + 1;
-  updaterFailures.set(fn, n);
-  if (n < UPDATER_TRIES) return warnOnce(`a screen update failed (${fn.name || 'unnamed'})`, error);
-  if (list instanceof Set) list.delete(fn);
-  else { const at = list.indexOf(fn); if (at >= 0) list.splice(at, 1); }
-  warnOnce(`${fn.name || 'a screen update'} stopped for this session after ${n} errors`, error);
+/* The helpers every part shares (the Logseq document, warnings, the clean-up list, dialog boxes…)
+   live in parts/shared.js; its header is the contract between the files. This file runs before the
+   parts are loaded, so it takes them in useShared() once they have loaded, before Logseq is given the
+   settings and before main() runs. Nothing above main() calls them while this file loads.
+   Logseq keeps only the most recent beforeunload callback a plugin registers, so every part of the
+   plugin keeps its own clean-up list and main() registers one callback that runs them all. */
+let host, notify, warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen, modal, modalButtons, modalHint, openEntity, waitFor, setting;
+function useShared() {
+  const shared = window.refinementShared;
+  if (!shared) throw new Error('parts/shared.js did not load');
+  ({ host, notify, modal, modalButtons, modalHint, openEntity, waitFor } = shared);
+  // The clean-up stops the screen watcher first, so nothing re-applies while the steps undo their
+  // changes; a new copy runs the earlier copy's clean-up and sweeps what it left on screen.
+  ({ warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen } = shared.lifecycle({ prefix: 'Refinements: ', stopKey: STOP_KEY, before: stopWatchingDom, sweep: sweepEarlierCopy }));
+  setting = shared.settingReader(settingsSchema);
 }
 
 /* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
@@ -99,83 +75,21 @@ function stopWatchingDom() {
   domWatch.early.length = 0;
 }
 
-/* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
-   frames). build(box, finish) fills the box; the promise resolves with what finish() is given.
-   Escape or a click outside resolves with cancelValue. Keys typed in the box never reach Logseq. */
-function modal(cancelValue, build, width) {
-  const doc = host();
-  return new Promise(resolve => {
-    const backdrop = doc.createElement('div');
-    backdrop.className = 'refinement-prompt-backdrop';
-    const box = doc.createElement('div');
-    box.className = 'refinement-prompt';
-    if (width) box.style.width = width;
-    let finished = false;
-    const finish = value => { if (finished) return; finished = true; backdrop.remove(); resolve(value); };
-    backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
-    for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
-    box.addEventListener('keydown', event => {
-      event.stopPropagation();
-      if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
-    });
-    backdrop.append(box);
-    doc.body.appendChild(backdrop);
-    build(box, finish, doc);
-  });
-}
-function modalButtons(doc, buttons) {
-  const row = doc.createElement('div');
-  row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-  for (const [text, onClick] of buttons) {
-    const b = doc.createElement('button');
-    b.textContent = text;
-    b.style.cssText = 'padding:4px 12px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
-    b.addEventListener('click', event => { event.preventDefault(); onClick(); });
-    row.append(b);
-  }
-  return row;
-}
-function modalHint(doc, text) {
-  const hint = doc.createElement('div');
-  hint.className = 'refinement-prompt-hint';
-  hint.textContent = text;
-  return hint;
-}
-
 /* The plugin's watchers live in Logseq's window, so they outlive the plugin's own frame. If an
    earlier copy was removed without its clean-up finishing (an error, or Logseq's ten-second limit),
    they would keep running beside this copy. Each copy therefore leaves its clean-up where the next
-   one can find it, and a new copy runs it and removes anything still left on screen. */
+   one can find it (takeOverFromEarlierCopy, from shared.js), and a new copy runs it and removes
+   anything still left on screen (sweepEarlierCopy). */
 const STOP_KEY = '__dbRefinementsStop';
 // Search marks (data-rf-*, .rf-search-*) belong to the search part (parts/search.js), which clears its own.
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
   'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover'].map(name => 'data-refinement-' + name)];
-function takeOverFromEarlierCopy() {
-  let win;
-  try { win = host().defaultView; } catch (error) { return; }
-  try { win[STOP_KEY]?.(); } catch (error) { warnOnce('an earlier copy could not be stopped', error); }
-  win[STOP_KEY] = runUnloadTasks;
-  onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
-  try {
-    const doc = win.document;
-    for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
-    for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
-    for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
-  } catch (error) { warnOnce('leftovers could not be cleared', error); }
-}
-
-// Listens on Logseq's window before Logseq does (capture phase), until the plugin unloads.
-function listen(win, types, handler) {
-  for (const type of types) win.addEventListener(type, handler, true);
-  onUnload(() => { for (const type of types) win.removeEventListener(type, handler, true); });
-}
-// Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
-function openEntity(uuid, inSidebar = false) {
-  if (!uuid) return;
-  if (inSidebar) logseq.Editor.openInRightSidebar(uuid);
-  else logseq.App.pushState('page', { name: uuid });
+function sweepEarlierCopy(doc) {
+  for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
+  for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
+  for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
 }
 
 // Tables already provide structure, so several rules leave anything inside one alone.
@@ -688,7 +602,6 @@ const titleOf = block => (block?.title || block?.content || '').trim();
 const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
 const cleanTitle = raw => raw.replace(/^[-*]\s*/, '').replace(trailingTags, '')
   .replace(/\[\[([^\]]+)\]\]/g, '$1').trim().slice(0, 180);
-const notify = (message, level = 'info') => logseq.UI.showMsg(message, level);
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -2253,12 +2166,6 @@ function startSidebarPresentation() {
   } catch (error) { warnOnce('sidebar presentation is unavailable', error); }
 }
 
-// Waits up to ms for find() to return something; resolves with it, or null.
-const waitFor = (find, ms = 1500) => new Promise(resolve => {
-  const started = Date.now();
-  const tick = () => { const found = find(); if (found || Date.now() - started > ms) resolve(found || null); else setTimeout(tick, 50); };
-  tick();
-});
 
 /* Visual hierarchy: the shape of the outline rather than the things it links to. Each part has
    its own setting and applies as soon as it changes. Colors are mixed from the theme's text
@@ -2385,12 +2292,8 @@ const settingsSchema = [
   { key: 'tidySidebar', type: 'boolean', title: 'Tidy the right sidebar', default: true,
     description: 'Expand page properties automatically and hide the Page graph, (Dev) RTC, Undo/Redo and Profiler buttons.' },
 ];
-// A setting's current value, or its default from the list above when unset or of the wrong type.
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+// setting(key), from shared.js (useShared): a setting's current value, or its default from the list
+// above when unset or of the wrong type.
 // Settings that only take effect when the plugin starts.
 const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'tagShortcut', 'deleteBlockShortcut', 'outermostBlockShortcut', 'tidySidebar', 'quietItems', 'showTitleChrome'];
 
@@ -4209,13 +4112,14 @@ function loadParts() {
     script.async = false; // run in the order listed
     script.src = new URL(file + '?t=' + stamp, partsBase).href;
     script.onload = resolve;
-    script.onerror = () => { warnOnce(`${file} could not be loaded`); resolve(); };
+    script.onerror = () => { console.warn(`Refinements: ${file} could not be loaded`); resolve(); };
     document.body.appendChild(script);
   })));
 }
 // Given before ready, so the settings already hold their defaults when main runs. The parts' settings
 // follow the plugin's own, each under its heading.
 loadParts().then(() => {
+  useShared();
   plugInParts = window.refinementParts || [];
   logseq.useSettingsSchema([...settingsSchema, ...plugInParts.flatMap(part => part.schema)]);
   return logseq.ready(main);
