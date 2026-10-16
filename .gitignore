@@ -1,0 +1,7 @@
+.DS_Store
+backups/
+releases/
+main.js.orig
+.claude/
+CLEANUP-PROMPT.md
+*.zip

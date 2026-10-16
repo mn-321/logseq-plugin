@@ -381,3 +381,7 @@ Version 0.4.35 (2026-10-16) asks before **Journal day as date** fills a date, A'
 Version 0.4.36 (2026-10-16) drops the guess for pages in **Journal day as date**, A's ask: a page made from a journal (such as `[[Name]]#Tag` typed there) used to get the day of the earliest journal that linked to it; now only blocks that sit on a journal page get a date, and pages are left alone.
 
 Version 0.4.37 (2026-10-16) fixes the **Ask before filling** note, tested on screen: Escape pressed to leave a block no longer dismisses the note by the way (while a block is being edited every key, Escape included, belongs to the block; the note's own buttons still work). Pressing j with the note open fills the date; k leaves the record alone.
+
+## Cleanup (October 2026)
+
+Version 0.4.38 (2026-10-16, cleanup) adds a .gitignore and moves the old backups, the release zips, main.js.orig and the gentle theme out of the plugin folder (to ~/logseq-plugin-archive and ~/logseq-gentle-theme). No code changed; seen on screen after a reload: nothing changed, and the probe's dump matches the baseline.
