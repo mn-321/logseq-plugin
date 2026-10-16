@@ -25,6 +25,9 @@
    - waitFor(find, ms)            polls find() every 50 ms until it returns something or ms pass.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
                                   the saved value is missing or of another type.
+   - perf                         measuring hooks (add, time, seen, style, frameState, pass, passDone,
+                                  ownSettingsOnly): no-ops until the diagnostics part measures.
+   - warnings                     every distinct warnOnce message of this session (message, first time, count).
 
    WHAT EVERY OTHER PART MUST DO:
    - wrap itself in its own scope, `(() => { … })();`
@@ -47,11 +50,16 @@ const notify = (message, level = 'info') => logseq.UI.showMsg(message, level);
 
 /* A warning is written once per session for each distinct message, so a part that fails after every
    change (a look-up after each edit, a screen update on each redraw) does not fill the console. */
+// Every distinct warning of this session, for "Copy warnings": message (with its prefix), first time, count.
+const warnings = [];
 function warner(prefix) {
-  const warned = new Set();
+  const warned = new Map();
   return (message, ...details) => {
-    if (warned.has(message)) return;
-    warned.add(message);
+    const earlier = warned.get(message);
+    if (earlier) { earlier.count++; return; }
+    const entry = { message: prefix + message, at: new Date(), count: 1 };
+    warned.set(message, entry);
+    warnings.push(entry);
     console.warn(prefix + message, ...details);
   };
 }
@@ -161,6 +169,26 @@ const waitFor = (find, ms = 1500) => new Promise(resolve => {
   tick();
 });
 
+/* Measuring, for the troubleshooting tools (parts/diagnostics.js). The core calls perf.* on its hot
+   paths (every screen change, every stylesheet, every database round); while nothing is measuring,
+   each call returns at once. The diagnostics part puts its measuring object in perf.impl while
+   measuring is on and takes it out when it is off. */
+const perf = {
+  impl: null,
+  add(name, ms) { if (perf.impl) perf.impl.add(name, ms); },
+  time(name, fn) { return perf.impl ? perf.impl.time(name, fn) : fn(); },
+  seen(name, records) { if (perf.impl) perf.impl.seen(name, records); },
+  style(key, text, sent) { if (perf.impl) perf.impl.style(key, text, sent); },
+  frameState() { return perf.impl ? perf.impl.frameState() : ''; },
+  pass(state) { if (perf.impl) perf.impl.pass(state); },
+  passDone() { if (perf.impl) perf.impl.passDone(); },
+  // Measuring or not: whether a settings change touched only the plugin's own keys (reports, debugPerf, the self-check note).
+  ownSettingsOnly(now, before) {
+    const changed = Object.keys({ ...now, ...before }).filter(key => JSON.stringify(now?.[key]) !== JSON.stringify(before?.[key]));
+    return changed.length > 0 && changed.every(key => /^(?:perf|debugPerf|selfCheck)/.test(key));
+  },
+};
+
 // A part's settings: the saved value, or the default when the saved value is missing or of the wrong type.
 function settingReader(schema) {
   const settingDefaults = Object.fromEntries(schema.map(item => [item.key, item.default]));
@@ -170,5 +198,5 @@ function settingReader(schema) {
   };
 }
 
-window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, openEntity, waitFor, settingReader };
+window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, openEntity, waitFor, settingReader, perf, warnings };
 })();
