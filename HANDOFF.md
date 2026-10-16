@@ -3,6 +3,8 @@
 Written 2026-10-11, updated 2026-10-12 (evening), for the next chat session. Read this first, then `README.md` for the feature list.
 The plugin is at 0.2.144 on `main`; the newest work is under "Typed search filters", and the open requests say what is left before 1.0.0.
 
+**Split on 2026-10-14 (0.3.0).** Search now lives in its own plugin, Calmer Search (`companions/calmer-search`, id `logseq-calmer-search`, 1.0.0). Journal-day dates live in Journal Day Dates (`companions/journal-day-dates`, id `logseq-journal-day-dates`, 1.0.0). Both are loaded unpacked in the Plugin Test Graph, and their settings files in `~/.logseq/settings/` were copied from this plugin's. The sections below that talk about search or auto-date describe code that is now in those folders. Their search marks (`data-rf-*`, `.rf-search-*`) are no longer in this plugin's clean-up lists. The bullet menu holds only "Make a page from this block". See CHANGELOG.md 0.3.0 and REVIEW-2026-10-14.md.
+
 ## What this is
 
 A personal Logseq plugin (DB graphs only) that makes the UI say more clearly what things are:
@@ -360,7 +362,7 @@ Decided on 2026-10-12, leave as they are unless the owner raises them again:
 
 ## Known loose ends
 
-- The Cmd+T command only works on ordinary pages (it goes through the "Set property" button).
+- The Cmd+T command calls Logseq's own "Set tags" command (see README, Add tags to this page); on the Journals list it says so and does nothing.
 - On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions, so
   Logseq shows an empty value instead of "Add description". Test data, not plugin code.
 - The Linked references look on a reference that comes through a `#tag`: the test graph now has one ("The #Idea backlog…" on Readiness Tests) but the Idea tag page was not looked at.

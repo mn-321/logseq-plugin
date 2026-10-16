@@ -1,8 +1,18 @@
 # Guide: working on this plugin and on the graph from the command line
 
-Written 2026-10-12 from what the audit, the safety round and the readiness review learned the hard way. `HANDOFF.md` says where things are and what the last session did; `AUDIT.md` records findings and measurements; this file is the standing advice. Everything here was checked against Logseq 2.0.2 (DB graphs); re-check after an update.
+Written 2026-10-12 from what the audit, the safety round and the readiness review learned the hard way; updated 2026-10-15 for the one-plugin layout (0.4.x). This file is for working on the plugin and is not part of the release zip. `HANDOFF.md` says where things are and what the last session did; `AUDIT.md` records findings and measurements; this file is the standing advice. Everything here was checked against Logseq 2.0.2 (DB graphs); re-check after an update.
 
 ## Part 1: the plugin
+
+### Where the code is
+
+- `loader.js` is Logseq's starting file; it loads `main.js` with a fresh timestamp so a reload picks up edits.
+- `main.js` holds the look of pages, the shortcuts and the commands. Before it starts, it loads `parts/sidebar.js`, `parts/search.js`, `parts/journal-dates.js`, `parts/rich-copy.js` and `parts/settings-panel.js` in that order (`PART_FILES`). Each part is wrapped in its own scope, pushes `{name, schema, start, stop}` onto `window.refinementParts`, and has its own clean-up and `STOP_KEY`. Their settings are joined after `main.js`'s own.
+- Only one session at a time should edit `main.js`; make small in-place edits and re-read the file first.
+
+### What goes in the release zip
+
+Only what Logseq needs and what a reader needs: `package.json`, `loader.js`, `main.js`, `parts/*.js`, `README.md` and `CHANGELOG.md`, inside a folder named `logseq-db-refinements`. Work notes (`AUDIT.md`, `HANDOFF.md`, this guide, reviews), `test/`, `backups/`, `releases/`, `gentle-theme/` and `main.js.orig` stay out. Zips are named `logseq-plugin-<version>.zip` (with a date suffix when the version did not change) and go to `releases/`.
 
 ### How the plugin is built, and the rules that keep it that way
 
@@ -33,10 +43,10 @@ Written 2026-10-12 from what the audit, the safety round and the readiness revie
 
 1. Edit `main.js`. For scripted edits use system Ruby with explicit UTF-8 (`LC_ALL=en_US.UTF-8 /usr/bin/ruby -E UTF-8:UTF-8`) and make each replacement raise unless its anchor is found exactly once. There is no node, npm or python on this machine.
 2. Syntax-check: `jsc check.js -- main.js` where `check.js` wraps the file in `new Function('logseq', 'window', src)` (see `HANDOFF.md`).
-3. Reload the plugin: toolbar **…** → **Plugins** → **Reload** (the panel can stay open); `loader.js` loads `main.js` with a fresh timestamp. From the background: click **…** at (989, 22), then **Plugins** (one row higher in a journal's menu than in a page's), **Reload** at (290, 482), Escape; the panel takes a moment to open on a large graph, so screenshot before pressing Reload. `View > Reload` from the menu bar reloads the whole window and works from the background too.
+3. Reload the plugin: `t` then `p` (Plugins panel), **Reload** on the plugin, close the panel; `loader.js` loads `main.js` with a fresh timestamp. Or, in the devtools console (`Cmd+Opt+I`): `await LSPluginCore.reload('logseq-db-refinements')`; click the console prompt right before typing, or the text can land in a block. `View > Reload` reloads the window but does not pick up `main.js` changes. Test in the **Plugin Test Graph**, never in **Work**.
 4. Look at the result: a screenshot or zoom of the running app, and the plugin's own commands (**Check what the plugin finds on this page**, **Copy styling details**, **Copy page title area details**).
 5. Measure when the change touches the watcher or the database round: **Turn measuring on or off** then **Copy performance report** (or `debugPerf` and `debugPerfEvery` in the settings file). Go through the AUDIT's five steps and compare with the baselines there.
-6. Commit one fix per commit, version bumped in `package.json` and `README.md`, with a README note in the plain style of the existing ones. `git -c user.name=… -c user.email=… commit` (no global identity is set). Say in the note what was seen on screen and what was only read.
+6. Commit one fix per commit, version bumped in `package.json` (and the version line at the top of `README.md`), with a `CHANGELOG.md` note in the plain style of the existing ones; update the README's tables when a feature or setting changes. `git -c user.name=… -c user.email=… commit` (no global identity is set). Say in the note what was seen on screen and what was only read.
 
 ### Testing without a human at the keyboard
 
