@@ -416,6 +416,36 @@ async function copyWarnings() {
   showDiagnostics(lines.join('\n'));
 }
 
+/* One palette entry, "Refinements: troubleshooting", opens this box; each tool keeps its command key
+   (registered by main.js without a palette entry), so a shortcut bound to one still works. */
+const TOOLS = [
+  ['check-link-labels', 'Check linked-record labels', () => checkLinkLabels()],
+  ['copy-header-details', 'Copy page title area details', () => copyHeaderDiagnostics()],
+  ['check-what-is-found', 'Check what the plugin finds on this page', () => checkWhatIsFound()],
+  ['copy-fold-log', 'Copy fold log', () => copyFoldLog()],
+  ['toggle-perf', 'Turn measuring on or off', () => togglePerf()],
+  ['copy-perf-report', 'Copy performance report', () => copyPerfReport()],
+  ['copy-styling-details', 'Copy styling details of this block', event => copyDiagnostics(event)],
+  ['copy-warnings', 'Copy warnings', () => copyWarnings()],
+].map(([key, label, run]) => ({ key, label, run }));
+function openTroubleshooting() {
+  return modal(null, (box, finish, doc) => {
+    const heading = doc.createElement('label');
+    heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
+    const list = doc.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:10px 0;';
+    for (const tool of TOOLS) {
+      const button = doc.createElement('button');
+      button.textContent = tool.label;
+      button.style.cssText = 'text-align:left;padding:6px 12px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
+      button.addEventListener('click', event => { event.preventDefault(); finish(tool); tool.run(); });
+      list.append(button);
+    }
+    box.append(heading, list, modalHint(doc, 'Esc to close'));
+    list.firstElementChild?.focus();
+  }, 'min(460px, 92vw)');
+}
+
 function start() {
   const core = window.refinementCore;
   ({ CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS, referencedNodeIds, incomingPropertyLinks, pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName } = core);
@@ -423,6 +453,6 @@ function start() {
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
 }
-window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, copyHeaderDiagnostics, checkLinkLabels, copyFoldLog, togglePerf, copyPerfReport, copyWarnings };
+window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, copyHeaderDiagnostics, checkLinkLabels, copyFoldLog, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS };
 (window.refinementParts ||= []).push({ name: 'diagnostics', schema: [], start, stop: runUnloadTasks });
 })();

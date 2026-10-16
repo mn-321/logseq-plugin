@@ -3695,21 +3695,19 @@ function main() {
     ['new-outermost-block', 'New block at the outermost level', newOutermostBlock, 'outermostBlockShortcut'],
     // The plugin's own settings panel (parts/settings-panel.js), or Logseq's settings page if that part did not load.
     ['show-settings', 'Refinements settings', () => window.refinementSettingsPanel ? window.refinementSettingsPanel.open() : logseq.showSettingsUI()],
-    ['check-link-labels', 'Check linked-record labels (troubleshooting)', diag('checkLinkLabels')],
-    ['copy-header-details', 'Copy page title area details (troubleshooting)', diag('copyHeaderDiagnostics')],
-    ['check-what-is-found', 'Check what the plugin finds on this page (troubleshooting)', diag('checkWhatIsFound')],
+    // The troubleshooting tools (parts/diagnostics.js) sit behind one entry that opens a box listing them.
+    ['troubleshooting', 'Refinements: troubleshooting', diag('openTroubleshooting')],
     ['fold-query-results', 'Fold all results in this query', () => foldQueryResults(null, true)],
     ['unfold-query-results', 'Unfold all results in this query', () => foldQueryResults(null, false)],
-    ['copy-fold-log', 'Copy fold log (troubleshooting)', diag('copyFoldLog')],
-    ['toggle-perf', 'Turn measuring on or off (troubleshooting)', diag('togglePerf')],
-    ['copy-perf-report', 'Copy performance report (troubleshooting)', diag('copyPerfReport')],
     ['choose-list-properties', 'Choose properties shown in this list', chooseListProperties],
-    ['copy-styling-details', 'Copy styling details of this block (troubleshooting)', diag('copyDiagnostics')],
   ];
   for (const [key, label, action, shortcut] of commands) {
     const binding = shortcut && setting(shortcut).trim().toLowerCase();
     logseq.App.registerCommandPalette({ key, label, ...(binding ? { keybinding: { binding } } : {}) }, action);
   }
+  // Each troubleshooting tool keeps its command key, registered without a palette entry (a shortcut
+  // the owner bound to one of them still works); the box above lists them by name.
+  for (const tool of window.refinementDiagnostics?.tools || []) logseq.App.registerCommand('global', { key: tool.key, label: 'Troubleshooting: ' + tool.label }, tool.run);
   // Right-click menu on a bullet: only what applies to any block. The list, fold and troubleshooting
   // commands are in the command palette, where they act on the block or query you last clicked in.
   logseq.Editor.registerBlockContextMenuItem('Make a page from this block', blockToPage);
