@@ -4,8 +4,9 @@
    don't use Logseq. Paste it into Pages, Word, Mail or Google Docs; from there it can become a PDF.
    The plugin only reads your notes. It never changes them. */
 
-const notify = (message, level = 'info') => logseq.UI.showMsg(message, level);
-const host = () => window.parent;
+// The shared plumbing (parts/shared.js). This part needs Logseq's window itself (for its clipboard).
+const { notify } = window.refinementShared;
+const hostWindow = () => window.refinementShared.host().defaultView;
 
 /* ---------- Look and feel of the copied text ----------
    Inline styles only: an app receiving pasted text ignores stylesheets. A font is always named,
@@ -476,7 +477,7 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
    Tries the plugin's own frame first (it has focus after a click in the chooser), then Logseq's
    window (which has focus after a menu click), then the older copy command in each. */
 async function writeClipboard({ html, plain }) {
-  for (const win of [window, host()]) {
+  for (const win of [window, hostWindow()]) {
     try {
       const item = new win.ClipboardItem({
         'text/html': new win.Blob([html], { type: 'text/html' }),
@@ -486,7 +487,7 @@ async function writeClipboard({ html, plain }) {
       return true;
     } catch (error) { /* try the next way */ }
   }
-  for (const doc of [document, host().document]) {
+  for (const doc of [document, hostWindow().document]) {
     let done = false;
     const onCopy = event => {
       event.clipboardData.setData('text/html', html);
