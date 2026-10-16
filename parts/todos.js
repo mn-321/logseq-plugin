@@ -17,21 +17,12 @@
    0.4.19: the same list also shows as a full view in the main area (a plugin route, #/refinement-todos)
    and, simpler, as a panel in the right sidebar (a plugin sidebar renderer). Both are React components
    from Logseq's own React (logseq.Experiments.React) that hold the plugin's plain DOM view. */
-const host = () => window.parent.document;
+// The shared plumbing (parts/shared.js): its header says what each helper does.
+const shared = window.refinementShared;
+const { host } = shared;
 const PANEL_CLASS = 'refinement-todos-backdrop';
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements (todos): ' + message, ...details);
-}
-const unloadTasks = [];
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-function runUnloadTasks() {
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { task(); } catch (error) { warnOnce('clean-up step failed', error); }
-  }
-}
+// This part's own clean-up list; main.js runs it when the plugin unloads.
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (todos): ' });
 
 const settingsSchema = [
   { key: 'todosHeading', type: 'heading', title: 'Todos', default: null,
@@ -55,11 +46,7 @@ const settingsSchema = [
   { key: 'expectationsShortcut', type: 'string', title: 'Open Expectations', default: 'mod+alt+e',
     description: 'Opens Expectations the way chosen for Todos. mod+alt+e is Cmd+Option+E on a Mac. Leave empty for no shortcut. Applies after you reload the plugin.' },
 ];
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+const setting = shared.settingReader(settingsSchema);
 
 // Each list's own choices (grouping, chips), kept for next time on this computer.
 const prefsCache = {};
