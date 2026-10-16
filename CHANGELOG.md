@@ -385,3 +385,5 @@ Version 0.4.37 (2026-10-16) fixes the **Ask before filling** note, tested on scr
 ## Cleanup (October 2026)
 
 Version 0.4.38 (2026-10-16, cleanup) adds a .gitignore and moves the old backups, the release zips, main.js.orig and the gentle theme out of the plugin folder (to ~/logseq-plugin-archive and ~/logseq-gentle-theme). No code changed; seen on screen after a reload: nothing changed, and the probe's dump matches the baseline.
+
+Version 0.4.39 (2026-10-16, cleanup) adds tools/check.sh (syntax of every file through JavaScriptCore, no TEMP-DEV block, package.json and README versions agree, the settings and window.* counts printed, parts/ and PART_FILES in step) and tools/release.sh (runs the check, then builds ~/logseq-plugin-archive/releases/logseq-plugin-<version>.zip holding exactly package.json, loader.js, main.js, parts/*.js, README.md and CHANGELOG.md, with a date suffix when the name is taken). Plugin code unchanged; seen on screen after a reload: nothing changed, and the probe's dump matches the baseline.
