@@ -3,72 +3,15 @@
 /* Journal-day dates part of DB Refinements (was the Journal Day Dates plugin 1.0.0): fills an empty Date property on chosen records with the journal day they were
    written on. Split out of DB Refinements 0.2.156, which kept it under "Journal day as date". This is
    the only part of the plugin that writes to your notes, so it only runs in the graphs you name. */
-const unloadTasks = [];
-const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
-function runUnloadTasks() {
-  const pending = [];
-  for (const task of unloadTasks.splice(0).reverse()) {
-    try { pending.push(Promise.resolve(task()).catch(error => warnOnce('clean-up step failed', error))); } catch (error) { warnOnce('clean-up step failed', error); }
-  }
-  return Promise.all(pending);
-}
-// The Logseq window. The plugin runs in a frame inside it.
-const host = () => window.parent.document;
-const warned = new Set();
-function warnOnce(message, ...details) {
-  if (warned.has(message)) return;
-  warned.add(message);
-  console.warn('Refinements (journal dates): ' + message, ...details);
-}
-// A copy removed without its clean-up finishing is stopped by the next one.
-const STOP_KEY = '__journalDayDatesStop';
-function takeOverFromEarlierCopy() {
-  let win;
-  try { win = host().defaultView; } catch (error) { return; }
-  try { win[STOP_KEY]?.(); } catch (error) { warnOnce('an earlier copy could not be stopped', error); }
-  win[STOP_KEY] = runUnloadTasks;
-  onUnload(() => { if (win[STOP_KEY] === runUnloadTasks) delete win[STOP_KEY]; });
-  try { for (const el of win.document.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask')) el.remove(); } catch (error) { /* nothing left over */ }
-}
-
-/* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
-   frames). build(box, finish) fills the box; the promise resolves with what finish() is given.
-   Escape or a click outside resolves with cancelValue. Keys typed in the box never reach Logseq. */
-function modal(cancelValue, build, width) {
-  const doc = host();
-  return new Promise(resolve => {
-    const backdrop = doc.createElement('div');
-    backdrop.className = 'jdd-prompt-backdrop';
-    const box = doc.createElement('div');
-    box.className = 'jdd-prompt';
-    if (width) box.style.width = width;
-    let finished = false;
-    const finish = value => { if (finished) return; finished = true; backdrop.remove(); resolve(value); };
-    backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
-    for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
-    box.addEventListener('keydown', event => {
-      event.stopPropagation();
-      if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
-    });
-    backdrop.append(box);
-    doc.body.appendChild(backdrop);
-    build(box, finish, doc);
-  });
-}
-function modalButtons(doc, buttons) {
-  const row = doc.createElement('div');
-  row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-  for (const [text, onClick] of buttons) {
-    const b = doc.createElement('button');
-    b.textContent = text;
-    b.style.cssText = 'padding:4px 12px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
-    b.addEventListener('click', event => { event.preventDefault(); onClick(); });
-    row.append(b);
-  }
-  return row;
-}
-
-const notify = (message, level = 'info') => logseq.UI.showMsg(message, level);
+// The shared plumbing (parts/shared.js): its header says what each helper does.
+const shared = window.refinementShared;
+const { host, notify, modalButtons } = shared;
+// This part's own clean-up list and stop key: a copy removed without its clean-up finishing is stopped
+// by the next one, which also removes a note or box the earlier copy left on screen.
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (journal dates): ', stopKey: '__journalDayDatesStop',
+  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask')) el.remove(); } catch (error) { /* nothing left over */ } } });
+// The shared dialog box, drawn with this part's own class names (styled in promptCss below).
+const modal = (cancelValue, build, width) => shared.modal(cancelValue, build, width, { backdrop: 'jdd-prompt-backdrop', box: 'jdd-prompt' });
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -313,11 +256,7 @@ const settingsSchema = [
   { key: 'autoDateGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'Comma-separated graph names. Dates are filled only in the graphs named here; nothing is filled while this is empty. Plugin settings are shared by all your graphs, so this keeps date filling out of the others.' },
 ];
-const settingDefaults = Object.fromEntries(settingsSchema.map(item => [item.key, item.default]));
-function setting(key) {
-  const value = logseq.settings?.[key];
-  return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
-}
+const setting = shared.settingReader(settingsSchema);
 
 const promptCss = `
 .jdd-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
