@@ -885,7 +885,7 @@ function previewPane(doc) {
       ['is:', '<b>is:</b>task · todo · done · page · journal · block'], ['edited:', '<b>edited:</b>today · week · 3d']]
       .map(([code, label]) => `<span data-rf-insert="${code}" title="Add ${code} to the search">${label}</span>`).join('')
       + '<span class="rf-sg-quiet">Names with spaces in [[ ]]</span>'
-      + '<span class="rf-sg-keys" title="Opens the selected result in the right sidebar instead of the main view"><b>⇧ Enter</b> or <b>⇧ click</b> opens in sidebar</span>'
+      + '<span class="rf-sg-keys" title="Opens the selected result in the right sidebar instead of the main edit"><b>⇧ Enter</b> or <b>⇧ click</b> opens in sidebar</span>'
       + '<span class="rf-sg-more" data-rf-tips title="Show the full guide">? More tips</span>';
     guide.addEventListener('mousedown', event => event.preventDefault()); // keeps the cursor in the box
     guide.addEventListener('click', event => {
@@ -956,7 +956,7 @@ function showSearchTips(pane) {
       <li>Names with spaces go in [[ ]] or quotes: <code>in:[[Team Handbook]]</code></li>
       <li>With a code, every other word must be in the text: <code>in:Atlas sync</code> finds blocks on Atlas that say “sync”.</li>
       <li>While you type a code, a list suggests names; ↑ ↓ to choose, Tab or Enter to use one.</li>
-      <li>Shift+Enter, or Shift-click, opens the selected result in the right sidebar instead of the main view.</li>
+      <li>Shift+Enter, or Shift-click, opens the selected result in the right sidebar instead of the main edit.</li>
       <li>Type <code>?</code> in the box, or click “? More tips” at the bottom, to see these tips again.</li>
     </ul>`;
   pane.scrollTop = 0;
@@ -1083,7 +1083,7 @@ async function fillPreview(pane, uuid, generation) {
       body?.after(box);
       if (!mountPreviewEditor(pane, uuid)) box.remove();
     }
-    // The first marked word is brought into view when it is further down (the panel scrolls on its own).
+    // The first marked word is brought into edit when it is further down (the panel scrolls on its own).
     const first = pane.querySelector('.rf-pv-body mark');
     const below = first ? first.getBoundingClientRect().top - pane.getBoundingClientRect().top : 0;
     pane.scrollTop = below > pane.clientHeight * .7 ? below - pane.clientHeight / 3 : 0;
@@ -1122,99 +1122,111 @@ function previewClick(event) {
 // below (taking the words after the cursor with it), Backspace at the start of an empty bullet
 // removes it, and Escape stops editing.
 function editPreviewLine(pane, line, caret = null) {
-  const doc = pane.ownerDocument;
-  const uuid = line.dataset.uuid, stored = pane.rfTexts?.get(uuid) ?? '';
-  const { shown, back } = editableText(stored, pane.rfNames || new Map());
-  const box = doc.createElement('textarea');
-  box.className = 'rf-pv-edit';
-  box.value = shown;
-  const fit = () => { box.style.height = 'auto'; box.style.height = box.scrollHeight + 'px'; };
-  line.querySelector('.rf-pv-text, .rf-pv-edit').replaceWith(box);
-  fit();
-  box.focus();
-  if (caret !== null) box.setSelectionRange(Math.min(caret, box.value.length), Math.min(caret, box.value.length));
-  let timer = 0, removed = false;
-  const toStored = (text = box.value) => text.replace(/\[\[([^\]]+)\]\]/g, (m, name) => back.has(name) ? `[[${back.get(name)}]]` : m);
-  // Before writing, the block is read again: a line is only saved over the text the panel showed,
-  // never over a block that changed meanwhile or that is not the one the panel loaded.
-  const unchanged = async expected => {
-    const block = await logseq.Editor.getBlock(uuid).catch(() => null);
-    return !!block && String(block.title ?? block.content ?? '') === expected;
-  };
-  const save = async () => {
-    clearTimeout(timer);
-    const text = toStored();
-    const was = pane.rfTexts.get(uuid);
-    if (text === was) return;
-    if (!(await unchanged(was))) { notify('This block changed elsewhere; the line was not saved. Open it to edit it.', 'warning'); return; }
-    pane.rfTexts.set(uuid, text);
-    try { await logseq.Editor.updateBlock(uuid, text); searchExtras.meta.delete(searchPreview.uuid); }
-    catch (error) { notify(`Could not save this line: ${error.message || error}`, 'warning'); }
-  };
-  const depthOf = el => Number(el?.style.getPropertyValue('--rf-depth')) || 0;
-  const below = () => {
-    const lines = [...pane.querySelectorAll('.rf-pv-block')];
-    return lines.slice(lines.indexOf(line) + 1);
-  };
-  // A new bullet: the first child when this one's children are shown under it, else the next sibling.
-  // Logseq puts a child last unless asked for the start, so `start` keeps the page and the panel in step.
-  const split = async () => {
-    const rest = toStored(box.value.slice(box.selectionEnd));
-    box.value = box.value.slice(0, box.selectionStart);
-    const depth = depthOf(line), after = below();
-    const intoChildren = depthOf(after[0]) > depth;
-    box.blur();
-    let block;
-    try { block = await logseq.Editor.insertBlock(uuid, rest, intoChildren ? { sibling: false, start: true } : { sibling: true }); }
-    catch (error) { notify(`Could not add a bullet: ${error.message || error}`, 'warning'); return; }
-    if (!block?.uuid) return;
-    searchExtras.meta.delete(searchPreview.uuid);
-    const added = doc.createElement('div');
-    added.className = 'rf-pv-block';
-    added.dataset.uuid = String(block.uuid);
-    added.style.setProperty('--rf-depth', intoChildren ? depth + 1 : depth);
-    added.innerHTML = '<div class="rf-pv-text"></div>';
-    let last = line;
-    if (!intoChildren) for (const el of after) { if (depthOf(el) <= depth) break; last = el; }
-    last.after(added);
-    pane.rfTexts.set(added.dataset.uuid, rest);
-    editPreviewLine(pane, added, 0);
-  };
-  const remove = async prev => {
-    removed = true;
-    clearTimeout(timer);
-    // Only an empty bullet is removed, and only if it is still empty in the graph.
-    if (!(await unchanged(''))) { removed = false; notify('This bullet is not empty in the graph; it was left alone.', 'warning'); return; }
-    try { await logseq.Editor.removeBlock(uuid); }
-    catch (error) { removed = false; notify(`Could not remove this bullet: ${error.message || error}`, 'warning'); return; }
-    searchExtras.meta.delete(searchPreview.uuid);
-    pane.rfTexts.delete(uuid);
-    line.remove();
-    editPreviewLine(pane, prev, Infinity);
-  };
-  box.addEventListener('input', () => { fit(); clearTimeout(timer); timer = setTimeout(save, 700); });
-  box.addEventListener('keydown', key => {
+  const edit = { pane, line, caret };
+  for (const fn of EDITPREVIEWLINE_FUNCTIONS) edit[fn.name] = (...args) => fn(edit, ...args);
+  edit.doc = edit.pane.ownerDocument;
+  edit.uuid = edit.line.dataset.uuid; edit.stored = edit.pane.rfTexts?.get(edit.uuid) ?? '';
+  ({ shown: edit.shown, back: edit.back } = editableText(edit.stored, edit.pane.rfNames || new Map()));
+  edit.box = edit.doc.createElement('textarea');
+  edit.box.className = 'rf-pv-edit';
+  edit.box.value = edit.shown;
+  edit.line.querySelector('.rf-pv-text, .rf-pv-edit').replaceWith(edit.box);
+  edit.fit();
+  edit.box.focus();
+  if (edit.caret !== null) edit.box.setSelectionRange(Math.min(edit.caret, edit.box.value.length), Math.min(edit.caret, edit.box.value.length));
+  edit.timer = 0; edit.removed = false;
+  edit.box.addEventListener('input', () => { edit.fit(); clearTimeout(edit.timer); edit.timer = setTimeout(edit.save, 700); });
+  edit.box.addEventListener('keydown', key => {
     if (key.isComposing) return;
-    if (key.key === 'Enter' && !key.shiftKey) { key.preventDefault(); split(); }
-    else if (key.key === 'Escape') { key.preventDefault(); box.blur(); }
-    else if (key.key === 'Backspace' && !box.value && uuid !== searchPreview.uuid) {
+    if (key.key === 'Enter' && !key.shiftKey) { key.preventDefault(); edit.split(); }
+    else if (key.key === 'Escape') { key.preventDefault(); edit.box.blur(); }
+    else if (key.key === 'Backspace' && !edit.box.value && edit.uuid !== searchPreview.uuid) {
       // Only a bullet with nothing under it, and with a line above to move to.
-      const prev = line.previousElementSibling;
-      if (!prev?.matches('.rf-pv-block') || depthOf(below()[0]) > depthOf(line)) return;
+      const prev = edit.line.previousElementSibling;
+      if (!prev?.matches('.rf-pv-block') || edit.depthOf(edit.below()[0]) > edit.depthOf(edit.line)) return;
       key.preventDefault();
-      remove(prev);
+      edit.remove(prev);
     }
   });
-  box.addEventListener('blur', async () => {
-    if (removed) return;
-    await save();
-    if (removed) return;
-    const text = doc.createElement('div');
+  edit.box.addEventListener('blur', async () => {
+    if (edit.removed) return;
+    await edit.save();
+    if (edit.removed) return;
+    const text = edit.doc.createElement('div');
     text.className = 'rf-pv-text';
-    text.innerHTML = markHtml(previewHtml(pane.rfTexts.get(uuid), pane.rfNames || new Map()), pane.rfWords || []) || '<span class="rf-pv-blank">Empty</span>';
-    if (box.isConnected) box.replaceWith(text);
+    text.innerHTML = markHtml(previewHtml(edit.pane.rfTexts.get(edit.uuid), edit.pane.rfNames || new Map()), edit.pane.rfWords || []) || '<span class="rf-pv-blank">Empty</span>';
+    if (edit.box.isConnected) edit.box.replaceWith(text);
   });
 }
+
+function fit(edit) { edit.box.style.height = 'auto'; edit.box.style.height = edit.box.scrollHeight + 'px'; }
+
+function toStored(edit, text = edit.box.value) { return text.replace(/\[\[([^\]]+)\]\]/g, (m, name) => edit.back.has(name) ? `[[${edit.back.get(name)}]]` : m); }
+
+// Before writing, the block is read again: a line is only saved over the text the panel showed,
+// never over a block that changed meanwhile or that is not the one the panel loaded.
+async function unchanged(edit, expected) {
+  const block = await logseq.Editor.getBlock(edit.uuid).catch(() => null);
+  return !!block && String(block.title ?? block.content ?? '') === expected;
+}
+
+async function save(edit) {
+  clearTimeout(edit.timer);
+  const text = edit.toStored();
+  const was = edit.pane.rfTexts.get(edit.uuid);
+  if (text === was) return;
+  if (!(await edit.unchanged(was))) { notify('This block changed elsewhere; the line was not saved. Open it to edit it.', 'warning'); return; }
+  edit.pane.rfTexts.set(edit.uuid, text);
+  try { await logseq.Editor.updateBlock(edit.uuid, text); searchExtras.meta.delete(searchPreview.uuid); }
+  catch (error) { notify(`Could not save this line: ${error.message || error}`, 'warning'); }
+}
+
+function depthOf(edit, el) { return Number(el?.style.getPropertyValue('--rf-depth')) || 0; }
+
+function below(edit) {
+  const lines = [...edit.pane.querySelectorAll('.rf-pv-block')];
+  return lines.slice(lines.indexOf(edit.line) + 1);
+}
+
+// A new bullet: the first child when this one's children are shown under it, else the next sibling.
+// Logseq puts a child last unless asked for the start, so `start` keeps the page and the panel in step.
+async function split(edit) {
+  const rest = edit.toStored(edit.box.value.slice(edit.box.selectionEnd));
+  edit.box.value = edit.box.value.slice(0, edit.box.selectionStart);
+  const depth = edit.depthOf(edit.line), after = edit.below();
+  const intoChildren = edit.depthOf(after[0]) > depth;
+  edit.box.blur();
+  let block;
+  try { block = await logseq.Editor.insertBlock(edit.uuid, rest, intoChildren ? { sibling: false, start: true } : { sibling: true }); }
+  catch (error) { notify(`Could not add a bullet: ${error.message || error}`, 'warning'); return; }
+  if (!block?.uuid) return;
+  searchExtras.meta.delete(searchPreview.uuid);
+  const added = edit.doc.createElement('div');
+  added.className = 'rf-pv-block';
+  added.dataset.uuid = String(block.uuid);
+  added.style.setProperty('--rf-depth', intoChildren ? depth + 1 : depth);
+  added.innerHTML = '<div class="rf-pv-text"></div>';
+  let last = edit.line;
+  if (!intoChildren) for (const el of after) { if (edit.depthOf(el) <= depth) break; last = el; }
+  last.after(added);
+  edit.pane.rfTexts.set(added.dataset.uuid, rest);
+  editPreviewLine(edit.pane, added, 0);
+}
+
+async function remove(edit, prev) {
+  edit.removed = true;
+  clearTimeout(edit.timer);
+  // Only an empty bullet is removed, and only if it is still empty in the graph.
+  if (!(await edit.unchanged(''))) { edit.removed = false; notify('This bullet is not empty in the graph; it was left alone.', 'warning'); return; }
+  try { await logseq.Editor.removeBlock(edit.uuid); }
+  catch (error) { edit.removed = false; notify(`Could not remove this bullet: ${error.message || error}`, 'warning'); return; }
+  searchExtras.meta.delete(searchPreview.uuid);
+  edit.pane.rfTexts.delete(edit.uuid);
+  edit.line.remove();
+  editPreviewLine(edit.pane, prev, Infinity);
+}
+// The pieces of editPreviewLine, each given the edit's state; editPreviewLine binds them to the edit by name.
+const EDITPREVIEWLINE_FUNCTIONS = [fit, toStored, unchanged, save, depthOf, below, split, remove];
 
 /* Typed filters. Codes in the search box narrow what is found:
      #Tag                     tagged with it, or with a tag that extends it
@@ -1315,6 +1327,32 @@ async function valueTexts(values) {
 // Finds what the codes and words ask for, newest edit first (texts that start with the words first).
 async function runSearchFilters(parsed) {
   const catalog = await filterCatalog();
+  const clauses = await filterClauses(parsed, catalog);
+  if (clauses.note || clauses.handBack) return clauses;
+  const { where, described, valueChecks } = clauses;
+  let rows = await dsQuery(`[:find ?b ?u ?title ?updated ?p ?name :where ${where.join(' ')}
+    [?b :block/uuid ?u] [?b :block/title ?title]
+    [(get-else $ ?b :block/updated-at 0) ?updated] [(get-else $ ?b :block/page 0) ?p] [(get-else $ ?b :block/name "") ?name]
+    (not [?b :logseq.property/built-in? true]) (not [?b :logseq.property/hide? true])
+    [(missing? $ ?b :logseq.property/created-from-property)]]`);
+  let names;
+  ({ rows, names } = await narrowFilterRows(rows, parsed, valueChecks));
+  const shown = rows.slice(0, 100);
+  if (!parsed.words.length) names = await mentionedTitles(shown.map(row => String(row[2])));
+  const pageIds = [...new Set(shown.map(row => row[4]).filter(isEntityId))];
+  const pages = new Map(pageIds.length ? (await dsQuery(`[:find ?p ?u ?t :where ${idsIn('?p', pageIds)} [?p :block/uuid ?u] [?p :block/title ?t]]`))
+    .map(([p, u, t]) => [p, { uuid: String(u).toLowerCase(), title: String(t) }]) : []);
+  const list = shown.map(([, u, title, updated, p, name]) => ({
+    uuid: String(u).toLowerCase(), isPage: !!name, updated: Number(updated) || 0,
+    text: plainSearchText(String(title), names).replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 400) || 'Untitled',
+    pageUuid: pages.get(p)?.uuid || null, pageTitle: pages.get(p)?.title || '',
+  }));
+  return { list, total: rows.length, heading: described.join(', ') };
+}
+
+// The Datascript clauses the codes ask for, and the words that describe them; or a note when a name is
+// unknown (or still being typed), or handBack when a lone #word names no tag.
+async function filterClauses(parsed, catalog) {
   const where = [], described = [];
   const pick = (list, name) => list.filter(item => item.lower === name.toLowerCase());
   // A name that is only the start of one is still being typed.
@@ -1362,11 +1400,11 @@ async function runSearchFilters(parsed) {
   }
   if (parsed.bad.length) described.push(`not understood: ${parsed.bad.join(' ')}`);
   if (!where.length) return { note: parsed.bad.length ? `Not understood: ${parsed.bad.join(' ')}` : 'Type a name after the code, or pick one from the list.' };
-  let rows = await dsQuery(`[:find ?b ?u ?title ?updated ?p ?name :where ${where.join(' ')}
-    [?b :block/uuid ?u] [?b :block/title ?title]
-    [(get-else $ ?b :block/updated-at 0) ?updated] [(get-else $ ?b :block/page 0) ?p] [(get-else $ ?b :block/name "") ?name]
-    (not [?b :logseq.property/built-in? true]) (not [?b :logseq.property/hide? true])
-    [(missing? $ ?b :logseq.property/created-from-property)]]`);
+  return { where, described, valueChecks };
+}
+// The rows that also hold the asked-for property values and every word, newest first (a phrase at the
+// start first); names are the page titles the links in those rows show.
+async function narrowFilterRows(rows, parsed, valueChecks) {
   // p:Name=word: keep what has a value holding the word.
   for (const check of valueChecks) {
     const pairs = await dsQuery(`[:find ?b ?v :where ${idsIn('?b', rows.map(([b]) => b))} [?b ${keyword(check.ident)} ?v]]`);
@@ -1394,17 +1432,7 @@ async function runSearchFilters(parsed) {
     }
     return (Number(b[3]) || 0) - (Number(a[3]) || 0);
   });
-  const shown = rows.slice(0, 100);
-  if (!parsed.words.length) names = await mentionedTitles(shown.map(row => String(row[2])));
-  const pageIds = [...new Set(shown.map(row => row[4]).filter(isEntityId))];
-  const pages = new Map(pageIds.length ? (await dsQuery(`[:find ?p ?u ?t :where ${idsIn('?p', pageIds)} [?p :block/uuid ?u] [?p :block/title ?t]]`))
-    .map(([p, u, t]) => [p, { uuid: String(u).toLowerCase(), title: String(t) }]) : []);
-  const list = shown.map(([, u, title, updated, p, name]) => ({
-    uuid: String(u).toLowerCase(), isPage: !!name, updated: Number(updated) || 0,
-    text: plainSearchText(String(title), names).replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 400) || 'Untitled',
-    pageUuid: pages.get(p)?.uuid || null, pageTitle: pages.get(p)?.title || '',
-  }));
-  return { list, total: rows.length, heading: described.join(', ') };
+  return { rows, names };
 }
 
 const dialogSearch = doc => doc.querySelector('.ls-dialog-cmdk .cp__cmdk');
