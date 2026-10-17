@@ -5,7 +5,8 @@
 
    p::            opens a list under the caret: the fields of this record's kind first, then every property,
                   each with its type. Letters filter it; Enter picks a name and the list turns into its values.
-   name::value    skips to the values of a field you know (date::fri, owner::ad, stage::pl).
+   name::value    skips to the values of a field you know (date::fri, owner::ad, stage::pl); the first letters do
+                  when they start one field only (pro::at, a::mat), and several open the name list filtered (0.4.97).
    The values are predicted by the property's type: days for a Date (today, tomorrow, the weekdays, "next fri",
    2026-10-23, 23 oct, +3), pages of the right class for a page-valued field, the choices for a closed set,
    the values already used for free text, yes/no for a checkbox, the number or url as typed. While a row is
@@ -30,6 +31,8 @@ const settingsSchema = [
     description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from a dashed “Make …” row (a new property still comes from Logseq’s own Add property).' },
   { key: 'inlinePropsGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'Comma-separated graph names. The list opens only in the graphs named here; nothing happens while this is empty. Plugin settings are shared by all your graphs, so this keeps the writing out of the others.' },
+  { key: 'inlinePropsPrefix', type: 'boolean', title: 'First letters name the field', default: true,
+    description: 'The letters before :: need only start a field’s name: pro:: opens project’s values when only one of the record’s own fields (or, failing that, one of all your properties) starts so; when several do, the name list opens filtered by them, so nothing is guessed. The record’s fields are listed in the order of their pills. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -207,12 +210,26 @@ async function dayRows(filter, withTime) {
 }
 
 /* The rows of each stage. A row is { kind, label, right?, icon? (html), day?, dashed?, prop?, value? }. */
-const state = { box: null, uuid: '', stage: null, prop: null, name: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null };
-async function nameRows(filter) {
+const state = { box: null, uuid: '', stage: null, prop: null, name: '', prefix: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null };
+// The block's property pills as Logseq draws them. A pill's first child reads "attendees:", with the colon, in edit
+// as out of it (seen 2026-10-17; the name was never matched before 0.4.96).
+const pillName = p => (p.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
+function pillsOf(uuid) {
+  const block = host().querySelector(`.ls-block[blockid="${uuid}"]`);
+  return block ? [...block.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(p => p.closest('.ls-block[blockid]') === block) : [];
+}
+// The record's fields in the order of their pills on screen (0.4.97), the ones without a pill after, as the schema has them.
+function inPillOrder(fields, uuid) {
+  const order = pillsOf(uuid).map(pillName);
+  const at = prop => { const i = order.indexOf(prop.lower); return i < 0 ? order.length : i; };
+  return fields.map((prop, i) => [prop, at(prop), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(([prop]) => prop);
+}
+async function nameRows(filter, prefix = '') {
   const schema = await graphWide('inlinePropsSchema', loadSchema);
-  const fields = await fieldsOf(state.uuid, schema);
+  const fields = inPillOrder(await fieldsOf(state.uuid, schema), state.uuid);
   const f = filter.toLowerCase();
-  const fits = prop => !f || prop.lower.includes(f);
+  // With a prefix (d:: for date, Deadline, due date) only names that start so are listed; the letters after :: narrow them.
+  const fits = prop => (!prefix || prop.lower.startsWith(prefix)) && (!f || prop.lower.includes(f));
   // Names that start with the letters typed come before names that only contain them.
   const byStart = (a, b) => (b.lower.startsWith(f) - a.lower.startsWith(f)) || (fields.includes(b) - fields.includes(a));
   const asRow = prop => ({ kind: 'prop', prop, label: prop.title, right: typeLabel(prop), icon: typeIcon(prop) });
@@ -283,6 +300,16 @@ async function tokenAt(box) {
   if (best) return { stage: 'value', prop: best, name: best.title, filter, start: tail(best.title) };
   if (/(?:^|\s)p$/.test(lowerPhrase)) return { stage: 'name', prop: null, name: 'p', filter, start: tail('p') };
   const word = phrase.trim().match(/(\S+)$/)?.[1] || phrase.trim();
+  // The first letters of a name (0.4.97): one of the record's own fields starting so, else one of all properties,
+  // goes straight to its values; several open the name list filtered by them; none is a name the graph lacks.
+  if (setting('inlinePropsPrefix')) {
+    const w = word.toLowerCase(), uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid') || '';
+    const starting = list => list.filter(prop => prop.lower.startsWith(w));
+    let hits = starting(await fieldsOf(uuid, schema));
+    if (!hits.length) hits = starting(schema.props);
+    if (hits.length === 1) return { stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(word) };
+    if (hits.length > 1) return { stage: 'name', prop: null, name: word, prefix: w, filter, start: tail(word) };
+  }
   return { stage: 'new', prop: null, name: word, filter, start: tail(word) };
 }
 
@@ -352,11 +379,7 @@ function drawGhost() {
   const row = state.rows[state.sel];
   if (state.stage !== 'value' || !row || row.kind !== 'value') return;
   const doc = host(), name = state.prop.title, shown = row.value.shown || row.value.title;
-  const block = doc.querySelector(`.ls-block[blockid="${state.uuid}"]`);
-  const own = el => el.closest('.ls-block[blockid]') === block;
-  // The pill's first child reads "attendees:", with the colon (seen in edit on 2026-10-17; the name was never matched before).
-  const pillName = p => (p.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
-  const pill = block && [...block.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && pillName(p) === name.toLowerCase());
+  const pill = pillsOf(state.uuid).find(p => pillName(p) === name.toLowerCase());
   const g = doc.createElement('span');
   g.className = 'rip-ghost';
   g.setAttribute('contenteditable', 'false');
@@ -378,10 +401,10 @@ async function check(box) {
   if (!token || !box.isConnected) return closeMenu();
   const uuid = box.closest('.ls-block[blockid]').getAttribute('blockid');
   const changed = state.stage !== token.stage || state.prop !== token.prop || state.uuid !== uuid || state.name !== token.name;
-  Object.assign(state, { box, uuid, stage: token.stage, prop: token.prop, name: token.name, filter: token.filter, start: token.start });
+  Object.assign(state, { box, uuid, stage: token.stage, prop: token.prop, name: token.name, prefix: token.prefix || '', filter: token.filter, start: token.start });
   let rows;
   try {
-    rows = token.stage === 'name' ? await nameRows(token.filter)
+    rows = token.stage === 'name' ? await nameRows(token.filter, state.prefix)
       : token.stage === 'value' ? await valueRows(token.prop, token.filter)
       : unknownRows(token.name);
   } catch (error) { warnOnce('the rows could not be built', error); return closeMenu(); }
