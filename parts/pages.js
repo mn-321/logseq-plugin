@@ -206,7 +206,7 @@ function updateTitleTags(doc, title) {
   if (!chip || chip.ownerDocument !== doc) {
     chip = pageKind.titleTags = doc.createElement('a');
     chip.className = 'refinement-title-tags';
-    chip.textContent = '#Page';
+    chip.textContent = 'Page';
     chip.setAttribute('role', 'button');
     chip.setAttribute('title', 'Add a tag to this page');
     // A second press closes the list. Logseq closes a pop-up as soon as you press outside it, so

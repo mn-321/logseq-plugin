@@ -61,7 +61,7 @@ Shared scale lives in `tokensCss` (`--rf-quiet`, `--rf-faint`, `--rf-line-pct`, 
 | --- | --- |
 | Link to a page | faint solid underline, page's own icon in normal text colour |
 | Link to a tag's own page | same underline, icon in the tag colour (`--rf-tag-color`; a `#` icon in that colour if the tag has none) |
-| Tag at the right of a block, `#Tag` above a tag page's title, the `#` before that title, a tag word left in a sentence | the words in the text colour, only the `#` in the tag colour (`tagMark`, 0.4.67); Logseq draws each chip as a `#` link beside the name |
+| Tag at the right of a block, the tag label above a title, the tag tabs | grey monospace names without the `#`: a tag acts like a class (`tagMark`, 0.4.89; 0.4.67 had the words in the text colour with the `#` in the tag colour). A tag word left in a sentence keeps its `#` in the tag colour, as does the `#` before a tag page's own title |
 | Link to a block (inline or whole row) | small dot in front, nothing under or after the words; a block that carries its tag's icon reads dot, icon, words (0.4.72) |
 | Link to a task block | status/priority icons stand in for the dot |
 | Date | grey box; a past day in the secondary text colour, today firmer on the stronger wash, a day to come as it is (`dateTense`, 0.4.69) |
