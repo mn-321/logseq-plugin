@@ -375,7 +375,7 @@ function startPageKind() {
   try {
     logseq.provideStyle({ key: 'personal-db-page-kind', style: `
 /* "#Page" on a page with no tag of its own, in the row of actions above the title. */
-.refinement-title-tags { margin-left: .6rem; font-size: var(--rf-small); line-height: 1.5rem; white-space: nowrap; color: var(--ls-link-text-color, inherit); cursor: pointer; text-decoration: none; }
+.refinement-title-tags { margin-left: .6rem; font-size: .75rem; /* rem, not --rf-small: the title row's own font is large */ line-height: 1.5rem; white-space: nowrap; color: var(--ls-link-text-color, inherit); cursor: pointer; text-decoration: none; }
 .refinement-title-tags:hover { text-decoration: underline; }
 :is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) {
   margin: .15rem 0 .25rem;

@@ -427,7 +427,7 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref:is([data-refin
 .ls-datetime::before { content: none !important; }
 /* The small pencil Logseq puts after a date value: a date is plainly a value you can change, so the pencil goes
    (the owner's word, 0.4.85). The value itself still opens Logseq's date picker on a click. */
-.ls-block .ls-datetime :is(.ls-icon-edit, .ls-icon-pencil, svg.tabler-icon-edit, svg.tabler-icon-pencil, a:has(> .ui__icon):not(.page-ref)) { display: none !important; }
+.ls-block .bottom-property-edit-icon { display: none !important; }
 /* A date is a link to its journal page, never to a block: no dot inside the box. */
 :is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap::before, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"]) .block-title-wrap::before { content: none !important; }
 /* The time follows the date after a space, as Logseq spaces them. */
@@ -504,8 +504,10 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
 `],
   ['pickerMarks', `/* The [[ menu says what each row is: a # in the tag colour before a tag, a small grey box before a journal
-   day, pages plain. Marked by updatePickerMarks in the links part, by name against the tags and journals it knows. */
-#ui__ac .menu-link[data-refinement-pick="tag"]::before { content: '#'; color: var(--rf-tag-color); margin-right: .1em; }
+   day, pages plain. Marked by updatePickerMarks in the links part, by name against the tags and journals it knows.
+   Logseq already draws a # icon before a tag row at half opacity; it takes the tag colour at full strength. */
+#ui__ac .menu-link[data-refinement-pick="tag"] .icon-cp-container { opacity: 1 !important; }
+#ui__ac .menu-link[data-refinement-pick="tag"] .ls-icon-hash { color: var(--rf-tag-color) !important; }
 #ui__ac .menu-link[data-refinement-pick="date"] { font-variant-numeric: tabular-nums; }
 #ui__ac .menu-link[data-refinement-pick="date"]::before { content: ''; display: inline-block; width: .6em; height: .75em; margin-right: .4em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); vertical-align: -.05em; }
 `],
@@ -590,6 +592,8 @@ const hierarchyParts = {
 :is(#main-content-container, #right-sidebar) .block-tag a.hash-symbol { display: none !important; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *) { color: var(--ls-secondary-text-color, currentColor) !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); letter-spacing: .01em; text-decoration: none !important; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *):hover { color: var(--ls-primary-text-color, currentColor) !important; }
+/* In the title row the font is large; the tag label there keeps the size of the small words beside the title. */
+#main-content-container .ls-page-title a.tag:not(mark *) { font-size: .75rem; }
 .ls-block .block-content span[data-refinement-mention] { display: inline-block; }
 .ls-block .block-content span[data-refinement-mention]::first-letter { color: var(--rf-tag-color); }
 .ls-bidirectional-properties [role="tab"] > span > span:last-child::before { content: none; }

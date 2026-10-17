@@ -45,7 +45,7 @@ Git: one version per commit. No global identity is set; commit with
 
 - Seen once (0.4.77): a record written from the command line about ten seconds after a plugin reload was not noticed by `DB.onChanged` until the journal-date check was run by hand (`window.journalDatesDebug.autoDateNew()` in the plugin frame).
 - The plugin API refuses every icon value a plugin sends (`upsert_block_property` with `{type, id}` logs "Invalid icon", 2.0.2); an icon on a tag is picked on its page with Logseq's own Add icon.
-- Still open from the grammar page: change 9 (one write path with an inverse, mostly in Todos and the tag tree), housekeeping 10, 17 (the two views' own scales and bars), 21, 24 to 26 and 28 (Todos, the tree, and the Cmd+Z check of the editor commands), and the Logseq defaults left on purpose; see `docs/GRAMMAR.md`.
+- Still open from the grammar page: change 9 (one write path with an inverse, mostly in Todos and the tag tree), housekeeping 10, 17 (the two views' own scales and bars), 21, 24 to 26 (Todos and the tree), and the Logseq defaults left on purpose; see `docs/GRAMMAR.md`. Checked at 0.4.90: Cmd+Z after New block at the outermost level takes the new block away and a second Cmd+Z the spacer; the hover preview of a page carries the plugin's cues (date tense, the property field); the bare number at the right of a page row under a tag tab (7 on Atlas) is Logseq's own count of that page's references and is left as it is.
 
 - Add tags to this page (Cmd+T) opens the plugin's own Tags list under the title since 0.4.82, the same list the `#Page` label opens; on the Journals list it says so and does nothing.
 - On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions (test data, not plugin code).

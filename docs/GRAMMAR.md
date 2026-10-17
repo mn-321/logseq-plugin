@@ -219,7 +219,7 @@ The departures further down make the code keep its own rules; none of them chang
 
 ## Housekeeping: where the code departs from its own rules
 
-**Status at 0.4.87.** Done: 1 (0.4.67), 2 (0.4.70), 5 to 9 and 11 (the tokens, 0.4.83), 15 (0.4.83), 16 in part (the rich-copy card, 0.4.86; the merge box is in the tree), 17 in part (one bar in shared.js, 0.4.84; the views keep theirs), 18 to 20 (0.4.82), 22 (0.4.77), 23 (0.4.82), 27 (0.4.84), 31 (0.4.82), 33 to 36 (0.4.87). Written in rather than changed: 3, 4, 12 to 14, 29, 30, 32. Open: 10, 21, 24 to 26 (Todos and the tree), 28 (the Cmd+Z check).
+**Status at 0.4.87.** Done: 1 (0.4.67), 2 (0.4.70), 5 to 9 and 11 (the tokens, 0.4.83), 15 (0.4.83), 16 in part (the rich-copy card, 0.4.86; the merge box is in the tree), 17 in part (one bar in shared.js, 0.4.84; the views keep theirs), 18 to 20 (0.4.82), 22 (0.4.77), 23 (0.4.82), 27 (0.4.84), 31 (0.4.82), 33 to 36 (0.4.87). Written in rather than changed: 3, 4, 12 to 14, 29, 30, 32. Open: 10, 21, 24 to 26 (Todos and the tree). 28 checked at 0.4.90 for New block at the outermost level: Cmd+Z takes the new block away, a second press the spacer; the other commands were not pressed.
 
 These change nothing about how a page reads; they make the code keep its own rules. For each: what is there now, one proposal, and the reason. The owner decides by looking; "write it in" means the grammar changes, not the code.
 
@@ -270,7 +270,7 @@ These change nothing about how a page reads; they make the code keep its own rul
 
 ## What Logseq still draws against the grammar
 
-**Status at 0.4.87.** Done: 1 and 2 (the tag mark, 0.4.67; the owner has since asked for tag chips as grey monospace words without the `#`, which comes next), 3 (dot, icon, words, 0.4.72), 4 (empty properties faint, 0.4.79; the owner ruled out hiding them), 6 (the picker marks, 0.4.84). Open: 9 (the bare count, to be looked at), 11 (the hover preview, to be looked at once). The rest are left on purpose.
+**Status at 0.4.87.** Done: 1 and 2 (the tag mark, 0.4.67; the owner has since asked for tag chips as grey monospace words without the `#`, which comes next), 3 (dot, icon, words, 0.4.72), 4 (empty properties faint, 0.4.79; the owner ruled out hiding them), 6 (the picker marks, 0.4.84). Looked at (0.4.90): 9, the bare count is Logseq's count of the page's references (7 on Atlas) and is left as it is; 11, the hover preview of a page carries the plugin's cues. The rest are left on purpose.
 
 The plugin changes how Logseq draws things; some of Logseq's own drawing still bends the rules. For each: what Logseq draws, which rule it bends, and one proposal. "Leave" is a proposal too, with its reason.
 

@@ -570,9 +570,12 @@ function applyUsageFilter(doc, filter) {
   if (filter) {
     const incoming = cueMarks.incoming;
     for (const row of doc.querySelectorAll('#main-content-container .references .ls-block[blockid]')) {
-      if (row.parentElement?.closest('.ls-block')) continue; // a block below a reference goes with its reference
+      // Only rows that are references themselves are judged (a parent drawn above one, or a block below one, goes
+      // with the reference it belongs to); a reference nested under its parent row is judged on its own.
       const uuid = row.getAttribute('blockid'), names = incoming.get(uuid);
-      const match = filter === 'text' ? !names && !incoming.tagged?.has(uuid) : filter === 'tagged' ? incoming.tagged?.has(uuid) : names?.has(filter);
+      const tagged = incoming.tagged?.has(uuid), inText = incoming.inText?.has(uuid);
+      if (!names && !tagged && !inText) continue;
+      const match = filter === 'text' ? inText : filter === 'tagged' ? tagged : names?.has(filter);
       if (!match) hide.add(row);
     }
   }
