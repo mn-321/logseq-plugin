@@ -1,6 +1,6 @@
 # The grammar of DB Refinements
 
-Written 2026-10-16 at 0.4.63 and revised at 0.4.64, 0.4.65 and 0.4.66, from what the plugin does today. Nothing here is new; it is the rules the code already follows, written in one place, and a list of where the code departs from them. The departures are proposals. Nothing was changed to write this.
+Written 2026-10-16 at 0.4.63, revised at 0.4.64 to 0.4.66, and brought up to date at 0.4.79 after nine of the changes below were built (each marked), from what the plugin does today. Nothing here is new; it is the rules the code already follows, written in one place, and a list of where the code departs from them. The departures are proposals. Nothing was changed to write this.
 
 Seen on screen while writing it, in the Plugin Test Graph: the page **Plugin Visual Cues** (every cue with its example), and the page **Ada Okafor** (its property list, its `#Project` tab and its Linked references). The rest was read in the code and the README.
 
@@ -56,9 +56,12 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Before the link | the icon in the tag colour, or a `#` in that colour when the tag has none; the name underlined | a tag's own page | Quiet page links (`quietLinks`) | styles.js (`applyTagPageStyle`) |
 | Before the link | a small faint dot; no underline, nothing after | a block | Icons for block references and files (`referenceIcons`) | styles.js, links.js |
 | Before the link | the status and priority icons; the dot moves in front of them | a block that is a task | Icons for block references and files (`referenceIcons`) | styles.js |
-| Before the link | a grey document or picture icon; the words with the page underline | a PDF or an image | Icons for block references and files (`referenceIcons`) | styles.js |
+| Before the link | a grey document or picture icon; the words with the page underline; nothing after | a PDF or an image | Icons for block references and files (`referenceIcons`) | styles.js |
+| Before the link | the dot, then the tag's icon Logseq draws, then the words | a block that carries its tag's icon (0.4.72) | Icons for block references and files (`referenceIcons`) | styles.js |
 | Before the link | `•` before each row of the `((` picker | every row there is a block | Icons for block references and files (`referenceIcons`) | styles.js |
 | Around the words | a grey box in the text font; no icon, no border | a date, or a link to a journal page | Dates in a soft grey box (`dateStyle`) | styles.js |
+| Around the words | the box with its words in the secondary colour; today firmer on the stronger wash; a day to come as it is | a date's tense (0.4.69) | Dates carry their tense (`dateTense`) | styles.js, links.js |
+| Around the words | a dashed box, `Date: Oct 16th, 2026`, with `j fills · k leaves it` | a proposed value, not yet written (0.4.77) | Ask before filling (`autoDateAsk`) | journal-dates.js |
 | Around the words | a faint wash with a hairline beneath, square corners | the link to the page on screen, under Linked references and in the records under its tag tabs; on a journal, a date that points to that day | Mark the link to this page in Linked references (`markReferenceHere`) | links.js |
 | Around the words | the shown name without its trailing tag | a page link written as "Name #tag" | Page links without trailing tags (`pageLabels`) | links.js |
 | Around the words | plain words with a 2px underline in the grey path, instead of `[[Name]]` | a link in a parent path | Plain links in grey paths (`plainPathLinks`) | styles.js, links.js |
@@ -67,7 +70,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Around the words | a muted steel blue | a page link on a highlight, so it stays readable | Quiet page links (`quietLinks`) | styles.js |
 | After the text | `↳`, a dashed circle and a number | unfinished tasks below, at any depth | Show what a block holds (`childTypeCues`) | styles.js, links.js |
 | After the text | `↳` and small picture or document icons | files directly below | Show what a block holds (`childTypeCues`) | styles.js, links.js |
-| After the text | `pdf`, `png`, `jpg` … in small grey | the type of a file link | Icons for block references and files (`referenceIcons`) | styles.js |
+| After the text | `· 1 #Decision`, `· due Fri`, only while the block is folded | the kinds inside and the nearest due day (0.4.75) | Show what a block holds (`childTypeCues`) | styles.js, links.js |
 | After the text | `”` then `(p. 1)` or `(Document title, p. 1)` in small grey | the source of a PDF highlight | Compact PDF citations (`pdfCitations`) | styles.js, links.js |
 | After the text | `via owner: page`, the page marked | why a folded record is listed under this page's tab | Show how records are linked (`linkLabels`) | styles.js, links.js |
 | After the text | `· n` after a source page's heading | that page holds n references | Clearer Linked references (`referenceLayout`) | styles.js, links.js |
@@ -100,7 +103,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Search window | a list of names under the box as you type a code | the typed filters | Filter search with codes (`searchFilters`) | search.js |
 | Tag tree | `#` in the root's colour before every tag under it; heavier names on tags with tags inside; light chips for a tag's own properties, grey words for inherited ones | the tree | Root tags (`tagTreeRoots`) and the tag tree's other settings | tags.js |
 
-A tag belongs to the block, not to the text: Logseq shows it at the right of the row as a blue link, and a tag typed at the end of the text moves there. A tag word left in the middle of a sentence stays as a plain mention in the text colour. The plugin changes neither (HANDOFF's table says a tag on a block is bold with no underline; seen today, it is Logseq's blue link at the right).
+A tag belongs to the block, not to the text: Logseq shows it at the right of the row, and a tag typed at the end of the text moves there. Since 0.4.67 (Tags as words with a coloured #, `tagMark`) the tag's words are in the text colour and only its `#` in the tag colour, at the right of a block, above a tag page's title, before that title, and on a tag word left in a sentence. Since 0.4.73 a tag page shows its path under the title (`showTagPath`), since 0.4.74 any page shows how it is used (`showUsage`), and since 0.4.79 a property with no value is faint, never hidden (`quietEmptyProps`).
 
 ## Part 2: how it behaves
 
@@ -109,14 +112,15 @@ A tag belongs to the block, not to the text: Logseq shows it at the right of the
 The plugin writes to notes in three ways, and no other.
 
 - **From its own views, when you change something there.** Todos and Expectations write a task's status, priority, date or first line when you change it in the list, add a task when you press Enter in the add box, and delete one from its menu. The tag tree moves, makes, renames and merges tags, and moves properties between tags, when you do that in the tree. The search preview saves a line you edited, splits one on Enter and removes an empty one on Backspace.
-- **After asking.** Journal day as date fills an empty Date property on a new record only in the graphs named in its settings, and with Ask before filling on, only after you answer the note. Fill missing dates from journal days asks in a box first and says how many it found.
+- **After asking.** Journal day as date fills an empty Date property on a new record only in the graphs named in its settings, and with Ask before filling on, only after you answer the ghost value in the record's row (or the note, when the record is not on screen). Fill missing dates from journal days asks in a box first and says how many it found.
 - **When you run a command.** Link selected text to a page, Open selected text as page, Make a page from this block, Delete this block and New block at the outermost level write to the block you are in, when you run them. A year-first date typed inside `[[ ]]` becomes the journal's name as you type it. Fold all and Unfold all press Logseq's fold arrows, which Logseq saves.
 
 Nothing writes on a timer, on a reload or on a page change. Copy as rich text only reads. Choose properties shown in this list writes to the plugin's settings, not to notes, and says so in its box.
 
 ### How it asks
 
-- **The note**, for "may I, while you write": a small box at the top right that names the property, the day and the record. `j` or **Yes** fills it. `k` or **No** leaves that record alone for the rest of the session. `Esc` leaves it for now, and it may be asked again on the next change. While you are typing in a block, `j`, `k` and `Esc` stay yours and the note's buttons work instead. A note nobody answers goes away after 25 seconds. One record at a time.
+- **The ghost value**, for "may I, while you write" (0.4.77): the proposed day drawn as a dashed box in the record's own row, in its empty date pill when Logseq shows one, else after its title. `j`, or a click on the day, writes it and a dark bar at the bottom offers Undo for seven seconds. `k` leaves that record alone for the rest of the session. `Esc`, or the record leaving the screen, leaves it for now. While you are typing in a block, `j`, `k` and `Esc` stay yours. Dashed means proposed, not written, as the dashed circle means not finished. One record at a time.
+- **The note**, when the record is not on screen: a small box at the top right that names the property, the day and the record, with **Yes** and **No**; it goes away by itself after 25 seconds.
 - **The box**, for "here is what will happen": a small dialog in the middle of the window, drawn from `shared.modal`. Enter in its field confirms. Escape or a click outside cancels. Keys typed in the box never reach Logseq. Link selected text asks for the page title in it. Fill missing dates asks "n records … have no Date. Fill each with the journal day it was written on?" in it, with Cancel and Fill dates. Choose properties shows its tick list in it. Troubleshooting lists its tools in it.
 - **The tag tree's merge box**: a summary of what will change, then **Merge**. It says in words that the moves cannot be undone in one step and that Logseq deletes the old tag for good.
 - **Todos' delete**: a second menu, "Delete this task and the blocks under it?", with Delete and Keep it.
@@ -130,7 +134,7 @@ One toast, through Logseq's own message, at warning level, that names what to do
 
 - **In Todos and Expectations**: a change of status, priority, due date, planned date or text shows a dark bar at the bottom, "“Task” is now Doing, due Oct 17", with **Undo**, for seven seconds. Undo puts the old values back. Adding a task and deleting one have no undo.
 - **In the tag tree**: a move, a new tag, a rename, a property added, taken off or moved up, a root added or removed, show the same bar with **Undo** for seven seconds. Undo deletes a new tag by its id and puts a moved one back. A merge has no undo and says so before it runs. Moving a root up or down has no bar.
-- **Journal dates**: no undo of the plugin's own. A filled date is an ordinary property; it can be cleared by hand.
+- **Journal dates**: a date filled after `j` shows the dark bar with Undo for seven seconds, which takes the property off again (0.4.77). Fill missing dates still has no undo.
 - **The commands**: no undo of the plugin's own. The typed date inside `[[ ]]` is typed text, so Cmd+Z brings the digits back. Fold all is undone by Unfold all.
 - **The search preview**: no undo of the plugin's own.
 
@@ -192,6 +196,8 @@ Typed, not a command: a year-first date inside `[[ ]]` becomes the journal's nam
 
 ## Ten changes that would make a page read better
 
+**Status at 0.4.79.** Built and kept, each behind its own setting: 1 (dot, icon, words; 0.4.72, without the tree's Set icon, which the API refuses), 2 (0.4.75), 4 (0.4.77), 5 (0.4.74, with the other rows dimmed rather than hidden), 6 (0.4.73, without the tree's root hues), 10 (0.4.69). Built and taken out: 3 (0.4.68, removed 0.4.78: the owner wants Logseq's own spacing). Drafted and dropped: 8 ("too complicated"). Not started: 7 and 9. Todos and the tag tree are off limits for now.
+
 The departures further down make the code keep its own rules; none of them changes how a page reads. These ten do. Each follows one of the axes further than the plugin takes it today. For each: what is there now, what is proposed, why, and what it would take. None is built. They are for the owner to pick from by looking at the drawing on the grammar page, then at a trial in the test graph.
 
 1. **A link to a record shows its kind, with the dot where the task rule puts it.** Now: Logseq already draws a tag's icon in the bullet of a tagged block and before a link to it, when the tag has an icon (seen today with #Book: the row's bullet is the book, and the link reads book, dot, words); a tag without an icon gives nothing, and the plugin's dot lands after the icon, where for a task it lands before. Proposed: give every tag in the tree an icon (the tree gets a Set icon action per tag, which Logseq lets a plugin write) and put the dot first, dot, icon, words, as for a task. Why: Logseq already uses the bullet to say what a record is; the plugin only has to make the owner's tags take part and keep one order. Takes: a menu entry in tags.js that writes the tag's icon property; one rule in styles.js for the order.
@@ -206,6 +212,8 @@ The departures further down make the code keep its own rules; none of them chang
 10. **Dates carry their tense.** Now: every date is the same grey box; Todos alone writes today firm, a planned day in italics, a late date red. Proposed: on the page too, a past day quiet, today in the text colour and a little firmer, a future day as it is, overdue still yellow. Why: an old journal is full of past dates, and the one that matters is the one that is near. Takes: the date pass already parses the day (`isJournalDate`); one mark, three rules.
 
 ## Housekeeping: where the code departs from its own rules
+
+**Status at 0.4.79.** Done: 1 (one colour for `#`, 0.4.67), 2 (no file type word, 0.4.70), 22 (Undo after a fill, 0.4.77). The rest stand as written.
 
 These change nothing about how a page reads; they make the code keep its own rules. For each: what is there now, one proposal, and the reason. The owner decides by looking; "write it in" means the grammar changes, not the code.
 
@@ -255,6 +263,8 @@ These change nothing about how a page reads; they make the code keep its own rul
 35. **"The only part that writes to your notes."** Now: the journal part's description in the settings window (journal-dates.js). Proposal: "the only part that writes without you pressing anything, and only after asking". Why: it is the true distinction.
 
 ## What Logseq still draws against the grammar
+
+**Status at 0.4.79.** Done: 1 and 2 (the tag mark, 0.4.67), 3 (dot, icon, words, 0.4.72), 4 (empty properties faint, 0.4.79; the owner ruled out hiding them). The rest stand as written.
 
 The plugin changes how Logseq draws things; some of Logseq's own drawing still bends the rules. For each: what Logseq draws, which rule it bends, and one proposal. "Leave" is a proposal too, with its reason.
 

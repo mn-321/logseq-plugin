@@ -1,6 +1,6 @@
 # Handoff: Logseq DB Refinements plugin
 
-Updated 2026-10-16, after the cleanup (0.4.38 to 0.4.62). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
+Updated 2026-10-16 (evening), after the cleanup (0.4.38 to 0.4.62) and the grammar round (0.4.63 to 0.4.79). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
 
 ## What this is
 
@@ -31,7 +31,8 @@ Git: one version per commit. No global identity is set; commit with
 
 ## The state today
 
-- 0.4.62 on `main`. Everything the owner sees is as it was at 0.4.37, apart from one change: the command palette's eight troubleshooting entries became one, **Refinements: troubleshooting**, which opens a box listing the tools (plus a new tool, **Copy warnings**).
+- 0.4.79 on `main`. `docs/GRAMMAR.md` (written at 0.4.63) states the visual and behavioural grammar and what is built, dropped or open; a drawn version is the private artifact "Refinements Grammar" (claude.ai/artifact/FvVhNv4GPgbUUpsdPFvchV). The grammar round built nine changes the owner then looked at (see "The grammar round" below); each has its own setting.
+- The owner's words at the end of that round, which hold until they say otherwise: leave Todos and the tag tree alone; keep it simple; no extra space between blocks (Logseq's own spacing); no property Logseq shows may become invisible (faint is fine); they will look at the changes in `Work` themselves.
 - The code is a core plus parts (see the table). Every helper exists once (`parts/shared.js`); in the three files the cleanup split (tags, todos, search) no function is over 80 lines; the ones still over it elsewhere are listed under "Cleanup (October 2026)" below.
 - The owner uses the plugin in `Work` and lets journal-day dates run there (settings `autoDateGraphs: Plugin Test Graph, Work`).
 
@@ -41,6 +42,10 @@ Git: one version per commit. No global identity is set; commit with
 - Decided on 2026-10-12, leave as they are unless the owner raises them again: property lists stay as Logseq draws them (bullet beside every value, normal weight); the `↳ ◌ n` task count repeats on every ancestor, and links to PDFs/images count as "files below"; a source page whose only reference is the page itself shows the name twice.
 
 ## Known loose ends
+
+- Seen once (0.4.77): a record written from the command line about ten seconds after a plugin reload was not noticed by `DB.onChanged` until the journal-date check was run by hand (`window.journalDatesDebug.autoDateNew()` in the plugin frame).
+- The plugin API refuses every icon value a plugin sends (`upsert_block_property` with `{type, id}` logs "Invalid icon", 2.0.2); an icon on a tag is picked on its page with Logseq's own Add icon.
+- Change 7 of the grammar page (the `#` and the date box on the rows of the `[[` picker), the housekeeping tokens and wording, and the three documentation items are not done; see `docs/GRAMMAR.md`.
 
 - The Cmd+T command calls Logseq's own "Set tags" command; on the Journals list it says so and does nothing.
 - On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions (test data, not plugin code).
@@ -56,22 +61,30 @@ Shared scale lives in `tokensCss` (`--rf-quiet`, `--rf-faint`, `--rf-line-pct`, 
 | --- | --- |
 | Link to a page | faint solid underline, page's own icon in normal text colour |
 | Link to a tag's own page | same underline, icon in the tag colour (`--rf-tag-color`; a `#` icon in that colour if the tag has none) |
-| `#tag` on a block | bold, no underline |
-| Link to a block (inline or whole row) | small dot in front, nothing under or after the words |
+| Tag at the right of a block, `#Tag` above a tag page's title, the `#` before that title, a tag word left in a sentence | the words in the text colour, only the `#` in the tag colour (`tagMark`, 0.4.67); Logseq draws each chip as a `#` link beside the name |
+| Link to a block (inline or whole row) | small dot in front, nothing under or after the words; a block that carries its tag's icon reads dot, icon, words (0.4.72) |
 | Link to a task block | status/priority icons stand in for the dot |
-| Date | grey box |
-| Link to a PDF or image | grey icon in front, text with the page underline, file type (`pdf`, `png`…) after in small grey |
-| Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons |
-| Block properties | `name: value · name: value`, no capsule outline |
+| Date | grey box; a past day in the secondary text colour, today firmer on the stronger wash, a day to come as it is (`dateTense`, 0.4.69) |
+| Link to a PDF or image | grey icon in front, text with the page underline, nothing after (the file type word went in 0.4.70) |
+| Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons; while folded also the kinds inside (`· 1 #Decision`, up to three) and the nearest due day (`· due Fri`) (0.4.75) |
+| Block properties | `name: value · name: value`, no capsule outline; a property with no value yet is faint, never hidden (`quietEmptyProps`, 0.4.79) |
 | Page property list | as Logseq draws it |
 | Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle as Logseq draws it |
-| Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list |
+| Tag page | "Inherited from #Media: keywords, rating, website" line closing the Tag Properties list; under the title its path, `#Occurrence › #Imaging`, each a link (`showTagPath`, 0.4.73) |
+| Any page | under the title, how it is used: `attendees · 3   owner · 2   in text · 4` (`tagged · n` on a tag page) with the graph's own property names; a count dims the other Linked references and wears the "here" mark (`showUsage`, 0.4.74) |
+| Journal-date question | a dashed ghost value in the record's own row (`Date: Oct 16th, 2026`, `j` fills, `k` leaves it); after a fill a dark bar at the bottom with Undo; the top-right note only when the record is not on screen (0.4.77) |
 | Linked references | the link to the page on screen sits in a clear grey box; on a journal the same box on a date that points to that day; source pages set apart by a gap; fold arrows as Logseq draws them; plain semibold headings, `· n` after one that holds several references; bullet before the parent path, reference stepped in below; blocks below a reference quiet |
 | Page listed as a row | plain page icon in the bullet, as in the sidebar |
 
 Rules agreed along the way: the bullet says what a row is, a mark before a link says what it points to, anything after the text says what the block holds. The arrow symbol is no longer used.
 
 ## Tried and rejected (do not bring back)
+
+- Air above every top-level block from the stylesheet (0.4.68, removed 0.4.78): the owner wants Logseq's own spacing and nothing between parents.
+- Empty properties hidden until the pointer or the caret is on the block (0.4.71, 0.4.76; faint instead since 0.4.79): a row appearing on hover pushed the blocks below down, and nothing Logseq shows may become invisible.
+- A Set icon entry in the tag tree (written and taken out in 0.4.72): the plugin API refuses every icon value ("Invalid icon"), and the tree is off limits for now.
+- Commands acting on the block you last clicked, with a flash (drafted after 0.4.77, never committed): "too complicated".
+- Hiding the other reference rows under a usage filter (first version of 0.4.74): Logseq's list measures its rows and a row of no height filled the console with errors; they step back to .22 instead.
 
 - Square bullet / square before links for "tagged record".
 - A `#` in the tag colour in place of the bullet dot on tagged blocks (0.2.140, removed the same day): the tags at the right of the block already say it.
@@ -93,6 +106,12 @@ Rules agreed along the way: the bullet says what a row is, a mark before a link 
 - Say plainly what was verified on screen and what was not.
 - They care about the page-versus-block and tag-versus-page distinctions most.
 - Checks are done by the session itself, in the running app, with computer use on the Plugin Test Graph (reload, look, measure); never by handing the owner steps.
+
+## The grammar round (2026-10-16, evening)
+
+After the cleanup the owner asked for the shared grammar to be written down (`docs/GRAMMAR.md`, 0.4.63 to 0.4.66), found the first proposals too tame ("consistent weights or colours"), got ten changes that would make a page read better, and said "go ahead", then "ignore Todos and the tag manager", then "this seems too complicated", and kept what was built. Each change was looked at on screen in the Plugin Test Graph before its commit; the CHANGELOG line of each says what was seen. Built and kept: 0.4.67 tag mark, 0.4.69 date tense, 0.4.70 no file type word, 0.4.71/0.4.79 empty properties faint, 0.4.72 dot-icon-words, 0.4.73 tag path, 0.4.74 usage line, 0.4.75 folded cue, 0.4.77 ghost date with Undo. Built and taken out: 0.4.68 air between blocks (0.4.78). Looking at them in `Work` is the owner's next step, before the quiet week that leads to 1.0.0.
+
+How the looks were done: Logseq's window stops painting while another window covers it, so background screenshots freeze; with full-screen control the devtools console (Cmd+Opt+I) was used for `await LSPluginCore.reload('logseq-db-refinements')` and `logseq.api.push_state('page', {name})`, and `[...document.querySelectorAll('iframe')].find(f => /refinements/.test(f.src)).contentWindow` reaches the plugin frame (`refinementCore.provided`, `refinementShared.warnings`, `journalDatesDebug`). Test blocks made from the command line were removed again at the end.
 
 ## Cleanup (October 2026)
 
