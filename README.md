@@ -10,7 +10,7 @@ Besides the look of pages, it holds:
 - **Tag tree**: all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
 - **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
-- **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know. Only in the graphs you name.
+- **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`). Only in the graphs you name.
 - **Copy as rich text**: copies a page or block as tidy formatted text, or saves it as a PDF, for people who don't use Logseq. It only reads your notes.
 
 ## What is in the folder
@@ -109,6 +109,9 @@ In the order of the settings window. The key is the name in the settings file (`
 | Only in these graphs | `autoDateGraphs` | empty | Journal day as date |
 | Properties typed in the line | `inlineProps` | on | Properties in the line |
 | Only in these graphs | `inlinePropsGraphs` | empty | Properties in the line |
+| First letters name the field | `inlinePropsPrefix` | on | Properties in the line |
+| A field that takes several stays open | `inlinePropsGather` | on | Properties in the line |
+| Escape takes the token out | `inlinePropsEscapeClears` | on | Properties in the line |
 | Layout | `layout` | document | Copy as rich text |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
@@ -283,7 +286,7 @@ New records are asked about (or filled) automatically. Older ones are filled onl
 
 ## Properties in the line
 
-Type `p::` at the end of the block you are writing. A list opens under the caret with the fields of the record's own tags first (a Meeting shows attendees and project), each with its type, then every property of yours. Letters filter it; `Enter` picks a name and the list turns into values of that type. `name::value` skips the first step when you know the field: `date::fri`, `owner::ad`, `stage::pl`. While a row is highlighted, the value it would write is drawn dashed where it will go (in the record's empty pill for that field when Logseq shows one, else at the top of the list). `Enter` writes it, takes the token out of your text, leaves the caret where it was, and the dark bar at the bottom offers **Undo** for a few seconds. `Esc` closes the list and leaves the words as typed; `Up` and `Down` move; a click on a row picks it.
+Type `p::` at the end of the block you are writing. A list opens under the record's property row with the fields of the record's own tags first, in the order of their pills (a Meeting shows attendees and project), each with its type, then every property of yours. Letters filter it; `Enter` picks a name and the list turns into values of that type. `name::value` skips the first step when you know the field: `date::fri`, `owner::ad`, `stage::pl`. The first letters do when they start one field only: `pro::at`, `a::mat` on a Meeting (the record's own fields are tried first, then every property); when several start so, `d::` lists date, Deadline and due date and the letters after `::` narrow them. While a row is highlighted, the value it would write is drawn dashed where it will go: in the record's own pill for that field when Logseq shows one, else at the top of the list. `Enter` writes it, takes the token out of your text, leaves the caret where it was, and the dark bar at the bottom offers **Undo** for a few seconds. A field that takes several pages (attendees) keeps its list open after `Enter`, with the letters cleared and no row chosen: more letters and `Enter` add the next, `Enter` with nothing typed (or `Esc`) finishes. `Esc` closes the list and takes the token out of your text (`Cmd+Z` brings it back); leaving the block with the list open, by `Tab` or a click elsewhere, does the same, so a block is never saved with `p::` in it. `Up` and `Down` move; a click on a row picks it.
 
 What the list offers, by the property's type:
 
@@ -304,6 +307,9 @@ Nothing is written until you press `Enter` on a value. Only names the graph has 
 | --- | --- |
 | Properties typed in the line | The list after `p::` or `name::`. Applies at once. |
 | Only in these graphs | The list opens only in the graphs named here. Nothing happens while this is empty. |
+| First letters name the field | `pro::` opens project's values when one field starts so; several open the name list filtered. Off, the whole name is needed. Applies at once. |
+| A field that takes several stays open | The list stays after `Enter` on a field that takes several pages; `Enter` with nothing typed finishes. Applies at once. |
+| Escape takes the token out | `Esc`, `Tab` or a click elsewhere takes `p::` or `name::` out of the text. Off, `Esc` keeps the words as typed. Applies at once. |
 
 ## Copy as rich text
 
