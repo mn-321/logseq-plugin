@@ -590,495 +590,520 @@ const keepKeys = input => { for (const type of ['keydown', 'keyup', 'keypress'])
    (a simpler list: open tasks by when, with status and date only). leave() is called when going to a
    task should take the list away (the window closes); the page and sidebar stay. */
 function createView(doc, mode, leave = () => {}, kind = KINDS.todos) {
-  const compact = mode === 'sidebar';
+  const view = { doc, mode, leave, kind };
+  for (const fn of CREATEVIEW_FUNCTIONS) view[fn.name] = (...args) => fn(view, ...args);
+  view.compact = view.mode === 'sidebar';
   // The sidebar list keeps to open tasks by when; the window and the page share the saved choices.
-  const prefs = compact ? { group: 'when', view: 'open', urgent: false, hideBacklog: false } : savedPrefsFor(kind.prefsKey);
-  const savePrefs = () => { if (!compact) savePrefsFor(kind.prefsKey); };
-  const isOpen = task => stateIsOpen(kind, task.status);
-  const One = kind.one[0].toUpperCase() + kind.one.slice(1);
-  const a = /^[aeiou]/.test(kind.one) ? 'an' : 'a';
-  let data = { tasks: [], names: new Map() };
-  let loaded = false;
-  let shown = []; // tasks in display order, for the arrow keys
-  let cursor = -1;
-  let menu = null, missed = false;
+  view.prefs = view.compact ? { group: 'when', view: 'open', urgent: false, hideBacklog: false } : savedPrefsFor(view.kind.prefsKey);
+  view.One = view.kind.one[0].toUpperCase() + view.kind.one.slice(1);
+  view.a = /^[aeiou]/.test(view.kind.one) ? 'an' : 'a';
+  view.data = { tasks: [], names: new Map() };
+  view.loaded = false;
+  view.shown = []; // tasks in display order, for the arrow keys
+  view.cursor = -1;
+  view.menu = null; view.missed = false;
   // Tasks changed in the window stay in view (with their new look) until another chip or grouping is
   // picked, so a task ticked off does not jump away under the pointer.
-  const kept = new Set();
-  const forget = () => kept.clear();
-
-  const count = el(doc, 'span', { class: 'rt-count' });
-  const find = el(doc, 'input', { class: 'rt-find', type: 'text', placeholder: `Find ${a} ${kind.one}`, spellcheck: 'false', 'aria-label': `Find ${a} ${kind.one}` });
-  keepKeys(find);
-  find.addEventListener('input', () => { cursor = -1; draw(); });
-  const groupButtons = [['when', 'When'], ['status', 'Status'], ['page', 'Page']].map(([key, label]) =>
-    el(doc, 'button', { 'data-group': key, click: () => { prefs.group = key; savePrefs(); forget(); draw(); } }, label));
-  const seg = el(doc, 'span', { class: 'rt-seg', title: `Group ${kind.many} by` }, ...groupButtons);
-  const closeButton = el(doc, 'button', { class: 'rt-close', 'aria-label': 'Close', title: 'Close (Esc)', click: () => leave() }, '×');
+  view.kept = new Set();
+  view.count = el(view.doc, 'span', { class: 'rt-count' });
+  view.find = el(view.doc, 'input', { class: 'rt-find', type: 'text', placeholder: `Find ${view.a} ${view.kind.one}`, spellcheck: 'false', 'aria-label': `Find ${view.a} ${view.kind.one}` });
+  keepKeys(view.find);
+  view.find.addEventListener('input', () => { view.cursor = -1; view.draw(); });
+  view.groupButtons = [['when', 'When'], ['status', 'Status'], ['page', 'Page']].map(([key, label]) =>
+    el(view.doc, 'button', { 'data-group': key, click: () => { view.prefs.group = key; view.savePrefs(); view.forget(); view.draw(); } }, label));
+  view.seg = el(view.doc, 'span', { class: 'rt-seg', title: `Group ${view.kind.many} by` }, ...view.groupButtons);
+  view.closeButton = el(view.doc, 'button', { class: 'rt-close', 'aria-label': 'Close', title: 'Close (Esc)', click: () => view.leave() }, '×');
   // Buttons to show the same list in the other places.
-  const moveButtons = [];
-  if (mode !== 'page') moveButtons.push(el(doc, 'button', { class: 'rt-move', title: `Show ${kind.name} as a full view in the main area`, html: PAGE_ICON, click: () => { leave(); openPage(kind); } }));
-  if (mode !== 'sidebar') moveButtons.push(el(doc, 'button', { class: 'rt-move', title: `Show ${kind.name} in the right sidebar`, html: SIDEBAR_ICON, click: () => { leave(); openSidebar(kind); } }));
+  view.moveButtons = [];
+  if (view.mode !== 'page') view.moveButtons.push(el(view.doc, 'button', { class: 'rt-move', title: `Show ${view.kind.name} as a full view in the main area`, html: PAGE_ICON, click: () => { view.leave(); openPage(view.kind); } }));
+  if (view.mode !== 'sidebar') view.moveButtons.push(el(view.doc, 'button', { class: 'rt-move', title: `Show ${view.kind.name} in the right sidebar`, html: SIDEBAR_ICON, click: () => { view.leave(); openSidebar(view.kind); } }));
 
-  const viewChips = [['open', 'Open'], ...(kind.hasDoing ? [['doing', 'Doing']] : []), ['done', 'Done'], ['all', 'All']].map(([key, label]) =>
-    el(doc, 'button', { class: 'rt-chip', 'data-view': key, click: () => { prefs.view = key; savePrefs(); forget(); cursor = -1; draw(); } }, label, el(doc, 'span', { class: 'n' })));
-  const urgentChip = el(doc, 'button', { class: 'rt-chip', title: `Only ${kind.many} with urgent or high priority`, click: () => { prefs.urgent = !prefs.urgent; savePrefs(); forget(); draw(); } }, 'Urgent and high');
-  const backlogChip = el(doc, 'button', { class: 'rt-chip', title: 'Leave out tasks in the backlog', click: () => { prefs.hideBacklog = !prefs.hideBacklog; savePrefs(); forget(); draw(); } }, 'Hide backlog');
-  const add = el(doc, 'input', { class: 'rt-add', type: 'text', placeholder: `+ Add ${a} ${kind.one} to today’s journal`, spellcheck: 'false', 'aria-label': `Add ${a} ${kind.one} to today’s journal` });
-  keepKeys(add);
-  const addHint = el(doc, 'span', { class: 'rt-addhint', 'aria-live': 'polite' });
-  const addWrap = el(doc, 'span', { class: 'rt-addwrap' }, add, addHint);
-  add.addEventListener('input', () => {
-    const { priority, due } = parseAdd(add.value);
+  view.viewChips = [['open', 'Open'], ...(view.kind.hasDoing ? [['doing', 'Doing']] : []), ['done', 'Done'], ['all', 'All']].map(([key, label]) =>
+    el(view.doc, 'button', { class: 'rt-chip', 'data-view': key, click: () => { view.prefs.view = key; view.savePrefs(); view.forget(); view.cursor = -1; view.draw(); } }, label, el(view.doc, 'span', { class: 'n' })));
+  view.urgentChip = el(view.doc, 'button', { class: 'rt-chip', title: `Only ${view.kind.many} with urgent or high priority`, click: () => { view.prefs.urgent = !view.prefs.urgent; view.savePrefs(); view.forget(); view.draw(); } }, 'Urgent and high');
+  view.backlogChip = el(view.doc, 'button', { class: 'rt-chip', title: 'Leave out tasks in the backlog', click: () => { view.prefs.hideBacklog = !view.prefs.hideBacklog; view.savePrefs(); view.forget(); view.draw(); } }, 'Hide backlog');
+  view.add = el(view.doc, 'input', { class: 'rt-add', type: 'text', placeholder: `+ Add ${view.a} ${view.kind.one} to today’s journal`, spellcheck: 'false', 'aria-label': `Add ${view.a} ${view.kind.one} to today’s journal` });
+  keepKeys(view.add);
+  view.addHint = el(view.doc, 'span', { class: 'rt-addhint', 'aria-live': 'polite' });
+  view.addWrap = el(view.doc, 'span', { class: 'rt-addwrap' }, view.add, view.addHint);
+  addBoxListeners(view);
+
+  view.body = el(view.doc, 'div', { class: 'rt-body' });
+  view.footer = el(view.doc, 'footer', { html: `<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> go to ${view.kind.one}</span><span><kbd>⇧ Enter</kbd> or ⇧ click: right sidebar</span><span><kbd>x</kbd> done / not done</span><span><kbd>s</kbd> status · <kbd>p</kbd> priority · <kbd>d</kbd> date</span><span><kbd>e</kbd> or double-click: edit text</span><span><kbd>/</kbd> find</span>` });
+  view.box = el(view.doc, 'div', { class: 'refinement-todos rt-mode-' + view.mode, role: view.mode === 'window' ? 'dialog' : 'region', 'aria-label': view.kind.name });
+  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, ...view.moveButtons), el(view.doc, 'div', { class: 'rt-bar2' }, view.addWrap), view.body);
+  else {
+    const chips = el(view.doc, 'div', { class: 'rt-bar2' }, ...view.viewChips, el(view.doc, 'span', { class: 'rt-sep' }), view.urgentChip, ...(view.kind.hasBacklog ? [view.backlogChip] : []), view.addWrap);
+    if (view.mode === 'page') view.box.append(el(view.doc, 'h1', { class: 'rt-page-title' }, view.kind.name), el(view.doc, 'header', {}, view.count, view.find, view.seg, ...view.moveButtons), chips, view.body, view.footer);
+    else view.box.append(el(view.doc, 'header', {}, el(view.doc, 'h2', {}, view.kind.name), view.count, view.find, view.seg, ...view.moveButtons, view.closeButton), chips, view.body, view.footer);
+  }
+  // The page and sidebar lists take the arrow keys only while they hold the keyboard.
+  if (view.mode !== 'window') view.box.tabIndex = -1;
+
+  // After a change, a small note at the bottom says what changed, with Undo, for a few seconds.
+  view.toast = null; view.toastTimer = 0;
+  // Double-click (or e) edits a task's first line in place. Links show by their page's name while editing
+  // and are stored by the page's id again on saving, as Logseq keeps them.
+  view.editing = null; view.drawLater = false;
+  view.loading = null; view.again = false;
+  // The window takes every key while it is open; the page and sidebar lists only keys pressed inside them.
+  view.keyTarget = view.mode === 'window' ? view.doc : view.box;
+  view.keyTarget.addEventListener('keydown', view.onKey, view.mode === 'window');
+  view.doc.addEventListener('mousedown', view.onDown, true);
+  // While the window is open, edits made elsewhere (or by Logseq itself) show up in it.
+  // A refresh skipped while a menu is open runs when it closes; one during text editing waits in draw().
+  view.timer = 0;
+  view.offChanged = logseq.DB.onChanged(() => { clearTimeout(view.timer); view.timer = setTimeout(() => { if (view.menu) view.missed = true; else view.refresh(); }, 400); });
+
+  // Clicking a blank part of the list gives it the keyboard, for the arrow keys.
+  if (view.mode !== 'window') view.box.addEventListener('mousedown', event => { if (!event.target.closest('input, button, .rt-title, .rt-open')) view.box.focus({ preventScroll: true }); });
+  view.draw();
+  return { node: view.box, refresh: view.refresh, destroy: view.destroy, focus: () => view.find.focus() };
+}
+
+function savePrefs(view) { if (!view.compact) savePrefsFor(view.kind.prefsKey); }
+
+function kindIsOpen(view, task) { return stateIsOpen(view.kind, task.status); }
+
+function forget(view) { return view.kept.clear(); }
+
+function closeMenu(view) { const was = view.menu; view.menu?.remove(); view.menu = null; if (was && view.missed) { view.missed = false; view.refresh(); } }
+
+function showMenu(view, anchor, header, items) {
+  view.closeMenu();
+  view.menu = el(view.doc, 'div', { class: 'refinement-todos-menu', role: 'menu' });
+  if (header) view.menu.append(el(view.doc, 'div', { class: 'rt-mh' }, header));
+  for (const item of items) {
+    if (item === '-') { view.menu.append(el(view.doc, 'hr')); continue; }
+    if (item.node) { view.menu.append(item.node); continue; }
+    view.menu.append(el(view.doc, 'button', { role: 'menuitem', class: (item.on ? 'rt-on' : '') + (item.danger ? ' rt-danger' : ''), html: item.html, click: async () => { view.closeMenu(); if (view.mode !== 'window') view.box.focus({ preventScroll: true }); if (item.plain) item.run(); else await view.change(item.run, item.task); } }));
+  }
+  // Arrows move through the menu, Enter picks, Escape closes it.
+  view.menu.addEventListener('keydown', event => {
+    if (event.target.matches?.('input')) { if (event.key === 'Escape') { view.closeMenu(); view.box.focus({ preventScroll: true }); } return; }
+    const items = [...view.menu.querySelectorAll('button')];
+    const at = items.indexOf(view.doc.activeElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus(); }
+    else if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); if (view.mode !== 'window') view.box.focus({ preventScroll: true }); }
+    event.stopPropagation();
+  });
+  view.doc.body.append(view.menu);
+  (view.menu.querySelector('button.rt-on') || view.menu.querySelector('button'))?.focus({ preventScroll: true });
+  const r = anchor.getBoundingClientRect(), m = view.menu.getBoundingClientRect();
+  const win = view.doc.defaultView;
+  view.menu.style.left = Math.max(8, Math.min(r.left, win.innerWidth - m.width - 8)) + 'px';
+  view.menu.style.top = (r.bottom + m.height + 6 > win.innerHeight ? Math.max(8, r.top - m.height - 4) : r.bottom + 4) + 'px';
+}
+
+async function change(view, run, task) {
+  if (task) view.kept.add(task.uuid);
+  const before = task && view.data.tasks.find(t => t.uuid === task.uuid);
+  const snap = before && { status: before.status, hasState: before.hasState, priority: before.priority, deadline: before.deadline, scheduled: before.scheduled };
+  try { await run(); } catch (error) { warnOnce('a task could not be changed', error); logseq.UI.showMsg('Could not change the task: ' + (error?.message || error), 'warning'); }
+  await view.refresh();
+  const after = snap && view.data.tasks.find(t => t.uuid === task.uuid);
+  if (after) view.offerUndo(after, snap);
+}
+
+function hideToast(view) { clearTimeout(view.toastTimer); view.toast?.remove(); view.toast = null; }
+
+function showToast(view, text, undo) {
+  view.hideToast();
+  const button = el(view.doc, 'button', {}, 'Undo');
+  view.toast = el(view.doc, 'div', { class: 'refinement-todos-toast', role: 'status' }, el(view.doc, 'span', {}, text), button);
+  button.addEventListener('click', async () => { view.hideToast(); try { await undo(); } catch (error) { warnOnce('a change could not be undone', error); } await view.refresh(); });
+  view.doc.body.append(view.toast);
+  view.toastTimer = setTimeout(view.hideToast, 7000);
+}
+
+function offerUndo(view, task, snap) {
+  const said = [];
+  if (task.status !== snap.status) said.push(view.kind.title(task.status));
+  if (task.priority !== snap.priority) said.push(task.priority ? `${choiceTitles.priority[task.priority] || PRIORITY_LABEL[task.priority]} priority` : 'no priority');
+  if (task.deadline !== snap.deadline) said.push(task.deadline != null ? 'due ' + shortDate(task.deadline) : 'no due date');
+  if (task.scheduled !== snap.scheduled) said.push(task.scheduled != null ? 'planned ' + shortDate(task.scheduled) : 'no planned date');
+  if (!said.length) return;
+  const name = el(view.doc, 'div', { html: titleHtml(task.title, view.data.names) }).textContent.trim();
+  view.showToast(`“${name.length > 40 ? name.slice(0, 39) + '…' : name}” is now ${said.join(', ')}`, async () => {
+    if (task.status !== snap.status) {
+      if (snap.hasState) await view.kind.setState(task, snap.status);
+      else await logseq.Editor.removeBlockProperty(task.uuid, view.kind.key === 'expectations' && stateProp.ident ? stateProp.ident : 'logseq.property/status');
+    }
+    if (task.priority !== snap.priority) await setChoice(task, 'priority', snap.priority);
+    if (task.deadline !== snap.deadline) await setDate(task, 'deadline', snap.deadline ?? null);
+    if (task.scheduled !== snap.scheduled) await setDate(task, 'scheduled', snap.scheduled ?? null);
+  });
+}
+
+function editTitle(view, task, titleNode) {
+  if (view.editing || !titleNode) return;
+  const lines = String(task.title).split('\n');
+  const back = new Map();
+  const shownText = lines[0].replace(/\[\[([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\]\]/gi, (m, uuid) => {
+    const name = view.data.names.get(uuid.toLowerCase());
+    if (!name || name.includes(']]')) return m;
+    back.set(name, uuid);
+    return `[[${name}]]`;
+  });
+  const input = el(view.doc, 'input', { class: 'rt-edit', type: 'text', spellcheck: 'true', 'aria-label': `Text of the ${view.kind.one}` });
+  input.value = shownText;
+  titleNode.replaceWith(input);
+  view.editing = input;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  let done = false;
+  const finish = async save => {
+    if (done) return;
+    done = true;
+    view.editing = null;
+    const typed = input.value.trim();
+    if (save && typed && typed !== shownText.trim()) {
+      const first = typed.replace(/\[\[([^\]]+)\]\]/g, (m, name) => (back.has(name) ? `[[${back.get(name)}]]` : m));
+      // The lines after the first are taken from the block as it is now, in case they changed meanwhile.
+      const now = await logseq.Editor.getBlock(task.uuid).catch(() => null);
+      const rest = now && typeof now.title === 'string' ? now.title.split('\n').slice(1) : lines.slice(1);
+      const text = [first, ...rest].join('\n');
+      try {
+        await logseq.Editor.updateBlock(task.uuid, text);
+        view.showToast('Text changed', () => logseq.Editor.updateBlock(task.uuid, task.title));
+      } catch (error) { warnOnce('a task’s text could not be saved', error); logseq.UI.showMsg('Could not save the text: ' + (error?.message || error), 'warning'); }
+    }
+    if (view.mode !== 'window') view.box.focus({ preventScroll: true });
+    await view.refresh();
+  };
+  for (const type of ['keydown', 'keyup', 'keypress']) input.addEventListener(type, event => {
+    event.stopPropagation();
+    if (type !== 'keydown' || event.isComposing) return;
+    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('click', event => event.stopPropagation());
+}
+
+function openLink(view, event, name) {
+  event.stopPropagation();
+  if (!event.shiftKey) view.leave();
+  if (event.shiftKey) logseq.Editor.openInRightSidebar(name).catch?.(() => {});
+  else logseq.App.pushState('page', { name });
+}
+
+function statusMenu(view, anchor, task) { return view.showMenu(anchor, view.kind.key === 'todos' || !stateProp.ident ? 'Status' : view.kind.title(stateProp.name), view.kind.menuStates().map(status => ({
+    html: statusIcon(view.kind.look(status)) + escapeHtml(view.kind.title(status)), on: task.status === status,
+    task, run: () => view.kind.setState(task, status),
+  }))); }
+
+function priorityMenu(view, anchor, task) { return view.showMenu(anchor, 'Priority', [...PRIORITIES.map(priority => ({
+    html: priorityIcon(priority) + escapeHtml(choiceTitles.priority[priority] || PRIORITY_LABEL[priority]), on: task.priority === priority,
+    task, run: () => setChoice(task, 'priority', priority),
+  })), '-', { html: priorityIcon('') + 'No priority', on: !task.priority, task, run: () => setChoice(task, 'priority', '') }]); }
+
+// The date shown on a row is its due date, or its planned date when it only has that; the menu changes that one.
+function dateMenu(view, anchor, task) {
+  const key = task.deadline == null && task.scheduled != null ? 'scheduled' : 'deadline';
+  const now = task[key];
+  const today = startOfDay();
+  const nextMonday = today + (((8 - new Date(today).getDay()) % 7) || 7) * DAY;
+  const at = days => startOfDay(today + days * DAY + DAY / 2); // noon first, so a clock change does not shift the day
+  const picker = el(view.doc, 'input', { type: 'date', 'aria-label': 'Pick a date' });
+  if (now != null) { const d = new Date(now); picker.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  keepKeys(picker);
+  picker.addEventListener('change', async () => {
+    const [y, mo, d] = picker.value.split('-').map(Number);
+    if (!y) return;
+    view.closeMenu();
+    await view.change(() => setDate(task, key, new Date(y, mo - 1, d).getTime()), task);
+  });
+  view.showMenu(anchor, key === 'deadline' ? 'Due date' : 'Planned for', [
+    { task, html: 'Today<kbd>' + shortDate(today).replace('today', MONTHS[new Date().getMonth()] + ' ' + new Date().getDate()) + '</kbd>', run: () => setDate(task, key, today) },
+    { task, html: 'Tomorrow', run: () => setDate(task, key, at(1)) },
+    { task, html: 'Next Monday<kbd>' + shortDate(nextMonday) + '</kbd>', run: () => setDate(task, key, startOfDay(nextMonday + DAY / 2)) },
+    { task, html: 'In a week<kbd>' + shortDate(at(7)) + '</kbd>', run: () => setDate(task, key, at(7)) },
+    { node: picker },
+    ...(now != null ? ['-', { task, html: key === 'deadline' ? 'Remove due date' : 'Remove planned date', run: () => setDate(task, key, null) }] : []),
+  ]);
+}
+
+// Right-click on a row: open the task, change it, or delete it. The menu sits at the pointer.
+function rowMenu(view, event, task) {
+  event.preventDefault();
+  event.stopPropagation();
+  const x = event.clientX, y = event.clientY;
+  const at = { getBoundingClientRect: () => ({ left: x, top: y, bottom: y }) };
+  const open = sidebar => () => { if (!sidebar) view.leave(); goTo(task, sidebar).catch(error => warnOnce('a task could not be opened', error)); };
+  const name = el(view.doc, 'div', { html: titleHtml(task.title, view.data.names) }).textContent.trim();
+  const items = [
+    { plain: true, html: 'Open', run: open(false) },
+    { plain: true, html: 'Open in right sidebar', run: open(true) },
+    { plain: true, html: 'Edit text<kbd>e</kbd>', run: () => view.editTitle(task, view.body.querySelector(`.rt-row[data-uuid="${task.uuid}"] .rt-title`)) },
+    '-',
+    { plain: true, html: 'Status…<kbd>s</kbd>', run: () => view.statusMenu(at, task) },
+    { plain: true, html: 'Priority…<kbd>p</kbd>', run: () => view.priorityMenu(at, task) },
+    { plain: true, html: (task.deadline == null && task.scheduled != null ? 'Planned date…' : 'Due date…') + '<kbd>d</kbd>', run: () => view.dateMenu(at, task) },
+  ];
+  if (!task.isPage) items.push('-', { plain: true, danger: true, html: `Delete ${view.kind.one}…`, run: () => view.showMenu(at, `Delete this ${view.kind.one} and the blocks under it?`, [
+    { danger: true, task, html: 'Delete', run: () => logseq.Editor.removeBlock(task.uuid) },
+    { plain: true, html: 'Keep it', run: () => {} },
+  ]) });
+  view.showMenu(at, name, items);
+}
+
+// Which tasks the chips and the search box let through.
+function visible(view) {
+  const words = view.find.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const since = startOfDay() - Math.max(0, setting('todosDoneDays') - 1) * DAY;
+  return view.data.tasks.filter(task => {
+    const keep = view.kept.has(task.uuid);
+    if (view.prefs.view === 'open' && !view.kindIsOpen(task) && !keep) return false;
+    if (view.prefs.view === 'doing' && task.status !== 'doing' && task.status !== 'in-review' && !keep) return false;
+    if (view.prefs.view === 'done' && (view.kindIsOpen(task) || task.updated < since) && !keep) return false;
+    if (view.prefs.urgent && task.priority !== 'urgent' && task.priority !== 'high' && !keep) return false;
+    if (view.kind.hasBacklog && view.prefs.hideBacklog && task.status === 'backlog' && !keep) return false;
+    if (words.length) {
+      const hay = plainTitle(task.title, view.data.names) + ' ' + task.pageTitle.toLowerCase() + ' ' + task.tags.join(' ').toLowerCase();
+      if (!words.every(word => hay.includes(word))) return false;
+    }
+    return true;
+  });
+}
+
+function rank(view, task) { return [view.kind.groupStates().indexOf(task.status), task.priority ? PRIORITIES.indexOf(task.priority) : 9, whenOf(task) ?? Infinity]; }
+
+function byRank(view, a, b) {
+  const ra = view.rank(a), rb = view.rank(b);
+  for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] < rb[i] ? -1 : 1;
+  return plainTitle(a.title, view.data.names).localeCompare(plainTitle(b.title, view.data.names));
+}
+
+function groups(view, tasks) {
+  if (view.prefs.group === 'status') {
+    return view.kind.groupStates().map(status => ({ key: status, title: view.kind.title(status), tasks: tasks.filter(task => task.status === status).sort(view.byRank) }));
+  }
+  if (view.prefs.group === 'page') {
+    const pages = new Map();
+    for (const task of tasks) {
+      const key = task.isPage ? 'pages' : task.pageUuid;
+      if (!pages.has(key)) pages.set(key, { key, title: task.isPage ? 'Pages that are tasks' : task.pageTitle || 'Untitled', pageUuid: task.isPage ? null : key, journalDay: task.journalDay, tasks: [] });
+      pages.get(key).tasks.push(task);
+    }
+    // Every task of the page counts toward its bar, also those the chips leave out.
+    for (const page of pages.values()) {
+      page.tasks.sort(view.byRank);
+      if (!page.pageUuid) continue;
+      const all = view.data.tasks.filter(task => task.pageUuid === page.key);
+      page.done = all.filter(task => view.kind.look(task.status) === 'done').length;
+      page.total = all.filter(task => view.kind.look(task.status) !== 'canceled').length;
+    }
+    // Pages with most to do first; journal days after named pages, newest first.
+    return [...pages.values()].sort((a, b) => (Boolean(a.journalDay) - Boolean(b.journalDay)) || (b.journalDay - a.journalDay) ||
+      (b.tasks.filter(view.kindIsOpen).length - a.tasks.filter(view.kindIsOpen).length) || a.title.localeCompare(b.title));
+  }
+  if (view.prefs.view === 'done') {
+    return DONE_GROUPS.map(([key, title]) => ({ key, title, tasks: tasks.filter(task => doneBucket(task) === key).sort((a, b) => b.updated - a.updated) }));
+  }
+  return WHEN_GROUPS.map(([key, title]) => ({ key, title, tasks: tasks.filter(task => whenBucket(task) === key).sort(key === 'none' ? view.byRank : (a, b) => (whenOf(a) - whenOf(b)) || view.byRank(a, b)) }));
+}
+
+function row(view, task) {
+  // Red only for a due date that has passed; a planned day that has passed is late too, but not overdue.
+  const late = view.kindIsOpen(task) && task.deadline != null && task.deadline < startOfDay();
+  const daysLate = late ? Math.round((startOfDay() - startOfDay(task.deadline)) / DAY) : 0;
+  const dateLabel = task.deadline != null ? `due ${shortDate(task.deadline)}${daysLate > 1 ? ` · ${daysLate} days late` : ''}`
+    : task.scheduled != null ? `planned ${shortDate(task.scheduled)}` : 'add date';
+  const statusButton = el(view.doc, 'button', { class: 'rt-icon', title: view.kind.title(task.status), html: statusIcon(view.kind.look(task.status)) });
+  statusButton.addEventListener('click', event => { event.stopPropagation(); view.statusMenu(statusButton, task); });
+  const title = el(view.doc, 'span', { class: 'rt-title', html: titleHtml(task.title, view.data.names) });
+  // One click goes to the task (after a moment, so a double-click can edit it instead); a link in it opens its page.
+  let clickTimer = 0;
+  title.addEventListener('click', event => {
+    event.stopPropagation();
+    const link = event.target.closest?.('[data-page]');
+    if (link && title.contains(link)) { view.openLink(event, link.dataset.page); return; }
+    clearTimeout(clickTimer);
+    if (event.detail > 1) return;
+    const sidebar = event.shiftKey;
+    clickTimer = setTimeout(() => { if (!sidebar) view.leave(); goTo(task, sidebar).catch(error => warnOnce('a task could not be opened', error)); }, 400);
+  });
+  title.addEventListener('mousedown', event => { if (event.detail > 1) { clearTimeout(clickTimer); event.preventDefault(); } });
+  title.addEventListener('dblclick', event => { event.stopPropagation(); clearTimeout(clickTimer); view.editTitle(task, title); });
+  // Under the text, quieter: subtasks, then the task's tags and page.
+  const sub = el(view.doc, 'div', { class: 'rt-sub' });
+  const subtasks = view.data.subs?.get(task.uuid);
+  if (subtasks?.total) sub.append(el(view.doc, 'span', { class: 'rt-subtasks' + (subtasks.done === subtasks.total ? ' rt-all' : '') }, `${subtasks.done} of ${subtasks.total} subtasks`));
+  if (!view.compact) {
+    for (const tag of task.tags) sub.append(el(view.doc, 'span', { class: 'rt-kind' }, '#' + tag));
+    if (view.prefs.group !== 'page' && !task.isPage) sub.append(el(view.doc, 'span', { class: 'rt-src' }, task.pageTitle));
+  }
+  const main = el(view.doc, 'div', { class: 'rt-main' }, el(view.doc, 'div', { class: 'rt-line' }, title), sub.childNodes.length ? sub : null);
+  const isToday = view.kindIsOpen(task) && whenOf(task) != null && startOfDay(whenOf(task)) === startOfDay();
+  const dateButton = el(view.doc, 'button', { class: 'rt-date' + (late ? ' rt-is-late' : '') + (isToday ? ' rt-is-today' : '') + (task.deadline == null && task.scheduled != null ? ' rt-is-planned' : '') + (whenOf(task) == null ? ' rt-empty' : ''), title: task.deadline != null && task.scheduled != null ? `planned ${shortDate(task.scheduled)}` : '' }, dateLabel);
+  dateButton.addEventListener('click', event => { event.stopPropagation(); view.dateMenu(dateButton, task); });
+  const prioButton = el(view.doc, 'button', { class: 'rt-icon', title: 'Priority: ' + (task.priority ? choiceTitles.priority[task.priority] || PRIORITY_LABEL[task.priority] : 'none'), html: priorityIcon(task.priority) });
+  prioButton.addEventListener('click', event => { event.stopPropagation(); view.priorityMenu(prioButton, task); });
+  // The sidebar list leaves out the priority bars, except as a mark on urgent and high tasks.
+  const meta = view.compact ? el(view.doc, 'div', { class: 'rt-meta' }, dateButton, ...(task.priority === 'urgent' || task.priority === 'high' ? [el(view.doc, 'span', { class: 'rt-icon rt-still', html: priorityIcon(task.priority) })] : []))
+    : el(view.doc, 'div', { class: 'rt-meta' }, dateButton, prioButton);
+  const node = el(view.doc, 'div', { class: `rt-row${view.kindIsOpen(task) ? '' : ' rt-closed'} rt-st-${view.kind.look(task.status)}-row`, 'data-uuid': task.uuid },
+    statusButton, main, meta);
+  node.addEventListener('contextmenu', event => view.rowMenu(event, task));
+  node.addEventListener('mousemove', () => { if (view.shown[view.cursor] !== task) { view.cursor = view.shown.indexOf(task); view.mark(false); } });
+  return node;
+}
+
+function draw(view) {
+  // Redrawing would remove the text box of a task being edited, and with it what was typed.
+  if (view.editing) { view.drawLater = true; return; }
+  view.drawLater = false;
+  for (const button of view.groupButtons) button.setAttribute('aria-pressed', String(button.dataset.group === view.prefs.group));
+  const since = startOfDay() - Math.max(0, setting('todosDoneDays') - 1) * DAY;
+  const counts = {
+    open: view.data.tasks.filter(view.kindIsOpen).length,
+    doing: view.data.tasks.filter(task => task.status === 'doing' || task.status === 'in-review').length, // Todos only
+    done: view.data.tasks.filter(task => !view.kindIsOpen(task) && task.updated >= since).length,
+    all: view.data.tasks.length,
+  };
+  for (const chip of view.viewChips) { chip.setAttribute('aria-pressed', String(chip.dataset.view === view.prefs.view)); chip.lastChild.textContent = counts[chip.dataset.view]; }
+  view.urgentChip.setAttribute('aria-pressed', String(view.prefs.urgent));
+  view.backlogChip.setAttribute('aria-pressed', String(view.prefs.hideBacklog));
+  const tasks = view.visible();
+  view.count.textContent = view.loaded ? `${tasks.length} shown` : 'Loading…';
+  if (view.compact) view.find.placeholder = view.loaded ? `Find in ${tasks.length} open ${view.kind.many}` : 'Loading…';
+  const scroll = view.body.scrollTop;
+  view.body.textContent = '';
+  view.shown = [];
+  for (const group of view.groups(tasks)) {
+    if (!group.tasks.length) continue;
+    const h3 = el(view.doc, 'h3', {});
+    if (group.pageUuid) {
+      const name = el(view.doc, 'span', { class: 'rt-open', title: 'Open this page' }, group.title);
+      name.addEventListener('click', event => { if (!event.shiftKey) view.leave(); event.shiftKey ? logseq.Editor.openInRightSidebar(group.pageUuid) : logseq.App.pushState('page', { name: group.pageUuid }); });
+      h3.append(name);
+    } else h3.append(group.title);
+    h3.append(el(view.doc, 'span', { class: 'n' }, String(group.tasks.length)));
+    if (group.total) h3.append(el(view.doc, 'span', { class: 'rt-prog', html: `<i style="width:${Math.round(100 * group.done / group.total)}%"></i>`, title: `${group.done} of ${group.total} done` }), el(view.doc, 'span', { class: 'n' }, `${group.done} of ${group.total} done`));
+    const section = el(view.doc, 'section', { class: 'rt-group rt-' + group.key }, h3);
+    for (const task of group.tasks) { section.append(view.row(task)); view.shown.push(task); }
+    view.body.append(section);
+  }
+  if (!view.shown.length) {
+    view.body.append(el(view.doc, 'div', { class: 'rt-empty-note', html: !view.loaded ? `Loading ${view.kind.many}…`
+      : view.data.tasks.length ? (view.compact ? `No open ${view.kind.many} match.` : `No ${view.kind.many} match.<br>Try another chip above, or clear the search box.`)
+      : view.kind.empty }));
+  }
+  view.body.scrollTop = scroll;
+  if (view.cursor >= view.shown.length) view.cursor = view.shown.length - 1;
+  view.mark(false);
+}
+
+function mark(view, scrollIntoView) {
+  const rows = view.body.querySelectorAll('.rt-row');
+  rows.forEach((node, i) => node.classList.toggle('rt-current', i === view.cursor));
+  if (scrollIntoView && rows[view.cursor]) rows[view.cursor].scrollIntoView({ block: 'nearest' });
+}
+
+async function refresh(view) {
+  if (view.loading) { view.again = true; return view.loading; }
+  view.loading = (async () => {
+    try {
+      await view.kind.prepare().catch(error => warnOnce('status names could not be read', error));
+      view.data = await loadTasks(view.kind.key);
+      view.loaded = true;
+    } catch (error) { warnOnce('tasks could not be read', error); view.loaded = true; }
+    view.draw();
+  })();
+  await view.loading;
+  view.loading = null;
+  if (view.again) { view.again = false; return view.refresh(); }
+}
+
+// Arrows move through the tasks, Enter goes to one, Space ticks it off, / goes to the search box.
+function onKey(view, event) {
+  if (!view.box.isConnected || event.target === view.editing || view.menu?.contains(event.target)) return;
+  if (event.key === 'Escape') {
+    if (view.menu) view.closeMenu();
+    else if (event.target === view.find && view.find.value) { view.find.value = ''; view.draw(); }
+    else if (view.mode === 'window') view.leave();
+    else { view.doc.activeElement?.blur?.(); view.cursor = -1; view.mark(false); }
+    event.preventDefault(); event.stopPropagation();
+    return;
+  }
+  const typing = event.target?.matches?.('input, textarea');
+  if (view.menu && !typing) { event.stopPropagation(); return; }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (typing && event.target !== view.find) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!view.shown.length) return;
+    view.cursor = event.key === 'ArrowDown' ? Math.min(view.shown.length - 1, view.cursor + 1) : Math.max(0, view.cursor - 1);
+    if (typing) view.find.blur();
+    view.mark(true);
+    return;
+  }
+  if (event.key === 'Enter' && view.shown[view.cursor] && (!typing || event.target === view.find)) {
+    event.preventDefault(); event.stopPropagation();
+    const task = view.shown[view.cursor];
+    if (!event.shiftKey) view.leave();
+    goTo(task, event.shiftKey).catch(error => warnOnce('a task could not be opened', error));
+    return;
+  }
+  if (typing) return;
+  const rowKey = !event.metaKey && !event.ctrlKey && !event.altKey && view.shown[view.cursor] ? event.key.toLowerCase() : '';
+  const rowNode = rowKey && view.body.querySelectorAll('.rt-row')[view.cursor];
+  if (rowNode && ['s', 'p', 'd', 'e'].includes(rowKey)) {
+    event.preventDefault(); event.stopPropagation();
+    const task = view.shown[view.cursor];
+    if (rowKey === 's') view.statusMenu(rowNode.querySelector('.rt-icon') || rowNode, task);
+    if (rowKey === 'p') view.priorityMenu(rowNode.querySelector('.rt-meta button.rt-icon') || rowNode.querySelector('.rt-meta') || rowNode, task);
+    if (rowKey === 'd') view.dateMenu(rowNode.querySelector('.rt-date') || rowNode, task);
+    if (rowKey === 'e') view.editTitle(task, rowNode.querySelector('.rt-title'));
+    return;
+  }
+  if ((event.key === ' ' || rowKey === 'x') && view.shown[view.cursor]) {
+    event.preventDefault(); event.stopPropagation();
+    const task = view.shown[view.cursor];
+    view.change(() => view.kind.setState(task, view.kind.look(task.status) === 'done' ? view.kind.openKey() : view.kind.doneKey), task);
+    return;
+  }
+  if (event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f')) {
+    event.preventDefault(); event.stopPropagation(); view.find.focus(); view.find.select(); return;
+  }
+  // Shortcuts with Cmd, Ctrl or Option (such as the ones that open Todos and Expectations) still reach Logseq.
+  if (!(event.metaKey || event.ctrlKey || event.altKey)) event.stopPropagation();
+}
+
+function onDown(view, event) { if (view.menu && !view.menu.contains(event.target)) view.closeMenu(); }
+
+function destroy(view) {
+  view.missed = false;
+  view.closeMenu();
+  view.hideToast();
+  view.keyTarget.removeEventListener('keydown', view.onKey, view.mode === 'window');
+  view.doc.removeEventListener('mousedown', view.onDown, true);
+  clearTimeout(view.timer);
+  try { view.offChanged?.(); } catch (error) { /* already off */ }
+  view.box.remove();
+}
+// The add box: a hint under it says what it understood (priority, due day); Enter adds the task.
+function addBoxListeners(view) {
+  view.add.addEventListener('input', () => {
+    const { priority, due } = parseAdd(view.add.value);
     const bits = [];
     if (due != null) bits.push('due ' + shortDate(due));
     if (priority) bits.push((choiceTitles.priority[priority] || PRIORITY_LABEL[priority]) + ' priority');
-    addHint.textContent = bits.join(' · ');
+    view.addHint.textContent = bits.join(' · ');
   });
-  add.addEventListener('keydown', async event => {
+  view.add.addEventListener('keydown', async event => {
     if (event.key !== 'Enter' || event.isComposing) return;
-    const text = add.value.trim();
+    const text = view.add.value.trim();
     if (!text) return;
-    add.disabled = true;
-    try { await addParsed(kind, text); add.value = ''; addHint.textContent = ''; await refresh(); }
-    catch (error) { warnOnce(`${a} ${kind.one} could not be added`, error); logseq.UI.showMsg(`Could not add the ${kind.one}: ` + (error?.message || error), 'warning'); }
-    finally { add.disabled = false; add.focus(); }
+    view.add.disabled = true;
+    try { await addParsed(view.kind, text); view.add.value = ''; view.addHint.textContent = ''; await view.refresh(); }
+    catch (error) { warnOnce(`${view.a} ${view.kind.one} could not be added`, error); logseq.UI.showMsg(`Could not add the ${view.kind.one}: ` + (error?.message || error), 'warning'); }
+    finally { view.add.disabled = false; view.add.focus(); }
   });
-
-  const body = el(doc, 'div', { class: 'rt-body' });
-  const footer = el(doc, 'footer', { html: `<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> go to ${kind.one}</span><span><kbd>⇧ Enter</kbd> or ⇧ click: right sidebar</span><span><kbd>x</kbd> done / not done</span><span><kbd>s</kbd> status · <kbd>p</kbd> priority · <kbd>d</kbd> date</span><span><kbd>e</kbd> or double-click: edit text</span><span><kbd>/</kbd> find</span>` });
-  const box = el(doc, 'div', { class: 'refinement-todos rt-mode-' + mode, role: mode === 'window' ? 'dialog' : 'region', 'aria-label': kind.name });
-  if (compact) box.append(el(doc, 'header', {}, find, ...moveButtons), el(doc, 'div', { class: 'rt-bar2' }, addWrap), body);
-  else {
-    const chips = el(doc, 'div', { class: 'rt-bar2' }, ...viewChips, el(doc, 'span', { class: 'rt-sep' }), urgentChip, ...(kind.hasBacklog ? [backlogChip] : []), addWrap);
-    if (mode === 'page') box.append(el(doc, 'h1', { class: 'rt-page-title' }, kind.name), el(doc, 'header', {}, count, find, seg, ...moveButtons), chips, body, footer);
-    else box.append(el(doc, 'header', {}, el(doc, 'h2', {}, kind.name), count, find, seg, ...moveButtons, closeButton), chips, body, footer);
-  }
-  // The page and sidebar lists take the arrow keys only while they hold the keyboard.
-  if (mode !== 'window') box.tabIndex = -1;
-
-  function closeMenu() { const was = menu; menu?.remove(); menu = null; if (was && missed) { missed = false; refresh(); } }
-  function showMenu(anchor, header, items) {
-    closeMenu();
-    menu = el(doc, 'div', { class: 'refinement-todos-menu', role: 'menu' });
-    if (header) menu.append(el(doc, 'div', { class: 'rt-mh' }, header));
-    for (const item of items) {
-      if (item === '-') { menu.append(el(doc, 'hr')); continue; }
-      if (item.node) { menu.append(item.node); continue; }
-      menu.append(el(doc, 'button', { role: 'menuitem', class: (item.on ? 'rt-on' : '') + (item.danger ? ' rt-danger' : ''), html: item.html, click: async () => { closeMenu(); if (mode !== 'window') box.focus({ preventScroll: true }); if (item.plain) item.run(); else await change(item.run, item.task); } }));
-    }
-    // Arrows move through the menu, Enter picks, Escape closes it.
-    menu.addEventListener('keydown', event => {
-      if (event.target.matches?.('input')) { if (event.key === 'Escape') { closeMenu(); box.focus({ preventScroll: true }); } return; }
-      const items = [...menu.querySelectorAll('button')];
-      const at = items.indexOf(doc.activeElement);
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); items[(at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus(); }
-      else if (event.key === 'Escape') { event.preventDefault(); closeMenu(); if (mode !== 'window') box.focus({ preventScroll: true }); }
-      event.stopPropagation();
-    });
-    doc.body.append(menu);
-    (menu.querySelector('button.rt-on') || menu.querySelector('button'))?.focus({ preventScroll: true });
-    const r = anchor.getBoundingClientRect(), m = menu.getBoundingClientRect();
-    const win = doc.defaultView;
-    menu.style.left = Math.max(8, Math.min(r.left, win.innerWidth - m.width - 8)) + 'px';
-    menu.style.top = (r.bottom + m.height + 6 > win.innerHeight ? Math.max(8, r.top - m.height - 4) : r.bottom + 4) + 'px';
-  }
-  async function change(run, task) {
-    if (task) kept.add(task.uuid);
-    const before = task && data.tasks.find(t => t.uuid === task.uuid);
-    const snap = before && { status: before.status, hasState: before.hasState, priority: before.priority, deadline: before.deadline, scheduled: before.scheduled };
-    try { await run(); } catch (error) { warnOnce('a task could not be changed', error); logseq.UI.showMsg('Could not change the task: ' + (error?.message || error), 'warning'); }
-    await refresh();
-    const after = snap && data.tasks.find(t => t.uuid === task.uuid);
-    if (after) offerUndo(after, snap);
-  }
-
-  // After a change, a small note at the bottom says what changed, with Undo, for a few seconds.
-  let toast = null, toastTimer = 0;
-  function hideToast() { clearTimeout(toastTimer); toast?.remove(); toast = null; }
-  function showToast(text, undo) {
-    hideToast();
-    const button = el(doc, 'button', {}, 'Undo');
-    toast = el(doc, 'div', { class: 'refinement-todos-toast', role: 'status' }, el(doc, 'span', {}, text), button);
-    button.addEventListener('click', async () => { hideToast(); try { await undo(); } catch (error) { warnOnce('a change could not be undone', error); } await refresh(); });
-    doc.body.append(toast);
-    toastTimer = setTimeout(hideToast, 7000);
-  }
-  function offerUndo(task, snap) {
-    const said = [];
-    if (task.status !== snap.status) said.push(kind.title(task.status));
-    if (task.priority !== snap.priority) said.push(task.priority ? `${choiceTitles.priority[task.priority] || PRIORITY_LABEL[task.priority]} priority` : 'no priority');
-    if (task.deadline !== snap.deadline) said.push(task.deadline != null ? 'due ' + shortDate(task.deadline) : 'no due date');
-    if (task.scheduled !== snap.scheduled) said.push(task.scheduled != null ? 'planned ' + shortDate(task.scheduled) : 'no planned date');
-    if (!said.length) return;
-    const name = el(doc, 'div', { html: titleHtml(task.title, data.names) }).textContent.trim();
-    showToast(`“${name.length > 40 ? name.slice(0, 39) + '…' : name}” is now ${said.join(', ')}`, async () => {
-      if (task.status !== snap.status) {
-        if (snap.hasState) await kind.setState(task, snap.status);
-        else await logseq.Editor.removeBlockProperty(task.uuid, kind.key === 'expectations' && stateProp.ident ? stateProp.ident : 'logseq.property/status');
-      }
-      if (task.priority !== snap.priority) await setChoice(task, 'priority', snap.priority);
-      if (task.deadline !== snap.deadline) await setDate(task, 'deadline', snap.deadline ?? null);
-      if (task.scheduled !== snap.scheduled) await setDate(task, 'scheduled', snap.scheduled ?? null);
-    });
-  }
-
-  // Double-click (or e) edits a task's first line in place. Links show by their page's name while editing
-  // and are stored by the page's id again on saving, as Logseq keeps them.
-  let editing = null, drawLater = false;
-  function editTitle(task, titleNode) {
-    if (editing || !titleNode) return;
-    const lines = String(task.title).split('\n');
-    const back = new Map();
-    const shownText = lines[0].replace(/\[\[([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\]\]/gi, (m, uuid) => {
-      const name = data.names.get(uuid.toLowerCase());
-      if (!name || name.includes(']]')) return m;
-      back.set(name, uuid);
-      return `[[${name}]]`;
-    });
-    const input = el(doc, 'input', { class: 'rt-edit', type: 'text', spellcheck: 'true', 'aria-label': `Text of the ${kind.one}` });
-    input.value = shownText;
-    titleNode.replaceWith(input);
-    editing = input;
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
-    let done = false;
-    const finish = async save => {
-      if (done) return;
-      done = true;
-      editing = null;
-      const typed = input.value.trim();
-      if (save && typed && typed !== shownText.trim()) {
-        const first = typed.replace(/\[\[([^\]]+)\]\]/g, (m, name) => (back.has(name) ? `[[${back.get(name)}]]` : m));
-        // The lines after the first are taken from the block as it is now, in case they changed meanwhile.
-        const now = await logseq.Editor.getBlock(task.uuid).catch(() => null);
-        const rest = now && typeof now.title === 'string' ? now.title.split('\n').slice(1) : lines.slice(1);
-        const text = [first, ...rest].join('\n');
-        try {
-          await logseq.Editor.updateBlock(task.uuid, text);
-          showToast('Text changed', () => logseq.Editor.updateBlock(task.uuid, task.title));
-        } catch (error) { warnOnce('a task’s text could not be saved', error); logseq.UI.showMsg('Could not save the text: ' + (error?.message || error), 'warning'); }
-      }
-      if (mode !== 'window') box.focus({ preventScroll: true });
-      await refresh();
-    };
-    for (const type of ['keydown', 'keyup', 'keypress']) input.addEventListener(type, event => {
-      event.stopPropagation();
-      if (type !== 'keydown' || event.isComposing) return;
-      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
-      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-    });
-    input.addEventListener('blur', () => finish(true));
-    input.addEventListener('click', event => event.stopPropagation());
-  }
-  const openLink = (event, name) => {
-    event.stopPropagation();
-    if (!event.shiftKey) leave();
-    if (event.shiftKey) logseq.Editor.openInRightSidebar(name).catch?.(() => {});
-    else logseq.App.pushState('page', { name });
-  };
-
-  const statusMenu = (anchor, task) => showMenu(anchor, kind.key === 'todos' || !stateProp.ident ? 'Status' : kind.title(stateProp.name), kind.menuStates().map(status => ({
-    html: statusIcon(kind.look(status)) + escapeHtml(kind.title(status)), on: task.status === status,
-    task, run: () => kind.setState(task, status),
-  })));
-  const priorityMenu = (anchor, task) => showMenu(anchor, 'Priority', [...PRIORITIES.map(priority => ({
-    html: priorityIcon(priority) + escapeHtml(choiceTitles.priority[priority] || PRIORITY_LABEL[priority]), on: task.priority === priority,
-    task, run: () => setChoice(task, 'priority', priority),
-  })), '-', { html: priorityIcon('') + 'No priority', on: !task.priority, task, run: () => setChoice(task, 'priority', '') }]);
-  // The date shown on a row is its due date, or its planned date when it only has that; the menu changes that one.
-  function dateMenu(anchor, task) {
-    const key = task.deadline == null && task.scheduled != null ? 'scheduled' : 'deadline';
-    const now = task[key];
-    const today = startOfDay();
-    const nextMonday = today + (((8 - new Date(today).getDay()) % 7) || 7) * DAY;
-    const at = days => startOfDay(today + days * DAY + DAY / 2); // noon first, so a clock change does not shift the day
-    const picker = el(doc, 'input', { type: 'date', 'aria-label': 'Pick a date' });
-    if (now != null) { const d = new Date(now); picker.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
-    keepKeys(picker);
-    picker.addEventListener('change', async () => {
-      const [y, mo, d] = picker.value.split('-').map(Number);
-      if (!y) return;
-      closeMenu();
-      await change(() => setDate(task, key, new Date(y, mo - 1, d).getTime()), task);
-    });
-    showMenu(anchor, key === 'deadline' ? 'Due date' : 'Planned for', [
-      { task, html: 'Today<kbd>' + shortDate(today).replace('today', MONTHS[new Date().getMonth()] + ' ' + new Date().getDate()) + '</kbd>', run: () => setDate(task, key, today) },
-      { task, html: 'Tomorrow', run: () => setDate(task, key, at(1)) },
-      { task, html: 'Next Monday<kbd>' + shortDate(nextMonday) + '</kbd>', run: () => setDate(task, key, startOfDay(nextMonday + DAY / 2)) },
-      { task, html: 'In a week<kbd>' + shortDate(at(7)) + '</kbd>', run: () => setDate(task, key, at(7)) },
-      { node: picker },
-      ...(now != null ? ['-', { task, html: key === 'deadline' ? 'Remove due date' : 'Remove planned date', run: () => setDate(task, key, null) }] : []),
-    ]);
-  }
-
-  // Right-click on a row: open the task, change it, or delete it. The menu sits at the pointer.
-  function rowMenu(event, task) {
-    event.preventDefault();
-    event.stopPropagation();
-    const x = event.clientX, y = event.clientY;
-    const at = { getBoundingClientRect: () => ({ left: x, top: y, bottom: y }) };
-    const open = sidebar => () => { if (!sidebar) leave(); goTo(task, sidebar).catch(error => warnOnce('a task could not be opened', error)); };
-    const name = el(doc, 'div', { html: titleHtml(task.title, data.names) }).textContent.trim();
-    const items = [
-      { plain: true, html: 'Open', run: open(false) },
-      { plain: true, html: 'Open in right sidebar', run: open(true) },
-      { plain: true, html: 'Edit text<kbd>e</kbd>', run: () => editTitle(task, body.querySelector(`.rt-row[data-uuid="${task.uuid}"] .rt-title`)) },
-      '-',
-      { plain: true, html: 'Status…<kbd>s</kbd>', run: () => statusMenu(at, task) },
-      { plain: true, html: 'Priority…<kbd>p</kbd>', run: () => priorityMenu(at, task) },
-      { plain: true, html: (task.deadline == null && task.scheduled != null ? 'Planned date…' : 'Due date…') + '<kbd>d</kbd>', run: () => dateMenu(at, task) },
-    ];
-    if (!task.isPage) items.push('-', { plain: true, danger: true, html: `Delete ${kind.one}…`, run: () => showMenu(at, `Delete this ${kind.one} and the blocks under it?`, [
-      { danger: true, task, html: 'Delete', run: () => logseq.Editor.removeBlock(task.uuid) },
-      { plain: true, html: 'Keep it', run: () => {} },
-    ]) });
-    showMenu(at, name, items);
-  }
-
-  // Which tasks the chips and the search box let through.
-  function visible() {
-    const words = find.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const since = startOfDay() - Math.max(0, setting('todosDoneDays') - 1) * DAY;
-    return data.tasks.filter(task => {
-      const keep = kept.has(task.uuid);
-      if (prefs.view === 'open' && !isOpen(task) && !keep) return false;
-      if (prefs.view === 'doing' && task.status !== 'doing' && task.status !== 'in-review' && !keep) return false;
-      if (prefs.view === 'done' && (isOpen(task) || task.updated < since) && !keep) return false;
-      if (prefs.urgent && task.priority !== 'urgent' && task.priority !== 'high' && !keep) return false;
-      if (kind.hasBacklog && prefs.hideBacklog && task.status === 'backlog' && !keep) return false;
-      if (words.length) {
-        const hay = plainTitle(task.title, data.names) + ' ' + task.pageTitle.toLowerCase() + ' ' + task.tags.join(' ').toLowerCase();
-        if (!words.every(word => hay.includes(word))) return false;
-      }
-      return true;
-    });
-  }
-  const rank = task => [kind.groupStates().indexOf(task.status), task.priority ? PRIORITIES.indexOf(task.priority) : 9, whenOf(task) ?? Infinity];
-  function byRank(a, b) {
-    const ra = rank(a), rb = rank(b);
-    for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] < rb[i] ? -1 : 1;
-    return plainTitle(a.title, data.names).localeCompare(plainTitle(b.title, data.names));
-  }
-  function groups(tasks) {
-    if (prefs.group === 'status') {
-      return kind.groupStates().map(status => ({ key: status, title: kind.title(status), tasks: tasks.filter(task => task.status === status).sort(byRank) }));
-    }
-    if (prefs.group === 'page') {
-      const pages = new Map();
-      for (const task of tasks) {
-        const key = task.isPage ? 'pages' : task.pageUuid;
-        if (!pages.has(key)) pages.set(key, { key, title: task.isPage ? 'Pages that are tasks' : task.pageTitle || 'Untitled', pageUuid: task.isPage ? null : key, journalDay: task.journalDay, tasks: [] });
-        pages.get(key).tasks.push(task);
-      }
-      // Every task of the page counts toward its bar, also those the chips leave out.
-      for (const page of pages.values()) {
-        page.tasks.sort(byRank);
-        if (!page.pageUuid) continue;
-        const all = data.tasks.filter(task => task.pageUuid === page.key);
-        page.done = all.filter(task => kind.look(task.status) === 'done').length;
-        page.total = all.filter(task => kind.look(task.status) !== 'canceled').length;
-      }
-      // Pages with most to do first; journal days after named pages, newest first.
-      return [...pages.values()].sort((a, b) => (Boolean(a.journalDay) - Boolean(b.journalDay)) || (b.journalDay - a.journalDay) ||
-        (b.tasks.filter(isOpen).length - a.tasks.filter(isOpen).length) || a.title.localeCompare(b.title));
-    }
-    if (prefs.view === 'done') {
-      return DONE_GROUPS.map(([key, title]) => ({ key, title, tasks: tasks.filter(task => doneBucket(task) === key).sort((a, b) => b.updated - a.updated) }));
-    }
-    return WHEN_GROUPS.map(([key, title]) => ({ key, title, tasks: tasks.filter(task => whenBucket(task) === key).sort(key === 'none' ? byRank : (a, b) => (whenOf(a) - whenOf(b)) || byRank(a, b)) }));
-  }
-
-  function row(task) {
-    // Red only for a due date that has passed; a planned day that has passed is late too, but not overdue.
-    const late = isOpen(task) && task.deadline != null && task.deadline < startOfDay();
-    const daysLate = late ? Math.round((startOfDay() - startOfDay(task.deadline)) / DAY) : 0;
-    const dateLabel = task.deadline != null ? `due ${shortDate(task.deadline)}${daysLate > 1 ? ` · ${daysLate} days late` : ''}`
-      : task.scheduled != null ? `planned ${shortDate(task.scheduled)}` : 'add date';
-    const statusButton = el(doc, 'button', { class: 'rt-icon', title: kind.title(task.status), html: statusIcon(kind.look(task.status)) });
-    statusButton.addEventListener('click', event => { event.stopPropagation(); statusMenu(statusButton, task); });
-    const title = el(doc, 'span', { class: 'rt-title', html: titleHtml(task.title, data.names) });
-    // One click goes to the task (after a moment, so a double-click can edit it instead); a link in it opens its page.
-    let clickTimer = 0;
-    title.addEventListener('click', event => {
-      event.stopPropagation();
-      const link = event.target.closest?.('[data-page]');
-      if (link && title.contains(link)) { openLink(event, link.dataset.page); return; }
-      clearTimeout(clickTimer);
-      if (event.detail > 1) return;
-      const sidebar = event.shiftKey;
-      clickTimer = setTimeout(() => { if (!sidebar) leave(); goTo(task, sidebar).catch(error => warnOnce('a task could not be opened', error)); }, 400);
-    });
-    title.addEventListener('mousedown', event => { if (event.detail > 1) { clearTimeout(clickTimer); event.preventDefault(); } });
-    title.addEventListener('dblclick', event => { event.stopPropagation(); clearTimeout(clickTimer); editTitle(task, title); });
-    // Under the text, quieter: subtasks, then the task's tags and page.
-    const sub = el(doc, 'div', { class: 'rt-sub' });
-    const subtasks = data.subs?.get(task.uuid);
-    if (subtasks?.total) sub.append(el(doc, 'span', { class: 'rt-subtasks' + (subtasks.done === subtasks.total ? ' rt-all' : '') }, `${subtasks.done} of ${subtasks.total} subtasks`));
-    if (!compact) {
-      for (const tag of task.tags) sub.append(el(doc, 'span', { class: 'rt-kind' }, '#' + tag));
-      if (prefs.group !== 'page' && !task.isPage) sub.append(el(doc, 'span', { class: 'rt-src' }, task.pageTitle));
-    }
-    const main = el(doc, 'div', { class: 'rt-main' }, el(doc, 'div', { class: 'rt-line' }, title), sub.childNodes.length ? sub : null);
-    const isToday = isOpen(task) && whenOf(task) != null && startOfDay(whenOf(task)) === startOfDay();
-    const dateButton = el(doc, 'button', { class: 'rt-date' + (late ? ' rt-is-late' : '') + (isToday ? ' rt-is-today' : '') + (task.deadline == null && task.scheduled != null ? ' rt-is-planned' : '') + (whenOf(task) == null ? ' rt-empty' : ''), title: task.deadline != null && task.scheduled != null ? `planned ${shortDate(task.scheduled)}` : '' }, dateLabel);
-    dateButton.addEventListener('click', event => { event.stopPropagation(); dateMenu(dateButton, task); });
-    const prioButton = el(doc, 'button', { class: 'rt-icon', title: 'Priority: ' + (task.priority ? choiceTitles.priority[task.priority] || PRIORITY_LABEL[task.priority] : 'none'), html: priorityIcon(task.priority) });
-    prioButton.addEventListener('click', event => { event.stopPropagation(); priorityMenu(prioButton, task); });
-    // The sidebar list leaves out the priority bars, except as a mark on urgent and high tasks.
-    const meta = compact ? el(doc, 'div', { class: 'rt-meta' }, dateButton, ...(task.priority === 'urgent' || task.priority === 'high' ? [el(doc, 'span', { class: 'rt-icon rt-still', html: priorityIcon(task.priority) })] : []))
-      : el(doc, 'div', { class: 'rt-meta' }, dateButton, prioButton);
-    const node = el(doc, 'div', { class: `rt-row${isOpen(task) ? '' : ' rt-closed'} rt-st-${kind.look(task.status)}-row`, 'data-uuid': task.uuid },
-      statusButton, main, meta);
-    node.addEventListener('contextmenu', event => rowMenu(event, task));
-    node.addEventListener('mousemove', () => { if (shown[cursor] !== task) { cursor = shown.indexOf(task); mark(false); } });
-    return node;
-  }
-
-  function draw() {
-    // Redrawing would remove the text box of a task being edited, and with it what was typed.
-    if (editing) { drawLater = true; return; }
-    drawLater = false;
-    for (const button of groupButtons) button.setAttribute('aria-pressed', String(button.dataset.group === prefs.group));
-    const since = startOfDay() - Math.max(0, setting('todosDoneDays') - 1) * DAY;
-    const counts = {
-      open: data.tasks.filter(isOpen).length,
-      doing: data.tasks.filter(task => task.status === 'doing' || task.status === 'in-review').length, // Todos only
-      done: data.tasks.filter(task => !isOpen(task) && task.updated >= since).length,
-      all: data.tasks.length,
-    };
-    for (const chip of viewChips) { chip.setAttribute('aria-pressed', String(chip.dataset.view === prefs.view)); chip.lastChild.textContent = counts[chip.dataset.view]; }
-    urgentChip.setAttribute('aria-pressed', String(prefs.urgent));
-    backlogChip.setAttribute('aria-pressed', String(prefs.hideBacklog));
-    const tasks = visible();
-    count.textContent = loaded ? `${tasks.length} shown` : 'Loading…';
-    if (compact) find.placeholder = loaded ? `Find in ${tasks.length} open ${kind.many}` : 'Loading…';
-    const scroll = body.scrollTop;
-    body.textContent = '';
-    shown = [];
-    for (const group of groups(tasks)) {
-      if (!group.tasks.length) continue;
-      const h3 = el(doc, 'h3', {});
-      if (group.pageUuid) {
-        const name = el(doc, 'span', { class: 'rt-open', title: 'Open this page' }, group.title);
-        name.addEventListener('click', event => { if (!event.shiftKey) leave(); event.shiftKey ? logseq.Editor.openInRightSidebar(group.pageUuid) : logseq.App.pushState('page', { name: group.pageUuid }); });
-        h3.append(name);
-      } else h3.append(group.title);
-      h3.append(el(doc, 'span', { class: 'n' }, String(group.tasks.length)));
-      if (group.total) h3.append(el(doc, 'span', { class: 'rt-prog', html: `<i style="width:${Math.round(100 * group.done / group.total)}%"></i>`, title: `${group.done} of ${group.total} done` }), el(doc, 'span', { class: 'n' }, `${group.done} of ${group.total} done`));
-      const section = el(doc, 'section', { class: 'rt-group rt-' + group.key }, h3);
-      for (const task of group.tasks) { section.append(row(task)); shown.push(task); }
-      body.append(section);
-    }
-    if (!shown.length) {
-      body.append(el(doc, 'div', { class: 'rt-empty-note', html: !loaded ? `Loading ${kind.many}…`
-        : data.tasks.length ? (compact ? `No open ${kind.many} match.` : `No ${kind.many} match.<br>Try another chip above, or clear the search box.`)
-        : kind.empty }));
-    }
-    body.scrollTop = scroll;
-    if (cursor >= shown.length) cursor = shown.length - 1;
-    mark(false);
-  }
-  function mark(scrollIntoView) {
-    const rows = body.querySelectorAll('.rt-row');
-    rows.forEach((node, i) => node.classList.toggle('rt-current', i === cursor));
-    if (scrollIntoView && rows[cursor]) rows[cursor].scrollIntoView({ block: 'nearest' });
-  }
-
-  let loading = null, again = false;
-  async function refresh() {
-    if (loading) { again = true; return loading; }
-    loading = (async () => {
-      try {
-        await kind.prepare().catch(error => warnOnce('status names could not be read', error));
-        data = await loadTasks(kind.key);
-        loaded = true;
-      } catch (error) { warnOnce('tasks could not be read', error); loaded = true; }
-      draw();
-    })();
-    await loading;
-    loading = null;
-    if (again) { again = false; return refresh(); }
-  }
-
-  // Arrows move through the tasks, Enter goes to one, Space ticks it off, / goes to the search box.
-  const onKey = event => {
-    if (!box.isConnected || event.target === editing || menu?.contains(event.target)) return;
-    if (event.key === 'Escape') {
-      if (menu) closeMenu();
-      else if (event.target === find && find.value) { find.value = ''; draw(); }
-      else if (mode === 'window') leave();
-      else { doc.activeElement?.blur?.(); cursor = -1; mark(false); }
-      event.preventDefault(); event.stopPropagation();
-      return;
-    }
-    const typing = event.target?.matches?.('input, textarea');
-    if (menu && !typing) { event.stopPropagation(); return; }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (typing && event.target !== find) return;
-      event.preventDefault(); event.stopPropagation();
-      if (!shown.length) return;
-      cursor = event.key === 'ArrowDown' ? Math.min(shown.length - 1, cursor + 1) : Math.max(0, cursor - 1);
-      if (typing) find.blur();
-      mark(true);
-      return;
-    }
-    if (event.key === 'Enter' && shown[cursor] && (!typing || event.target === find)) {
-      event.preventDefault(); event.stopPropagation();
-      const task = shown[cursor];
-      if (!event.shiftKey) leave();
-      goTo(task, event.shiftKey).catch(error => warnOnce('a task could not be opened', error));
-      return;
-    }
-    if (typing) return;
-    const rowKey = !event.metaKey && !event.ctrlKey && !event.altKey && shown[cursor] ? event.key.toLowerCase() : '';
-    const rowNode = rowKey && body.querySelectorAll('.rt-row')[cursor];
-    if (rowNode && ['s', 'p', 'd', 'e'].includes(rowKey)) {
-      event.preventDefault(); event.stopPropagation();
-      const task = shown[cursor];
-      if (rowKey === 's') statusMenu(rowNode.querySelector('.rt-icon') || rowNode, task);
-      if (rowKey === 'p') priorityMenu(rowNode.querySelector('.rt-meta button.rt-icon') || rowNode.querySelector('.rt-meta') || rowNode, task);
-      if (rowKey === 'd') dateMenu(rowNode.querySelector('.rt-date') || rowNode, task);
-      if (rowKey === 'e') editTitle(task, rowNode.querySelector('.rt-title'));
-      return;
-    }
-    if ((event.key === ' ' || rowKey === 'x') && shown[cursor]) {
-      event.preventDefault(); event.stopPropagation();
-      const task = shown[cursor];
-      change(() => kind.setState(task, kind.look(task.status) === 'done' ? kind.openKey() : kind.doneKey), task);
-      return;
-    }
-    if (event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f')) {
-      event.preventDefault(); event.stopPropagation(); find.focus(); find.select(); return;
-    }
-    // Shortcuts with Cmd, Ctrl or Option (such as the ones that open Todos and Expectations) still reach Logseq.
-    if (!(event.metaKey || event.ctrlKey || event.altKey)) event.stopPropagation();
-  };
-  const onDown = event => { if (menu && !menu.contains(event.target)) closeMenu(); };
-  // The window takes every key while it is open; the page and sidebar lists only keys pressed inside them.
-  const keyTarget = mode === 'window' ? doc : box;
-  keyTarget.addEventListener('keydown', onKey, mode === 'window');
-  doc.addEventListener('mousedown', onDown, true);
-  // While the window is open, edits made elsewhere (or by Logseq itself) show up in it.
-  // A refresh skipped while a menu is open runs when it closes; one during text editing waits in draw().
-  let timer = 0;
-  const offChanged = logseq.DB.onChanged(() => { clearTimeout(timer); timer = setTimeout(() => { if (menu) missed = true; else refresh(); }, 400); });
-
-  function destroy() {
-    missed = false;
-    closeMenu();
-    hideToast();
-    keyTarget.removeEventListener('keydown', onKey, mode === 'window');
-    doc.removeEventListener('mousedown', onDown, true);
-    clearTimeout(timer);
-    try { offChanged?.(); } catch (error) { /* already off */ }
-    box.remove();
-  }
-  // Clicking a blank part of the list gives it the keyboard, for the arrow keys.
-  if (mode !== 'window') box.addEventListener('mousedown', event => { if (!event.target.closest('input, button, .rt-title, .rt-open')) box.focus({ preventScroll: true }); });
-  draw();
-  return { node: box, refresh, destroy, focus: () => find.focus() };
 }
+
+// The pieces of createView, each given the view's state; createView binds them to the view by name.
+const CREATEVIEW_FUNCTIONS = [savePrefs, kindIsOpen, forget, closeMenu, showMenu, change, hideToast, showToast, offerUndo, editTitle, openLink, statusMenu, priorityMenu, dateMenu, rowMenu, visible, rank, byRank, groups, row, draw, mark, refresh, onKey, onDown, destroy];
 
 function open(kind = KINDS.todos) {
   if (current?.kind === kind) { current.focus(); return; }
