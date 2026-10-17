@@ -9,7 +9,7 @@ const { host, notify, modalButtons } = shared;
 // This part's own clean-up list and stop key: a copy removed without its clean-up finishing is stopped
 // by the next one, which also removes a note or box the earlier copy left on screen.
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (journal dates): ', stopKey: '__journalDayDatesStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask')) el.remove(); } catch (error) { /* nothing left over */ } } });
+  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask, .jdd-ghost, .jdd-bar')) el.remove(); for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost'); } catch (error) { /* nothing left over */ } } });
 // The shared dialog box, drawn with this part's own class names (styled in promptCss below).
 const modal = (cancelValue, build, width) => shared.modal(cancelValue, build, width, { backdrop: 'jdd-prompt-backdrop', box: 'jdd-prompt' });
 
@@ -173,25 +173,38 @@ function askNext() {
   ask.open = item;
   showAsk(item).catch(error => { warnOnce('the date question could not be shown', error); ask.open = null; askNext(); });
 }
+/* The question lives where the answer goes. The proposed day is drawn as a ghost value in the record's
+   own row: in its empty date pill when Logseq shows one, else right after its title. The ghost is a
+   dashed box, as the dashed circle means "not finished": proposed, not written. j, or a click on the
+   day, writes it and a bar at the bottom offers Undo; k leaves the record alone for the session; Escape
+   or the record leaving the screen leaves it for now. While the record is not on screen (written from
+   somewhere else), the small note at the top right asks instead, as before. One record at a time.
+   Logseq redraws the row on every change, so the ghost is put back twice a second while it is open. */
+const GHOST_EVERY = 500, GHOST_GONE_AFTER = 6; // ticks without the row before "later"
+function removeGhost(doc) {
+  for (const el of doc.querySelectorAll('.jdd-ghost')) el.remove();
+  for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost');
+}
 async function showAsk(item) {
   const [title, day] = await Promise.all([askTitle(item.uuid), askTitle(item.journalId)]);
   if (!day) { ask.open = null; askNext(); return; }
   const doc = host(), win = doc.defaultView;
   doc.querySelector('.jdd-ask')?.remove();
-  const note = doc.createElement('div');
-  note.className = 'jdd-ask';
-  note.setAttribute('role', 'dialog');
-  note.innerHTML = `<div class="jdd-ask-text"><span class="jdd-ask-what">${escapeHtml(autoDatePropertyName())}: ${escapeHtml(day)}</span> for “${escapeHtml(shorten(title || 'this record'))}”?</div>
-    <div class="jdd-ask-keys"><button type="button" data-answer="yes">Yes <kbd>j</kbd></button><button type="button" data-answer="no">No <kbd>k</kbd></button></div>`;
-  let done = false;
+  removeGhost(doc);
+  const name = autoDatePropertyName();
+  let done = false, note = null, gone = 0, usedGhost = false;
   const finish = async answer => {
     if (done) return;
     done = true;
-    clearTimeout(timer);
+    clearInterval(keep);
     win.removeEventListener('keydown', onKey, true);
-    note.remove();
-    if (answer === 'yes') await fillDates(item.setup, new Map([[item.uuid, item.journalId]]));
-    // A no is final for this session; a note left to fade may ask again on the next change.
+    note?.remove();
+    removeGhost(doc);
+    if (answer === 'yes') {
+      const filled = await fillDates(item.setup, new Map([[item.uuid, item.journalId]]));
+      if (filled) showBar(`${name}: ${day} filled for “${shorten(title || 'this record')}”`, () => logseq.Editor.removeBlockProperty(item.uuid, item.setup.ident));
+    }
+    // A no is final for this session; a record left for later may be asked again on the next change.
     if (answer !== 'later') autoDate.tried.set(item.uuid, AUTO_DATE_TRIES);
     ask.open = null;
     askNext();
@@ -207,12 +220,65 @@ async function showAsk(item) {
     event.preventDefault(); event.stopPropagation();
     finish(key === 'j' ? 'yes' : 'no');
   };
+  const answerClick = event => { const button = event.target.closest('button[data-answer]'); if (button) { event.preventDefault(); event.stopPropagation(); finish(button.dataset.answer); } };
+  const showNote = () => {
+    if (note?.isConnected) return;
+    note = doc.createElement('div');
+    note.className = 'jdd-ask';
+    note.setAttribute('role', 'dialog');
+    note.innerHTML = `<div class="jdd-ask-text"><span class="jdd-ask-what">${escapeHtml(name)}: ${escapeHtml(day)}</span> for “${escapeHtml(shorten(title || 'this record'))}”?</div>
+      <div class="jdd-ask-keys"><button type="button" data-answer="yes">Yes <kbd>j</kbd></button><button type="button" data-answer="no">No <kbd>k</kbd></button></div>`;
+    note.addEventListener('mousedown', event => event.stopPropagation());
+    note.addEventListener('click', answerClick);
+    doc.body.appendChild(note);
+  };
+  // The record's row on screen, and its empty pill for the date property when Logseq shows one.
+  const ghost = () => {
+    if (done) return;
+    const row = doc.querySelector(`.ls-block[blockid="${item.uuid}"]`);
+    if (!row) {
+      if (usedGhost && ++gone >= GHOST_GONE_AFTER) { finish('later'); return; }
+      if (!usedGhost) showNote();
+      return;
+    }
+    gone = 0;
+    const own = el => el.closest('.ls-block[blockid]') === row;
+    const pill = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && p.firstElementChild?.textContent.trim().toLowerCase() === name.toLowerCase());
+    const target = pill || [...row.querySelectorAll('.block-title-wrap')].find(own);
+    if (!target) { if (!usedGhost) showNote(); return; }
+    if (target.querySelector(':scope > .jdd-ghost')) return;
+    usedGhost = true;
+    note?.remove();
+    const g = doc.createElement('span');
+    g.className = 'jdd-ghost';
+    g.setAttribute('contenteditable', 'false');
+    g.innerHTML = `${pill ? '' : `<span class="jdd-ghost-name">${escapeHtml(name)}:</span>`}<button type="button" data-answer="yes" class="jdd-ghost-value" title="Fill it (j)">${escapeHtml(day)}</button><span class="jdd-ghost-keys"><kbd>j</kbd> fills · <kbd>k</kbd> leaves it</span>`;
+    g.addEventListener('mousedown', event => event.stopPropagation());
+    g.addEventListener('click', answerClick);
+    if (pill) pill.setAttribute('data-jdd-ghost', '');
+    target.appendChild(g);
+  };
   win.addEventListener('keydown', onKey, true);
-  note.addEventListener('mousedown', event => event.stopPropagation());
-  note.addEventListener('click', event => { const button = event.target.closest('button[data-answer]'); if (button) finish(button.dataset.answer); });
-  const timer = setTimeout(() => finish('later'), 25000);
-  doc.body.appendChild(note);
-  onUnload(() => { if (!done) { done = true; clearTimeout(timer); win.removeEventListener('keydown', onKey, true); note.remove(); } });
+  ghost();
+  const keep = setInterval(ghost, GHOST_EVERY);
+  // The note alone goes away by itself; a ghost in the row waits until answered or the row leaves the screen.
+  setTimeout(() => { if (!usedGhost) finish('later'); }, 25000);
+  onUnload(() => { if (!done) { done = true; clearInterval(keep); win.removeEventListener('keydown', onKey, true); note?.remove(); removeGhost(doc); } });
+}
+// After a write: a dark bar at the bottom, "Date: Oct 16th filled for …", with Undo for seven seconds.
+const bar = { el: null, timer: 0 };
+function showBar(text, undo) {
+  const doc = host();
+  clearTimeout(bar.timer); bar.el?.remove();
+  const el = bar.el = doc.createElement('div');
+  el.className = 'jdd-bar';
+  el.setAttribute('role', 'status');
+  const words = doc.createElement('span'); words.textContent = text;
+  const button = doc.createElement('button'); button.type = 'button'; button.textContent = 'Undo';
+  button.addEventListener('click', async () => { clearTimeout(bar.timer); el.remove(); try { await undo(); } catch (error) { warnOnce('the date could not be taken off again', error); notify('The date could not be taken off again', 'warning'); } });
+  el.append(words, button);
+  doc.body.appendChild(el);
+  bar.timer = setTimeout(() => el.remove(), 7000);
 }
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function confirmBox(message, okLabel) {
@@ -248,7 +314,7 @@ const settingsSchema = [
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },
   { key: 'autoDateAsk', type: 'boolean', title: 'Ask before filling', default: true,
-    description: 'A small note at the top right asks first: j (or Yes) fills the date, k (or No) leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours; use the note’s buttons, or it goes away by itself after a while. Turn off to fill without asking.' },
+    description: 'The proposed day is drawn in the record’s own row as a dashed ghost value: j (or a click on it) writes it and a bar at the bottom offers Undo, k leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours. A record that is not on screen is asked about in a small note at the top right instead. Turn off to fill without asking.' },
   { key: 'autoDateTags', type: 'string', title: 'Tags', default: '',
     description: 'Comma-separated tag names, without #. Tags that extend these are included. Nothing is filled while this is empty.' },
   { key: 'autoDateProperty', type: 'string', title: 'Date property', default: 'Date',
@@ -269,7 +335,21 @@ const promptCss = `
 .jdd-ask-keys { display: flex; gap: 6px; flex: none; }
 .jdd-ask-keys button { padding: 3px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: .95em; cursor: pointer; }
 .jdd-ask-keys button:hover { background: var(--ls-tertiary-background-color); }
-.jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: .85em; color: var(--ls-secondary-text-color); }`;
+.jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: .85em; color: var(--ls-secondary-text-color); }
+/* The ghost value in the record's own row: dashed means proposed, not written. */
+.jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; font-size: .95em; vertical-align: baseline; }
+.jdd-ghost-name { color: var(--ls-secondary-text-color, currentColor); }
+.jdd-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); border-radius: .22em; padding: .02em .28em; background: transparent; color: var(--ls-secondary-text-color, currentColor); font: inherit; font-size: .95em; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
+.jdd-ghost-value:hover { color: var(--ls-primary-text-color, currentColor); border-style: solid; }
+.jdd-ghost-keys { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
+.jdd-ghost-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
+.ls-block .positioned-properties.block-below .bottom-property-pill[data-jdd-ghost] { display: flex !important; opacity: 1 !important; }
+.bottom-property-pill[data-jdd-ghost] .empty-value { display: none !important; }
+/* The bar after a write, with Undo. */
+.jdd-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px; background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.jdd-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jdd-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.jdd-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }`;
 
 const DB_PAUSE = 800, DB_LONGEST = 2500;
 const dbWork = { timer: 0, since: 0 };
