@@ -126,7 +126,7 @@ async function copyDiagnostics(event) {
   try {
     const clickedId = typeof event?.uuid === 'string' ? event.uuid : null;
     const block = clickedId ? { uuid: clickedId } : (await logseq.Editor.getCurrentBlock() || (await logseq.Editor.getSelectedBlocks())?.[0]);
-    if (!block?.uuid) return notify('Click into the block to check first, then run this again', 'warning');
+    if (!block?.uuid) return notify('Click in a block first, then run this again', 'warning');
     await logseq.Editor.exitEditingMode?.();
     const doc = host();
     const row = doc.querySelector(`.ls-block[blockid="${block.uuid}"]`);

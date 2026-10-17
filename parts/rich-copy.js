@@ -693,7 +693,7 @@ async function copy(source, what) {
       const result = await buildDocument(prepared, choice);
       if (!result.plain.trim()) return notify('Nothing to copy here', 'warning');
       if (action === 'pdf') return printToPdf(result, source.title || result.plain.split('\n')[0], choice.format);
-      if (await writeClipboard(result)) notify(`Copied ${what} as rich text`, 'success');
+      if (await writeClipboard(result)) notify(`Copied ${what} as rich text`);
       else notify('Could not reach the clipboard', 'error');
     };
     await chooseProperties({ ...prepared, title: source.title }, what, run);

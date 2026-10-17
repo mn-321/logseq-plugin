@@ -157,7 +157,7 @@ async function openTagPicker(actions) {
     if (!tagsEntry()) setValue('Tags');
     const entry = await waitFor(tagsEntry, 2000);
     // Leave nothing typed: Enter on a leftover "Tags" could make Logseq create a new property.
-    if (!entry) { if (input.isConnected) setValue(''); return notify('Choose Tags in the menu that opened.', 'info'); }
+    if (!entry) { if (input.isConnected) setValue(''); return notify('Choose Tags in the menu that opened.', 'warning'); }
     entry.click();
   } catch (error) { console.error(error); notify(`Could not open the tag list: ${error.message}`, 'warning'); }
 }

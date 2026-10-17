@@ -299,7 +299,7 @@ async function fillMissingDates() {
     if (!setup) return notify(`Couldn't find the tags (${autoDateTagNames().join(', ')}) or a Date-type property named “${autoDatePropertyName()}”. Check the plugin settings.`, 'warning');
     const records = await undatedRecords(setup, 0);
     if (!records.size) return notify('Every record already has a date, or none was written on a journal day');
-    const ok = await confirmBox(`${records.size} record${records.size === 1 ? '' : 's'} tagged ${autoDateTagNames().map(n => '#' + n).join(' or ')} (or a tag that extends them) ${records.size === 1 ? 'has' : 'have'} no ${autoDatePropertyName()}. Fill each with the journal day it was written on? Dates you've already entered are not touched.`, 'Fill dates');
+    const ok = await confirmBox(`${records.size} record${records.size === 1 ? '' : 's'} tagged ${autoDateTagNames().map(n => '#' + n).join(' or ')} (or a tag that extends them) ${records.size === 1 ? 'has' : 'have'} no ${autoDatePropertyName()}. Fill each with the journal day it was written on? Dates you've already entered are not touched. This cannot be undone in one step.`, 'Fill dates');
     if (!ok) return;
     autoDate.warned = false;
     const filled = await fillDates(setup, records);

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.81.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.82.
 
 Besides the look of pages, it holds:
 
@@ -275,7 +275,7 @@ Fills an empty Date property on chosen records with the journal day they were wr
 
 A block written on a journal page gets that page's day. A page made from a journal (for example by typing `[[Name]]#Tag` there) is left alone: a page has no day of its own, so nothing is guessed for it.
 
-New records are asked about (or filled) automatically. Older ones are filled only when you run **Fill missing dates from journal days** from the command palette, which says how many it found and asks first.
+New records are asked about (or filled) automatically. Older ones are filled only when you run **Fill missing dates from journal days** from the command palette, which says how many it found and asks first; its box says that this cannot be undone in one step.
 
 ## Copy as rich text
 
@@ -352,7 +352,7 @@ Cancel leaves the block unchanged. The command accepts a single-line label and p
 
 **Add tags to this page**
 
-Press `Cmd+T` (changeable in the settings window), run **Add tags to this page**, or click the `#Page` above the title of an untagged page. The command and shortcut call Logseq's own **Set tags** command (`p t`), so its tag dialog opens in the middle of the window for the page you are on; the `#Page` click opens the same list just under it. On the Journals list the command says so and does nothing.
+Press `Cmd+T` (changeable in the settings window), run **Add tags to this page**, or click the `#Page` above the title of an untagged page. All three open the same Tags list just under the title of the page you are on. On the Journals list the command says so and does nothing.
 
 **Delete this block**
 

@@ -47,7 +47,7 @@ Git: one version per commit. No global identity is set; commit with
 - The plugin API refuses every icon value a plugin sends (`upsert_block_property` with `{type, id}` logs "Invalid icon", 2.0.2); an icon on a tag is picked on its page with Logseq's own Add icon.
 - Change 7 of the grammar page (the `#` and the date box on the rows of the `[[` picker), the housekeeping tokens and wording, and the three documentation items are not done; see `docs/GRAMMAR.md`.
 
-- The Cmd+T command calls Logseq's own "Set tags" command; on the Journals list it says so and does nothing.
+- Add tags to this page (Cmd+T) opens the plugin's own Tags list under the title since 0.4.82, the same list the `#Page` label opens; on the Journals list it says so and does nothing.
 - On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions (test data, not plugin code).
 - The Linked references look on a reference that comes through a `#tag` has not been looked at on the Idea tag page.
 - Whether the `[[ ]]` dropdown has to list every date (it is Logseq's own list) was offered and not decided.

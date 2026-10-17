@@ -43,7 +43,7 @@ async function blockToPage(event) {
   const clickedId = typeof event?.uuid === 'string' ? event.uuid : null;
   const block = (clickedId && await logseq.Editor.getBlock(clickedId)) ||
     await logseq.Editor.getCurrentBlock() || (await logseq.Editor.getSelectedBlocks())?.[0];
-  if (!block) return notify('Select a block first', 'warning');
+  if (!block) return notify('Click in a block first', 'warning');
   const name = cleanTitle(await readableTitle(titleOf(block)));
   if (!name) return notify('The block needs a title', 'warning');
   try {
@@ -246,7 +246,7 @@ async function selectedRange(selection, before) {
 async function labeledPageLink() {
   const selection = recentSelection;
   if (!selection?.text?.trim() || !Number.isInteger(selection.start) || !Number.isInteger(selection.end))
-    return notify('Select the words to display, then press Mod+Shift+L', 'warning');
+    return notify('Select the words to display, then run Link selected text to a page', 'warning');
   const current = await logseq.Editor.getCurrentBlock();
   if (current && current.uuid !== selection.blockId)
     return notify('Select the display text in this block again', 'warning');
@@ -278,7 +278,7 @@ let recentSelection = null;
 async function linkSelection(selection, name) {
   const words = selection.text;
   if (!Number.isInteger(selection.start) || !Number.isInteger(selection.end) || /[\[\]\r\n]/.test(words))
-    return notify('Opened the page; the selected text was left as it was', 'info');
+    return notify('Opened the page; the selected text was left as it was', 'warning');
   try {
     if (await logseq.Editor.getCurrentBlock()) await logseq.Editor.exitEditingMode();
     const before = selection.content;
@@ -294,7 +294,7 @@ async function linkSelection(selection, name) {
         saved.slice(range.end, range.end + 2) === ']]') return; // already a link
     // Spaces around the words, and tags after them, stay outside the brackets.
     const core = words.trim();
-    if (!core.startsWith(name)) return notify('Opened the page; the selected text was left as it was', 'info');
+    if (!core.startsWith(name)) return notify('Opened the page; the selected text was left as it was', 'warning');
     const link = words.match(/^\s*/)[0] + `[[${name}]]` + core.slice(name.length) + words.match(/\s*$/)[0];
     await logseq.Editor.updateBlock(selection.blockId,
       saved.slice(0, range.start) + link + saved.slice(range.end));
@@ -318,23 +318,18 @@ async function selectionToPage() {
   } catch (error) { console.error(error); notify(`Could not open page: ${error.message}`, 'error'); }
 }
 
-// Command and shortcut: open the Set Tags list for the page in the main area. This is Logseq's own
-// "Set tags" command (p t), which picks the page when no block is being edited or is selected, so
-// first nothing is. If no dialog opens, the plugin falls back to opening the list from the title.
+// Command and shortcut: open the Tags list under the page's title, the same list the #Page label above the
+// title opens, so Set tags happens in one place (it used to call Logseq's own command, whose dialog opens in
+// the middle of the window). Nothing may be in edit or selected, or Logseq would tag the block instead.
 async function addTagsToPage() {
   const doc = host();
   const actions = () => doc.querySelector('#main-content-container .is-page-title-row .ls-page-title-actions > div');
   if (!actions()) return notify('Open a page first', 'warning');
-  const dialog = () => doc.querySelector('.ls-property-dialog');
   try {
     await logseq.Editor.exitEditingMode(false);
     await logseq.Editor.clearSelectedBlocks();
-    // Not awaited: Logseq runs the command, then cannot send its reply back and reports an error
-    // (as with search); whether the dialog opened is what counts.
-    Promise.resolve(logseq.App.invokeExternalCommand('logseq.editor/set-tags')).catch(() => {});
-    if (await waitFor(dialog, 1500)) return;
-  } catch (error) { warnOnce('Logseq\'s Set tags command could not be called', error); }
-  if (actions()) return openTagPicker(actions());
+  } catch (error) { /* nothing was being edited or selected */ }
+  return openTagPicker(actions());
 }
 /* A date typed year first inside [[ ]] (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014)
    becomes that day's journal name ("Oct 14th, 2026") once the day's second digit is typed, so

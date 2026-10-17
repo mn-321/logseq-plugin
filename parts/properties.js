@@ -615,7 +615,7 @@ async function chooseListProperties(event) {
     // The bullet menu passes the clicked record; the command palette uses where you last clicked.
     const clicked = clickedRecord(event);
     const target = listKeyFor(clicked);
-    if (!target) return notify('Click in a record of a query or list first', 'warning');
+    if (!target) return notify('Click in a record first', 'warning');
     if (!listProps.names.size) await loadPropertyNames();
     const names = [...await propertiesInList(doc, target.key), BODY, COMPACT];
     const saved0 = listChoices().get(target.key);
