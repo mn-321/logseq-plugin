@@ -82,7 +82,7 @@ function stopWatchingDom() {
    anything still left on screen (sweepEarlierCopy). */
 const STOP_KEY = '__dbRefinementsStop';
 // Search marks (data-rf-*, .rf-search-*) belong to the search part (parts/search.js), which clears its own.
-const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-prompt-backdrop';
+const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
   'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense'].map(name => 'data-refinement-' + name)];
@@ -225,6 +225,8 @@ const settingsSchema = [
     description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
     description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
+  { key: 'showTagPath', type: 'boolean', title: 'Show where a tag sits', default: true,
+    description: 'Under a tag page’s title, the tags it extends, from the top down (“#Entity › #Person › #Doctor”), and any other tag it also sits under; each name opens that tag. Applies right away.' },
   { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
     description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
   { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,

@@ -89,11 +89,11 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { timer: 0, aliasOf: [], aliasLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { timer: 0, aliasOf: [], aliasLine: null, tagPath: null, pathLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
   const version = pageKind.version = (pageKind.version || 0) + 1;
-  let isTag = false, pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '';
+  let isTag = false, pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '', tagPath = null;
   try {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
@@ -109,11 +109,12 @@ async function loadPageKind() {
         :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`);
       aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
         .sort((a, b) => a[1].localeCompare(b[1]));
-      if (isTag) inherited = await inheritedTagProperties(pageId);
+      if (isTag) { inherited = await inheritedTagProperties(pageId); tagPath = await tagPathOf(pageId); }
     }
   } catch (error) { warnOnce('could not tell the page type', error); }
   if (version !== pageKind.version) return;
   pageKind.aliasOf = aliasOf;
+  pageKind.tagPath = tagPath;
   if (pageUuid) pageKind.inheritedBy.set(pageUuid, inherited);
   pageKind.plain = plain;
   pageKind.isTag = isTag;
@@ -132,6 +133,7 @@ function updatePageKind(doc) {
   // What was loaded may still describe the page just left; its lines wait until it is this page's.
   const known = titles.length === 1 && pageKind.pageUuid && titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') === pageKind.pageUuid;
   updateAliasLine(doc, setting('showAliasOf') && known ? titles[0] : null);
+  updateTagPathLine(doc, setting('showTagPath') && known && pageKind.isTag ? titles[0] : null);
   updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
@@ -312,6 +314,44 @@ function updateInheritedLine(doc, title) {
   if (pageKind.inheritHtml !== html || !line.firstChild) { pageKind.inheritHtml = html; line.innerHTML = html; }
   if (section.lastElementChild !== line) section.appendChild(line);
 }
+// Where a tag sits: the chain of tags it extends, from the top down, following the first parent at
+// each step, plus any other tag it sits directly under. A tag's place in the owner's tree is what
+// makes it a tag, so the page says it under the title.
+async function tagPathOf(tagId) {
+  const parents = new Map();
+  for (const [child, parent] of await dsQuery(`[:find ?child ?parent :where [?child :logseq.property.class/extends ?parent]]`)) {
+    if (!parents.has(child)) parents.set(child, []);
+    parents.get(child).push(parent);
+  }
+  const direct = parents.get(tagId) || [];
+  if (!direct.length) return null;
+  const chain = [], seen = new Set([tagId]);
+  for (let id = direct[0]; id && !seen.has(id) && chain.length < 12; id = (parents.get(id) || [])[0]) { seen.add(id); chain.unshift(id); }
+  const others = direct.slice(1).filter(id => !chain.includes(id));
+  // Logseq's own classes (Root Tag, which every tag extends; Task; Card …) are not part of the owner's tree.
+  const rows = await dsQuery(`[:find ?t ?uuid ?title ?ident :where ${idsIn('?t', [...chain, ...others])} [?t :block/uuid ?uuid] [?t :block/title ?title] [(get-else $ ?t :db/ident :none) ?ident]]`);
+  const byId = new Map(rows.filter(([, , , ident]) => !/^:?logseq\.class\//.test(String(ident))).map(([t, uuid, title]) => [t, { uuid: String(uuid), title: String(title) }]));
+  const named = ids => ids.map(id => byId.get(id)).filter(Boolean);
+  return { chain: named(chain), others: named(others) };
+}
+function updateTagPathLine(doc, title) {
+  const path = title ? pageKind.tagPath : null;
+  let line = pageKind.pathLine;
+  if (!path || !path.chain.length && !path.others.length) { line?.remove(); return; }
+  if (!line || line.ownerDocument !== doc) {
+    line = pageKind.pathLine = doc.createElement('div');
+    line.className = 'refinement-tag-path';
+    line.addEventListener('click', openTitleNoteLink);
+  }
+  const tagLink = tag => `<a class="rf-tag" data-uuid="${escapeHtml(tag.uuid)}" href="#" title="Open ${escapeHtml(tag.title)}"><span class="rf-hash">#</span>${escapeHtml(tag.title)}</a>`;
+  const own = title.querySelector('.block-title-wrap')?.textContent.trim() || '';
+  const parts = [...path.chain.map(tagLink), `<span class="rf-own"><span class="rf-hash">#</span>${escapeHtml(own)}</span>`];
+  const html = parts.join(' <span class="rf-sep">›</span> ') + (path.others.length ? ` <span class="rf-sep">·</span> also under ${path.others.map(tagLink).join(', ')}` : '');
+  if (line.dataset.key !== html) { line.dataset.key = html; line.innerHTML = html; }
+  // After the Alias of line when there is one, else right under the title row.
+  const after = pageKind.aliasLine?.isConnected && pageKind.aliasLine.ownerDocument === doc ? pageKind.aliasLine : titleAnchor(doc, title);
+  if (after.nextElementSibling !== line) after.after(line);
+}
 // "Alias of <page>" under the title of a page that another page lists as its alias.
 function updateAliasLine(doc, title) {
   const originals = title ? pageKind.aliasOf : [];
@@ -337,7 +377,7 @@ function startPageKind() {
 /* "#Page" on a page with no tag of its own, in the row of actions above the title. */
 .refinement-title-tags { margin-left: .6rem; font-size: .75rem; line-height: 1.5rem; white-space: nowrap; color: var(--ls-link-text-color, inherit); cursor: pointer; text-decoration: none; }
 .refinement-title-tags:hover { text-decoration: underline; }
-:is(.refinement-alias-of, .refinement-inherited) {
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) {
   margin: .15rem 0 .25rem;
   font-size: .8rem;
   font-weight: 400;
@@ -345,10 +385,13 @@ function startPageKind() {
   color: var(--ls-primary-text-color, currentColor);
   opacity: var(--rf-quiet);
 }
-:is(.refinement-alias-of, .refinement-inherited) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
-.refinement-inherited a.rf-tag { text-decoration: none; }
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
+:is(.refinement-inherited, .refinement-tag-path) a.rf-tag { text-decoration: none; }
+.refinement-tag-path .rf-hash { color: var(--rf-tag-color); }
+.refinement-tag-path .rf-own { color: var(--ls-primary-text-color, currentColor); }
+.refinement-tag-path .rf-sep { opacity: var(--rf-faint); margin: 0 .1em; }
 .ls-page-properties .refinement-inherited { margin: .25rem 0 0 1.25rem; }
-:is(.refinement-alias-of, .refinement-inherited) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
     for (const stray of host().querySelectorAll('.refinement-inherited')) stray.remove(); // left by an earlier load
     watchDom(updatePageKind);
     // The later pass can land a frame after Logseq draws a title (measured: about one pass in four
@@ -380,6 +423,7 @@ function startPageKind() {
     onUnload(() => {
       clearTimeout(pageKind.timer);
       pageKind.aliasLine?.remove();
+      pageKind.pathLine?.remove();
       pageKind.inheritLine?.remove();
       pageKind.titleTags?.remove();
       for (const el of pageKind.tagged) el.style.transform = '';
