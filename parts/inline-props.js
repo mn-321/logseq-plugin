@@ -308,7 +308,11 @@ function placeMenu(menu, box) {
   const rect = box.getBoundingClientRect(), win = box.ownerDocument.defaultView;
   if (!rect.width && !rect.height) { menu.style.display = 'none'; return; } // the box is gone from the layout
   menu.style.display = '';
-  const top = rect.bottom + 2, left = Math.max(8, rect.left);
+  // Under the record's own property row when it has one, so the ghost drawn in a pill stays in view.
+  const block = box.closest('.ls-block[blockid]');
+  const pills = block && [...block.querySelectorAll('.positioned-properties.block-below')].find(p => p.closest('.ls-block[blockid]') === block);
+  const bottom = Math.max(rect.bottom, pills?.getBoundingClientRect().bottom || 0);
+  const top = bottom + 2, left = Math.max(8, rect.left);
   menu.style.left = `${Math.min(left, win.innerWidth - 380)}px`;
   if (top + 300 > win.innerHeight && rect.top > 300) { menu.style.top = ''; menu.style.bottom = `${win.innerHeight - rect.top + 2}px`; }
   else { menu.style.bottom = ''; menu.style.top = `${top}px`; }
@@ -350,12 +354,14 @@ function drawGhost() {
   const doc = host(), name = state.prop.title, shown = row.value.shown || row.value.title;
   const block = doc.querySelector(`.ls-block[blockid="${state.uuid}"]`);
   const own = el => el.closest('.ls-block[blockid]') === block;
-  const pill = block && [...block.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && p.firstElementChild?.textContent.trim().toLowerCase() === name.toLowerCase());
+  // The pill's first child reads "attendees:", with the colon (seen in edit on 2026-10-17; the name was never matched before).
+  const pillName = p => (p.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
+  const pill = block && [...block.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && pillName(p) === name.toLowerCase());
   const g = doc.createElement('span');
   g.className = 'rip-ghost';
   g.setAttribute('contenteditable', 'false');
   g.innerHTML = `${pill ? '' : `<span class="rip-ghost-name">${escapeHtml(name)}:</span>`}<span class="rip-ghost-value">${escapeHtml(shown)}</span>`;
-  if (pill) { pill.setAttribute('data-rip-ghost', ''); pill.appendChild(g); }
+  if (pill) { pill.setAttribute('data-rip-ghost', ''); (pill.querySelector('.bottom-property-content') || pill).appendChild(g); }
   else state.menu?.querySelector('.rip-head')?.appendChild(g);
 }
 
@@ -527,6 +533,7 @@ const menuCss = `
 .rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
 .rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
+.bottom-property-content > .rip-ghost { margin-left: 0; }
 .rip-ghost-name { color: var(--ls-secondary-text-color); }
 .rip-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); border-radius: .22em; padding: .02em .28em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-rip-ghost] { display: flex !important; opacity: 1 !important; }
