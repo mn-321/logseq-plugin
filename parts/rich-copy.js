@@ -565,40 +565,38 @@ const rememberHidden = hidden => {
 };
 
 const CHOOSER_CSS = `
+  /* The same look as the plugin's box (shared.modal, .refinement-prompt): Logseq's own colours, a hairline border,
+     outlined buttons, no colour of its own. The card lives in the plugin's frame, where Logseq's theme variables
+     do not reach, so chooseProperties copies their values onto the backdrop first. */
   html, body { background: transparent; margin: 0; }
-  .rc-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.28); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 14px; color: #222; }
-  .rc-card { background: #fff; border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.25); width: 360px; max-height: 70vh; display: flex; flex-direction: column; }
-  .rc-head { padding: 16px 18px 6px; font-weight: 600; }
-  .rc-sub { padding: 0 18px 10px; color: #777; font-size: 12.5px; }
-  .rc-list { overflow: auto; padding: 4px 10px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
-  .rc-list label { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
-  .rc-list label:hover { background: #f4f4f4; }
-  .rc-count { margin-left: auto; color: #999; font-size: 12px; }
-  .rc-all { padding: 0 18px 6px; font-size: 12.5px; }
-  .rc-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 18px 8px; font-size: 13px; }
+  .rc-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 14px; color: var(--ls-primary-text-color, #222); }
+  .rc-card { background: var(--ls-primary-background-color, #fff); color: var(--ls-primary-text-color, #222); border: 1px solid var(--ls-border-color, #ddd); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.2); width: 380px; max-height: 70vh; display: flex; flex-direction: column; }
+  .rc-head { padding: 14px 16px 6px; font-size: .95em; font-weight: 600; }
+  .rc-sub { padding: 0 16px 8px; color: var(--ls-secondary-text-color, #777); font-size: .85em; }
+  .rc-list { overflow: auto; padding: 4px 8px; border-top: 1px solid var(--ls-border-color, #eee); border-bottom: 1px solid var(--ls-border-color, #eee); }
+  .rc-list label { display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+  .rc-list label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
+  .rc-count { margin-left: auto; color: var(--ls-secondary-text-color, #999); font-size: .85em; }
+  .rc-all { padding: 0 16px 6px; font-size: .85em; }
+  .rc-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 8px; font-size: .92em; }
   .rc-qname { flex: 1 1 100%; font-weight: 500; }
-  .rc-sort select { font: inherit; padding: 2px 4px; }
+  .rc-sort select { font: inherit; padding: 2px 4px; background: transparent; color: inherit; border: 1px solid var(--ls-border-color, #ccc); border-radius: 4px; }
   .rc-sort label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-  .rc-layout { padding: 4px 10px 12px; font-size: 13px; }
-  .rc-layout label { display: flex; align-items: flex-start; gap: 9px; padding: 5px 8px; border-radius: 6px; cursor: pointer; line-height: 1.35; }
-  .rc-layout label:hover { background: #f4f4f4; }
+  .rc-layout { padding: 4px 8px 10px; font-size: .92em; }
+  .rc-layout label { display: flex; align-items: flex-start; gap: 9px; padding: 5px 8px; border-radius: 4px; cursor: pointer; line-height: 1.35; }
+  .rc-layout label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
   .rc-layout input { margin-top: 3px; }
-  .rc-field { display: flex; align-items: center; gap: 8px; padding: 3px 18px; font-size: 13px; }
-  .rc-field span { width: 92px; color: #555; }
-  .rc-field select { flex: 1; font: inherit; padding: 2px 4px; }
-  .rc-field input { flex: 1; font: inherit; padding: 3px 6px; border: 1px solid #ccc; border-radius: 5px; }
-  .rc-check { display: flex; align-items: center; gap: 8px; padding: 3px 18px; font-size: 13px; cursor: pointer; }
-  .rc-all a { color: #1f5fa8; cursor: pointer; margin-right: 12px; }
-  .rc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
-  .rc-foot button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-  .rc-foot button.rc-go { background: #1f5fa8; border-color: #1f5fa8; color: #fff; }
-  @media (prefers-color-scheme: dark) {
-    .rc-card { background: #2a2a2a; color: #eee; } .rc-list { border-color: #3a3a3a; } .rc-list label:hover { background: #333; }
-    .rc-layout label:hover { background: #333; }
-    .rc-field span { color: #aaa; } .rc-field input { background: #333; color: #eee; border-color: #555; }
-    .rc-foot button { background: #333; color: #eee; border-color: #555; } .rc-all a { color: #8bb8ee; }
-  }`;
+  .rc-field { display: flex; align-items: center; gap: 8px; padding: 3px 16px; font-size: .92em; }
+  .rc-field span { width: 92px; color: var(--ls-secondary-text-color, #555); }
+  .rc-field select { flex: 1; font: inherit; padding: 2px 4px; background: transparent; color: inherit; border: 1px solid var(--ls-border-color, #ccc); border-radius: 4px; }
+  .rc-field input { flex: 1; font: inherit; padding: 4px 8px; border: 1px solid var(--ls-border-color, #ccc); border-radius: 6px; background: transparent; color: inherit; }
+  .rc-check { display: flex; align-items: center; gap: 8px; padding: 3px 16px; font-size: .92em; cursor: pointer; }
+  .rc-all a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 26%, transparent); cursor: pointer; margin-right: 12px; }
+  .rc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px 14px; }
+  .rc-foot button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--ls-border-color, #ccc); background: transparent; color: inherit; cursor: pointer; }
+  .rc-foot button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
+  .rc-foot button.rc-go { font-weight: 600; }`;
 
 function chooseProperties({ properties, queries, title }, what, onChoose) {
   return new Promise(resolve => {
@@ -619,6 +617,14 @@ function chooseProperties({ properties, queries, title }, what, onChoose) {
     };
     const root = document.createElement('div');
     root.className = 'rc-backdrop';
+    // Logseq's theme colours, copied from its window: the card lives in the plugin's frame, where they do not reach.
+    try {
+      const theme = window.parent.document.defaultView.getComputedStyle(window.parent.document.body);
+      for (const name of ['--ls-primary-background-color', '--ls-primary-text-color', '--ls-secondary-text-color', '--ls-border-color']) {
+        const value = theme.getPropertyValue(name).trim();
+        if (value) root.style.setProperty(name, value);
+      }
+    } catch (error) { /* the fallbacks in the stylesheet stand */ }
     root.innerHTML = `<div class="rc-card" role="dialog" aria-label="Copy options">
       <div class="rc-head">Copy ${escapeHtml(what)} as rich text</div>
       <div class="rc-layout">
