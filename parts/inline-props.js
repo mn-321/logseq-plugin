@@ -33,6 +33,8 @@ const settingsSchema = [
     description: 'Comma-separated graph names. The list opens only in the graphs named here; nothing happens while this is empty. Plugin settings are shared by all your graphs, so this keeps the writing out of the others.' },
   { key: 'inlinePropsPrefix', type: 'boolean', title: 'First letters name the field', default: true,
     description: 'The letters before :: need only start a field’s name: pro:: opens project’s values when only one of the record’s own fields (or, failing that, one of all your properties) starts so; when several do, the name list opens filtered by them, so nothing is guessed. The record’s fields are listed in the order of their pills. Applies at once.' },
+  { key: 'inlinePropsGather', type: 'boolean', title: 'A field that takes several stays open', default: true,
+    description: 'After Enter writes a page into a field that takes several (attendees), the list stays open with the letters cleared and no row chosen; more letters and Enter add the next, Enter with nothing typed (or Escape) finishes and takes the token out of the text. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -210,7 +212,7 @@ async function dayRows(filter, withTime) {
 }
 
 /* The rows of each stage. A row is { kind, label, right?, icon? (html), day?, dashed?, prop?, value? }. */
-const state = { box: null, uuid: '', stage: null, prop: null, name: '', prefix: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null };
+const state = { box: null, uuid: '', stage: null, prop: null, name: '', prefix: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null, gather: false };
 // The block's property pills as Logseq draws them. A pill's first child reads "attendees:", with the colon, in edit
 // as out of it (seen 2026-10-17; the name was never matched before 0.4.96).
 const pillName = p => (p.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
@@ -348,7 +350,9 @@ const selectable = row => !!row && row.kind !== 'info';
 function renderMenu() {
   const doc = host(), menu = menuEl(doc);
   const rows = state.rows;
-  if (!rows.some(selectable)) { state.sel = -1; } else if (state.sel < 0 || !selectable(rows[state.sel])) state.sel = rows.findIndex(selectable);
+  // While a "many" field gathers and nothing is typed, no row is chosen, so Enter finishes rather than picks (0.4.98).
+  const idle = state.gather && !state.filter.trim();
+  if (!rows.some(selectable) || (idle && state.sel < 0)) { state.sel = -1; } else if (state.sel < 0 || !selectable(rows[state.sel])) state.sel = rows.findIndex(selectable);
   const head = state.stage === 'value' && state.prop ? `<div class="rip-head"><span class="rip-head-name">${escapeHtml(state.prop.title)}</span><span class="rip-head-type">${escapeHtml(typeLabel(state.prop))}</span></div>` : '';
   menu.innerHTML = head + rows.map((row, i) => row.kind === 'info'
     ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
@@ -364,7 +368,7 @@ function renderMenu() {
 }
 function closeMenu() {
   state.menu?.remove(); state.menu = null;
-  state.stage = null; state.prop = null; state.rows = []; state.sel = 0;
+  state.stage = null; state.prop = null; state.rows = []; state.sel = 0; state.gather = false;
   removeGhost();
 }
 /* The ghost: the highlighted value drawn dashed where it will go, in the record's empty pill for that property when
@@ -400,7 +404,8 @@ async function check(box) {
   if (version !== state.version) return;
   if (!token || !box.isConnected) return closeMenu();
   const uuid = box.closest('.ls-block[blockid]').getAttribute('blockid');
-  const changed = state.stage !== token.stage || state.prop !== token.prop || state.uuid !== uuid || state.name !== token.name;
+  // The schema is read again every 30 s, so a property is the same by its ident, not its object.
+  const changed = state.stage !== token.stage || state.prop?.ident !== token.prop?.ident || state.uuid !== uuid || state.name !== token.name;
   Object.assign(state, { box, uuid, stage: token.stage, prop: token.prop, name: token.name, prefix: token.prefix || '', filter: token.filter, start: token.start });
   let rows;
   try {
@@ -410,8 +415,9 @@ async function check(box) {
   } catch (error) { warnOnce('the rows could not be built', error); return closeMenu(); }
   if (version !== state.version) return;
   if (!box.isConnected && !ownBox(host().activeElement)) return closeMenu();
+  if (changed) { state.sel = 0; state.gather = false; }
+  if (state.gather) { if (!token.filter.trim()) state.sel = -1; rows.push({ kind: 'info', label: 'Enter with nothing typed finishes' }); }
   state.rows = rows;
-  if (changed) state.sel = 0;
   renderMenu();
 }
 
@@ -486,14 +492,17 @@ async function pickSelected() {
   }
   const prop = state.prop, uuid = state.uuid;
   let value = row.value;
+  // A field that takes several pages keeps its list open (0.4.98): only the letters leave the text, the token stays.
+  const gather = setting('inlinePropsGather') && prop.type === 'node' && prop.many && row.kind !== 'make-page';
   try {
-    removeToken();
+    if (gather) { state.gather = true; state.sel = -1; replaceRange(box, box.selectionStart - state.filter.length, box.selectionStart, ''); }
+    else removeToken();
     if (row.kind === 'make-page') value = await makePage(prop, value.title, value.cls);
     const undoValue = await writeValue(prop, value, uuid);
     const made = row.kind === 'make-page' ? value : null;
     // The text box already lacks the token; the saved block may still carry it for a moment.
-    const words = shorten(box.value.trim().split('\n')[0] || await blockWords(uuid));
-    closeMenu();
+    const words = shorten((gather ? box.value.slice(0, state.start) : box.value).trim().split('\n')[0] || await blockWords(uuid));
+    if (!gather) closeMenu();
     showUndoBar(`${prop.title}: ${value.shown || value.title} set on “${words || 'this block'}”`, async () => {
       await undoValue();
       if (made) await logseq.Editor.deletePage(made.title).catch(error => warnOnce('the new page could not be removed again', error));
@@ -516,13 +525,17 @@ function onKey(event) {
   state.box = event.target;
   if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
   const rows = state.rows;
-  const move = dir => { let i = state.sel; for (let n = 0; n < rows.length; n++) { i = (i + dir + rows.length) % rows.length; if (selectable(rows[i])) { state.sel = i; break; } } renderMenu(); };
-  if (event.key === 'ArrowDown') { event.preventDefault(); event.stopImmediatePropagation(); move(1); }
-  else if (event.key === 'ArrowUp') { event.preventDefault(); event.stopImmediatePropagation(); move(-1); }
-  else if (event.key === 'Enter' && rows.some(selectable)) { event.preventDefault(); event.stopImmediatePropagation(); pickSelected(); }
+  const move = dir => { let i = state.sel < 0 ? (dir > 0 ? -1 : rows.length) : state.sel; for (let n = 0; n < rows.length; n++) { i = (i + dir + rows.length) % rows.length; if (selectable(rows[i])) { state.sel = i; break; } } renderMenu(); };
+  const stop = () => { event.preventDefault(); event.stopImmediatePropagation(); };
+  // Gathering with nothing chosen: Enter (or Escape) finishes and takes the token out.
+  const finishing = state.gather && (event.key === 'Escape' || (event.key === 'Enter' && state.sel < 0));
+  if (event.key === 'ArrowDown') { stop(); move(1); }
+  else if (event.key === 'ArrowUp') { stop(); move(-1); }
+  else if (finishing) { stop(); removeToken(); closeMenu(); }
+  else if (event.key === 'Enter' && rows.some(selectable)) { stop(); pickSelected(); }
   // Escape closes the list and keeps you in the block; the token stays as typed and is not asked about again
   // until the text changes.
-  else if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); state.dismissed = state.box.value; closeMenu(); }
+  else if (event.key === 'Escape') { stop(); state.dismissed = state.box.value; closeMenu(); }
   else if (event.key === 'Tab') closeMenu();
 }
 let checkTimer = 0;
