@@ -39,7 +39,7 @@ Git: one version per commit. No global identity is set; commit with
 ## Open requests
 
 - **Road to 1.0.0 (asked 2026-10-13).** What is left is a quiet week of use in `Work`; if nothing surprises the owner, bump to 1.0.0. Not needed for 1.0: faster cues on very large pages, hand checks of hover previews and the bullet menu.
-- Decided on 2026-10-12, leave as they are unless the owner raises them again: property lists stay as Logseq draws them (bullet beside every value, normal weight); the `↳ ◌ n` task count repeats on every ancestor, and links to PDFs/images count as "files below"; a source page whose only reference is the page itself shows the name twice.
+- Decided on 2026-10-12, leave as they are unless the owner raises them again: property lists stay as Logseq draws them (bullet beside every value, normal weight); links to PDFs/images count as "files below" (the `↳ ◌ n` count no longer repeats on every ancestor: since 0.4.81 the cue shows only on a folded block, at the owner's word); a source page whose only reference is the page itself shows the name twice.
 
 ## Known loose ends
 
@@ -66,7 +66,7 @@ Shared scale lives in `tokensCss` (`--rf-quiet`, `--rf-faint`, `--rf-line-pct`, 
 | Link to a task block | status/priority icons stand in for the dot |
 | Date | grey box; a past day in the secondary text colour, today firmer on the stronger wash, a day to come as it is (`dateTense`, 0.4.69) |
 | Link to a PDF or image | grey icon in front, text with the page underline, nothing after (the file type word went in 0.4.70) |
-| Block with unfinished tasks or files below | trailing `↳`, dashed circle + count, file icons; while folded also the kinds inside (`· 1 #Decision`, up to three) and the nearest due day (`· due Fri`) (0.4.75) |
+| Folded block with unfinished tasks, files or records below | trailing `↳`, dashed circle + count, file icons, the kinds inside (`· 1 #Decision`, up to three) and the nearest due day (`· due Fri`); only while folded, an open block shows nothing (0.4.75, 0.4.81) |
 | Block properties | `name: value · name: value`, no capsule outline; a property with no value yet is faint, never hidden (`quietEmptyProps`, 0.4.79) |
 | Page property list | as Logseq draws it |
 | Page title row | page's tags sit beside the actions above the title; `#Page` on an untagged page, clickable to open Set Tags; properties triangle as Logseq draws it |

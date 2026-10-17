@@ -245,7 +245,7 @@ const settingsSchema = [
   { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
     description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
-    description: 'After a block’s text: ↳, a dashed circle with the number of unfinished tasks below it, and small image or PDF icons when its children are files. While the block is folded, also what kinds of record are inside (“3 #Decision”) and the nearest due day (“due Fri”). Point at it for details.' },
+    description: 'On a folded block only, after its text: ↳, a dashed circle with the number of unfinished tasks hidden below it, small image or PDF icons when its children are files, what kinds of record are inside (“3 #Decision”) and the nearest due day (“due Fri”). An open block shows nothing: its children are on screen. Point at the cue for details.' },
   { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
     description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
   { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
