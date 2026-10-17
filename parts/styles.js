@@ -425,6 +425,9 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref:is([data-refin
 .ls-block .ls-datetime a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"]):hover,
 .ls-block .timestamp a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"]):hover { background: transparent !important; padding: 0; font-size: inherit; color: inherit !important; }
 .ls-datetime::before { content: none !important; }
+/* The small pencil Logseq puts after a date value: a date is plainly a value you can change, so the pencil goes
+   (the owner's word, 0.4.85). The value itself still opens Logseq's date picker on a click. */
+.ls-block .ls-datetime :is(.ls-icon-edit, .ls-icon-pencil, svg.tabler-icon-edit, svg.tabler-icon-pencil, a:has(> .ui__icon):not(.page-ref)) { display: none !important; }
 /* A date is a link to its journal page, never to a block: no dot inside the box. */
 :is(.ls-datetime, .timestamp) a.page-ref .block-title-wrap::before, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"]) .block-title-wrap::before { content: none !important; }
 /* The time follows the date after a space, as Logseq spaces them. */
