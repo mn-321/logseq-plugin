@@ -426,791 +426,867 @@ const css = `
 /* ---------- The tree ---------- */
 /* One tag tree. mode is 'page' (the main view) or 'sidebar'. */
 function createView(doc, mode) {
-  const compact = mode === 'sidebar';
-  let data = { tags: new Map(), byName: new Map(), byTitle: () => 0, sameName: new Map() };
-  let shown = []; // visible rows in order, for the arrow keys: { key, tag, parent, row, depth }
-  let cursorKey = null;
-  let cursorTag = null; // kept so the cursor finds a tag again after it moved
-  let menu = null;
-  let adding = null; // { key, parent } while a new tag is being typed
-  let renaming = null; // key of the row being renamed
-  let addingRoot = false; // while a new root is being typed
-  const picked = new Set(); // ids of tags picked with Cmd-click, Shift-click or x
-  let dragging = null; // { tag, parent }
-  let busy = false;
-  let loaded = false; // nothing is drawn until the tags have been read once, so missing roots do not flash up
+  const view = { doc, mode };
+  for (const fn of CREATEVIEW_FUNCTIONS) view[fn.name] = (...args) => fn(view, ...args);
+  view.compact = view.mode === 'sidebar';
+  view.data = { tags: new Map(), byName: new Map(), byTitle: () => 0, sameName: new Map() };
+  view.shown = []; // visible rows in order, for the arrow keys: { key, tag, parent, row, depth }
+  view.cursorKey = null;
+  view.cursorTag = null; // kept so the cursor finds a tag again after it moved
+  view.menu = null;
+  view.adding = null; // { key, parent } while a new tag is being typed
+  view.renaming = null; // key of the row being renamed
+  view.addingRoot = false; // while a new root is being typed
+  view.picked = new Set(); // ids of tags picked with Cmd-click, Shift-click or x
+  view.dragging = null; // { tag, parent }
+  view.busy = false;
+  view.loaded = false; // nothing is drawn until the tags have been read once, so missing roots do not flash up
 
-  const count = el(doc, 'span', { class: 'rtg-count' });
-  const find = el(doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag', spellcheck: 'false', 'aria-label': 'Find a tag' });
-  keepKeys(find);
-  find.addEventListener('input', () => { cursorKey = null; cursorTag = null; draw(); });
+  view.count = el(view.doc, 'span', { class: 'rtg-count' });
+  view.find = el(view.doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag', spellcheck: 'false', 'aria-label': 'Find a tag' });
+  keepKeys(view.find);
+  view.find.addEventListener('input', () => { view.cursorKey = null; view.cursorTag = null; view.draw(); });
   // keepKeys holds the find box's keys back from Logseq; the arrows and Enter still drive the tree.
-  find.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) onKey(event); });
-  const foldAll = el(doc, 'button', { class: 'rtg-tool', title: 'Fold every tag that has tags inside', click: () => { for (const tag of data.tags.values()) if (tag.kids.length) folded.add(tag.uuid); for (const name of rootNames()) { const r = data.byName.get(name.toLowerCase()); if (r) folded.delete(r.uuid); } saveFolded(); draw(); } }, 'Fold');
-  const openAll = el(doc, 'button', { class: 'rtg-tool', title: 'Unfold every tag', click: () => { folded.clear(); saveFolded(); draw(); } }, 'Unfold');
-  const moveButton = compact
-    ? el(doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree as a full view in the main area', html: PAGE_ICON, click: () => openPage() })
-    : el(doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree in the right sidebar', html: SIDEBAR_ICON, click: () => openSidebar() });
-  const body = el(doc, 'div', { class: 'rtg-body' });
+  view.find.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) view.onKey(event); });
+  view.foldAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Fold every tag that has tags inside', click: () => { for (const tag of view.data.tags.values()) if (tag.kids.length) folded.add(tag.uuid); for (const name of rootNames()) { const r = view.data.byName.get(name.toLowerCase()); if (r) folded.delete(r.uuid); } saveFolded(); view.draw(); } }, 'Fold');
+  view.openAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Unfold every tag', click: () => { folded.clear(); saveFolded(); view.draw(); } }, 'Unfold');
+  view.moveButton = view.compact
+    ? el(view.doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree as a full view in the main area', html: PAGE_ICON, click: () => openPage() })
+    : el(view.doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree in the right sidebar', html: SIDEBAR_ICON, click: () => openSidebar() });
+  view.body = el(view.doc, 'div', { class: 'rtg-body' });
   // The bar that appears while several tags are picked.
-  const pickCount = el(doc, 'span', { class: 'rtg-pickcount' });
-  const pickBar = el(doc, 'div', { class: 'rtg-pickbar', hidden: true }, pickCount,
-    el(doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Show the picked tags at the top of the tree', click: () => rootsFromPicked() }, 'Make them roots'),
-    el(doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => movePicked(event.currentTarget) }, 'Move to …'),
-    el(doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { picked.clear(); mark(false); } }, 'Clear'));
-  const footer = el(doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property to move it up, take it off or open it</span><span>Drag a tag onto another to move it; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
-  const box = el(doc, 'div', { class: 'refinement-tags rtg-mode-' + mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
-  if (compact) box.append(el(doc, 'header', {}, find, moveButton), pickBar, body);
-  else box.append(el(doc, 'h1', { class: 'rtg-title' }, 'Tags'), el(doc, 'header', {}, count, find, foldAll, openAll, moveButton), pickBar, body, footer);
-
-  /* Menus */
-  function closeMenu() { menu?.remove(); menu = null; }
-  function placeMenu(anchor) {
-    const r = anchor.getBoundingClientRect(), m = menu.getBoundingClientRect();
-    const win = doc.defaultView;
-    menu.style.left = Math.max(8, Math.min(r.left, win.innerWidth - m.width - 8)) + 'px';
-    menu.style.top = (r.bottom + m.height + 6 > win.innerHeight ? Math.max(8, r.top - m.height - 4) : r.bottom + 4) + 'px';
-  }
-  function menuKeys(event) {
-    const buttons = [...menu.querySelectorAll('button')];
-    const at = buttons.indexOf(doc.activeElement);
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const next = at < 0 ? (event.key === 'ArrowDown' ? 0 : buttons.length - 1) : (at + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length;
-      buttons[next]?.focus();
-    } else if (event.key === 'Escape') { event.preventDefault(); closeMenu(); box.focus({ preventScroll: true }); }
-    event.stopPropagation();
-  }
-  function showMenu(anchor, header, items) {
-    closeMenu();
-    menu = el(doc, 'div', { class: 'refinement-tags-menu', role: 'menu' });
-    if (header) menu.append(el(doc, 'div', { class: 'rtg-mh' }, header));
-    for (const item of items) {
-      if (item === '-') { menu.append(el(doc, 'hr')); continue; }
-      menu.append(el(doc, 'button', { role: 'menuitem', html: item.html, click: () => { closeMenu(); box.focus({ preventScroll: true }); item.run(); } }));
-    }
-    menu.addEventListener('keydown', menuKeys);
-    doc.body.append(menu);
-    menu.querySelector('button')?.focus({ preventScroll: true });
-    placeMenu(anchor);
-  }
-  // A menu with a search box that lists tags to pick from.
-  function pickTag(anchor, header, choices, onPick) {
-    closeMenu();
-    const input = el(doc, 'input', { type: 'text', placeholder: 'Type to find a tag', spellcheck: 'false' });
-    const listBox = el(doc, 'div', { class: 'rtg-list' });
-    menu = el(doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(doc, 'div', { class: 'rtg-mh' }, header), input, listBox);
-    const fill = () => {
-      const q = input.value.trim().toLowerCase();
-      const hits = choices.filter(c => !q || c.tag.title.toLowerCase().includes(q)).slice(0, 60);
-      listBox.replaceChildren(...hits.map(c => el(doc, 'button', { role: 'menuitem', click: () => { closeMenu(); box.focus({ preventScroll: true }); onPick(c.tag); } },
-        el(doc, 'span', {}, c.label ?? '#' + c.tag.title), c.path ? el(doc, 'span', { class: 'rtg-path' }, c.path) : null)));
-      if (!hits.length) listBox.append(el(doc, 'div', { class: 'rtg-none' }, 'No tag by that name'));
-    };
-    input.addEventListener('input', fill);
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); listBox.querySelector('button')?.click(); }
-      else if (event.key === 'ArrowDown') { event.preventDefault(); listBox.querySelector('button')?.focus(); }
-      else if (event.key === 'Escape') { event.preventDefault(); closeMenu(); box.focus({ preventScroll: true }); }
-      event.stopPropagation();
-    });
-    keepKeys(input);
-    menu.addEventListener('keydown', event => { if (event.target !== input) menuKeys(event); });
-    fill();
-    doc.body.append(menu);
-    input.focus({ preventScroll: true });
-    placeMenu(anchor);
-  }
+  view.pickCount = el(view.doc, 'span', { class: 'rtg-pickcount' });
+  view.pickBar = el(view.doc, 'div', { class: 'rtg-pickbar', hidden: true }, view.pickCount,
+    el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Show the picked tags at the top of the tree', click: () => view.rootsFromPicked() }, 'Make them roots'),
+    el(view.doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => view.movePicked(event.currentTarget) }, 'Move to …'),
+    el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
+  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property to move it up, take it off or open it</span><span>Drag a tag onto another to move it; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
+  view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
+  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton), view.pickBar, view.body);
+  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags'), el(view.doc, 'header', {}, view.count, view.find, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body, view.footer);
 
   /* The note at the bottom after a change, with Undo */
-  let toast = null, toastTimer = 0;
-  function hideToast() { clearTimeout(toastTimer); toast?.remove(); toast = null; }
-  function showToast(text, undo) {
-    hideToast();
-    toast = el(doc, 'div', { class: 'refinement-tags-toast', role: 'status' }, el(doc, 'span', {}, text));
-    if (undo) {
-      const button = el(doc, 'button', {}, 'Undo');
-      button.addEventListener('click', async () => { hideToast(); await act(undo, 'The change could not be undone'); });
-      toast.append(button);
-    }
-    doc.body.append(toast);
-    toastTimer = setTimeout(hideToast, 7000);
-  }
-  async function act(run, failText) {
-    busy = true;
-    let done = false;
-    try { await run(); done = true; }
-    catch (error) { warnOnce(failText, error); logseq.UI.showMsg(`${failText}: ${error?.message || error}`, 'warning'); }
-    finally { busy = false; }
-    await refresh();
-    return done;
-  }
-
-  /* Changes */
-  const fresh = tag => data.tags.get(tag.id) || tag;
-  const parentsTitle = parents => parents.length ? 'under ' + parents.map(p => '#' + p.title).join(', ') : 'at the top level, not placed yet';
-  // Puts a tag under new parents and offers to put it back.
-  async function reparent(tag, parents, said) {
-    tag = fresh(tag);
-    const before = tag.parents.slice();
-    for (const parent of parents) if (isAbove(tag, parent)) { logseq.UI.showMsg(`#${tag.title} cannot go inside #${parent.title}, which is inside it`, 'warning'); return; }
-    for (const parent of parents) folded.delete(parent.uuid);
-    saveFolded();
-    cursorTag = tag.id; cursorKey = null;
-    await act(() => setParents(tag, parents), `#${tag.title} could not be moved`);
-    const after = fresh(tag);
-    if (after.parents.map(p => p.id).sort().join() === before.map(p => p.id).sort().join()) return;
-    showToast(said || `#${tag.title} is now ${parentsTitle(after.parents)}`, async () => { cursorTag = tag.id; await setParents(fresh(tag), before); });
-  }
-  const moveTo = (tag, from, to) => reparent(tag, [...fresh(tag).parents.filter(p => p.id !== from?.id && p.id !== to?.id), ...(to ? [to] : [])]);
-  const alsoUnder = (tag, to) => reparent(tag, [...fresh(tag).parents.filter(p => p.id !== to.id), to], `#${tag.title} is now also under #${to.title}`);
-  const takeOut = (tag, from) => reparent(tag, fresh(tag).parents.filter(p => p.id !== from.id), `#${tag.title} is no longer under #${from.title}`);
-  // Tags a tag may go under: user tags and Logseq's Task and Card, without the tag itself and what is inside it.
-  function targetsFor(tag, leaveOut = []) {
-    const inside = tag ? below(tag) : new Set();
-    return [...data.tags.values()]
-      .filter(t => (!t.builtIn || PARENT_BUILT_INS.has(t.ident)) && (!tag || (t.id !== tag.id && !inside.has(t.id))) && !leaveOut.includes(t.id))
-      .sort(data.byTitle)
-      .map(t => ({ tag: t, path: pathOf(t) }));
-  }
-  function askMove(tag, parent, anchor) {
-    const choices = targetsFor(tag, parent ? [parent.id] : []);
-    if (parent || fresh(tag).parents.length) choices.unshift({ tag: null, label: 'The top level (no parent)' });
-    pickTag(anchor, `Move #${tag.title} under …`, choices.map(c => c.tag ? c : { ...c, tag: { id: -1, title: '' } }), to => moveTo(tag, parent, to.id === -1 ? null : to));
-  }
-  function askAlso(tag, anchor) {
-    pickTag(anchor, `Also put #${tag.title} under …`, targetsFor(tag, fresh(tag).parents.map(p => p.id)), to => alsoUnder(tag, to));
-  }
-  async function addTags(parent, text) {
-    const names = text.split(',').map(name => name.trim().replace(/^#/, '').trim()).filter(Boolean);
-    const made = [], moved = [];
-    for (const name of names) {
-      if (name.includes('/')) { logseq.UI.showMsg(`A tag name cannot have a / in it (${name})`, 'warning'); continue; }
-      const existing = data.byName.get(name.toLowerCase());
-      if (existing) {
-        if (existing.builtIn) { logseq.UI.showMsg(`#${existing.title} is one of Logseq's own tags and stays where it is`, 'warning'); continue; }
-        if (!parent || existing.parents.some(p => p.id === parent.id)) continue;
-        if (isAbove(existing, parent)) { logseq.UI.showMsg(`#${existing.title} cannot go inside #${parent.title}, which is inside it`, 'warning'); continue; }
-        const before = existing.parents.slice();
-        await setParents(existing, [...existing.parents, parent]);
-        moved.push({ title: existing.title, id: existing.id, before });
-        continue;
-      }
-      const page = await logseq.Editor.getPage(name).catch(() => null);
-      if (page && !data.tags.has(page.id)) { logseq.UI.showMsg(`There is already a page called “${page.title || name}” that is not a tag. Make it a tag on its page first.`, 'warning'); continue; }
-      const tag = await makeTag(name);
-      if (parent) await logseq.Editor.addTagExtends(tag.uuid, parent.uuid);
-      made.push({ title: tag.title || tag.originalName || name, uuid: tag.uuid });
-    }
-    return { made, moved };
-  }
-  async function submitAdd(parent, text) {
-    adding = null;
-    if (parent) { folded.delete(parent.uuid); saveFolded(); }
-    let result = { made: [], moved: [] };
-    await act(async () => { result = await addTags(parent, text); }, 'The tag could not be made');
-    const { made, moved } = result;
-    const last = made.length ? data.byName.get(made[made.length - 1].title.toLowerCase()) : null;
-    if (last) { cursorTag = last.id; cursorKey = null; draw(); }
-    const where = parent ? ` inside #${parent.title}` : '';
-    const bits = [];
-    if (made.length) bits.push(`Made ${made.map(m => '#' + m.title).join(', ')}${where}`);
-    if (moved.length) bits.push(`${moved.map(m => '#' + m.title).join(', ')} ${moved.length === 1 ? 'was' : 'were'} already a tag, now also${where}`);
-    // Undo deletes a new tag by its id (never another tag with the same name) and puts a moved one back.
-    if (bits.length) showToast(bits.join('. '), async () => {
-      for (const m of moved) { const tag = data.tags.get(m.id); if (tag) await setParents(tag, m.before); }
-      for (const m of made) await logseq.Editor.deletePage(m.uuid);
-    });
-  }
-  function startAdd(parent, key) {
-    adding = { parent, key };
-    if (parent) { folded.delete(parent.uuid); saveFolded(); }
-    draw();
-  }
-  async function rename(tag, name) {
-    renaming = null;
-    name = name.trim().replace(/^#/, '').trim();
-    if (!name || name === tag.title) { draw(); return; }
-    if (name.includes('/')) { logseq.UI.showMsg('A tag name cannot have a / in it', 'warning'); draw(); return; }
-    const old = tag.title;
-    cursorTag = tag.id;
-    await act(() => logseq.Editor.renamePage(tag.uuid, name), `#${old} could not be renamed`);
-    if (fresh(tag).title !== old) showToast(`#${old} is now #${fresh(tag).title}`, () => logseq.Editor.renamePage(tag.uuid, old));
-  }
-  // A tag shown in several places stays only in this one (or only at the top, for a root row).
-  const keepOnly = (tag, parent) => reparent(tag, parent ? [parent] : [], parent ? `#${tag.title} is now only under #${parent.title}` : `#${tag.title} is now only at the top`);
-  // Merging: the kept tag is picked from a list that starts with the likely ones.
-  function askMerge(tag, parent, anchor) {
-    const sameName = (data.sameName.get(tag.title.toLowerCase()) || []).filter(t => t.id !== tag.id);
-    const siblings = parent ? parent.kids.filter(t => t.id !== tag.id && !t.builtIn) : [];
-    const first = [...sameName.map(t => [t, 'same name']), ...tag.parents.filter(t => !t.builtIn).map(t => [t, 'parent']), ...siblings.map(t => [t, 'beside it']), ...tag.kids.filter(t => !t.builtIn).map(t => [t, 'inside it'])];
-    const seen = new Set([tag.id]);
-    const choices = [];
-    for (const [t, why] of first) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: why }); }
-    for (const t of [...data.tags.values()].filter(t => !t.builtIn).sort(data.byTitle)) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: pathOf(t) }); }
-    pickTag(anchor, `Merge #${tag.title} into …`, choices, target => confirmMerge(tag, target));
-  }
-  async function confirmMerge(source, target) {
-    source = fresh(source); target = fresh(target);
-    let plan;
-    try { plan = await planMerge(source, target, data.tags); }
-    catch (error) { warnOnce('a merge could not be prepared', error); logseq.UI.showMsg('Could not look up what the merge would change: ' + (error?.message || error), 'warning'); return; }
-    const n = (count, one, many) => plural(count, one, many);
-    const lines = [];
-    if (plan.tagged.length) lines.push(`${n(plan.tagged.length, 'node')} tagged #${source.title} get #${target.title} instead`);
-    if (plan.textRefs.length) lines.push(`${n(plan.textRefs.length, 'block')} that mention #${source.title} in their text will point at #${target.title}`);
-    if (plan.props.length) lines.push(`${n(plan.props.length, 'property value')} pointing at #${source.title} will point at #${target.title}`);
-    if (plan.kids.length) lines.push(`${n(plan.kids.length, 'tag')} inside #${source.title} (${plan.kids.map(k => '#' + k.title).join(', ')}) move inside #${target.title}`);
-    if (plan.newProps.length) lines.push(`#${target.title} gets the tag ${plan.newProps.length === 1 ? 'property' : 'properties'} ${plan.newProps.map(p => p.title).join(', ')}`);
-    if (plan.desc) lines.push(`#${target.title} gets #${source.title}’s description`);
-    if (plan.descDropped) lines.push(`#${source.title}’s description is dropped (#${target.title} has its own)`);
-    if (plan.pageValues.size) {
-      const what = [plan.pageValues.has('logseq.property/alias') && 'aliases', plan.pageValues.has('logseq.property/icon') && 'the icon', [...plan.pageValues.keys()].some(a => /^(user|plugin)\.property/.test(a)) && 'your own property values'].filter(Boolean);
-      lines.push(`${what.join(', ')} on #${source.title}’s page go to #${target.title}’s page`);
-    }
-    if (plan.pageBlocks.length) lines.push(`${n(plan.pageBlocks.length, 'block')} written on #${source.title}’s page move to the end of #${target.title}’s page`);
-    lines.push(`then #${source.title} is deleted`);
-    const isRoot = rootNames().some(name => name.toLowerCase() === source.title.toLowerCase()) && !(data.sameName.get(source.title.toLowerCase())?.length > 1);
-    const doc2 = doc;
-    const go = el(doc2, 'button', { class: 'rtg-go' }, 'Merge');
-    const cancel = el(doc2, 'button', {}, 'Cancel');
-    const panel = el(doc2, 'div', { role: 'dialog', 'aria-label': 'Merge tags' },
-      el(doc2, 'h2', {}, `Merge #${source.title} into #${target.title}?`),
-      el(doc2, 'ul', {}, ...lines.map(line => el(doc2, 'li', {}, line))),
-      el(doc2, 'p', {}, (isRoot ? `#${source.title} is one of your root tags; the tree will offer to make it again. ` : '') + 'The moves cannot be undone in one step, and Logseq deletes a tag for good (it does not go to the Recycle).'),
-      el(doc2, 'div', { class: 'rtg-btns' }, cancel, go));
-    const backdrop = el(doc2, 'div', { class: 'refinement-tags-dialog' }, panel);
-    const close = () => { backdrop.remove(); box.focus({ preventScroll: true }); };
-    cancel.addEventListener('click', close);
-    backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
-    backdrop.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close(); } });
-    go.addEventListener('click', async () => {
-      close();
-      cursorTag = target.id; cursorKey = null;
-      folded.delete(target.uuid); saveFolded();
-      await act(() => runMerge(plan), `#${source.title} could not be merged into #${target.title}`);
-      if (!data.tags.has(source.id)) showToast(`#${source.title} is merged into #${target.title}`);
-    });
-    doc2.body.append(backdrop);
-    cancel.focus();
-  }
-  /* Picking several tags */
-  // Cmd-click picks or unpicks one tag; Shift-click on a row picks every row from the cursor to it.
-  function pickClick(item, event) {
-    if (item.tag.builtIn) return;
-    if (event.shiftKey && cursorKey) {
-      const a = shown.findIndex(i => i.key === cursorKey), b = shown.findIndex(i => i.key === item.key);
-      if (a >= 0 && b >= 0) for (const i of shown.slice(Math.min(a, b), Math.max(a, b) + 1)) if (!i.tag.builtIn) picked.add(i.tag.id);
-      mark(false);
-      return;
-    }
-    if (event.metaKey || event.ctrlKey) {
-      if (picked.has(item.tag.id)) picked.delete(item.tag.id); else picked.add(item.tag.id);
-      cursorKey = item.key; cursorTag = item.tag.id;
-      mark(false);
-      return;
-    }
-    if (picked.size) { picked.clear(); mark(false); }
-  }
-  const pickedTags = () => [...picked].map(id => data.tags.get(id)).filter(Boolean).sort(data.byTitle);
-  function rootsFromPicked() {
-    const tags = pickedTags();
-    if (!tags.length) return;
-    const titles = tags.map(t => t.title);
-    picked.clear();
-    setRoots([...rootNames().filter(n => !titles.some(t => sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is now a root' : 'are now roots'}`);
-  }
-  function movePicked(anchor) {
-    const tags = pickedTags();
-    if (!tags.length) return;
-    const choices = [...data.tags.values()].filter(t => (!t.builtIn || PARENT_BUILT_INS.has(t.ident)) && !tags.some(m => isAbove(m, t))).sort(data.byTitle).map(t => ({ tag: t, path: pathOf(t) }));
-    pickTag(anchor, `Move ${plural(tags.length, 'tag')} into …`, choices, async target => {
-      const before = tags.map(t => [t, t.parents.slice()]);
-      // A picked tag that sits inside another picked tag stays inside it; the others go under the
-      // new tag alone. Parents that are dropped are named, and Undo puts them back.
-      const dropped = [];
-      const done = await act(async () => {
-        for (const t of tags) {
-          const keep = t.parents.filter(p => picked.has(p.id));
-          for (const p of t.parents) if (!picked.has(p.id) && p.id !== target.id) dropped.push(`#${t.title} out of #${p.title}`);
-          await setParents(t, keep.length ? keep : [target]);
-        }
-      }, 'The tags could not be moved');
-      if (!done) return;
-      picked.clear();
-      showToast(`${plural(tags.length, 'tag')} moved into #${target.title}${dropped.length ? ` (${dropped.join(', ')})` : ''}`, async () => { for (const [t, parents] of before) await setParents(fresh(t), parents); });
-    });
-  }
-
-  /* Root tags: the setting, changed from the tree */
-  const sameTag = (a, b) => a.toLowerCase() === b.toLowerCase();
-  async function setRoots(names, said) {
-    const before = rootNames().join(', ');
-    const save = value => { rootsOverride = value; logseq.updateSettings({ tagTreeRoots: value }); draw(); };
-    save(names.join(', '));
-    if (said) showToast(said, async () => save(before));
-  }
-  function moveRoot(tag, by) {
-    const names = rootNames();
-    const at = names.findIndex(n => sameTag(n, tag.title));
-    const to = at + by;
-    if (at < 0 || to < 0 || to >= names.length) return;
-    [names[at], names[to]] = [names[to], names[at]];
-    setRoots(names);
-  }
-  const unRoot = tag => setRoots(rootNames().filter(n => !sameTag(n, tag.title)), `#${tag.title} is no longer a root`);
-  const makeRoot = tag => setRoots([...rootNames().filter(n => !sameTag(n, tag.title)), tag.title], `#${tag.title} is now a root`);
-  function rootAddRow() {
-    const input = el(doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: 'Root tag: an existing tag or a new name', title: 'Several at once: separate them with commas', 'aria-label': 'New root tag' });
-    keepKeys(input);
-    const done = () => { addingRoot = false; draw(); box.focus({ preventScroll: true }); };
-    input.addEventListener('keydown', async event => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); done(); return; }
-      if (event.key !== 'Enter' || event.isComposing) return;
-      event.preventDefault();
-      const names = input.value.split(',').map(n => n.trim().replace(/^#/, '').trim()).filter(Boolean);
-      addingRoot = false;
-      if (!names.length) { done(); return; }
-      const newNames = names.filter(n => !data.byName.has(n.toLowerCase()));
-      if (newNames.length) await act(async () => { await addTags(null, newNames.join(', ')); }, 'The tag could not be made');
-      const titles = names.map(n => data.byName.get(n.toLowerCase())?.title || n);
-      setRoots([...rootNames().filter(n => !titles.some(t => sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is' : 'are'} now ${titles.length === 1 ? 'a root' : 'roots'}`);
-    });
-    input.addEventListener('blur', () => setTimeout(() => { if (addingRoot && !input.value.trim() && doc.activeElement !== input) { addingRoot = false; draw(); } }, 150));
-    setTimeout(() => input.focus());
-    return el(doc, 'div', { class: 'rtg-addrow', style: `--rtg-hue: var(--rtg-h${rootNames().length % HUES})` }, input);
-  }
-
-  /* Tag properties */
-  // The line under a tag's name: its own properties, then the ones it gets from each tag above it.
-  function propLine(tag, key) {
-    const inherited = inheritedProps(tag);
-    if (!tag.propList.length && !inherited.length) return null;
-    const line = el(doc, 'div', { class: 'rtg-propline' });
-    const chip = (prop, from) => el(doc, 'span', { class: 'rtg-prop' + (from ? ' rtg-inh' : ''), role: 'button',
-      title: from ? `${prop.title} comes from #${from.title}` : passesDown(tag, prop),
-      click: event => { event.stopPropagation(); setCursor(key); propMenu(tag, prop, from, event.currentTarget); } }, prop.title);
-    if (tag.propList.length) line.append(el(doc, 'span', { class: 'rtg-plabel' }, 'properties'), ...tag.propList.map(p => chip(p)));
-    const groups = new Map();
-    for (const prop of inherited) groups.set(prop.from, [...(groups.get(prop.from) || []), prop]);
-    for (const [from, props] of groups) line.append(el(doc, 'span', { class: 'rtg-plabel' }, 'from ', el(doc, 'b', {}, '#'), from.title), ...props.map(p => chip(p, from)));
-    return line;
-  }
-  function passesDown(tag, prop) {
-    const inside = [...below(tag)].map(id => data.tags.get(id)).filter(t => t && !t.propList.some(p => p.ident === prop.ident)).length;
-    return inside ? `${prop.title}: on #${tag.title} and the ${plural(inside, 'tag')} inside it` : `${prop.title}: on #${tag.title}`;
-  }
-  const propMoves = (tag, prop) => fresh(tag).parents.filter(p => !p.builtIn && !p.propList.some(q => q.ident === prop.ident));
-  function propMenu(tag, prop, from, anchor) {
-    tag = fresh(tag);
-    const items = [{ html: `Open the property ${escapeHtml(prop.title)}`, run: () => openTag(prop) }];
-    if (from) {
-      items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = shown.find(i => i.tag.id === from.id); if (at) setCursor(at.key); } });
-      if (!from.builtIn) items.push({ html: `Take it off #${escapeHtml(from.title)}`, run: () => takePropOff(from, prop) });
-    } else {
-      for (const parent of propMoves(tag, prop)) items.push({ html: `Move up to #${escapeHtml(parent.title)}`, run: () => movePropUp(tag, prop, parent) });
-      if (!tag.builtIn) items.push({ html: `Take it off #${escapeHtml(tag.title)}`, run: () => takePropOff(tag, prop) });
-    }
-    showMenu(anchor, from ? `${prop.title}, from #${from.title}` : passesDown(tag, prop), items);
-  }
-  async function addProp(tag, prop) {
-    if (await act(() => addTagProp(tag, prop), `${prop.title} could not be added`)) showToast(`#${tag.title} now has ${prop.title}`, () => removeTagProp(tag, prop));
-  }
-  async function takePropOff(tag, prop) {
-    if (await act(() => removeTagProp(tag, prop), `${prop.title} could not be taken off`)) showToast(`#${tag.title} no longer has ${prop.title}; values already filled in stay`, () => addTagProp(tag, prop));
-  }
-  async function movePropUp(tag, prop, parent) {
-    const moved = await act(async () => { await addTagProp(parent, prop); await removeTagProp(tag, prop); }, `${prop.title} could not be moved`);
-    if (moved) showToast(`${prop.title} is now on #${parent.title} and every tag inside it`, async () => { await addTagProp(tag, prop); await removeTagProp(parent, prop); });
-  }
-  // Logseq lets a plugin make properties only under the plugin's own name, so a property of your own is
-  // made with Logseq's own Add tag property on the tag's page: it is opened and the name typed in for you.
-  async function newProperty(tag, name) {
-    await openTag(tag);
-    const hostDoc = host(), win = hostDoc.defaultView;
-    const waitFor = async find => { for (let i = 0; i < 30; i++) { const node = find(); if (node) return node; await new Promise(r => setTimeout(r, 100)); } return null; };
-    const button = await waitFor(() => [...hostDoc.querySelectorAll('#main-content-container button')].find(b => b.textContent.trim() === 'Add tag property'));
-    const input = button && (button.click(), await waitFor(() => hostDoc.querySelector('input[placeholder="Add or change property"]')));
-    if (input) {
-      Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, name);
-      input.dispatchEvent(new win.Event('input', { bubbles: true }));
-      input.focus();
-    } else logseq.UI.showMsg(`On the #${tag.title} page, use Add tag property (above the title) to make “${name}”.`, 'info', { timeout: 9000 });
-  }
-  // A menu with a search box listing the graph's properties that the tag does not have yet.
-  async function askProperty(tag, anchor) {
-    tag = fresh(tag);
-    let all = [];
-    try { all = await loadProps(); } catch (error) { warnOnce('properties could not be read', error); }
-    const have = new Map([...tag.propList.map(p => [p.ident, null]), ...inheritedProps(tag).map(p => [p.ident, p.from])]);
-    closeMenu();
-    const input = el(doc, 'input', { type: 'text', placeholder: 'Type to find a property', spellcheck: 'false' });
-    const listBox = el(doc, 'div', { class: 'rtg-list' });
-    menu = el(doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(doc, 'div', { class: 'rtg-mh' }, `Add a property to #${tag.title}`), input, listBox);
-    const pickIt = run => () => { closeMenu(); box.focus({ preventScroll: true }); run(); };
-    const fill = () => {
-      const q = input.value.trim().toLowerCase();
-      const hits = all.filter(p => !have.has(p.ident) || have.get(p.ident)).filter(p => !q || p.title.toLowerCase().includes(q)).slice(0, 60);
-      listBox.replaceChildren(...hits.map(p => {
-        const from = have.get(p.ident);
-        return el(doc, 'button', { role: 'menuitem', click: pickIt(() => addProp(tag, p)) }, el(doc, 'span', {}, p.title),
-          el(doc, 'span', { class: 'rtg-path' }, from ? `already from #${from.title}` : p.type === 'default' ? 'text' : p.type));
-      }));
-      const exact = all.some(p => p.title.toLowerCase() === q);
-      if (q && !exact) listBox.append(el(doc, 'button', { role: 'menuitem', click: pickIt(() => newProperty(tag, input.value.trim())) }, el(doc, 'span', {}, `New property “${input.value.trim()}” …`)));
-      if (!listBox.childNodes.length) listBox.append(el(doc, 'div', { class: 'rtg-none' }, 'Type the name of a property'));
-    };
-    input.addEventListener('input', fill);
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); listBox.querySelector('button')?.click(); }
-      else if (event.key === 'ArrowDown') { event.preventDefault(); listBox.querySelector('button')?.focus(); }
-      else if (event.key === 'Escape') { event.preventDefault(); closeMenu(); box.focus({ preventScroll: true }); }
-      event.stopPropagation();
-    });
-    keepKeys(input);
-    menu.addEventListener('keydown', event => { if (event.target !== input) menuKeys(event); });
-    fill();
-    doc.body.append(menu);
-    input.focus({ preventScroll: true });
-    placeMenu(anchor);
-  }
-  function rowMenu(item, anchor) {
-    const { tag, parent } = item;
-    const items = [{ html: `Open #${escapeHtml(tag.title)}<kbd>Enter</kbd>`, run: () => openTag(tag) },
-      { html: 'Open in the right sidebar<kbd>⇧ Enter</kbd>', run: () => openTag(tag, true) }];
-    if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) items.push('-', { html: 'New tag inside<kbd>n</kbd>', run: () => startAdd(tag, item.key) });
-    if (!tag.builtIn) {
-      items.push({ html: 'Move to …<kbd>m</kbd>', run: () => askMove(tag, parent, anchor) },
-        { html: 'Also put under …<kbd>a</kbd>', run: () => askAlso(tag, anchor) });
-      if (parent && tag.parents.length > 1) items.push({ html: `Take out of #${escapeHtml(parent.title)}`, run: () => takeOut(tag, parent) },
-        { html: `Keep only under #${escapeHtml(parent.title)}`, run: () => keepOnly(tag, parent) });
-      else if (parent) items.push({ html: 'Move to the top level', run: () => moveTo(tag, parent, null) });
-      else if (tag.parents.length) items.push({ html: 'Keep only at the top', run: () => keepOnly(tag, null) });
-      if (item.root) {
-        const names = rootNames(), at = names.findIndex(n => sameTag(n, tag.title));
-        items.push('-');
-        if (at > 0) items.push({ html: 'Move this root up', run: () => moveRoot(tag, -1) });
-        if (at < names.length - 1) items.push({ html: 'Move this root down', run: () => moveRoot(tag, 1) });
-        items.push({ html: 'Stop showing it as a root', run: () => unRoot(tag) });
-      } else if (!tag.parents.length) items.push({ html: 'Make it a root', run: () => makeRoot(tag) });
-      items.push('-', { html: 'Add a property …<kbd>p</kbd>', run: () => askProperty(tag, anchor) },
-        { html: 'Rename<kbd>r</kbd>', run: () => { renaming = item.key; draw(); } },
-        { html: 'Merge into …<kbd>j</kbd>', run: () => askMerge(tag, parent, anchor) });
-    } else if (item.root) items.push('-', { html: 'Stop showing it as a root', run: () => unRoot(tag) });
-    if (picked.size > 1 && picked.has(tag.id)) items.unshift({ html: `Make the ${picked.size} picked tags roots`, run: () => rootsFromPicked() }, { html: `Move the ${picked.size} picked tags to …`, run: () => movePicked(anchor) }, '-');
-    showMenu(anchor, '#' + tag.title, items);
-  }
-
-  /* Drawing */
-  const roots = () => rootNames().map((name, i) => ({ name, hue: i % HUES, tag: data.byName.get(name.toLowerCase()) }));
-  function highlight(node, title, q) {
-    const at = q ? title.toLowerCase().indexOf(q) : -1;
-    if (at < 0) { node.textContent = title; return; }
-    node.append(title.slice(0, at), el(doc, 'mark', {}, title.slice(at, at + q.length)), title.slice(at + q.length));
-  }
-  function draw() {
-    if (!box.isConnected && shown.length) return;
-    if (!loaded) { body.replaceChildren(el(doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); return; }
-    const q = find.value.trim().toLowerCase();
-    // With a search, only matching tags and the tags above them are shown, unfolded.
-    const keep = new Set();
-    if (q) {
-      const mark = tag => { if (keep.has(tag.id)) return; keep.add(tag.id); tag.parents.forEach(mark); };
-      for (const tag of data.tags.values()) if (tag.title.toLowerCase().includes(q)) mark(tag);
-    }
-    const visible = tag => !q || keep.has(tag.id);
-    const scrollKeep = box.closest('.sidebar-item-list, .cp__sidebar-main-content, #main-content-container') || doc.scrollingElement;
-    const top = scrollKeep?.scrollTop;
-    shown = [];
-    const rootList = roots();
-    const rootIds = new Set(rootList.filter(r => r.tag).map(r => r.tag.id));
-    const sections = [];
-    let tagTotal = 0;
-    for (const tag of data.tags.values()) if (!tag.builtIn) tagTotal++;
-
-    // One tag's row and, unless folded, the rows of the tags inside it.
-    function branch(tag, parent, depth, hue, path, keyBase) {
-      const key = keyBase + '/' + tag.id;
-      const kids = tag.kids.filter(kid => !path.has(kid.id) && visible(kid));
-      const open = q ? true : !folded.has(tag.uuid);
-      const isRoot = depth === 0 && rootIds.has(tag.id);
-      const row = el(doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (q && !tag.title.toLowerCase().includes(q) ? ' rtg-dim' : ''),
-        'data-key': key, draggable: tag.builtIn ? null : 'true', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null });
-      const item = { key, tag, parent, row, depth, sec: section, root: isRoot };
-      shown.push(item);
-      const fold = el(doc, 'button', { class: 'rtg-fold' + (kids.length ? '' : ' rtg-leaf') + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
-        click: event => { event.stopPropagation(); toggle(tag); } });
-      const main = el(doc, 'div', { class: 'rtg-main' });
-      const line = el(doc, 'div', { class: 'rtg-line' });
-      if (renaming === key) {
-        const input = el(doc, 'input', { class: 'rtg-input', type: 'text', value: tag.title, spellcheck: 'false', 'aria-label': 'New name' });
-        keepKeys(input);
-        input.addEventListener('keydown', event => {
-          if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); rename(tag, input.value); }
-          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); renaming = null; draw(); box.focus({ preventScroll: true }); }
-        });
-        input.addEventListener('blur', () => { if (renaming === key) { renaming = null; draw(); } });
-        line.append(input);
-        setTimeout(() => { input.focus(); input.select(); });
-      } else {
-        const name = el(doc, 'span', { class: 'rtg-name', title: `Open #${tag.title} (⇧ click: right sidebar)` });
-        highlight(name, tag.title, q);
-        name.addEventListener('click', event => { event.stopPropagation(); if ((event.metaKey || event.ctrlKey) && !tag.builtIn) { pickClick(item, event); return; } setCursor(key); openTag(tag, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); });
-        line.append(name);
-      }
-      const inside = below(tag).size;
-      if (isRoot) line.append(el(doc, 'span', { class: 'rtg-small' }, inside ? plural(inside, 'tag') + ' inside' : 'nothing inside yet'));
-      else if (!open && kids.length) line.append(el(doc, 'span', { class: 'rtg-small', title: 'Folded' }, `${inside} inside`));
-      if (tag.count) line.append(el(doc, 'span', { class: 'rtg-small', title: `${plural(tag.count, 'node')} tagged #${tag.title}` }, plural(tag.count, 'node')));
-      const others = tag.parents.filter(p => p.id !== parent?.id);
-      if (parent && others.length) line.append(el(doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ' + others.map(p => '#' + p.title).join(', ')));
-      if (data.sameName.has(tag.title.toLowerCase())) line.append(el(doc, 'span', { class: 'rtg-small rtg-same', title: 'Another tag has the same name. Click to merge them.', click: event => { event.stopPropagation(); setCursor(key); askMerge(tag, parent, event.currentTarget); } }, 'same name as another tag'));
-      main.append(line);
-      if (tag.desc) main.append(el(doc, 'div', { class: 'rtg-desc' }, tag.desc));
-      if (mode !== 'sidebar') { const props = propLine(tag, key); if (props) main.append(props); }
-      const acts = el(doc, 'span', { class: 'rtg-acts' });
-      if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) acts.append(el(doc, 'button', { class: 'rtg-act', tabindex: '-1', title: `New tag inside #${tag.title} (n)`, html: PLUS, click: event => { event.stopPropagation(); setCursor(key); startAdd(tag, key); } }));
-      acts.append(el(doc, 'button', { class: 'rtg-act rtg-more', tabindex: '-1', title: 'More', html: DOTS, click: event => { event.stopPropagation(); setCursor(key); rowMenu(item, event.currentTarget); } }));
-      row.append(fold, main, acts);
-      row.addEventListener('mousedown', event => { if (!event.target.closest('input')) { if (event.shiftKey || event.metaKey || event.ctrlKey) event.preventDefault(); else setCursor(key, false); } });
-      row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-name, .rtg-prop')) pickClick(item, event); });
-      row.addEventListener('contextmenu', event => { event.preventDefault(); setCursor(key); rowMenu(item, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }); });
-      row.addEventListener('dblclick', event => { if (!tag.builtIn && !event.target.closest('button, input')) { renaming = key; draw(); } });
-      dragRow(row, item);
-      const nodes = [row];
-      const kidNodes = [];
-      if (adding?.key === key) kidNodes.push(addRow(tag));
-      if (open) {
-        const nextPath = new Set(path).add(tag.id);
-        for (const kid of kids) kidNodes.push(...branch(kid, tag, depth + 1, hue, nextPath, key));
-      }
-      if (kidNodes.length) nodes.push(el(doc, 'div', { class: 'rtg-kids', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null }, ...kidNodes));
-      return nodes;
-    }
-
-    // The roots, each with its colour.
-    let section = '';
-    for (const root of rootList) {
-      section = 'root:' + root.name;
-      if (root.tag) { if (visible(root.tag)) sections.push(el(doc, 'div', { class: 'rtg-section' }, ...branch(root.tag, null, 0, root.hue, new Set(), ''))); continue; }
-      if (q) continue;
-      const make = el(doc, 'button', { class: 'rtg-make', click: () => act(async () => { await makeTag(root.name); }, `#${root.name} could not be made`) }, `Make #${root.name}`);
-      const leave = el(doc, 'button', { class: 'rtg-make rtg-leave', title: `Stop showing #${root.name} as a root`, click: () => setRoots(rootNames().filter(n => n.toLowerCase() !== root.name.toLowerCase())) }, 'Not a root');
-      sections.push(el(doc, 'div', { class: 'rtg-section' }, el(doc, 'div', { class: 'rtg-missing', style: `--rtg-hue: var(--rtg-h${root.hue})` }, el(doc, 'span', { class: 'rtg-ghost' }, root.name), make, leave)));
-    }
-    // Adding a root: an existing tag or a new one.
-    if (!q) {
-      if (addingRoot) sections.push(el(doc, 'div', { class: 'rtg-section' }, rootAddRow()));
-      else sections.push(el(doc, 'div', { class: 'rtg-newroot' }, el(doc, 'button', { class: 'rtg-make', title: 'Show another tag at the top of the tree, or make a new one', click: () => { addingRoot = true; draw(); } }, '+ Root tag')));
-    }
-    // Tags under none of the roots.
-    const loose = [...data.tags.values()].filter(tag => !tag.builtIn && !rootIds.has(tag.id) && !tag.parents.length && visible(tag)).sort(data.byTitle);
-    const looseHead = el(doc, 'h3', { class: 'rtg-group', 'data-drop': 'top' }, 'Not placed yet', el(doc, 'span', { class: 'rtg-hint' }, loose.length ? (compact ? String(loose.length) : 'Drag a tag onto a root, or press m to move it') : 'Every tag has a place'));
-    dropTarget(looseHead, null);
-    section = 'loose';
-    const looseNodes = loose.flatMap(tag => branch(tag, null, 1, null, new Set(), 'loose'));
-    if (!q || loose.length) sections.push(el(doc, 'div', { class: 'rtg-section rtg-loose' }, looseHead, ...looseNodes));
-    // Tags that extend Logseq's own tags, under those tags.
-    const builtIns = [...data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && visible(tag)).sort(data.byTitle);
-    section = 'logseq';
-    if (builtIns.length) sections.push(el(doc, 'div', { class: 'rtg-section' }, el(doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => branch(tag, null, 1, null, new Set(), 'logseq'))));
-    if (q && !keep.size) sections.push(el(doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
-
-    body.replaceChildren(...sections);
-    count.textContent = plural(tagTotal, 'tag');
-    // Keep the cursor on its row, or on the tag it was on if that moved.
-    if (cursorTag != null) {
-      const again = shown.find(item => item.key === cursorKey) || shown.find(item => item.tag.id === cursorTag);
-      cursorKey = again?.key || null;
-    }
-    mark(false);
-    if (scrollKeep && top != null) scrollKeep.scrollTop = top;
-  }
-  function addRow(parent) {
-    const input = el(doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: parent ? `New tag inside #${parent.title}` : 'New tag', title: 'Several at once: separate them with commas', 'aria-label': 'New tag' });
-    keepKeys(input);
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); const text = input.value.trim(); if (text) submitAdd(parent, text); else { adding = null; draw(); } }
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); adding = null; draw(); box.focus({ preventScroll: true }); }
-    });
-    input.addEventListener('blur', () => setTimeout(() => { if (adding && !input.value.trim() && doc.activeElement !== input) { adding = null; draw(); } }, 150));
-    setTimeout(() => input.focus());
-    return el(doc, 'div', { class: 'rtg-addrow' }, input);
-  }
-  function toggle(tag) {
-    if (folded.has(tag.uuid)) folded.delete(tag.uuid); else folded.add(tag.uuid);
-    saveFolded();
-    draw();
-  }
-  function setCursor(key, scroll = true) {
-    cursorKey = key;
-    cursorTag = shown.find(item => item.key === key)?.tag.id ?? null;
-    mark(scroll);
-  }
-  function mark(scroll) {
-    for (const item of shown) { item.row.classList.toggle('rtg-current', item.key === cursorKey); item.row.classList.toggle('rtg-picked', picked.has(item.tag.id)); }
-    for (const id of [...picked]) if (!data.tags.has(id)) picked.delete(id);
-    pickBar.hidden = !picked.size;
-    pickCount.textContent = picked.size === 1 ? '1 tag picked' : `${picked.size} tags picked`;
-    const item = shown.find(i => i.key === cursorKey);
-    if (scroll && item) item.row.scrollIntoView({ block: 'nearest' });
-  }
-
-  /* Dragging a tag onto another */
-  function dragRow(row, item) {
-    if (!item.tag.builtIn) {
-      row.addEventListener('dragstart', event => {
-        dragging = { tag: item.tag, parent: item.parent };
-        event.dataTransfer.effectAllowed = 'copyMove';
-        event.dataTransfer.setData('text/plain', '#' + item.tag.title);
-        setTimeout(() => row.classList.add('rtg-dragging'));
-      });
-      row.addEventListener('dragend', () => { dragging = null; row.classList.remove('rtg-dragging'); clearDrop(); });
-    }
-    if (!item.tag.builtIn || PARENT_BUILT_INS.has(item.tag.ident)) dropTarget(row, item.tag);
-  }
-  const clearDrop = () => body.querySelectorAll('.rtg-drop').forEach(node => node.classList.remove('rtg-drop'));
-  function dropTarget(node, target) {
-    const allowed = () => {
-      if (!dragging) return false;
-      const tag = fresh(dragging.tag);
-      if (!target) return tag.parents.length > 0;
-      return target.id !== tag.id && !isAbove(tag, target) && !tag.parents.some(p => p.id === target.id);
-    };
-    node.addEventListener('dragover', event => {
-      if (!allowed()) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
-      if (!node.classList.contains('rtg-drop')) { clearDrop(); node.classList.add('rtg-drop'); }
-    });
-    node.addEventListener('dragleave', event => { if (!node.contains(event.relatedTarget)) node.classList.remove('rtg-drop'); });
-    node.addEventListener('drop', event => {
-      if (!allowed()) return;
-      event.preventDefault(); event.stopPropagation();
-      const { tag, parent } = dragging;
-      dragging = null;
-      clearDrop();
-      if (!target) moveTo(tag, parent, null);
-      else if (event.altKey) alsoUnder(tag, target);
-      else moveTo(tag, parent, target);
-    });
-  }
-
-  /* Keys */
-  const onKey = event => {
-    if (!box.isConnected || menu?.contains(event.target)) return;
-    const typing = event.target?.matches?.('input, textarea');
-    if (event.key === 'Escape') {
-      if (menu) closeMenu();
-      else if (event.target === find && find.value) { find.value = ''; draw(); }
-      else if (picked.size) { picked.clear(); mark(false); }
-      else { doc.activeElement?.blur?.(); cursorKey = null; mark(false); }
-      event.preventDefault(); event.stopPropagation();
-      return;
-    }
-    if (menu && !typing) { event.stopPropagation(); return; }
-    const at = shown.findIndex(item => item.key === cursorKey);
-    const item = shown[at];
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (typing && event.target !== find) return;
-      event.preventDefault(); event.stopPropagation();
-      if (!shown.length) return;
-      const next = event.key === 'ArrowDown' ? Math.min(shown.length - 1, at + 1) : Math.max(0, at < 0 ? 0 : at - 1);
-      if (typing) { find.blur(); box.focus({ preventScroll: true }); }
-      setCursor(shown[next].key);
-      return;
-    }
-    if (event.key === 'Enter' && event.target === find && !item) {
-      event.preventDefault(); event.stopPropagation();
-      const name = find.value.trim();
-      const hit = name && data.byName.get(name.replace(/^#/, '').toLowerCase());
-      if (hit) { const row = shown.find(i => i.tag.id === hit.id); if (row) { find.blur(); box.focus({ preventScroll: true }); setCursor(row.key); } }
-      else if (name) { find.value = ''; submitAdd(null, name); }
-      return;
-    }
-    if (typing && !(event.key === 'Enter' && event.target === find)) return;
-    if (!item) {
-      if (event.key === '/') { event.preventDefault(); event.stopPropagation(); find.focus(); }
-      else if (!(event.metaKey || event.ctrlKey || event.altKey)) event.stopPropagation();
-      return;
-    }
-    const { tag, parent } = item;
-    const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
-    const key = plain ? event.key.toLowerCase() : '';
-    const stop = () => { event.preventDefault(); event.stopPropagation(); };
-    if (event.key === 'Enter') { stop(); if (typing) { find.blur(); box.focus({ preventScroll: true }); } openTag(tag, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); return; }
-    if (event.key === 'ArrowRight') {
-      stop();
-      if (tag.kids.length && folded.has(tag.uuid)) toggle(tag);
-      else if (shown[at + 1]?.depth > item.depth) setCursor(shown[at + 1].key);
-      return;
-    }
-    if (event.key === 'ArrowLeft') {
-      stop();
-      if (tag.kids.length && !folded.has(tag.uuid) && !find.value) toggle(tag);
-      else { const up = shown.slice(0, at).reverse().find(i => i.sec === item.sec && i.depth < item.depth); if (up) setCursor(up.key); }
-      return;
-    }
-    if (event.key === 'Tab' && !tag.builtIn && !item.row.classList.contains('rtg-root')) {
-      stop();
-      if (event.shiftKey) {
-        // Out: from its parent to the parent's parent (or the top level).
-        if (!parent) return;
-        const grand = shown.slice(0, at).reverse().find(i => i.depth < item.depth && i.tag.id === parent.id)?.parent ?? null;
-        moveTo(tag, parent, grand);
-      } else {
-        // In: under the tag just above it at the same level.
-        const prev = shown.slice(0, at).reverse().find(i => i.depth <= item.depth);
-        if (prev && prev.sec === item.sec && prev.depth === item.depth && prev.tag.id !== tag.id && (!prev.tag.builtIn || PARENT_BUILT_INS.has(prev.tag.ident))) moveTo(tag, parent, prev.tag);
-      }
-      return;
-    }
-    if ((key === 'n' || event.key === '+') && (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident))) { stop(); startAdd(tag, item.key); return; }
-    if (key === 'm' && !tag.builtIn) { stop(); askMove(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
-    if (key === 'a' && !tag.builtIn) { stop(); askAlso(tag, item.row.querySelector('.rtg-name') || item.row); return; }
-    if (key === 'r' && !tag.builtIn) { stop(); renaming = item.key; draw(); return; }
-    if (key === 'x' && !tag.builtIn) { stop(); if (picked.has(tag.id)) picked.delete(tag.id); else picked.add(tag.id); mark(false); return; }
-    if (key === 'p' && !tag.builtIn) { stop(); askProperty(tag, item.row.querySelector('.rtg-name') || item.row); return; }
-    if (key === 'j' && !tag.builtIn) { stop(); askMerge(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
-    if (event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f')) { stop(); find.focus(); find.select(); return; }
-    if (event.key === ' ' || event.key === 'ContextMenu') { stop(); rowMenu(item, item.row.querySelector('.rtg-more') || item.row); return; }
-    // Shortcuts with Cmd, Ctrl or Option still reach Logseq.
-    if (plain) event.stopPropagation();
-  };
-  box.addEventListener('keydown', onKey);
-  const onDown = event => { if (menu && !menu.contains(event.target)) closeMenu(); };
-  doc.addEventListener('mousedown', onDown, true);
+  view.toast = null; view.toastTimer = 0;
+  view.box.addEventListener('keydown', view.onKey);
+  view.doc.addEventListener('mousedown', view.onDown, true);
   // Clicking a blank part of the tree gives it the keyboard, for the arrow keys.
-  box.addEventListener('mousedown', event => { if (!event.target.closest('input, button')) box.focus({ preventScroll: true }); });
+  view.box.addEventListener('mousedown', event => { if (!event.target.closest('input, button')) view.box.focus({ preventScroll: true }); });
 
-  async function refresh() {
-    try { data = await loadTags(); loaded = true; }
-    catch (error) { warnOnce('the tags could not be read', error); }
-    draw();
-  }
   // Changes made elsewhere show up here too, unless something is being typed or dragged.
-  let timer = 0;
-  const offChanged = logseq.DB.onChanged(() => {
-    clearTimeout(timer);
-    timer = setTimeout(function again() {
-      if (busy) return;
-      if (menu || dragging || adding || renaming) { timer = setTimeout(again, 800); return; }
-      refresh();
+  view.timer = 0;
+  view.offChanged = logseq.DB.onChanged(() => {
+    clearTimeout(view.timer);
+    view.timer = setTimeout(function again() {
+      if (view.busy) return;
+      if (view.menu || view.dragging || view.adding || view.renaming) { view.timer = setTimeout(again, 800); return; }
+      view.refresh();
     }, 400);
   });
-  function destroy() {
-    closeMenu();
-    hideToast();
-    clearTimeout(timer);
-    doc.removeEventListener('mousedown', onDown, true);
-    try { offChanged?.(); } catch (error) { /* already off */ }
-    openViews.delete(draw);
-    box.remove();
-  }
-  openViews.add(draw);
-  draw();
-  return { node: box, refresh, destroy, focus: () => box.focus({ preventScroll: true }) };
+  openViews.add(view.draw);
+  view.draw();
+  return { node: view.box, refresh: view.refresh, destroy: view.destroy, focus: () => view.box.focus({ preventScroll: true }) };
 }
+
+/* Menus */
+function closeMenu(view) { view.menu?.remove(); view.menu = null; }
+
+function placeMenu(view, anchor) {
+  const r = anchor.getBoundingClientRect(), m = view.menu.getBoundingClientRect();
+  const win = view.doc.defaultView;
+  view.menu.style.left = Math.max(8, Math.min(r.left, win.innerWidth - m.width - 8)) + 'px';
+  view.menu.style.top = (r.bottom + m.height + 6 > win.innerHeight ? Math.max(8, r.top - m.height - 4) : r.bottom + 4) + 'px';
+}
+
+function menuKeys(view, event) {
+  const buttons = [...view.menu.querySelectorAll('button')];
+  const at = buttons.indexOf(view.doc.activeElement);
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const next = at < 0 ? (event.key === 'ArrowDown' ? 0 : buttons.length - 1) : (at + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length;
+    buttons[next]?.focus();
+  } else if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); }
+  event.stopPropagation();
+}
+
+function showMenu(view, anchor, header, items) {
+  view.closeMenu();
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu', role: 'menu' });
+  if (header) view.menu.append(el(view.doc, 'div', { class: 'rtg-mh' }, header));
+  for (const item of items) {
+    if (item === '-') { view.menu.append(el(view.doc, 'hr')); continue; }
+    view.menu.append(el(view.doc, 'button', { role: 'menuitem', html: item.html, click: () => { view.closeMenu(); view.box.focus({ preventScroll: true }); item.run(); } }));
+  }
+  view.menu.addEventListener('keydown', view.menuKeys);
+  view.doc.body.append(view.menu);
+  view.menu.querySelector('button')?.focus({ preventScroll: true });
+  view.placeMenu(anchor);
+}
+
+// A menu with a search box that lists tags to pick from.
+function pickTag(view, anchor, header, choices, onPick) {
+  view.closeMenu();
+  const input = el(view.doc, 'input', { type: 'text', placeholder: 'Type to find a tag', spellcheck: 'false' });
+  const listBox = el(view.doc, 'div', { class: 'rtg-list' });
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(view.doc, 'div', { class: 'rtg-mh' }, header), input, listBox);
+  const fill = () => {
+    const q = input.value.trim().toLowerCase();
+    const hits = choices.filter(c => !q || c.tag.title.toLowerCase().includes(q)).slice(0, 60);
+    listBox.replaceChildren(...hits.map(c => el(view.doc, 'button', { role: 'menuitem', click: () => { view.closeMenu(); view.box.focus({ preventScroll: true }); onPick(c.tag); } },
+      el(view.doc, 'span', {}, c.label ?? '#' + c.tag.title), c.path ? el(view.doc, 'span', { class: 'rtg-path' }, c.path) : null)));
+    if (!hits.length) listBox.append(el(view.doc, 'div', { class: 'rtg-none' }, 'No tag by that name'));
+  };
+  input.addEventListener('input', fill);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); listBox.querySelector('button')?.click(); }
+    else if (event.key === 'ArrowDown') { event.preventDefault(); listBox.querySelector('button')?.focus(); }
+    else if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); }
+    event.stopPropagation();
+  });
+  keepKeys(input);
+  view.menu.addEventListener('keydown', event => { if (event.target !== input) view.menuKeys(event); });
+  fill();
+  view.doc.body.append(view.menu);
+  input.focus({ preventScroll: true });
+  view.placeMenu(anchor);
+}
+
+function hideToast(view) { clearTimeout(view.toastTimer); view.toast?.remove(); view.toast = null; }
+
+function showToast(view, text, undo) {
+  view.hideToast();
+  view.toast = el(view.doc, 'div', { class: 'refinement-tags-toast', role: 'status' }, el(view.doc, 'span', {}, text));
+  if (undo) {
+    const button = el(view.doc, 'button', {}, 'Undo');
+    button.addEventListener('click', async () => { view.hideToast(); await view.act(undo, 'The change could not be undone'); });
+    view.toast.append(button);
+  }
+  view.doc.body.append(view.toast);
+  view.toastTimer = setTimeout(view.hideToast, 7000);
+}
+
+async function act(view, run, failText) {
+  view.busy = true;
+  let done = false;
+  try { await run(); done = true; }
+  catch (error) { warnOnce(failText, error); logseq.UI.showMsg(`${failText}: ${error?.message || error}`, 'warning'); }
+  finally { view.busy = false; }
+  await view.refresh();
+  return done;
+}
+
+/* Changes */
+function fresh(view, tag) { return view.data.tags.get(tag.id) || tag; }
+
+function parentsTitle(view, parents) { return parents.length ? 'under ' + parents.map(p => '#' + p.title).join(', ') : 'at the top level, not placed yet'; }
+
+// Puts a tag under new parents and offers to put it back.
+async function reparent(view, tag, parents, said) {
+  tag = view.fresh(tag);
+  const before = tag.parents.slice();
+  for (const parent of parents) if (isAbove(tag, parent)) { logseq.UI.showMsg(`#${tag.title} cannot go inside #${parent.title}, which is inside it`, 'warning'); return; }
+  for (const parent of parents) folded.delete(parent.uuid);
+  saveFolded();
+  view.cursorTag = tag.id; view.cursorKey = null;
+  await view.act(() => setParents(tag, parents), `#${tag.title} could not be moved`);
+  const after = view.fresh(tag);
+  if (after.parents.map(p => p.id).sort().join() === before.map(p => p.id).sort().join()) return;
+  view.showToast(said || `#${tag.title} is now ${view.parentsTitle(after.parents)}`, async () => { view.cursorTag = tag.id; await setParents(view.fresh(tag), before); });
+}
+
+function moveTo(view, tag, from, to) { return view.reparent(tag, [...view.fresh(tag).parents.filter(p => p.id !== from?.id && p.id !== to?.id), ...(to ? [to] : [])]); }
+
+function alsoUnder(view, tag, to) { return view.reparent(tag, [...view.fresh(tag).parents.filter(p => p.id !== to.id), to], `#${tag.title} is now also under #${to.title}`); }
+
+function takeOut(view, tag, from) { return view.reparent(tag, view.fresh(tag).parents.filter(p => p.id !== from.id), `#${tag.title} is no longer under #${from.title}`); }
+
+// Tags a tag may go under: user tags and Logseq's Task and Card, without the tag itself and what is inside it.
+function targetsFor(view, tag, leaveOut = []) {
+  const inside = tag ? below(tag) : new Set();
+  return [...view.data.tags.values()]
+    .filter(t => (!t.builtIn || PARENT_BUILT_INS.has(t.ident)) && (!tag || (t.id !== tag.id && !inside.has(t.id))) && !leaveOut.includes(t.id))
+    .sort(view.data.byTitle)
+    .map(t => ({ tag: t, path: pathOf(t) }));
+}
+
+function askMove(view, tag, parent, anchor) {
+  const choices = view.targetsFor(tag, parent ? [parent.id] : []);
+  if (parent || view.fresh(tag).parents.length) choices.unshift({ tag: null, label: 'The top level (no parent)' });
+  view.pickTag(anchor, `Move #${tag.title} under …`, choices.map(c => c.tag ? c : { ...c, tag: { id: -1, title: '' } }), to => view.moveTo(tag, parent, to.id === -1 ? null : to));
+}
+
+function askAlso(view, tag, anchor) {
+  view.pickTag(anchor, `Also put #${tag.title} under …`, view.targetsFor(tag, view.fresh(tag).parents.map(p => p.id)), to => view.alsoUnder(tag, to));
+}
+
+async function addTags(view, parent, text) {
+  const names = text.split(',').map(name => name.trim().replace(/^#/, '').trim()).filter(Boolean);
+  const made = [], moved = [];
+  for (const name of names) {
+    if (name.includes('/')) { logseq.UI.showMsg(`A tag name cannot have a / in it (${name})`, 'warning'); continue; }
+    const existing = view.data.byName.get(name.toLowerCase());
+    if (existing) {
+      if (existing.builtIn) { logseq.UI.showMsg(`#${existing.title} is one of Logseq's own tags and stays where it is`, 'warning'); continue; }
+      if (!parent || existing.parents.some(p => p.id === parent.id)) continue;
+      if (isAbove(existing, parent)) { logseq.UI.showMsg(`#${existing.title} cannot go inside #${parent.title}, which is inside it`, 'warning'); continue; }
+      const before = existing.parents.slice();
+      await setParents(existing, [...existing.parents, parent]);
+      moved.push({ title: existing.title, id: existing.id, before });
+      continue;
+    }
+    const page = await logseq.Editor.getPage(name).catch(() => null);
+    if (page && !view.data.tags.has(page.id)) { logseq.UI.showMsg(`There is already a page called “${page.title || name}” that is not a tag. Make it a tag on its page first.`, 'warning'); continue; }
+    const tag = await makeTag(name);
+    if (parent) await logseq.Editor.addTagExtends(tag.uuid, parent.uuid);
+    made.push({ title: tag.title || tag.originalName || name, uuid: tag.uuid });
+  }
+  return { made, moved };
+}
+
+async function submitAdd(view, parent, text) {
+  view.adding = null;
+  if (parent) { folded.delete(parent.uuid); saveFolded(); }
+  let result = { made: [], moved: [] };
+  await view.act(async () => { result = await view.addTags(parent, text); }, 'The tag could not be made');
+  const { made, moved } = result;
+  const last = made.length ? view.data.byName.get(made[made.length - 1].title.toLowerCase()) : null;
+  if (last) { view.cursorTag = last.id; view.cursorKey = null; view.draw(); }
+  const where = parent ? ` inside #${parent.title}` : '';
+  const bits = [];
+  if (made.length) bits.push(`Made ${made.map(m => '#' + m.title).join(', ')}${where}`);
+  if (moved.length) bits.push(`${moved.map(m => '#' + m.title).join(', ')} ${moved.length === 1 ? 'was' : 'were'} already a tag, now also${where}`);
+  // Undo deletes a new tag by its id (never another tag with the same name) and puts a moved one back.
+  if (bits.length) view.showToast(bits.join('. '), async () => {
+    for (const m of moved) { const tag = view.data.tags.get(m.id); if (tag) await setParents(tag, m.before); }
+    for (const m of made) await logseq.Editor.deletePage(m.uuid);
+  });
+}
+
+function startAdd(view, parent, key) {
+  view.adding = { parent, key };
+  if (parent) { folded.delete(parent.uuid); saveFolded(); }
+  view.draw();
+}
+
+async function rename(view, tag, name) {
+  view.renaming = null;
+  name = name.trim().replace(/^#/, '').trim();
+  if (!name || name === tag.title) { view.draw(); return; }
+  if (name.includes('/')) { logseq.UI.showMsg('A tag name cannot have a / in it', 'warning'); view.draw(); return; }
+  const old = tag.title;
+  view.cursorTag = tag.id;
+  await view.act(() => logseq.Editor.renamePage(tag.uuid, name), `#${old} could not be renamed`);
+  if (view.fresh(tag).title !== old) view.showToast(`#${old} is now #${view.fresh(tag).title}`, () => logseq.Editor.renamePage(tag.uuid, old));
+}
+
+// A tag shown in several places stays only in this one (or only at the top, for a root row).
+function keepOnly(view, tag, parent) { return view.reparent(tag, parent ? [parent] : [], parent ? `#${tag.title} is now only under #${parent.title}` : `#${tag.title} is now only at the top`); }
+
+// Merging: the kept tag is picked from a list that starts with the likely ones.
+function askMerge(view, tag, parent, anchor) {
+  const sameName = (view.data.sameName.get(tag.title.toLowerCase()) || []).filter(t => t.id !== tag.id);
+  const siblings = parent ? parent.kids.filter(t => t.id !== tag.id && !t.builtIn) : [];
+  const first = [...sameName.map(t => [t, 'same name']), ...tag.parents.filter(t => !t.builtIn).map(t => [t, 'parent']), ...siblings.map(t => [t, 'beside it']), ...tag.kids.filter(t => !t.builtIn).map(t => [t, 'inside it'])];
+  const seen = new Set([tag.id]);
+  const choices = [];
+  for (const [t, why] of first) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: why }); }
+  for (const t of [...view.data.tags.values()].filter(t => !t.builtIn).sort(view.data.byTitle)) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: pathOf(t) }); }
+  view.pickTag(anchor, `Merge #${tag.title} into …`, choices, target => view.confirmMerge(tag, target));
+}
+
+async function confirmMerge(view, source, target) {
+  source = view.fresh(source); target = view.fresh(target);
+  let plan;
+  try { plan = await planMerge(source, target, view.data.tags); }
+  catch (error) { warnOnce('a merge could not be prepared', error); logseq.UI.showMsg('Could not look up what the merge would change: ' + (error?.message || error), 'warning'); return; }
+  const n = (count, one, many) => plural(count, one, many);
+  const lines = [];
+  if (plan.tagged.length) lines.push(`${n(plan.tagged.length, 'node')} tagged #${source.title} get #${target.title} instead`);
+  if (plan.textRefs.length) lines.push(`${n(plan.textRefs.length, 'block')} that mention #${source.title} in their text will point at #${target.title}`);
+  if (plan.props.length) lines.push(`${n(plan.props.length, 'property value')} pointing at #${source.title} will point at #${target.title}`);
+  if (plan.kids.length) lines.push(`${n(plan.kids.length, 'tag')} inside #${source.title} (${plan.kids.map(k => '#' + k.title).join(', ')}) move inside #${target.title}`);
+  if (plan.newProps.length) lines.push(`#${target.title} gets the tag ${plan.newProps.length === 1 ? 'property' : 'properties'} ${plan.newProps.map(p => p.title).join(', ')}`);
+  if (plan.desc) lines.push(`#${target.title} gets #${source.title}’s description`);
+  if (plan.descDropped) lines.push(`#${source.title}’s description is dropped (#${target.title} has its own)`);
+  if (plan.pageValues.size) {
+    const what = [plan.pageValues.has('logseq.property/alias') && 'aliases', plan.pageValues.has('logseq.property/icon') && 'the icon', [...plan.pageValues.keys()].some(a => /^(user|plugin)\.property/.test(a)) && 'your own property values'].filter(Boolean);
+    lines.push(`${what.join(', ')} on #${source.title}’s page go to #${target.title}’s page`);
+  }
+  if (plan.pageBlocks.length) lines.push(`${n(plan.pageBlocks.length, 'block')} written on #${source.title}’s page move to the end of #${target.title}’s page`);
+  lines.push(`then #${source.title} is deleted`);
+  const isRoot = rootNames().some(name => name.toLowerCase() === source.title.toLowerCase()) && !(view.data.sameName.get(source.title.toLowerCase())?.length > 1);
+  const doc2 = view.doc;
+  const go = el(doc2, 'button', { class: 'rtg-go' }, 'Merge');
+  const cancel = el(doc2, 'button', {}, 'Cancel');
+  const panel = el(doc2, 'div', { role: 'dialog', 'aria-label': 'Merge tags' },
+    el(doc2, 'h2', {}, `Merge #${source.title} into #${target.title}?`),
+    el(doc2, 'ul', {}, ...lines.map(line => el(doc2, 'li', {}, line))),
+    el(doc2, 'p', {}, (isRoot ? `#${source.title} is one of your root tags; the tree will offer to make it again. ` : '') + 'The moves cannot be undone in one step, and Logseq deletes a tag for good (it does not go to the Recycle).'),
+    el(doc2, 'div', { class: 'rtg-btns' }, cancel, go));
+  const backdrop = el(doc2, 'div', { class: 'refinement-tags-dialog' }, panel);
+  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  cancel.addEventListener('click', close);
+  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
+  backdrop.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close(); } });
+  go.addEventListener('click', async () => {
+    close();
+    view.cursorTag = target.id; view.cursorKey = null;
+    folded.delete(target.uuid); saveFolded();
+    await view.act(() => runMerge(plan), `#${source.title} could not be merged into #${target.title}`);
+    if (!view.data.tags.has(source.id)) view.showToast(`#${source.title} is merged into #${target.title}`);
+  });
+  doc2.body.append(backdrop);
+  cancel.focus();
+}
+
+/* Picking several tags */
+// Cmd-click picks or unpicks one tag; Shift-click on a row picks every row from the cursor to it.
+function pickClick(view, item, event) {
+  if (item.tag.builtIn) return;
+  if (event.shiftKey && view.cursorKey) {
+    const a = view.shown.findIndex(i => i.key === view.cursorKey), b = view.shown.findIndex(i => i.key === item.key);
+    if (a >= 0 && b >= 0) for (const i of view.shown.slice(Math.min(a, b), Math.max(a, b) + 1)) if (!i.tag.builtIn) view.picked.add(i.tag.id);
+    view.mark(false);
+    return;
+  }
+  if (event.metaKey || event.ctrlKey) {
+    if (view.picked.has(item.tag.id)) view.picked.delete(item.tag.id); else view.picked.add(item.tag.id);
+    view.cursorKey = item.key; view.cursorTag = item.tag.id;
+    view.mark(false);
+    return;
+  }
+  if (view.picked.size) { view.picked.clear(); view.mark(false); }
+}
+
+function pickedTags(view) { return [...view.picked].map(id => view.data.tags.get(id)).filter(Boolean).sort(view.data.byTitle); }
+
+function rootsFromPicked(view) {
+  const tags = view.pickedTags();
+  if (!tags.length) return;
+  const titles = tags.map(t => t.title);
+  view.picked.clear();
+  view.setRoots([...rootNames().filter(n => !titles.some(t => view.sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is now a root' : 'are now roots'}`);
+}
+
+function movePicked(view, anchor) {
+  const tags = view.pickedTags();
+  if (!tags.length) return;
+  const choices = [...view.data.tags.values()].filter(t => (!t.builtIn || PARENT_BUILT_INS.has(t.ident)) && !tags.some(m => isAbove(m, t))).sort(view.data.byTitle).map(t => ({ tag: t, path: pathOf(t) }));
+  view.pickTag(anchor, `Move ${plural(tags.length, 'tag')} into …`, choices, async target => {
+    const before = tags.map(t => [t, t.parents.slice()]);
+    // A picked tag that sits inside another picked tag stays inside it; the others go under the
+    // new tag alone. Parents that are dropped are named, and Undo puts them back.
+    const dropped = [];
+    const done = await view.act(async () => {
+      for (const t of tags) {
+        const keep = t.parents.filter(p => view.picked.has(p.id));
+        for (const p of t.parents) if (!view.picked.has(p.id) && p.id !== target.id) dropped.push(`#${t.title} out of #${p.title}`);
+        await setParents(t, keep.length ? keep : [target]);
+      }
+    }, 'The tags could not be moved');
+    if (!done) return;
+    view.picked.clear();
+    view.showToast(`${plural(tags.length, 'tag')} moved into #${target.title}${dropped.length ? ` (${dropped.join(', ')})` : ''}`, async () => { for (const [t, parents] of before) await setParents(view.fresh(t), parents); });
+  });
+}
+
+/* Root tags: the setting, changed from the tree */
+function sameTag(view, a, b) { return a.toLowerCase() === b.toLowerCase(); }
+
+async function setRoots(view, names, said) {
+  const before = rootNames().join(', ');
+  const save = value => { rootsOverride = value; logseq.updateSettings({ tagTreeRoots: value }); view.draw(); };
+  save(names.join(', '));
+  if (said) view.showToast(said, async () => save(before));
+}
+
+function moveRoot(view, tag, by) {
+  const names = rootNames();
+  const at = names.findIndex(n => view.sameTag(n, tag.title));
+  const to = at + by;
+  if (at < 0 || to < 0 || to >= names.length) return;
+  [names[at], names[to]] = [names[to], names[at]];
+  view.setRoots(names);
+}
+
+function unRoot(view, tag) { return view.setRoots(rootNames().filter(n => !view.sameTag(n, tag.title)), `#${tag.title} is no longer a root`); }
+
+function makeRoot(view, tag) { return view.setRoots([...rootNames().filter(n => !view.sameTag(n, tag.title)), tag.title], `#${tag.title} is now a root`); }
+
+function rootAddRow(view) {
+  const input = el(view.doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: 'Root tag: an existing tag or a new name', title: 'Several at once: separate them with commas', 'aria-label': 'New root tag' });
+  keepKeys(input);
+  const done = () => { view.addingRoot = false; view.draw(); view.box.focus({ preventScroll: true }); };
+  input.addEventListener('keydown', async event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); done(); return; }
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    const names = input.value.split(',').map(n => n.trim().replace(/^#/, '').trim()).filter(Boolean);
+    view.addingRoot = false;
+    if (!names.length) { done(); return; }
+    const newNames = names.filter(n => !view.data.byName.has(n.toLowerCase()));
+    if (newNames.length) await view.act(async () => { await view.addTags(null, newNames.join(', ')); }, 'The tag could not be made');
+    const titles = names.map(n => view.data.byName.get(n.toLowerCase())?.title || n);
+    view.setRoots([...rootNames().filter(n => !titles.some(t => view.sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is' : 'are'} now ${titles.length === 1 ? 'a root' : 'roots'}`);
+  });
+  input.addEventListener('blur', () => setTimeout(() => { if (view.addingRoot && !input.value.trim() && view.doc.activeElement !== input) { view.addingRoot = false; view.draw(); } }, 150));
+  setTimeout(() => input.focus());
+  return el(view.doc, 'div', { class: 'rtg-addrow', style: `--rtg-hue: var(--rtg-h${rootNames().length % HUES})` }, input);
+}
+
+/* Tag properties */
+// The line under a tag's name: its own properties, then the ones it gets from each tag above it.
+function propLine(view, tag, key) {
+  const inherited = inheritedProps(tag);
+  if (!tag.propList.length && !inherited.length) return null;
+  const line = el(view.doc, 'div', { class: 'rtg-propline' });
+  const chip = (prop, from) => el(view.doc, 'span', { class: 'rtg-prop' + (from ? ' rtg-inh' : ''), role: 'button',
+    title: from ? `${prop.title} comes from #${from.title}` : view.passesDown(tag, prop),
+    click: event => { event.stopPropagation(); view.setCursor(key); view.propMenu(tag, prop, from, event.currentTarget); } }, prop.title);
+  if (tag.propList.length) line.append(el(view.doc, 'span', { class: 'rtg-plabel' }, 'properties'), ...tag.propList.map(p => chip(p)));
+  const groups = new Map();
+  for (const prop of inherited) groups.set(prop.from, [...(groups.get(prop.from) || []), prop]);
+  for (const [from, props] of groups) line.append(el(view.doc, 'span', { class: 'rtg-plabel' }, 'from ', el(view.doc, 'b', {}, '#'), from.title), ...props.map(p => chip(p, from)));
+  return line;
+}
+
+function passesDown(view, tag, prop) {
+  const inside = [...below(tag)].map(id => view.data.tags.get(id)).filter(t => t && !t.propList.some(p => p.ident === prop.ident)).length;
+  return inside ? `${prop.title}: on #${tag.title} and the ${plural(inside, 'tag')} inside it` : `${prop.title}: on #${tag.title}`;
+}
+
+function propMoves(view, tag, prop) { return view.fresh(tag).parents.filter(p => !p.builtIn && !p.propList.some(q => q.ident === prop.ident)); }
+
+function propMenu(view, tag, prop, from, anchor) {
+  tag = view.fresh(tag);
+  const items = [{ html: `Open the property ${escapeHtml(prop.title)}`, run: () => openTag(prop) }];
+  if (from) {
+    items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = view.shown.find(i => i.tag.id === from.id); if (at) view.setCursor(at.key); } });
+    if (!from.builtIn) items.push({ html: `Take it off #${escapeHtml(from.title)}`, run: () => view.takePropOff(from, prop) });
+  } else {
+    for (const parent of view.propMoves(tag, prop)) items.push({ html: `Move up to #${escapeHtml(parent.title)}`, run: () => view.movePropUp(tag, prop, parent) });
+    if (!tag.builtIn) items.push({ html: `Take it off #${escapeHtml(tag.title)}`, run: () => view.takePropOff(tag, prop) });
+  }
+  view.showMenu(anchor, from ? `${prop.title}, from #${from.title}` : view.passesDown(tag, prop), items);
+}
+
+async function addProp(view, tag, prop) {
+  if (await view.act(() => addTagProp(tag, prop), `${prop.title} could not be added`)) view.showToast(`#${tag.title} now has ${prop.title}`, () => removeTagProp(tag, prop));
+}
+
+async function takePropOff(view, tag, prop) {
+  if (await view.act(() => removeTagProp(tag, prop), `${prop.title} could not be taken off`)) view.showToast(`#${tag.title} no longer has ${prop.title}; values already filled in stay`, () => addTagProp(tag, prop));
+}
+
+async function movePropUp(view, tag, prop, parent) {
+  const moved = await view.act(async () => { await addTagProp(parent, prop); await removeTagProp(tag, prop); }, `${prop.title} could not be moved`);
+  if (moved) view.showToast(`${prop.title} is now on #${parent.title} and every tag inside it`, async () => { await addTagProp(tag, prop); await removeTagProp(parent, prop); });
+}
+
+// Logseq lets a plugin make properties only under the plugin's own name, so a property of your own is
+// made with Logseq's own Add tag property on the tag's page: it is opened and the name typed in for you.
+async function newProperty(view, tag, name) {
+  await openTag(tag);
+  const hostDoc = host(), win = hostDoc.defaultView;
+  const waitFor = async find => { for (let i = 0; i < 30; i++) { const node = find(); if (node) return node; await new Promise(r => setTimeout(r, 100)); } return null; };
+  const button = await waitFor(() => [...hostDoc.querySelectorAll('#main-content-container button')].find(b => b.textContent.trim() === 'Add tag property'));
+  const input = button && (button.click(), await waitFor(() => hostDoc.querySelector('input[placeholder="Add or change property"]')));
+  if (input) {
+    Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, name);
+    input.dispatchEvent(new win.Event('input', { bubbles: true }));
+    input.focus();
+  } else logseq.UI.showMsg(`On the #${tag.title} page, use Add tag property (above the title) to make “${name}”.`, 'info', { timeout: 9000 });
+}
+
+// A menu with a search box listing the graph's properties that the tag does not have yet.
+async function askProperty(view, tag, anchor) {
+  tag = view.fresh(tag);
+  let all = [];
+  try { all = await loadProps(); } catch (error) { warnOnce('properties could not be read', error); }
+  const have = new Map([...tag.propList.map(p => [p.ident, null]), ...inheritedProps(tag).map(p => [p.ident, p.from])]);
+  view.closeMenu();
+  const input = el(view.doc, 'input', { type: 'text', placeholder: 'Type to find a property', spellcheck: 'false' });
+  const listBox = el(view.doc, 'div', { class: 'rtg-list' });
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(view.doc, 'div', { class: 'rtg-mh' }, `Add a property to #${tag.title}`), input, listBox);
+  const pickIt = run => () => { view.closeMenu(); view.box.focus({ preventScroll: true }); run(); };
+  const fill = () => {
+    const q = input.value.trim().toLowerCase();
+    const hits = all.filter(p => !have.has(p.ident) || have.get(p.ident)).filter(p => !q || p.title.toLowerCase().includes(q)).slice(0, 60);
+    listBox.replaceChildren(...hits.map(p => {
+      const from = have.get(p.ident);
+      return el(view.doc, 'button', { role: 'menuitem', click: pickIt(() => view.addProp(tag, p)) }, el(view.doc, 'span', {}, p.title),
+        el(view.doc, 'span', { class: 'rtg-path' }, from ? `already from #${from.title}` : p.type === 'default' ? 'text' : p.type));
+    }));
+    const exact = all.some(p => p.title.toLowerCase() === q);
+    if (q && !exact) listBox.append(el(view.doc, 'button', { role: 'menuitem', click: pickIt(() => view.newProperty(tag, input.value.trim())) }, el(view.doc, 'span', {}, `New property “${input.value.trim()}” …`)));
+    if (!listBox.childNodes.length) listBox.append(el(view.doc, 'div', { class: 'rtg-none' }, 'Type the name of a property'));
+  };
+  input.addEventListener('input', fill);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); listBox.querySelector('button')?.click(); }
+    else if (event.key === 'ArrowDown') { event.preventDefault(); listBox.querySelector('button')?.focus(); }
+    else if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); }
+    event.stopPropagation();
+  });
+  keepKeys(input);
+  view.menu.addEventListener('keydown', event => { if (event.target !== input) view.menuKeys(event); });
+  fill();
+  view.doc.body.append(view.menu);
+  input.focus({ preventScroll: true });
+  view.placeMenu(anchor);
+}
+
+function rowMenu(view, item, anchor) {
+  const { tag, parent } = item;
+  const items = [{ html: `Open #${escapeHtml(tag.title)}<kbd>Enter</kbd>`, run: () => openTag(tag) },
+    { html: 'Open in the right sidebar<kbd>⇧ Enter</kbd>', run: () => openTag(tag, true) }];
+  if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) items.push('-', { html: 'New tag inside<kbd>n</kbd>', run: () => view.startAdd(tag, item.key) });
+  if (!tag.builtIn) {
+    items.push({ html: 'Move to …<kbd>m</kbd>', run: () => view.askMove(tag, parent, anchor) },
+      { html: 'Also put under …<kbd>a</kbd>', run: () => view.askAlso(tag, anchor) });
+    if (parent && tag.parents.length > 1) items.push({ html: `Take out of #${escapeHtml(parent.title)}`, run: () => view.takeOut(tag, parent) },
+      { html: `Keep only under #${escapeHtml(parent.title)}`, run: () => view.keepOnly(tag, parent) });
+    else if (parent) items.push({ html: 'Move to the top level', run: () => view.moveTo(tag, parent, null) });
+    else if (tag.parents.length) items.push({ html: 'Keep only at the top', run: () => view.keepOnly(tag, null) });
+    if (item.root) {
+      const names = rootNames(), at = names.findIndex(n => view.sameTag(n, tag.title));
+      items.push('-');
+      if (at > 0) items.push({ html: 'Move this root up', run: () => view.moveRoot(tag, -1) });
+      if (at < names.length - 1) items.push({ html: 'Move this root down', run: () => view.moveRoot(tag, 1) });
+      items.push({ html: 'Stop showing it as a root', run: () => view.unRoot(tag) });
+    } else if (!tag.parents.length) items.push({ html: 'Make it a root', run: () => view.makeRoot(tag) });
+    items.push('-', { html: 'Add a property …<kbd>p</kbd>', run: () => view.askProperty(tag, anchor) },
+      { html: 'Rename<kbd>r</kbd>', run: () => { view.renaming = item.key; view.draw(); } },
+      { html: 'Merge into …<kbd>j</kbd>', run: () => view.askMerge(tag, parent, anchor) });
+  } else if (item.root) items.push('-', { html: 'Stop showing it as a root', run: () => view.unRoot(tag) });
+  if (view.picked.size > 1 && view.picked.has(tag.id)) items.unshift({ html: `Make the ${view.picked.size} picked tags roots`, run: () => view.rootsFromPicked() }, { html: `Move the ${view.picked.size} picked tags to …`, run: () => view.movePicked(anchor) }, '-');
+  view.showMenu(anchor, '#' + tag.title, items);
+}
+
+/* Drawing */
+function roots(view) { return rootNames().map((name, i) => ({ name, hue: i % HUES, tag: view.data.byName.get(name.toLowerCase()) })); }
+
+function highlight(view, node, title, q) {
+  const at = q ? title.toLowerCase().indexOf(q) : -1;
+  if (at < 0) { node.textContent = title; return; }
+  node.append(title.slice(0, at), el(view.doc, 'mark', {}, title.slice(at, at + q.length)), title.slice(at + q.length));
+}
+
+function draw(view) {
+  if (!view.box.isConnected && view.shown.length) return;
+  if (!view.loaded) { view.body.replaceChildren(el(view.doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); return; }
+  const q = view.find.value.trim().toLowerCase();
+  // With a search, only matching tags and the tags above them are shown, unfolded.
+  const keep = new Set();
+  if (q) {
+    const markMatch = tag => { if (keep.has(tag.id)) return; keep.add(tag.id); tag.parents.forEach(markMatch); };
+    for (const tag of view.data.tags.values()) if (tag.title.toLowerCase().includes(q)) markMatch(tag);
+  }
+  const pass = { q, keep, visible: tag => !q || keep.has(tag.id), rootIds: null, section: '' }; // what every piece of the drawing reads
+  const scrollKeep = view.box.closest('.sidebar-item-list, .cp__sidebar-main-content, #main-content-container') || view.doc.scrollingElement;
+  const top = scrollKeep?.scrollTop;
+  view.shown = [];
+  const rootList = view.roots();
+  pass.rootIds = new Set(rootList.filter(r => r.tag).map(r => r.tag.id));
+  const sections = [];
+  let tagTotal = 0;
+  for (const tag of view.data.tags.values()) if (!tag.builtIn) tagTotal++;
+
+  drawRoots(view, pass, rootList, sections);
+  drawLoose(view, pass, sections);
+
+  view.body.replaceChildren(...sections);
+  view.count.textContent = plural(tagTotal, 'tag');
+  // Keep the cursor on its row, or on the tag it was on if that moved.
+  if (view.cursorTag != null) {
+    const again = view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag);
+    view.cursorKey = again?.key || null;
+  }
+  view.mark(false);
+  if (scrollKeep && top != null) scrollKeep.scrollTop = top;
+}
+
+// One tag's row and, unless folded, the rows of the tags inside it.
+function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
+  const key = keyBase + '/' + tag.id;
+  const kids = tag.kids.filter(kid => !path.has(kid.id) && pass.visible(kid));
+  const open = pass.q ? true : !folded.has(tag.uuid);
+  const isRoot = depth === 0 && pass.rootIds.has(tag.id);
+  const row = el(view.doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (pass.q && !tag.title.toLowerCase().includes(pass.q) ? ' rtg-dim' : ''),
+    'data-key': key, draggable: tag.builtIn ? null : 'true', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null });
+  const item = { key, tag, parent, row, depth, sec: pass.section, root: isRoot };
+  view.shown.push(item);
+  const fold = el(view.doc, 'button', { class: 'rtg-fold' + (kids.length ? '' : ' rtg-leaf') + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
+    click: event => { event.stopPropagation(); view.toggle(tag); } });
+  const main = el(view.doc, 'div', { class: 'rtg-main' });
+  const line = el(view.doc, 'div', { class: 'rtg-line' });
+  if (view.renaming === key) {
+    const input = renameBox(view, tag, key);
+  line.append(input);
+    setTimeout(() => { input.focus(); input.select(); });
+  } else {
+    const name = el(view.doc, 'span', { class: 'rtg-name', title: `Open #${tag.title} (⇧ click: right sidebar)` });
+    view.highlight(name, tag.title, pass.q);
+    name.addEventListener('click', event => { event.stopPropagation(); if ((event.metaKey || event.ctrlKey) && !tag.builtIn) { view.pickClick(item, event); return; } view.setCursor(key); openTag(tag, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); });
+    line.append(name);
+  }
+  rowLabels(view, line, tag, parent, key, open, kids, isRoot);
+  main.append(line);
+  if (tag.desc) main.append(el(view.doc, 'div', { class: 'rtg-desc' }, tag.desc));
+  if (view.mode !== 'sidebar') { const props = view.propLine(tag, key); if (props) main.append(props); }
+  const acts = el(view.doc, 'span', { class: 'rtg-acts' });
+  if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) acts.append(el(view.doc, 'button', { class: 'rtg-act', tabindex: '-1', title: `New tag inside #${tag.title} (n)`, html: PLUS, click: event => { event.stopPropagation(); view.setCursor(key); view.startAdd(tag, key); } }));
+  acts.append(el(view.doc, 'button', { class: 'rtg-act rtg-more', tabindex: '-1', title: 'More', html: DOTS, click: event => { event.stopPropagation(); view.setCursor(key); view.rowMenu(item, event.currentTarget); } }));
+  row.append(fold, main, acts);
+  rowListeners(view, row, item, tag, key);
+  view.dragRow(row, item);
+  const nodes = [row];
+  const kidNodes = [];
+  if (view.adding?.key === key) kidNodes.push(view.addRow(tag));
+  if (open) {
+    const nextPath = new Set(path).add(tag.id);
+    for (const kid of kids) kidNodes.push(...drawBranch(view, pass, kid, tag, depth + 1, hue, nextPath, key));
+  }
+  if (kidNodes.length) nodes.push(el(view.doc, 'div', { class: 'rtg-kids', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null }, ...kidNodes));
+  return nodes;
+}
+
+// The box that renames a tag in place (Enter renames, Escape leaves it).
+function renameBox(view, tag, key) {
+  const input = el(view.doc, 'input', { class: 'rtg-input', type: 'text', value: tag.title, spellcheck: 'false', 'aria-label': 'New name' });
+    keepKeys(input);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); view.rename(tag, input.value); }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); view.renaming = null; view.draw(); view.box.focus({ preventScroll: true }); }
+    });
+    input.addEventListener('blur', () => { if (view.renaming === key) { view.renaming = null; view.draw(); } });
+    return input;
+}
+// The small grey words after a tag's name: what is inside, how many nodes, its other parents, a namesake.
+function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
+  const inside = below(tag).size;
+  if (isRoot) line.append(el(view.doc, 'span', { class: 'rtg-small' }, inside ? plural(inside, 'tag') + ' inside' : 'nothing inside yet'));
+  else if (!open && kids.length) line.append(el(view.doc, 'span', { class: 'rtg-small', title: 'Folded' }, `${inside} inside`));
+  if (tag.count) line.append(el(view.doc, 'span', { class: 'rtg-small', title: `${plural(tag.count, 'node')} tagged #${tag.title}` }, plural(tag.count, 'node')));
+  const others = tag.parents.filter(p => p.id !== parent?.id);
+  if (parent && others.length) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ' + others.map(p => '#' + p.title).join(', ')));
+  if (view.data.sameName.has(tag.title.toLowerCase())) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-same', title: 'Another tag has the same name. Click to merge them.', click: event => { event.stopPropagation(); view.setCursor(key); view.askMerge(tag, parent, event.currentTarget); } }, 'same name as another tag'));
+}
+// Clicks on a row: the cursor, picking, the menu, renaming.
+function rowListeners(view, row, item, tag, key) {
+  row.addEventListener('mousedown', event => { if (!event.target.closest('input')) { if (event.shiftKey || event.metaKey || event.ctrlKey) event.preventDefault(); else view.setCursor(key, false); } });
+  row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-name, .rtg-prop')) view.pickClick(item, event); });
+  row.addEventListener('contextmenu', event => { event.preventDefault(); view.setCursor(key); view.rowMenu(item, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }); });
+  row.addEventListener('dblclick', event => { if (!tag.builtIn && !event.target.closest('button, input')) { view.renaming = key; view.draw(); } });
+}
+// The roots, each with its colour, then the row that adds a root.
+function drawRoots(view, pass, rootList, sections) {
+// The roots, each with its colour.
+for (const root of rootList) {
+  pass.section = 'root:' + root.name;
+  if (root.tag) { if (pass.visible(root.tag)) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, ...drawBranch(view, pass, root.tag, null, 0, root.hue, new Set(), ''))); continue; }
+  if (pass.q) continue;
+  const make = el(view.doc, 'button', { class: 'rtg-make', click: () => view.act(async () => { await makeTag(root.name); }, `#${root.name} could not be made`) }, `Make #${root.name}`);
+  const leave = el(view.doc, 'button', { class: 'rtg-make rtg-leave', title: `Stop showing #${root.name} as a root`, click: () => view.setRoots(rootNames().filter(n => n.toLowerCase() !== root.name.toLowerCase())) }, 'Not a root');
+  sections.push(el(view.doc, 'div', { class: 'rtg-section' }, el(view.doc, 'div', { class: 'rtg-missing', style: `--rtg-hue: var(--rtg-h${root.hue})` }, el(view.doc, 'span', { class: 'rtg-ghost' }, root.name), make, leave)));
+}
+// Adding a root: an existing tag or a new one.
+if (!pass.q) {
+  if (view.addingRoot) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, view.rootAddRow()));
+  else sections.push(el(view.doc, 'div', { class: 'rtg-newroot' }, el(view.doc, 'button', { class: 'rtg-make', title: 'Show another tag at the top of the tree, or make a new one', click: () => { view.addingRoot = true; view.draw(); } }, '+ Root tag')));
+}
+}
+// Tags under none of the roots, then the tags that extend Logseq's own tags.
+function drawLoose(view, pass, sections) {
+// Tags under none of the roots.
+const loose = [...view.data.tags.values()].filter(tag => !tag.builtIn && !pass.rootIds.has(tag.id) && !tag.parents.length && pass.visible(tag)).sort(view.data.byTitle);
+const looseHead = el(view.doc, 'h3', { class: 'rtg-group', 'data-drop': 'top' }, 'Not placed yet', el(view.doc, 'span', { class: 'rtg-hint' }, loose.length ? (view.compact ? String(loose.length) : 'Drag a tag onto a root, or press m to move it') : 'Every tag has a place'));
+view.dropTarget(looseHead, null);
+pass.section = 'loose';
+const looseNodes = loose.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'loose'));
+if (!pass.q || loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-loose' }, looseHead, ...looseNodes));
+// Tags that extend Logseq's own tags, under those tags.
+const builtIns = [...view.data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && pass.visible(tag)).sort(view.data.byTitle);
+pass.section = 'logseq';
+if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
+if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
+}
+
+function addRow(view, parent) {
+  const input = el(view.doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: parent ? `New tag inside #${parent.title}` : 'New tag', title: 'Several at once: separate them with commas', 'aria-label': 'New tag' });
+  keepKeys(input);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); const text = input.value.trim(); if (text) view.submitAdd(parent, text); else { view.adding = null; view.draw(); } }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); view.adding = null; view.draw(); view.box.focus({ preventScroll: true }); }
+  });
+  input.addEventListener('blur', () => setTimeout(() => { if (view.adding && !input.value.trim() && view.doc.activeElement !== input) { view.adding = null; view.draw(); } }, 150));
+  setTimeout(() => input.focus());
+  return el(view.doc, 'div', { class: 'rtg-addrow' }, input);
+}
+
+function toggle(view, tag) {
+  if (folded.has(tag.uuid)) folded.delete(tag.uuid); else folded.add(tag.uuid);
+  saveFolded();
+  view.draw();
+}
+
+function setCursor(view, key, scroll = true) {
+  view.cursorKey = key;
+  view.cursorTag = view.shown.find(item => item.key === key)?.tag.id ?? null;
+  view.mark(scroll);
+}
+
+function mark(view, scroll) {
+  for (const item of view.shown) { item.row.classList.toggle('rtg-current', item.key === view.cursorKey); item.row.classList.toggle('rtg-picked', view.picked.has(item.tag.id)); }
+  for (const id of [...view.picked]) if (!view.data.tags.has(id)) view.picked.delete(id);
+  view.pickBar.hidden = !view.picked.size;
+  view.pickCount.textContent = view.picked.size === 1 ? '1 tag picked' : `${view.picked.size} tags picked`;
+  const item = view.shown.find(i => i.key === view.cursorKey);
+  if (scroll && item) item.row.scrollIntoView({ block: 'nearest' });
+}
+
+/* Dragging a tag onto another */
+function dragRow(view, row, item) {
+  if (!item.tag.builtIn) {
+    row.addEventListener('dragstart', event => {
+      view.dragging = { tag: item.tag, parent: item.parent };
+      event.dataTransfer.effectAllowed = 'copyMove';
+      event.dataTransfer.setData('text/plain', '#' + item.tag.title);
+      setTimeout(() => row.classList.add('rtg-dragging'));
+    });
+    row.addEventListener('dragend', () => { view.dragging = null; row.classList.remove('rtg-dragging'); view.clearDrop(); });
+  }
+  if (!item.tag.builtIn || PARENT_BUILT_INS.has(item.tag.ident)) view.dropTarget(row, item.tag);
+}
+
+function clearDrop(view) { return view.body.querySelectorAll('.rtg-drop').forEach(node => node.classList.remove('rtg-drop')); }
+
+function dropTarget(view, node, target) {
+  const allowed = () => {
+    if (!view.dragging) return false;
+    const tag = view.fresh(view.dragging.tag);
+    if (!target) return tag.parents.length > 0;
+    return target.id !== tag.id && !isAbove(tag, target) && !tag.parents.some(p => p.id === target.id);
+  };
+  node.addEventListener('dragover', event => {
+    if (!allowed()) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
+    if (!node.classList.contains('rtg-drop')) { view.clearDrop(); node.classList.add('rtg-drop'); }
+  });
+  node.addEventListener('dragleave', event => { if (!node.contains(event.relatedTarget)) node.classList.remove('rtg-drop'); });
+  node.addEventListener('drop', event => {
+    if (!allowed()) return;
+    event.preventDefault(); event.stopPropagation();
+    const { tag, parent } = view.dragging;
+    view.dragging = null;
+    view.clearDrop();
+    if (!target) view.moveTo(tag, parent, null);
+    else if (event.altKey) view.alsoUnder(tag, target);
+    else view.moveTo(tag, parent, target);
+  });
+}
+
+/* Keys */
+function onKey(view, event) {
+  if (!view.box.isConnected || view.menu?.contains(event.target)) return;
+  const typing = event.target?.matches?.('input, textarea');
+  if (event.key === 'Escape') {
+    if (view.menu) view.closeMenu();
+    else if (event.target === view.find && view.find.value) { view.find.value = ''; view.draw(); }
+    else if (view.picked.size) { view.picked.clear(); view.mark(false); }
+    else { view.doc.activeElement?.blur?.(); view.cursorKey = null; view.mark(false); }
+    event.preventDefault(); event.stopPropagation();
+    return;
+  }
+  if (view.menu && !typing) { event.stopPropagation(); return; }
+  const at = view.shown.findIndex(item => item.key === view.cursorKey);
+  const item = view.shown[at];
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (typing && event.target !== view.find) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!view.shown.length) return;
+    const next = event.key === 'ArrowDown' ? Math.min(view.shown.length - 1, at + 1) : Math.max(0, at < 0 ? 0 : at - 1);
+    if (typing) { view.find.blur(); view.box.focus({ preventScroll: true }); }
+    view.setCursor(view.shown[next].key);
+    return;
+  }
+  if (event.key === 'Enter' && event.target === view.find && !item) {
+    event.preventDefault(); event.stopPropagation();
+    const name = view.find.value.trim();
+    const hit = name && view.data.byName.get(name.replace(/^#/, '').toLowerCase());
+    if (hit) { const row = view.shown.find(i => i.tag.id === hit.id); if (row) { view.find.blur(); view.box.focus({ preventScroll: true }); view.setCursor(row.key); } }
+    else if (name) { view.find.value = ''; view.submitAdd(null, name); }
+    return;
+  }
+  if (typing && !(event.key === 'Enter' && event.target === view.find)) return;
+  if (!item) {
+    if (event.key === '/') { event.preventDefault(); event.stopPropagation(); view.find.focus(); }
+    else if (!(event.metaKey || event.ctrlKey || event.altKey)) event.stopPropagation();
+    return;
+  }
+  const { tag, parent } = item;
+  const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
+  const key = plain ? event.key.toLowerCase() : '';
+  const stop = () => { event.preventDefault(); event.stopPropagation(); };
+  if (event.key === 'Enter') { stop(); if (typing) { view.find.blur(); view.box.focus({ preventScroll: true }); } openTag(tag, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); return; }
+  if (event.key === 'ArrowRight') {
+    stop();
+    if (tag.kids.length && folded.has(tag.uuid)) view.toggle(tag);
+    else if (view.shown[at + 1]?.depth > item.depth) view.setCursor(view.shown[at + 1].key);
+    return;
+  }
+  if (event.key === 'ArrowLeft') {
+    stop();
+    if (tag.kids.length && !folded.has(tag.uuid) && !view.find.value) view.toggle(tag);
+    else { const up = view.shown.slice(0, at).reverse().find(i => i.sec === item.sec && i.depth < item.depth); if (up) view.setCursor(up.key); }
+    return;
+  }
+  if (event.key === 'Tab' && !tag.builtIn && !item.row.classList.contains('rtg-root')) {
+    stop();
+    if (event.shiftKey) {
+      // Out: from its parent to the parent's parent (or the top level).
+      if (!parent) return;
+      const grand = view.shown.slice(0, at).reverse().find(i => i.depth < item.depth && i.tag.id === parent.id)?.parent ?? null;
+      view.moveTo(tag, parent, grand);
+    } else {
+      // In: under the tag just above it at the same level.
+      const prev = view.shown.slice(0, at).reverse().find(i => i.depth <= item.depth);
+      if (prev && prev.sec === item.sec && prev.depth === item.depth && prev.tag.id !== tag.id && (!prev.tag.builtIn || PARENT_BUILT_INS.has(prev.tag.ident))) view.moveTo(tag, parent, prev.tag);
+    }
+    return;
+  }
+  if ((key === 'n' || event.key === '+') && (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident))) { stop(); view.startAdd(tag, item.key); return; }
+  if (key === 'm' && !tag.builtIn) { stop(); view.askMove(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
+  if (key === 'a' && !tag.builtIn) { stop(); view.askAlso(tag, item.row.querySelector('.rtg-name') || item.row); return; }
+  if (key === 'r' && !tag.builtIn) { stop(); view.renaming = item.key; view.draw(); return; }
+  if (key === 'x' && !tag.builtIn) { stop(); if (view.picked.has(tag.id)) view.picked.delete(tag.id); else view.picked.add(tag.id); view.mark(false); return; }
+  if (key === 'p' && !tag.builtIn) { stop(); view.askProperty(tag, item.row.querySelector('.rtg-name') || item.row); return; }
+  if (key === 'j' && !tag.builtIn) { stop(); view.askMerge(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
+  if (event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f')) { stop(); view.find.focus(); view.find.select(); return; }
+  if (event.key === ' ' || event.key === 'ContextMenu') { stop(); view.rowMenu(item, item.row.querySelector('.rtg-more') || item.row); return; }
+  // Shortcuts with Cmd, Ctrl or Option still reach Logseq.
+  if (plain) event.stopPropagation();
+}
+
+function onDown(view, event) { if (view.menu && !view.menu.contains(event.target)) view.closeMenu(); }
+
+async function refresh(view) {
+  try { view.data = await loadTags(); view.loaded = true; }
+  catch (error) { warnOnce('the tags could not be read', error); }
+  view.draw();
+}
+
+function destroy(view) {
+  view.closeMenu();
+  view.hideToast();
+  clearTimeout(view.timer);
+  view.doc.removeEventListener('mousedown', view.onDown, true);
+  try { view.offChanged?.(); } catch (error) { /* already off */ }
+  openViews.delete(view.draw);
+  view.box.remove();
+}
+// The pieces of createView, each given the view's state; createView binds them to the view by name.
+const CREATEVIEW_FUNCTIONS = [closeMenu, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, propLine, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
