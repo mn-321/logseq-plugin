@@ -1,6 +1,6 @@
 # Handoff: Logseq DB Refinements plugin
 
-Updated 2026-10-16, after the cleanup (0.4.38 to 0.4.61). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
+Updated 2026-10-16, after the cleanup (0.4.38 to 0.4.62). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
 
 ## What this is
 
@@ -31,7 +31,7 @@ Git: one version per commit. No global identity is set; commit with
 
 ## The state today
 
-- 0.4.61 on `main`. Everything the owner sees is as it was at 0.4.37, apart from one change: the command palette's eight troubleshooting entries became one, **Refinements: troubleshooting**, which opens a box listing the tools (plus a new tool, **Copy warnings**).
+- 0.4.62 on `main`. Everything the owner sees is as it was at 0.4.37, apart from one change: the command palette's eight troubleshooting entries became one, **Refinements: troubleshooting**, which opens a box listing the tools (plus a new tool, **Copy warnings**).
 - The code is a core plus parts (see the table). Every helper exists once (`parts/shared.js`); in the three files the cleanup split (tags, todos, search) no function is over 80 lines; the ones still over it elsewhere are listed under "Cleanup (October 2026)" below.
 - The owner uses the plugin in `Work` and lets journal-day dates run there (settings `autoDateGraphs: Plugin Test Graph, Work`).
 
@@ -96,10 +96,11 @@ Rules agreed along the way: the bullet says what a row is, a mark before a link 
 
 ## Cleanup (October 2026)
 
-Done 2026-10-16, versions 0.4.38 to 0.4.61, one commit per step or file (`git log`), each with a CHANGELOG line that says what was seen on screen and what was only read in code. The check after every commit was a probe (GUIDE → "Testing without a human at the keyboard") that reloaded the plugin, dumped the computed styles and marks of five pages, the right sidebar, the Todos page, the tag tree and the search window, reloaded three more times and dumped again, and diffed everything against the baseline taken before the first commit; the dump never differed apart from the one agreed change.
+Done 2026-10-16, versions 0.4.38 to 0.4.62, one commit per step or file (`git log`), each with a CHANGELOG line that says what was seen on screen and what was only read in code. The check after every commit was a probe (GUIDE → "Testing without a human at the keyboard") that reloaded the plugin, dumped the computed styles and marks of five pages, the right sidebar, the Todos page, the tag tree and the search window, reloaded three more times and dumped again, and diffed everything against the baseline taken before the first commit; the dump never differed apart from the one agreed change.
 
 - **What moved where.** `backups/`, `releases/` and `main.js.orig` to `~/logseq-plugin-archive/`; the gentle theme to `~/logseq-gentle-theme/`; the helpers every file carried a copy of into `parts/shared.js`; the troubleshooting tools into `parts/diagnostics.js`; the areas of `main.js` into `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js` and `styles.js` (the stylesheets byte for byte); `AUDIT.md`, `REVIEW-2026-10-14.md`, the diary sections of the old HANDOFF and the cleanup prompt into `docs/history/`. `main.js` went from 4,248 lines to about 515.
 - **The big functions.** `createView` in tags.js (786 lines) and todos.js (490) became a state object per view plus module-level functions bound to it by name; `editPreviewLine` and `runSearchFilters` in search.js were split the same way. The search part's own MutationObserver is gone; its updaters run on the core's watcher (passes and time per pass unchanged, see 0.4.60).
 - **New tools.** `tools/check.sh` and `tools/release.sh`; the registry on `window.refinementCore` (`provide`, `provided`, `onDbRound`, `onFoldAll`); `take(core, names)` in every area part, which warns once when a name it needs is missing; the list of warnings in `shared.js` and **Copy warnings**.
 - **The one visible change.** The palette's eight troubleshooting entries are one entry, **Refinements: troubleshooting**, opening a box that lists the tools (0.4.49).
 - **Left undone, and why.** Functions still over 80 lines outside the three files the step named: `open` in settings-panel.js (258), `buildDocument` (149) and `chooseProperties` (85) in rich-copy.js, `updatePdfCitations` in links.js (93) and `main()` in main.js (102); the prompt asked for the split in tags, todos and search, and these were left rather than risk them without their own checks. Counts after the cleanup: 77 settings-schema entries (65 settings, 12 headings), the same `provideStyle` keys, 9 everyday palette entries plus the troubleshooting one. A probe run once caught the right sidebar without the plugin's marks after three rapid reloads (see "Known loose ends"). The `dev*` keys of the probe were removed from the settings file at the end.
+- **Checked by hand at the end (0.4.62).** In the tag tree, with events sent from the console: a tag dragged onto another and Undo, Tab and Shift+Tab, `n` making a tag inside another and Undo deleting it; the tree was the same as before after each. The refusals of Make a page from this block, Delete this block, New block at the outermost level, Link selected text to a page and Open selected text as page with nothing in edit; Copy selected blocks as rich text with nothing selected (it offers the page); Fill missing dates (its confirmation box named 5 undated records in the test graph; cancelled); Search in right sidebar; **Copy warnings** (none). Not checked: a narrow window, the hover on hidden properties, the key bindings themselves (the commands were run from the console and the search window, not from the keyboard) and the bullet-menu entries.
