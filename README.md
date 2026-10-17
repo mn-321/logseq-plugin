@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.68.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.69.
 
 Besides the look of pages, it holds:
 
@@ -69,6 +69,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Show what a block holds | `childTypeCues` | on | Visual hierarchy |
 | Line beside embedded content | `embedLine` | on | Visual hierarchy |
 | Dates in a soft grey box | `dateStyle` | on | Visual hierarchy |
+| Dates carry their tense | `dateTense` | on | Visual hierarchy |
 | Simpler page icons | `plainPageIcons` | on | Visual hierarchy |
 | Soft background behind tags | `tintTags` | off | Visual hierarchy |
 | Tags as words with a coloured # | `tagMark` | on | Visual hierarchy |
@@ -143,6 +144,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | PDF selections | The excerpt reads as a quotation: the words between quotation marks, then a small muted citation in parentheses, `(p. 1)` on the PDF’s own page and `(Document title, p. 1)` elsewhere. A muted double quotation mark (`“`) replaces the citation bullet. Hover shows the full title. | Clicking the excerpt or its citation opens the exact highlight through Logseq’s native link. Drag to select text; links inside the excerpt remain clickable. Area selections keep their image and put the citation before it. Enter or Space on the citation also opens the highlight. Turn off with **Compact PDF citations**. |
 | Links to PDFs and images | A grey document or picture icon in front, the words with a page link’s faint underline, and the file type (`pdf`, `png`…) after in small grey | The icon and file type come from the link’s address. Turn off with **Icons for block references and files**. |
 | Dates | A grey box in the normal text font | No border or calendar icon. Covers date values and links to journal pages. Turn off with **Dates in a soft grey box**. |
+| A date's tense | A past day in the quieter text colour, today a little firmer on a stronger wash, a day to come as it is; an overdue Scheduled or Deadline keeps Logseq's yellow | Worked out from the date's own words each time the page is drawn. Turn off with **Dates carry their tense**. |
 | What sits below a block | After the block’s text: `↳`, a dashed circle with the number of unfinished tasks at any depth, and small image or PDF icons for files directly below | Hover shows the counts. Shown on ordinary pages and on the Journals list. Done and canceled tasks are not counted. Turn off with **Show what a block holds**. |
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
 | Groups | A little space above every top-level block, so groups read as groups without an empty block typed between them | Turn off with **Air between top-level blocks**. |

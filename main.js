@@ -85,7 +85,7 @@ const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention'].map(name => 'data-refinement-' + name)];
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense'].map(name => 'data-refinement-' + name)];
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
@@ -247,6 +247,8 @@ const settingsSchema = [
     description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
   { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
     description: 'Dates in your notes, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and property capsules keep plain dates.' },
+  { key: 'dateTense', type: 'boolean', title: 'Dates carry their tense', default: true,
+    description: 'A date in the past is quieter, today is a little firmer, a date to come stays as it is; an overdue Scheduled or Deadline keeps Logseq’s yellow. Applies right away.' },
   { key: 'plainPageIcons', type: 'boolean', title: 'Simpler page icons', default: true,
     description: 'Replaces Logseq’s generic page icon with a plain outline in titles and sidebars. Custom page icons are never changed.' },
   { key: 'tintTags', type: 'boolean', title: 'Soft background behind tags', default: false,

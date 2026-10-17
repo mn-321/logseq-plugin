@@ -440,6 +440,13 @@ ${dateStyles(['.ls-view-body .ls-foldable-header [data-refinement-date-heading]'
 }
 
 `],
+  ['dateTense', `/* A date carries its tense: a past day in the secondary text colour, today a little firmer on the
+   stronger wash, a day to come as it is. An overdue Scheduled or Deadline keeps Logseq's yellow (the
+   overdue rule above wins on colour). Marked by updateDateTense in the links part. */
+.ls-block a.page-ref[data-refinement-tense="past"]:not(.overdue *) { color: var(--ls-secondary-text-color, currentColor) !important; }
+.ls-block .positioned-properties a.page-ref[data-refinement-tense="past"]:not(.overdue *) { color: var(--ls-secondary-text-color, currentColor) !important; }
+.ls-block a.page-ref[data-refinement-tense="today"] { font-weight: 600 !important; background: ${wash('--rf-wash-strong-pct')} !important; }
+`],
   [null, `/* Rarely used sidebar and toolbar items: still visible and findable, just smaller and lighter. */
 [data-refinement-quiet] { font-size: var(--rf-small) !important; color: var(--ls-secondary-text-color) !important; opacity: var(--rf-quiet) !important; }
 [data-refinement-quiet] :is(svg, .ui__icon) { transform: scale(.85); }

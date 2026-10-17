@@ -482,6 +482,34 @@ function updateSidebarJournals(doc) {
   for (const el of sidebarJournals) if (!found.has(el)) { el.removeAttribute('data-refinement-journal'); sidebarJournals.delete(el); }
   for (const el of found) { if (!el.hasAttribute('data-refinement-journal')) el.setAttribute('data-refinement-journal', ''); sidebarJournals.add(el); }
 }
+// A date's tense: past, today or future, worked out from the link's own name ("Oct 14th, 2026") once per
+// pass, so a page read in the evening and again the next morning shows the change. Links to a journal
+// day and dates typed in a block are a.page-ref with the day in data-ref; a Scheduled or Deadline value
+// holds the same link inside .ls-datetime.
+const dateTense = { marked: new Set() };
+function tenseOf(name, today) {
+  const value = String(name || '').trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1');
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return null;
+  const day = new Date(ms);
+  const stamp = day.getFullYear() * 10000 + (day.getMonth() + 1) * 100 + day.getDate();
+  return stamp < today ? 'past' : stamp > today ? 'future' : 'today';
+}
+function updateDateTense(doc) {
+  for (const el of dateTense.marked) if (!el.isConnected) dateTense.marked.delete(el);
+  if (!setting('dateTense')) {
+    for (const el of dateTense.marked) el.removeAttribute('data-refinement-tense');
+    dateTense.marked.clear();
+    return;
+  }
+  const now = new Date(), today = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  for (const link of doc.querySelectorAll('.ls-block a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])')) {
+    const tense = tenseOf(link.getAttribute('data-ref'), today);
+    if (!tense) { if (link.hasAttribute('data-refinement-tense')) { link.removeAttribute('data-refinement-tense'); dateTense.marked.delete(link); } continue; }
+    if (link.getAttribute('data-refinement-tense') !== tense) link.setAttribute('data-refinement-tense', tense);
+    dateTense.marked.add(link);
+  }
+}
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
 const mentions = { marked: new Set() };
@@ -518,6 +546,7 @@ function updateDateLinks() {
       dateLinks.originals.delete(link);
     }
   }
+  perf.time('updateDateTense', () => updateDateTense(doc));
 }
 // Tag pages: a [[link]] to one looks like any page link, and a tag's # and icon can be customised,
 // so links to them are marked from the database and their icon is drawn in grey.
@@ -567,6 +596,8 @@ function stopDateLinks() {
   cueMarks.marked.clear();
   for (const el of mentions.marked) el.removeAttribute('data-refinement-mention');
   mentions.marked.clear();
+  for (const el of dateTense.marked) el.removeAttribute('data-refinement-tense');
+  dateTense.marked.clear();
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();
