@@ -230,7 +230,9 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-bidirectional-properties [role="tab"] > span > span:last-child::before { content: '#'; margin-right: .05em; }
 /* Records listed under a tag tab start where the page's own blocks start. */
 .ls-bidirectional-block-container .blocks-list-wrap > .ls-block[level="0"] { margin-left: -1.25rem; }
-/* A value written as text (such as an email) sat a few pixels right of the values beside it. */
+/* A value written as text (such as an email) has no bullet column (.property-panel-bullet, 16px, then a 4px gap), so it
+   sat left of the values beside it; it is moved in by the same width, so every value starts in one column. */
+.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet)) > .property-value { padding-left: 20px; }
 .property-pair .property-value-inner:has(.property-block-container) { position: relative; left: -4px; }
 /* A query's "2 results" sits on the same line as its title and ends where the #tags end. */
 .custom-query-title.justify-between { align-items: baseline; }
@@ -589,7 +591,10 @@ const hierarchyParts = {
   // sentence is prose and keeps its # in the tag colour (the links part marks it, data-refinement-mention); the
   // # before a tag page's own title stays in the tag colour too, as the mark of what the page is.
   tagMark: `
-:is(#main-content-container, #right-sidebar) .block-tag a.hash-symbol { display: none !important; }
+/* Logseq draws a # link before the name and swaps it for an × (remove) link under the pointer. The # is made
+   invisible but keeps a fixed slot, and the × takes the same slot, so the name never moves. */
+:is(#main-content-container, #right-sidebar) .block-tag :is(a.hash-symbol, a[title="Remove this tag"]) { display: inline-flex !important; align-items: center; justify-content: center; width: 1.1em; margin: 0 !important; padding: 0 !important; }
+:is(#main-content-container, #right-sidebar) .block-tag a.hash-symbol { visibility: hidden; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *) { color: var(--ls-secondary-text-color, currentColor) !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); letter-spacing: .01em; text-decoration: none !important; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *):hover { color: var(--ls-primary-text-color, currentColor) !important; }
 /* In the title row the font is large; the tag label there keeps the size of the small words beside the title. */
@@ -598,6 +603,8 @@ const hierarchyParts = {
 .ls-block .block-content span[data-refinement-mention]::first-letter { color: var(--rf-tag-color); }
 .ls-bidirectional-properties [role="tab"] > span > span:last-child::before { content: none; }
 .ls-bidirectional-properties [role="tab"] > span > span:last-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .01em; }
+/* The line under the chosen tab: a hairline, not a bar. */
+.ls-bidirectional-properties .ui__tabs-indicator { height: 1px !important; background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-line-pct), transparent) !important; }
 /* The # before a tag page's title is Logseq's hash icon inside its Add icon button. */
 #main-content-container .ls-page-title .ls-icon-hash { color: var(--rf-tag-color) !important; }
 .refinement-title-tags { display: inline-block; color: var(--ls-secondary-text-color, currentColor) !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .01em; }`,

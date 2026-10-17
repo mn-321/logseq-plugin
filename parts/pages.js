@@ -393,7 +393,7 @@ function startPageKind() {
 /* How the page is used: each count mirrors the rows it stands for. All dark while every row shows; while one is
    chosen, the others step back exactly as their rows do (--rf-back). Beside the Linked references heading. */
 .refinement-usage { opacity: 1; color: var(--ls-primary-text-color, currentColor); }
-.refinement-usage.rf-at-heading { display: inline-flex; align-items: baseline; margin: 0 0 0 1.2em; vertical-align: baseline; }
+.refinement-usage.rf-at-heading { display: flex; align-items: baseline; margin: 0 0 .6rem; }
 .refinement-usage a { text-decoration: none !important; color: inherit; padding: 0; transition: opacity .15s; }
 .refinement-usage a .rf-n { opacity: var(--rf-quiet); font-variant-numeric: tabular-nums; }
 .refinement-usage[data-filtered] a:not([data-on]) { opacity: var(--rf-back); }
