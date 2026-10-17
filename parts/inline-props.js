@@ -46,7 +46,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
    every 30 s while you write. */
 const OWN_PROP = /^(?:user\.property\/|logseq\.property\/(?:deadline|scheduled|status|priority)$)/;
 async function loadSchema() {
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality
+  const rows = await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality :logseq.property/icon
       {:logseq.property/classes [:db/id :block/uuid :block/title]}])
     :where [?p :block/tags :logseq.class/Property] [?p :db/ident _]]`);
   const props = [], byId = new Map();
@@ -55,12 +55,12 @@ async function loadSchema() {
     if (!OWN_PROP.test(ident) || !title) continue;
     const classes = (pick(p, 'logseq.property/classes') || []).map(c => ({ id: idOf(c), uuid: String(pick(c, 'block/uuid') ?? ''), title: String(pick(c, 'block/title') ?? '') }));
     const prop = { id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), ident, title, lower: title.toLowerCase(),
-      type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many', classes, choices: [] };
+      type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many', classes, choices: [], icon: pick(p, 'logseq.property/icon') };
     props.push(prop); byId.set(prop.id, prop);
   }
-  for (const [pid, vid, title, order] of await dsQuery(`[:find ?p ?v ?title ?order :where [?v :block/closed-value-property ?p] [?v :block/title ?title] [(get-else $ ?v :block/order "") ?order]]`)) {
+  for (const [pid, v] of await dsQuery(`[:find ?p (pull ?v [:db/id :block/title :block/order :logseq.property/icon]) :where [?v :block/closed-value-property ?p]]`)) {
     const prop = byId.get(pid);
-    if (prop) prop.choices.push({ id: vid, title: String(title), order: String(order) });
+    if (prop) prop.choices.push({ id: idOf(v), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? ''), icon: pick(v, 'logseq.property/icon') });
   }
   for (const prop of props) prop.choices.sort((a, b) => a.order.localeCompare(b.order));
   props.sort((a, b) => a.lower.localeCompare(b.lower));
@@ -72,14 +72,14 @@ async function loadSchema() {
 }
 // Pages a page-valued field can point at: every page with its tags (journals left out: a day is a Date's business).
 async function loadPages() {
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title]}])
+  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title :logseq.property/icon {:block/tags [:db/id :block/title :db/ident]}])
     :where [?p :block/name _] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`);
   const pages = [];
   for (const [p] of rows) {
     const title = String(pick(p, 'block/title') ?? '');
     if (!title || title.startsWith('$$$')) continue;
-    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? '') })).filter(t => t.title);
-    pages.push({ id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags });
+    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
+    pages.push({ id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, icon: pick(p, 'logseq.property/icon'), isTag: tags.some(t => t.ident === 'logseq.class/Tag') });
   }
   pages.sort((a, b) => a.lower.localeCompare(b.lower));
   return pages;
@@ -111,7 +111,42 @@ const typeLabel = prop => {
     default: return prop.type;
   }
 };
-const typeGlyph = prop => ({ date: '▦', datetime: '▦', node: '▭', number: '#', checkbox: '☑', url: '⌁' }[prop.type] || (prop.choices?.length ? '☷' : 'T'));
+/* Marks, as the page draws them. Logseq's type icons are redrawn here as small inline SVGs in the same style
+   (24-unit box, a 2-unit round stroke in the current colour); a page, tag, property or choice that has an icon of
+   its own shows it when that icon is already drawn somewhere on screen (its SVG is copied once and kept for the
+   session; an emoji is just the emoji), else the mark of its kind: the plain page rectangle, or the # in the tag
+   colour for a tag's page, as before a link. */
+const PATHS = {
+  calendar: '<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 3v4M8 3v4M4 11h16"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  number: '<path d="M5 9h14M5 15h14M11 4l-2 16M17 4l-2 16"/>',
+  checkbox: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 12l2 2 4-4"/>',
+  square: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+  link: '<path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-.5.5"/><path d="M14 10a3.5 3.5 0 0 0-5 0l-4 4a3.5 3.5 0 0 0 5 5l.5-.5"/>',
+  text: '<circle cx="17.5" cy="15.5" r="3.5"/><path d="M3 19V8.5a3.5 3.5 0 0 1 7 0V19M3 13h7M21 12v7"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M5 6h.01M5 12h.01M5 18h.01"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  circle: '<circle cx="12" cy="12" r="7"/>',
+};
+const svg = (name, cls = '') => `<svg class="rip-ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+const pageMark = () => '<svg class="rip-ic rip-page" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+const tagMark = () => svg('number', 'rip-hash');
+const iconCache = new Map();
+// The icon Logseq gives a thing ({type, id} from :logseq.property/icon), as html, or null when it cannot be drawn here.
+function ownIcon(icon) {
+  if (!icon) return null;
+  const type = bare(pick(icon, 'type') ?? icon.type), id = String(pick(icon, 'id') ?? icon.id ?? '');
+  if (!id) return null;
+  if (type === 'emoji') return `<span class="rip-emoji">${escapeHtml(id)}</span>`;
+  if (iconCache.has(id)) return iconCache.get(id);
+  const drawn = host().querySelector(`.ui__icon.ls-icon-${CSS.escape(id)} svg`);
+  if (!drawn) return null;
+  const html = `<span class="rip-own">${drawn.outerHTML}</span>`;
+  iconCache.set(id, html);
+  return html;
+}
+const typeIcon = prop => ownIcon(prop.icon) || (prop.type === 'node' ? pageMark() : svg({ date: 'calendar', datetime: 'clock', number: 'number', checkbox: 'checkbox', url: 'link' }[prop.type] || (prop.choices?.length ? 'list' : 'text')));
+const pageIcon = page => page.isTag ? tagMark() : (ownIcon(page.icon) || pageMark());
 
 /* Days. A value typed for a Date: today, tomorrow, yesterday, a weekday (the next one after today), "next" and a
    weekday (a week later), +3 or -2 (days from today), 2026-10-23, 23 oct, oct 23 (this year, or next year when
@@ -166,12 +201,12 @@ async function dayRows(filter, withTime) {
     const title = await journalTitleFor(d.getFullYear(), d.getMonth() + 1, d.getDate());
     const when = time ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), time[0], time[1]) : d;
     const shown = time ? `${title} ${String(time[0]).padStart(2, '0')}:${String(time[1]).padStart(2, '0')}` : title;
-    rows.push({ kind: 'value', label: label.charAt(0).toUpperCase() + label.slice(1), right: shown, glyph: '▦', value: { day: dayNumber(d), title, when, shown } });
+    rows.push({ kind: 'value', label: label.charAt(0).toUpperCase() + label.slice(1), right: shown, day: true, icon: svg(withTime ? 'clock' : 'calendar'), value: { day: dayNumber(d), title, when, shown } });
   }
   return rows;
 }
 
-/* The rows of each stage. A row is { kind, label, right?, glyph?, dashed?, prop?, value?, info? }. */
+/* The rows of each stage. A row is { kind, label, right?, icon? (html), day?, dashed?, prop?, value? }. */
 const state = { box: null, uuid: '', stage: null, prop: null, name: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null };
 async function nameRows(filter) {
   const schema = await graphWide('inlinePropsSchema', loadSchema);
@@ -180,7 +215,7 @@ async function nameRows(filter) {
   const fits = prop => !f || prop.lower.includes(f);
   // Names that start with the letters typed come before names that only contain them.
   const byStart = (a, b) => (b.lower.startsWith(f) - a.lower.startsWith(f)) || (fields.includes(b) - fields.includes(a));
-  const asRow = prop => ({ kind: 'prop', prop, label: prop.title, right: typeLabel(prop), glyph: typeGlyph(prop) });
+  const asRow = prop => ({ kind: 'prop', prop, label: prop.title, right: typeLabel(prop), icon: typeIcon(prop) });
   const rows = fields.filter(fits).sort(f ? byStart : () => 0).map(asRow);
   const rest = schema.props.filter(prop => !fields.includes(prop) && fits(prop)).sort(f ? byStart : () => 0).map(asRow);
   if (rows.length && rest.length) rows.push({ kind: 'info', label: 'every property' });
@@ -200,28 +235,28 @@ async function valueRows(prop, filter) {
       const hits = lower ? ofClass.filter(p => p.lower.includes(lower)) : ofClass.slice(0, 12);
       hits.sort((a, b) => (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
       const kindOf = p => p.tags.find(t => t.title !== 'Page')?.title || 'page';
-      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), glyph: '▭', value: { id: p.id, uuid: p.uuid, title: p.title } }));
+      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), icon: pageIcon(p), value: { id: p.id, uuid: p.uuid, title: p.title } }));
       if (f && !hits.some(p => p.lower === lower)) {
         const cls = prop.classes[0];
-        rows.push({ kind: 'make-page', label: `Make ${cls ? cls.title : 'page'} “${f}”`, dashed: true, glyph: '+', value: { title: f, cls } });
+        rows.push({ kind: 'make-page', label: `Make ${cls ? cls.title : 'page'} “${f}”`, dashed: true, icon: svg('plus'), value: { title: f, cls } });
       }
       return rows;
     }
     case 'default': {
-      if (prop.choices.length) return prop.choices.filter(c => !lower || c.title.toLowerCase().includes(lower)).map(c => ({ kind: 'value', label: c.title, glyph: '○', value: { id: c.id, title: c.title } }));
+      if (prop.choices.length) return prop.choices.filter(c => !lower || c.title.toLowerCase().includes(lower)).map(c => ({ kind: 'value', label: c.title, icon: ownIcon(c.icon) || svg('circle'), value: { id: c.id, title: c.title } }));
       const used = await dsQuery(`[:find ?t (count ?b) :where [?b :${prop.ident} ?v] [?v :block/title ?t]]`).catch(() => []);
       const values = used.map(([t, n]) => ({ title: String(t), n })).filter(v => v.title && (!lower || v.title.toLowerCase().includes(lower)));
       values.sort((a, b) => b.n - a.n || a.title.localeCompare(b.title));
-      const rows = values.slice(0, 8).map(v => ({ kind: 'value', label: v.title, right: `used · ${v.n}`, glyph: 'T', value: { text: v.title, title: v.title } }));
-      if (f && !values.some(v => v.title.toLowerCase() === lower)) rows.push({ kind: 'value', label: `“${f}” as new text`, dashed: true, glyph: '+', value: { text: f, title: f } });
+      const rows = values.slice(0, 8).map(v => ({ kind: 'value', label: v.title, right: `used · ${v.n}`, icon: svg('text'), value: { text: v.title, title: v.title } }));
+      if (f && !values.some(v => v.title.toLowerCase() === lower)) rows.push({ kind: 'value', label: `“${f}” as new text`, dashed: true, icon: svg('plus'), value: { text: f, title: f } });
       return rows;
     }
     case 'number': {
       const n = Number(f.replace(/,/g, ''));
-      return f && Number.isFinite(n) ? [{ kind: 'value', label: String(n), glyph: '#', value: { number: n, title: String(n) } }] : [{ kind: 'info', label: f ? 'not a number' : 'type a number' }];
+      return f && Number.isFinite(n) ? [{ kind: 'value', label: String(n), icon: svg('number'), value: { number: n, title: String(n) } }] : [{ kind: 'info', label: f ? 'not a number' : 'type a number' }];
     }
-    case 'checkbox': return [['yes', true], ['no', false]].filter(([l]) => !lower || l.startsWith(lower)).map(([l, v]) => ({ kind: 'value', label: l, glyph: v ? '☑' : '☐', value: { bool: v, title: l } }));
-    case 'url': return /^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(f) ? [{ kind: 'value', label: f, glyph: '⌁', value: { text: f, title: f } }] : [{ kind: 'info', label: 'type a url (https://…)' }];
+    case 'checkbox': return [['yes', true], ['no', false]].filter(([l]) => !lower || l.startsWith(lower)).map(([l, v]) => ({ kind: 'value', label: l, icon: svg(v ? 'checkbox' : 'square'), value: { bool: v, title: l } }));
+    case 'url': return /^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(f) ? [{ kind: 'value', label: f, icon: svg('link'), value: { text: f, title: f } }] : [{ kind: 'info', label: 'type a url (https://…)' }];
     default: return [{ kind: 'info', label: `a ${prop.type} value cannot be set here` }];
   }
 }
@@ -247,7 +282,7 @@ async function tokenAt(box) {
   const tail = name => before.length - (name.length + 2 + filter.length);
   if (best) return { stage: 'value', prop: best, name: best.title, filter, start: tail(best.title) };
   if (/(?:^|\s)p$/.test(lowerPhrase)) return { stage: 'name', prop: null, name: 'p', filter, start: tail('p') };
-  const word = phrase.match(/(\S+)$/)[1];
+  const word = phrase.trim().match(/(\S+)$/)?.[1] || phrase.trim();
   return { stage: 'new', prop: null, name: word, filter, start: tail(word) };
 }
 
@@ -278,7 +313,7 @@ function placeMenu(menu, box) {
   if (top + 300 > win.innerHeight && rect.top > 300) { menu.style.top = ''; menu.style.bottom = `${win.innerHeight - rect.top + 2}px`; }
   else { menu.style.bottom = ''; menu.style.top = `${top}px`; }
 }
-const selectable = row => row.kind !== 'info';
+const selectable = row => !!row && row.kind !== 'info';
 function renderMenu() {
   const doc = host(), menu = menuEl(doc);
   const rows = state.rows;
@@ -286,7 +321,7 @@ function renderMenu() {
   const head = state.stage === 'value' && state.prop ? `<div class="rip-head"><span class="rip-head-name">${escapeHtml(state.prop.title)}</span><span class="rip-head-type">${escapeHtml(typeLabel(state.prop))}</span></div>` : '';
   menu.innerHTML = head + rows.map((row, i) => row.kind === 'info'
     ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
-    : `<div class="rip-row${i === state.sel ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${escapeHtml(row.glyph || '')}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="rip-right">${escapeHtml(row.right)}</span>` : ''}</div>`).join('');
+    : `<div class="rip-row${i === state.sel ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`).join('');
   // Logseq swaps the text box while it redraws a block, so the live one is taken when it still edits this block.
   const live = doc.activeElement;
   if (live?.matches?.('textarea') && live !== state.box && live.closest('.ls-block[blockid]')?.getAttribute('blockid') === state.uuid) state.box = live;
@@ -481,7 +516,13 @@ const menuCss = `
 .rip-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; cursor: pointer; white-space: nowrap; }
 .rip-row.rip-sel { background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-row.rip-info { color: var(--ls-secondary-text-color); cursor: default; font-size: var(--rf-small, .82em); padding-top: 5px; }
-.rip-glyph { flex: 0 0 1.1em; text-align: center; color: var(--ls-secondary-text-color); font-size: .85em; opacity: var(--rf-faint, .5); }
+.rip-glyph { flex: 0 0 1.1em; display: inline-flex; justify-content: center; align-items: center; align-self: center; color: var(--ls-secondary-text-color); }
+.rip-ic { width: 1em; height: 1em; opacity: var(--rf-quiet, .7); }
+.rip-ic.rip-page { opacity: var(--rf-quiet, .7); }
+.rip-ic.rip-hash { color: var(--rf-tag-color); opacity: 1; }
+.rip-own { display: inline-flex; } .rip-own svg { width: 1em; height: 1em; }
+.rip-emoji { font-size: .95em; line-height: 1; }
+.rip-day { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; padding: 0 .3em; border-radius: 3px; background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
