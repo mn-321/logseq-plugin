@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs that changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart. Version 0.4.60.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.61.
 
 Besides the look of pages, it holds:
 
@@ -9,7 +9,7 @@ Besides the look of pages, it holds:
 - **Todos**: a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
 - **Tag tree**: all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
-- **Journal day as date**: fills an empty Date property with the journal day a record was written on. It is the only part that writes to your notes, and only in the graphs and for the tags you name in its settings.
+- **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
 - **Copy as rich text**: copies a page or block as tidy formatted text, or saves it as a PDF, for people who don't use Logseq. It only reads your notes.
 
 ## What is in the folder
@@ -18,8 +18,10 @@ Besides the look of pages, it holds:
 | --- | --- |
 | `package.json` | Tells Logseq the plugin's name, version and starting file. |
 | `loader.js` | The starting file. It loads `main.js` fresh each time, so a reload picks up changes. |
-| `main.js` | The look of pages, the shortcuts and the commands. |
-| `parts/` | The other parts, loaded by `main.js`: `sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js` and `settings-panel.js` (the settings window). |
+| `main.js` | The core: the screen watcher, the database round, the settings list, the self-check after a Logseq update, the commands, and the loader of the parts. |
+| `parts/` | The rest, one file per area, loaded by `main.js`: `shared.js` (the helpers every file uses), `diagnostics.js` (the troubleshooting tools), `editor.js` (the shortcuts and commands), `pages.js` (what is drawn around a page's title), `properties.js` (list properties, fold all, hidden properties), `links.js` (the cues on links and rows, dates, references, PDF citations), `chrome.js` (quieter sidebar and toolbar items), `styles.js` (the stylesheets), `sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js`, `tags.js` and `settings-panel.js` (the settings window). |
+| `tools/` | For working on the plugin, not needed to use it: `check.sh` checks the files, `release.sh` builds the zip. Not in the zip. |
+| `docs/` | The history of the plugin's work notes. Not in the zip. |
 | `README.md` | This guide. |
 | `CHANGELOG.md` | What changed in each version. |
 
@@ -39,6 +41,78 @@ Open the settings from **Refinements settings** in Logseq's three-dots menu (top
 - A changed setting has a small dot and a **Reset** link. Each change is saved as you make it.
 - Most switches apply at once. Those that need a reload say “after reload”, and a **Reload plugin** button is at the bottom.
 - Logseq's own settings page for the plugin (Plugins, `t p`) still works and is one click away at the bottom of the window.
+
+### Every setting
+
+In the order of the settings window. The key is the name in the settings file (`~/.logseq/settings/logseq-db-refinements.json`); "Starts as" is the value a fresh install has.
+
+| Setting | Key | Starts as | Where |
+| --- | --- | --- | --- |
+| Link selected text to a page | `linkShortcut` | mod+shift+l | Shortcuts and actions |
+| Open selected text as page | `openShortcut` | mod+alt+p | Shortcuts and actions |
+| Make a page from this block | `copyShortcut` | empty | Shortcuts and actions |
+| Add tags to this page | `tagShortcut` | mod+t | Shortcuts and actions |
+| Delete this block | `deleteBlockShortcut` | mod+backspace | Shortcuts and actions |
+| New block at the outermost level | `outermostBlockShortcut` | alt+enter | Shortcuts and actions |
+| Always show page title actions and tags | `showTitleChrome` | on | Pages |
+| Show what a page is above its title | `showPageKind` | on | Pages |
+| Show which page an alias belongs to | `showAliasOf` | on | Pages |
+| Mark the link to this page in Linked references | `markReferenceHere` | on | Pages |
+| Show inherited properties on tag pages | `showInherited` | on | Pages |
+| Leave a tag page’s own tag off its rows | `ownTagHidden` | on | Pages |
+| Journal days only as tall as what they hold | `compactJournals` | on | Pages |
+| Faint nesting lines | `indentGuides` | on | Visual hierarchy |
+| Plainer properties | `plainProperties` | on | Visual hierarchy |
+| Hidden properties arrow on every block | `hiddenPropsChevron` | on | Visual hierarchy |
+| Hide the dot on empty blocks | `quietEmptyBullets` | on | Visual hierarchy |
+| Show what a block holds | `childTypeCues` | on | Visual hierarchy |
+| Line beside embedded content | `embedLine` | on | Visual hierarchy |
+| Dates in a soft grey box | `dateStyle` | on | Visual hierarchy |
+| Simpler page icons | `plainPageIcons` | on | Visual hierarchy |
+| Soft background behind tags | `tintTags` | off | Visual hierarchy |
+| Quiet page links | `quietLinks` | on | Links and references |
+| Clearer Linked references | `referenceLayout` | on | Links and references |
+| Icons for block references and files | `referenceIcons` | on | Links and references |
+| Show how records are linked | `linkLabels` | on | Links and references |
+| Tidy parent paths | `tidyPaths` | on | Links and references |
+| Plain links in grey paths | `plainPathLinks` | on | Links and references |
+| Empty [[ ]] menu until you type | `quietLinkMenu` | on | Links and references |
+| Year-first dates in [[ ]] link to journals | `dateLinkFormats` | on | Links and references |
+| Compact PDF citations | `pdfCitations` | on | Links and references |
+| Links inside a reference open their own page | `innerReferenceLinks` | on | Links and references |
+| Page links without trailing tags | `pageLabels` | on | Links and references |
+| Quiet these sidebar and toolbar items | `quietItems` | Flashcards, Graph view | Sidebars and toolbar |
+| Left sidebar icons only where they mean something | `quietSidebarIcons` | on | Sidebars and toolbar |
+| Tidy the right sidebar | `tidySidebar` | on | Sidebars and toolbar |
+| Sidebar titles open their page | `sidebarTitleOpens` | on | Sidebars and toolbar |
+| Thick line between sidebar items | `sidebarThickDividers` | on | Sidebars and toolbar |
+| Search in the right sidebar | `searchShortcut` | mod+alt+f | Search in the right sidebar |
+| Search button in the right sidebar | `sidebarSearchButton` | on | Search in the right sidebar |
+| Tidy the search window | `tidySearch` | on | Search |
+| Roomier search window | `roomySearch` | on | Search |
+| Say more about each search result | `searchDetails` | on | Search |
+| Put search results page by page | `groupSearch` | on | Search |
+| Preview the selected result | `searchPreview` | on | Search |
+| Preview: edit with Logseq's own editor (trial) | `searchPreviewEditor` | off | Search |
+| Filter search with codes | `searchFilters` | on | Search |
+| Fill dates automatically | `autoDate` | on | Journal day as date |
+| Ask before filling | `autoDateAsk` | on | Journal day as date |
+| Tags | `autoDateTags` | empty | Journal day as date |
+| Date property | `autoDateProperty` | Date | Journal day as date |
+| Only in these graphs | `autoDateGraphs` | empty | Journal day as date |
+| Layout | `layout` | document | Copy as rich text |
+| Todos button in the toolbar | `todosToolbarButton` | on | Todos |
+| The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
+| Open Todos | `todosShortcut` | mod+alt+t | Todos |
+| Days shown under “Done” | `todosDoneDays` | 14 | Todos |
+| Tag of an expectation | `expectationsTag` | Expectation | Expectations |
+| Property that holds where it stands | `expectationsStateProperty` | juncture | Expectations |
+| Expectations button in the toolbar | `expectationsToolbarButton` | on | Expectations |
+| Open Expectations | `expectationsShortcut` | mod+alt+e | Expectations |
+| Root tags | `tagTreeRoots` | Occurrence, Entity, Concept | Tag tree |
+| The button and shortcut open the tag tree as | `tagTreeOpensAs` | page | Tag tree |
+| Tag tree button in the toolbar | `tagTreeToolbarButton` | on | Tag tree |
+| Open the tag tree | `tagTreeShortcut` | mod+alt+g | Tag tree |
 
 ## Shortcuts
 
@@ -286,9 +360,9 @@ Click in a query or one of its results, then run **Fold all results in this quer
 
 Click in a record of a query (or of a list on a page such as a tag page) and run **Choose properties shown in this list** from the command palette. Tick the properties to show, untick **Body** to hide the notes under each record, tick **One line per record** for a timeline layout; **Show all** returns to Logseq's view. The choice is saved in the plugin's settings, not in your notes.
 
-**Troubleshooting commands**
+**Refinements: troubleshooting**
 
-These change nothing: **Check what the plugin finds on this page** (how many of each Logseq part the plugin relies on are on screen, and the plugin's own marks), **Copy styling details of this block** (how Logseq built the block you are in), **Copy page title area details**, **Check linked-record labels**, **Copy fold log**, **Turn measuring on or off** and **Copy performance report** (timings of the plugin's work).
+One palette entry opens a small box listing the troubleshooting tools; choosing one runs it. They change nothing: **Check what the plugin finds on this page** (how many of each Logseq part the plugin relies on are on screen, and the plugin's own marks), **Copy styling details of this block** (how Logseq built the block you are in), **Copy page title area details**, **Check linked-record labels**, **Copy fold log**, **Turn measuring on or off**, **Copy performance report** (timings of the plugin's work) and **Copy warnings** (every warning the plugin wrote to the console this session). Each tool keeps a command of its own, so a shortcut you bound to one still works.
 
 Logseq themes and releases can change the names the plugin relies on; after an update, run **Check what the plugin finds on this page**.
 
