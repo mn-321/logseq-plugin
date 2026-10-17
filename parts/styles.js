@@ -240,6 +240,20 @@ ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properti
 .ls-page-properties:is(:hover, :focus-within) .ls-new-property { opacity: var(--rf-quiet) !important; }
 .ls-page-properties .ls-new-property:is(:hover, :focus-within) { opacity: 1 !important; }
 `],
+  ['quietEmptyProps', `/* A fresh record shows every property of its tag with no value (Logseq marks the pill .empty-value and
+   the list row .property-panel-row-empty). Those wait until the pointer or the caret is on the block, then
+   come back quiet, so a record shows what it knows. The page's own list under its title is left alone. */
+.ls-block > .block-main-container .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { display: none; }
+.ls-block > .block-main-container:is(:hover, :focus-within) .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { display: flex; opacity: var(--rf-quiet); }
+/* No stray dot before the first pill that shows while the empty ones are hidden. */
+.ls-block > .block-main-container:not(:hover):not(:focus-within) .positioned-properties.block-below .bottom-property-pill:has(.empty-value) + .bottom-property-pill::before { content: none; }
+/* The list sits beside the block's row (.ls-block > .ls-block-content-indent), so the block itself is what is pointed at;
+   a nested block under the pointer does not count. */
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { display: none; }
+.ls-block:is(:hover:not(:has(.ls-block:hover)), :focus-within:not(:has(.ls-block:focus-within))) > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { display: grid; opacity: var(--rf-quiet); }
+/* A list with nothing filled in at all: its field waits too. */
+.ls-block:not(:hover):not(:focus-within) > .ls-block-content-indent > .ls-properties-area:has(.property-pair):not(:has(.property-pair:not(.property-panel-row-empty))) { display: none; }
+`],
   ['ownTagHidden', `/* On a tag's own page, every record and reference carries that tag; the tag is left off there.
    The rows (and the Tags cells of its table) are marked by updateOwnTags. */
 [data-refinement-own-tag] { display: none !important; }
