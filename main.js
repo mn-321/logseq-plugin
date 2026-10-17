@@ -481,7 +481,7 @@ function main() {
    Logseq can keep an older loader.js cached that only loads this file. */
 // shared.js first: the other parts read window.refinementShared as they load. sidebar.js next: its
 // settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
-const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {

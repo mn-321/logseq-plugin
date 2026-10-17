@@ -27,6 +27,8 @@
    - waitFor(find, ms)            polls find() every 50 ms until it returns something or ms pass.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
                                   the saved value is missing or of another type.
+   - graphNamedIn(list)           true when the open graph is named in the comma-separated list (an "Only in
+                                  these graphs" setting); false while the list is empty.
    - perf                         measuring hooks (add, time, seen, style, frameState, pass, passDone,
                                   ownSettingsOnly): no-ops until the diagnostics part measures.
    - warnings                     every distinct warnOnce message of this session (message, first time, count).
@@ -212,6 +214,19 @@ const perf = {
   },
 };
 
+/* Plugin settings are shared by every graph; a part that writes to notes keeps to the graphs named in one of its
+   settings ("Only in these graphs", a comma-separated list). True when the open graph is one of them. */
+async function graphNamedIn(list) {
+  const names = String(list || '').split(',').map(n => n.trim().toLowerCase()).filter(Boolean);
+  if (!names.length) return false;
+  const graph = await logseq.App.getCurrentGraph().catch(() => null);
+  // A DB graph's name may carry an internal prefix ("logseq_db_"), and its url or path ends in the name.
+  const strip = value => String(value || '').toLowerCase().replace(/^logseq_db_/, '');
+  const candidates = [graph?.name, graph?.url, String(graph?.path || '').split(/[\\/]/).pop()]
+    .map(strip).map(value => value.replace(/^.*[\\/]/, '')).filter(Boolean);
+  return candidates.some(value => names.includes(value));
+}
+
 // A part's settings: the saved value, or the default when the saved value is missing or of the wrong type.
 function settingReader(schema) {
   const settingDefaults = Object.fromEntries(schema.map(item => [item.key, item.default]));
@@ -221,5 +236,5 @@ function settingReader(schema) {
   };
 }
 
-window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();

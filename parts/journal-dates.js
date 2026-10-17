@@ -118,14 +118,7 @@ async function fillDates(setup, records) {
 }
 // Plugin settings are shared by every graph; this keeps date filling to the graphs named in the settings.
 async function autoDateAllowedHere() {
-  const names = setting('autoDateGraphs').split(',').map(n => n.trim().toLowerCase()).filter(Boolean);
-  if (!names.length) return false;
-  const graph = await logseq.App.getCurrentGraph().catch(() => null);
-  // A DB graph's name may carry an internal prefix ("logseq_db_"), and its url or path ends in the name.
-  const strip = value => String(value || '').toLowerCase().replace(/^logseq_db_/, '');
-  const candidates = [graph?.name, graph?.url, String(graph?.path || '').split(/[\\/]/).pop()]
-    .map(strip).map(value => value.replace(/^.*[\\/]/, '')).filter(Boolean);
-  return candidates.some(value => names.includes(value));
+  return shared.graphNamedIn(setting('autoDateGraphs'));
 }
 async function autoDateNew() {
   if (!setting('autoDate') || !await autoDateAllowedHere()) return;

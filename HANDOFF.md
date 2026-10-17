@@ -1,6 +1,6 @@
 # Handoff: Logseq DB Refinements plugin
 
-Updated 2026-10-17 at 0.4.93, after the cleanup (0.4.38 to 0.4.62) and the grammar round (0.4.63 to 0.4.91). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
+Updated 2026-10-17 at 0.4.94, after the cleanup (0.4.38 to 0.4.62), the grammar round (0.4.63 to 0.4.91) and the first build of the diagnosis round (0.4.94). Read this first, then `GUIDE.md` for how to work on it and `README.md` for what it does. The diaries of earlier sessions, the audit and the reviews are in `docs/history/`.
 
 ## What this is
 
@@ -15,6 +15,7 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | Shared helpers and the contract between files | `parts/shared.js` (read its header) |
 | The areas, one file each | `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js`, `styles.js`, `diagnostics.js` |
 | The former plugins | `parts/sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js`, `tags.js`, `settings-panel.js` |
+| Properties in the line (0.4.94) | `parts/inline-props.js`: the list under the caret after `p::` or `name::`, the per-type value rows, the ghost, the write with Undo |
 | Checks and the release zip | `sh tools/check.sh`, `sh tools/release.sh` (zips go to `~/logseq-plugin-archive/releases/`) |
 | Old backups, old zips, `main.js.orig` | `~/logseq-plugin-archive/` |
 | The gentle theme (a separate Logseq theme) | `~/logseq-gentle-theme/` |
@@ -35,6 +36,10 @@ Git: one version per commit. No global identity is set; commit with
 - The owner's decisions from that round, which hold until they say otherwise: tags act like classes, so a tag chip (at the right of a block, the label above a title, the tag tabs) is a grey monospace name without the `#` (the stack is `ui-monospace, SFMono-Regular, Menlo, Consolas`; the owner asked which font it is and may want another); keep it simple; no extra space between blocks, Logseq's own spacing only; no property Logseq shows may ever be invisible, faint is fine; nothing may move under the pointer (hover reveals are gone, the tag chip's × has a fixed slot); the ↳ cue shows only on a folded block; the pencil after a date value is hidden; the usage counts sit under the Linked references heading, left-aligned with it, and mirror their rows (dark while the rows show, stepped back to `--rf-back` when another count is chosen); dates carry their tense (past quiet, today firm); the journal-date question is a dashed ghost value in the record's row with `j`/`k` and an Undo bar after a fill; a page property written as text is aligned with the bulleted values; the line under the chosen tag tab is a hairline. Todos and the tag tree are off limits for now.
 - The code is a core plus parts (see the table). Every helper exists once (`parts/shared.js`); in the three files the cleanup split (tags, todos, search) no function is over 80 lines; the ones still over it elsewhere are listed under "Cleanup (October 2026)" below.
 - The owner uses the plugin in `Work` and lets journal-day dates run there (settings `autoDateGraphs: Plugin Test Graph, Work`).
+
+## The diagnosis round (2026-10-17)
+
+The owner asked for the graph to be treated as a reading and writing system: ten costs ranked with evidence, a reading model and a modelling rule drawn, three proposals drawn now against proposed, build nothing until they pick. The artifact "Refinements Diagnosis" (claude.ai/artifact/Rm4ZSNaPfMnvCQdvk8tNqW) holds it. They picked proposal 1, in its predictive form, built as 0.4.94 (`parts/inline-props.js`, see the CHANGELOG line for what was seen). Found while building: a property made through `logseq.Editor.upsertProperty` gets the ident `plugin.property.logseq-db-refinements/<name>`, so the Make property row was taken out and a new field still comes from Logseq's Add property; while a block is in edit its property pills were not found by name, so the ghost sits in the list's header rather than the pill (open). Proposals 2 (the Journals list as today plus what is still open: past days in the quiet colour, live rows full) and 3 (every picker reading as the page; the link box with a marked list and a dashed Make page row) are drawn in the artifact and not built. `in text · 1503` on Atlas is a wrong usage count (links.js, incomingPropertyLinks: the refs query counts more than the references listed), a loose end.
 
 ## Open requests
 

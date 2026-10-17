@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview and a date typed inside `[[ ]]` write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.93.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.94.
 
 Besides the look of pages, it holds:
 
@@ -10,6 +10,7 @@ Besides the look of pages, it holds:
 - **Tag tree**: all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
 - **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
+- **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know. Only in the graphs you name.
 - **Copy as rich text**: copies a page or block as tidy formatted text, or saves it as a PDF, for people who don't use Logseq. It only reads your notes.
 
 ## What is in the folder
@@ -106,6 +107,8 @@ In the order of the settings window. The key is the name in the settings file (`
 | Tags | `autoDateTags` | empty | Journal day as date |
 | Date property | `autoDateProperty` | Date | Journal day as date |
 | Only in these graphs | `autoDateGraphs` | empty | Journal day as date |
+| Properties typed in the line | `inlineProps` | on | Properties in the line |
+| Only in these graphs | `inlinePropsGraphs` | empty | Properties in the line |
 | Layout | `layout` | document | Copy as rich text |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
@@ -277,6 +280,30 @@ Fills an empty Date property on chosen records with the journal day they were wr
 A block written on a journal page gets that page's day. A page made from a journal (for example by typing `[[Name]]#Tag` there) is left alone: a page has no day of its own, so nothing is guessed for it.
 
 New records are asked about (or filled) automatically. Older ones are filled only when you run **Fill missing dates from journal days** from the command palette, which says how many it found and asks first; its box says that this cannot be undone in one step.
+
+## Properties in the line
+
+Type `p::` at the end of the block you are writing. A list opens under the caret with the fields of the record's own tags first (a Meeting shows attendees and project), each with its type, then every property of yours. Letters filter it; `Enter` picks a name and the list turns into values of that type. `name::value` skips the first step when you know the field: `date::fri`, `owner::ad`, `stage::pl`. While a row is highlighted, the value it would write is drawn dashed where it will go (in the record's empty pill for that field when Logseq shows one, else at the top of the list). `Enter` writes it, takes the token out of your text, leaves the caret where it was, and the dark bar at the bottom offers **Undo** for a few seconds. `Esc` closes the list and leaves the words as typed; `Up` and `Down` move; a click on a row picks it.
+
+What the list offers, by the property's type:
+
+| Type | The list | You can also type |
+| --- | --- | --- |
+| Date | today, tomorrow, the next weekdays, each with its day | `fri`, `next fri`, `+3`, `2026-10-23`, `23 oct` |
+| Date and time | the same days; a time may follow | `fri 19:00` |
+| Page (one or many) | pages of the field's class (owner lists Persons), with their kind; a dashed **Make Person “…”** row when nothing matches exactly | a few letters |
+| Choices | the choices | a letter |
+| Text | the values already used, most used first; a dashed **“…” as new text** row | anything |
+| Number | the number as typed | digits |
+| Yes/no | yes, no (`Enter` alone means yes) | |
+| Url | the url as typed | `https://…` |
+
+Nothing is written until you press `Enter` on a value. Only names the graph has are ever written to: a name it does not have shows “no property named …” and nothing else, so a typo cannot make a field (a new property still comes from Logseq's own **Add property**; one made through the plugin API would belong to the plugin, not to you). A new page is made only through the dashed **Make …** row, which is never the first row; **Undo** removes the page again. The token must be at the end of the block, so a `::` inside a sentence does nothing.
+
+| Setting | What it does |
+| --- | --- |
+| Properties typed in the line | The list after `p::` or `name::`. Applies at once. |
+| Only in these graphs | The list opens only in the graphs named here. Nothing happens while this is empty. |
 
 ## Copy as rich text
 

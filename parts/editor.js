@@ -407,7 +407,7 @@ function startEditor() {
   }));
 }
 function provide(core) {
-  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, startEditor, startDateLinkSwap });
+  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, startEditor, startDateLinkSwap, journalTitleFor });
 }
 function start() {
   const core = window.refinementCore;
