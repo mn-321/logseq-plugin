@@ -494,6 +494,18 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .ls-block .block-content mark a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]) { color: #2f5d8a !important; }
 
 `],
+  [null, `/* The bar after a write, with Undo (shared.showUndoBar). */
+.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px; background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
+`],
+  ['pickerMarks', `/* The [[ menu says what each row is: a # in the tag colour before a tag, a small grey box before a journal
+   day, pages plain. Marked by updatePickerMarks in the links part, by name against the tags and journals it knows. */
+#ui__ac .menu-link[data-refinement-pick="tag"]::before { content: '#'; color: var(--rf-tag-color); margin-right: .1em; }
+#ui__ac .menu-link[data-refinement-pick="date"] { font-variant-numeric: tabular-nums; }
+#ui__ac .menu-link[data-refinement-pick="date"]::before { content: ''; display: inline-block; width: .6em; height: .75em; margin-right: .4em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); vertical-align: -.05em; }
+`],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
 .refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }

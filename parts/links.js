@@ -607,6 +607,23 @@ function updateUsageLine(doc) {
   if (after.nextElementSibling !== line) after.after(line);
   applyUsageFilter(doc, usage.filter);
 }
+// The [[ menu: each row is marked as a tag or a journal day, by its name against what the plugin knows (the
+// tags from loadTagPages, the journals from loadJournalDates or the date pattern), so the menu says what a
+// row is while you type. A page and a tag with the same name cannot be told apart here. The (( menu is left alone.
+const pickerMarks = { marked: new Set() };
+function updatePickerMarks(doc) {
+  const menu = setting('pickerMarks') ? doc.getElementById('ui__ac') : null;
+  const rows = menu && !menu.classList.contains('ac-block-search') ? menu.querySelectorAll('.menu-link') : [];
+  const seen = new Set();
+  for (const row of rows) {
+    const text = row.textContent.trim().toLowerCase();
+    const kind = tagPages.titles.has(text) ? 'tag' : dateLinks.names.has(text) || dateLinkName(text) ? 'date' : '';
+    if (!kind) continue;
+    if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
+    seen.add(row); pickerMarks.marked.add(row);
+  }
+  for (const row of pickerMarks.marked) if (!seen.has(row)) { if (row.isConnected) row.removeAttribute('data-refinement-pick'); pickerMarks.marked.delete(row); }
+}
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
 const mentions = { marked: new Set() };
@@ -627,7 +644,7 @@ function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
-    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     // A link to a journal day needs no mark: Logseq gives every journal page an id that starts with
@@ -647,20 +664,22 @@ function updateDateLinks() {
 }
 // Tag pages: a [[link]] to one looks like any page link, and a tag's # and icon can be customised,
 // so links to them are marked from the database and their icon is drawn in grey.
-const tagPages = { uuids: new Set(), marked: new Set() };
+const tagPages = { uuids: new Set(), titles: new Set(), marked: new Set() };
 // The uuids of every tag page, or null when the look-up failed (the known set is then kept).
 async function loadTagPages() {
   try {
-    const rows = await dsQuery(`[:find ?uuid
-      :where [?tag :block/tags ?class] [?class :db/ident :logseq.class/Tag] [?tag :block/uuid ?uuid]]`);
-    return new Set(rows.map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
+    const rows = await dsQuery(`[:find ?uuid ?title
+      :where [?tag :block/tags ?class] [?class :db/ident :logseq.class/Tag] [?tag :block/uuid ?uuid] [?tag :block/title ?title]]`);
+    const uuids = new Set(), titles = new Set();
+    for (const [uuid, title] of rows) { if (UUID.test(String(uuid))) { uuids.add(String(uuid)); titles.add(String(title).trim().toLowerCase()); } }
+    return { uuids, titles };
   } catch (error) { warnOnce('could not find tag pages', error); return null; }
 }
 async function refreshJournalDates() {
   const version = ++dateLinks.version;
   const [dates, tags] = await Promise.all([loadJournalDates(), loadTagPages()]);
   if (version !== dateLinks.version) return;
-  if (tags) { tagPages.uuids = tags; applyTagPageStyle(); }
+  if (tags) { tagPages.uuids = tags.uuids; tagPages.titles = tags.titles; applyTagPageStyle(); }
   if (!dates) return;
   dateLinks.uuids = dates.uuids;
   dateLinks.names = dates.names;
@@ -698,6 +717,8 @@ function stopDateLinks() {
   usage.line?.remove();
   for (const el of usage.hidden) el.removeAttribute('data-refinement-usage-dim');
   usage.hidden.clear();
+  for (const row of pickerMarks.marked) row.removeAttribute('data-refinement-pick');
+  pickerMarks.marked.clear();
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();

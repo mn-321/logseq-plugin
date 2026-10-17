@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.83.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.84.
 
 Besides the look of pages, it holds:
 
@@ -82,6 +82,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Tidy parent paths | `tidyPaths` | on | Links and references |
 | Plain links in grey paths | `plainPathLinks` | on | Links and references |
 | Empty [[ ]] menu until you type | `quietLinkMenu` | on | Links and references |
+| The [[ menu says what each row is | `pickerMarks` | on | Links and references |
 | Year-first dates in [[ ]] link to journals | `dateLinkFormats` | on | Links and references |
 | Compact PDF citations | `pdfCitations` | on | Links and references |
 | Links inside a reference open their own page | `innerReferenceLinks` | on | Links and references |
@@ -166,7 +167,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Lines between sidebar items | A thick grey line between the items in the right sidebar | Turn off with **Thick line between sidebar items**. |
 | Page icons | Generic page icons in titles and sidebars become a small plain rectangle; custom icons are unchanged | Turn off with **Simpler page icons**. |
 | Grey parent paths | The grey line above a reference or query result shows a link as its words with a soft underline (twice as thick as other links' underline, so it shows on the small grey text), instead of `[[Name]]`; a labelled link `[words]([[page]])`, which Logseq cuts to `[words` there, shows just `words`, underlined. The words are not clickable on their own: a click opens that parent block, as before. The path also uses the room it has before cutting text short | Turn off with **Plain links in grey paths** and **Tidy parent paths**. |
-| The `[[` page menu | Typing `[[` no longer opens a list of date words (Today, Tomorrow, Next week …) at once; the menu appears with the first letter you type, and until then the arrow keys, Enter and Tab leave it alone | Turn off with **Empty [[ ]] menu until you type**. |
+| The `[[` page menu | Typing `[[` no longer opens a list of date words (Today, Tomorrow, Next week …) at once; the menu appears with the first letter you type, and until then the arrow keys, Enter and Tab leave it alone. In the list, a `#` in the tag colour before a tag and a small grey box before a journal day; pages plain | Turn off with **Empty [[ ]] menu until you type** and **The [[ menu says what each row is**. |
 | Dates typed in `[[ ]]` | A date typed year first inside `[[ ]]` (`2026 10 14`, `2026-10-14`, `2026/10/14`, `2026.10.14` or `20261014`, month and day with two digits) turns into that day's journal name (“Oct 14th, 2026”) as the last digit is typed, so the menu offers the journal page | Uses the journal's own title, or Logseq's date format when that day has no page yet. Undo brings the digits back. Turn off with **Year-first dates in [[ ]] link to journals**. |
 | Page labels | A page link whose shown name ends in a tag name (“Name #tag”) shows the stored title alone | Turn off with **Page links without trailing tags**. |
 | Properties | Under a block, properties read as `name: value · name: value` with no capsule outlines; property names are grey so the values stand out. A property list under a block (one name per line) sits on a very light grey field with square corners, and so does the page's own list under its title, with one dot per property and **Add property** shown only while you point at the list (on the page and in the right sidebar). | Turn off with **Plainer properties**. |
@@ -255,7 +256,7 @@ The **Search** button at the top of the right sidebar can be hidden with **Searc
 
 **Put search results page by page**: results from the same page sit together, with the page name shown once. The arrow keys follow this order.
 
-**Preview the selected result**: a panel at the right of the search window shows the selected result with its blocks. Click a line to edit it. **Preview: edit with Logseq's own editor (trial)** is off by default.
+**Preview the selected result**: a panel at the right of the search window shows the selected result with its blocks. Click a line to edit it; a saved line shows a bar at the bottom with **Undo** for a few seconds. **Preview: edit with Logseq's own editor (trial)** is off by default.
 
 **Filter search with codes**: type `#tag`, `in:Page`, `p:Name` or `p:Name=value` for a property (`property:` and `prop:` work too), `is:task`, `todo`, `done`, `page`, `journal` or `block`, and `edited:today`, `yesterday`, `week`, `month`, `year` or a count such as `3d` or `2w`. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in `[[ ]]`. The window's **? More tips** guide lists them all.
 

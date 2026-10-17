@@ -5,11 +5,11 @@
    the only part of the plugin that writes to your notes, so it only runs in the graphs you name. */
 // The shared plumbing (parts/shared.js): its header says what each helper does.
 const shared = window.refinementShared;
-const { host, notify, modalButtons } = shared;
+const { host, notify, modalButtons, showUndoBar } = shared;
 // This part's own clean-up list and stop key: a copy removed without its clean-up finishing is stopped
 // by the next one, which also removes a note or box the earlier copy left on screen.
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (journal dates): ', stopKey: '__journalDayDatesStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask, .jdd-ghost, .jdd-bar')) el.remove(); for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost'); } catch (error) { /* nothing left over */ } } });
+  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask, .jdd-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost'); } catch (error) { /* nothing left over */ } } });
 // The shared dialog box, drawn with this part's own class names (styled in promptCss below).
 const modal = (cancelValue, build, width) => shared.modal(cancelValue, build, width, { backdrop: 'jdd-prompt-backdrop', box: 'jdd-prompt' });
 
@@ -202,7 +202,8 @@ async function showAsk(item) {
     removeGhost(doc);
     if (answer === 'yes') {
       const filled = await fillDates(item.setup, new Map([[item.uuid, item.journalId]]));
-      if (filled) showBar(`${name}: ${day} filled for “${shorten(title || 'this record')}”`, () => logseq.Editor.removeBlockProperty(item.uuid, item.setup.ident));
+      if (filled) showUndoBar(`${name}: ${day} filled for “${shorten(title || 'this record')}”`, () => logseq.Editor.removeBlockProperty(item.uuid, item.setup.ident),
+        error => { warnOnce('the date could not be taken off again', error); notify('The date could not be taken off again', 'warning'); });
     }
     // A no is final for this session; a record left for later may be asked again on the next change.
     if (answer !== 'later') autoDate.tried.set(item.uuid, AUTO_DATE_TRIES);
@@ -264,21 +265,6 @@ async function showAsk(item) {
   // The note alone goes away by itself; a ghost in the row waits until answered or the row leaves the screen.
   setTimeout(() => { if (!usedGhost) finish('later'); }, 25000);
   onUnload(() => { if (!done) { done = true; clearInterval(keep); win.removeEventListener('keydown', onKey, true); note?.remove(); removeGhost(doc); } });
-}
-// After a write: a dark bar at the bottom, "Date: Oct 16th filled for …", with Undo for seven seconds.
-const bar = { el: null, timer: 0 };
-function showBar(text, undo) {
-  const doc = host();
-  clearTimeout(bar.timer); bar.el?.remove();
-  const el = bar.el = doc.createElement('div');
-  el.className = 'jdd-bar';
-  el.setAttribute('role', 'status');
-  const words = doc.createElement('span'); words.textContent = text;
-  const button = doc.createElement('button'); button.type = 'button'; button.textContent = 'Undo';
-  button.addEventListener('click', async () => { clearTimeout(bar.timer); el.remove(); try { await undo(); } catch (error) { warnOnce('the date could not be taken off again', error); notify('The date could not be taken off again', 'warning'); } });
-  el.append(words, button);
-  doc.body.appendChild(el);
-  bar.timer = setTimeout(() => el.remove(), 7000);
 }
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function confirmBox(message, okLabel) {
@@ -344,12 +330,7 @@ const promptCss = `
 .jdd-ghost-keys { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .jdd-ghost-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-jdd-ghost] { display: flex !important; opacity: 1 !important; }
-.bottom-property-pill[data-jdd-ghost] .empty-value { display: none !important; }
-/* The bar after a write, with Undo. */
-.jdd-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px; background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
-.jdd-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jdd-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.jdd-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }`;
+.bottom-property-pill[data-jdd-ghost] .empty-value { display: none !important; }`;
 
 const DB_PAUSE = 800, DB_LONGEST = 2500;
 const dbWork = { timer: 0, since: 0 };

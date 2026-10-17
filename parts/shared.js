@@ -21,6 +21,8 @@
                                        or a click outside resolves with cancelValue; classes names the
                                        backdrop and box classes (refinement-prompt-* unless given).
    - modalButtons(doc, [[text, onClick], …]) and modalHint(doc, text)   rows for a modal.
+   - showUndoBar(text, undo, onFail)   after a write: a dark bar at the bottom with Undo for seven seconds; undo()
+                                  is awaited on the press, onFail(error) (or a warning note) runs if it throws.
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
    - waitFor(find, ms)            polls find() every 50 ms until it returns something or ms pass.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
@@ -157,6 +159,27 @@ function modalHint(doc, text) {
   return hint;
 }
 
+/* After a write from one of the plugin's flows: one dark bar at the bottom, "… is now …", with Undo for seven
+   seconds, drawn by styles.js as .refinement-undo-bar. Journal dates and the search preview use it; Todos and the
+   tag tree keep bars of their own for now. */
+const undoBar = { el: null, timer: 0 };
+function showUndoBar(text, undo, onFail) {
+  const doc = host();
+  clearTimeout(undoBar.timer); undoBar.el?.remove();
+  const el = undoBar.el = doc.createElement('div');
+  el.className = 'refinement-undo-bar';
+  el.setAttribute('role', 'status');
+  const words = doc.createElement('span'); words.textContent = text;
+  const button = doc.createElement('button'); button.type = 'button'; button.textContent = 'Undo';
+  button.addEventListener('click', async () => {
+    clearTimeout(undoBar.timer); el.remove();
+    try { await undo(); } catch (error) { if (onFail) onFail(error); else notify('The change could not be undone', 'warning'); }
+  });
+  el.append(words, button);
+  doc.body.appendChild(el);
+  undoBar.timer = setTimeout(() => el.remove(), 7000);
+}
+
 // Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
 function openEntity(uuid, inSidebar = false) {
   if (!uuid) return;
@@ -198,5 +221,5 @@ function settingReader(schema) {
   };
 }
 
-window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, openEntity, waitFor, settingReader, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, perf, warnings };
 })();

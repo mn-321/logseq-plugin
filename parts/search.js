@@ -1103,7 +1103,12 @@ async function save(edit) {
   if (text === was) return;
   if (!(await edit.unchanged(was))) { notify('This block changed elsewhere; the line was not saved. Open it to edit it.', 'warning'); return; }
   edit.pane.rfTexts.set(edit.uuid, text);
-  try { await logseq.Editor.updateBlock(edit.uuid, text); searchExtras.meta.delete(searchPreview.uuid); }
+  try {
+    await logseq.Editor.updateBlock(edit.uuid, text);
+    searchExtras.meta.delete(searchPreview.uuid);
+    // A saved line is a write to notes from a view, so it gets the bar with Undo, as a task's text does.
+    if (typeof was === 'string') window.refinementShared.showUndoBar('Line saved', () => logseq.Editor.updateBlock(edit.uuid, was));
+  }
   catch (error) { notify(`Could not save this line: ${error.message || error}`, 'warning'); }
 }
 
@@ -1701,7 +1706,7 @@ const searchExtrasCss = `
 .rf-search-preview .rf-pv-path > span:first-child { font-weight: 600; }
 .rf-search-preview .rf-pv-path > span + span::before { content: '•'; margin: 0 .5em; opacity: var(--rf-faint); }
 /* The searched words, marked the way a highlighter would. */
-.rf-search-preview mark { background: var(--rf-mark); color: inherit; padding: 0 .06em; border-radius: 2px; }
+.rf-search-preview mark { background: transparent; font-weight: 600; color: inherit; padding: 0 .06em; border-radius: 2px; }
 .rf-search-preview .rf-pv-title { font-size: 1.3rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
 .rf-search-preview .rf-pv-meta { font-size: var(--rf-tiny); opacity: var(--rf-faint); min-height: 1em; }
 /* Properties: names in a faint column, values beside them, as on the page itself. */
