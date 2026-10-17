@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.75.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.76.
 
 Besides the look of pages, it holds:
 
@@ -172,7 +172,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Dates typed in `[[ ]]` | A date typed year first inside `[[ ]]` (`2026 10 14`, `2026-10-14`, `2026/10/14`, `2026.10.14` or `20261014`, month and day with two digits) turns into that day's journal name (“Oct 14th, 2026”) as the last digit is typed, so the menu offers the journal page | Uses the journal's own title, or Logseq's date format when that day has no page yet. Undo brings the digits back. Turn off with **Year-first dates in [[ ]] link to journals**. |
 | Page labels | A page link whose shown name ends in a tag name (“Name #tag”) shows the stored title alone | Turn off with **Page links without trailing tags**. |
 | Properties | Under a block, properties read as `name: value · name: value` with no capsule outlines; property names are grey so the values stand out. A property list under a block (one name per line) sits on a very light grey field with square corners, and so does the page's own list under its title, with one dot per property and **Add property** shown only while you point at the list (on the page and in the right sidebar). | Turn off with **Plainer properties**. |
-| Empty properties | A property with no value yet stays hidden under a block and in a block's property list until you point at the block or type in it, then shows quietly. A list with nothing filled in waits as a whole. The page's own list under its title is not touched | Turn off with **Empty properties wait for the pointer**. |
+| Empty properties | A property with no value yet stays hidden under a block and in a block's property list until you type in the block, then shows quietly (not under the pointer: a row appearing there would push the blocks below down). A list with nothing filled in waits as a whole. The page's own list under its title is not touched | Turn off with **Empty properties wait for the pointer**. |
 | Tag pages | On a tag's own page, the rows of its table, the records under it and its Linked references do not repeat that tag; other tags stay. | Turn off with **Leave a tag page's own tag off its rows**. |
 | Left sidebar lists | Favorites and Recent show an icon only where it says something: Logseq's generic page icon is left out (names stay lined up); a tag's #, a page's own icon and an icon from its tag stay. Journal days are in grey. | Turn off with **Left sidebar icons only where they mean something**. |
 | Journals list | Each day is only as tall as what it holds, instead of at least 500px. | Turn off with **Journal days only as tall as what they hold**. |
@@ -263,12 +263,12 @@ The **Search** button at the top of the right sidebar can be hidden with **Searc
 
 ## Journal day as date
 
-Fills an empty Date property on chosen records with the journal day they were written on. A date you entered yourself is never changed. By default it asks first: a small note at the top right says the day and the record; `j` (or **Yes**) fills it, `k` (or **No**) leaves that record alone for the rest of the session, `Esc` leaves it for now. While you are typing in a block, `j` and `k` stay yours and the note's buttons work instead; a note nobody answers goes away after about half a minute. One record is asked about at a time.
+Fills an empty Date property on chosen records with the journal day they were written on. A date you entered yourself is never changed. By default it asks first, where the answer goes: the proposed day appears in the record's own row as a dashed ghost value (in its empty Date pill when Logseq shows one, else after its title). `j`, or a click on the day, writes it, and a dark bar at the bottom offers **Undo** for a few seconds; `k` leaves that record alone for the rest of the session; `Esc`, or the record leaving the screen, leaves it for now. While you are typing in a block, `j` and `k` stay yours. A record that is not on screen is asked about in a small note at the top right instead, with **Yes** and **No**; a note nobody answers goes away after about half a minute. One record is asked about at a time.
 
 | Setting | What it does |
 | --- | --- |
 | Fill dates automatically | Fills the date of new records as you write them. |
-| Ask before filling | Shows the j / k note first (on). Turn off to fill without asking. |
+| Ask before filling | Shows the ghost value (or the j / k note) first (on). Turn off to fill without asking. |
 | Tags | Records with these tags (or a tag that extends them) are filled. Nothing is filled while this is empty. |
 | Date property | The Date-type property to fill (not Date and time). |
 | Only in these graphs | Dates are filled only in the graphs named here. Nothing is filled while this is empty. |
