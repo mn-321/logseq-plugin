@@ -155,6 +155,11 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)) .block-t
 .ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left) a.page-ref .block-title-wrap::before { content: '\\2060' !important; }
 ${blockDot('.ls-block .page-reference:has(> .inline-block > .positioned-properties.block-left):has(a.page-ref:not(.tag) .block-title-wrap):not(:has(.prefix-link, a.page-ref img))')}
 .ls-block .page-reference:has(a.page-ref .block-title-wrap) > .inline-block:has(> .positioned-properties.block-left) { padding-right: .25em; }
+/* A link to a block that carries its tag's icon (Logseq draws the icon first, then the title area two levels down, inside an unclassed span): the dot
+   moves in front of the icon, so a linked record reads dot, icon, words, as a linked task reads dot, icons, words.
+   A labelled link already has its dot on its first span, which is the icon when there is one. */
+.ls-block a.page-ref:not(.tag):has(> .icon-emoji-wrap):has(.block-title-wrap) .block-title-wrap::before { content: none !important; }
+${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .icon-emoji-wrap):has(.block-title-wrap) > .icon-emoji-wrap')}
 /* The icon of a linked page or tag page stays with its name. Logseq's icon is a box of its own, and
    a line may break after such a box whatever follows it (a word joiner did not hold it: seen in
    2.0.2), so the link is kept whole: it moves to the next line together when it does not fit. */
