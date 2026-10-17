@@ -329,13 +329,13 @@ const promptCss = `
 .jdd-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
 .jdd-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .jdd-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.jdd-prompt-hint { margin-top: 6px; font-size: .85em; opacity: .7; }
+.jdd-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .82em); opacity: var(--rf-quiet, .7); }
 .jdd-ask { position: fixed; top: 48px; right: 16px; z-index: 10000; display: flex; align-items: center; gap: 12px; max-width: min(460px, 80vw); padding: 8px 12px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 4px 16px rgba(0, 0, 0, .12); font-size: .9em; }
 .jdd-ask-what { color: var(--ls-secondary-text-color); }
 .jdd-ask-keys { display: flex; gap: 6px; flex: none; }
 .jdd-ask-keys button { padding: 3px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: .95em; cursor: pointer; }
 .jdd-ask-keys button:hover { background: var(--ls-tertiary-background-color); }
-.jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: .85em; color: var(--ls-secondary-text-color); }
+.jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
 /* The ghost value in the record's own row: dashed means proposed, not written. */
 .jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; font-size: .95em; vertical-align: baseline; }
 .jdd-ghost-name { color: var(--ls-secondary-text-color, currentColor); }

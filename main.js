@@ -103,9 +103,14 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
+  --rf-field-pct: 3%;    /* the field behind a property list */
+  --rf-divider-pct: 22%; /* the thick line between right-sidebar items */
+  --rf-name: .94em;      /* a property's name beside its value */
+  --rf-tiny: .72rem;     /* search headings and paths */
   /* the link to the page on screen, under Linked references: a faint grey wash of the theme's own text
-     colour with a slightly firmer hairline beneath, like a pencil mark (pale on light themes, soft on dark) */
-  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 7%, transparent);
+     colour (the same wash as a date box; the hairline alone says "here") with a slightly firmer hairline beneath,
+     like a pencil mark (pale on light themes, soft on dark) */
+  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent);
   --rf-here-line: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 38%, transparent);
   --rf-small: .82em;     /* labels beside text */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */

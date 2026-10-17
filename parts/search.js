@@ -19,19 +19,9 @@ function sweepEarlierCopy(doc) {
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
 }
 
-/* One small scale for everything the plugin draws, so cues added at different times look alike.
-   Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
-// The same scale as DB Refinements, trimmed to what search uses. On body as well as :root,
-// because Logseq defines its theme colours on body.
-const tokensCss = `:root, body {
-  --rf-quiet: .7;        /* labels and other secondary words */
-  --rf-faint: .5;        /* icons, markup and separators */
-  --rf-line-pct: 26%;    /* underlines, the active nesting line, the line beside embeds */
-  /* searched words in the search preview: a soft wash of the text's own colour, so it is a light grey
-     on a dark theme and a pale grey on a light one, and the text keeps full contrast */
-  --rf-mark: color-mix(in srgb, currentColor 24%, transparent);
-  --rf-tiny: .72rem;     /* search headings and paths */
-}`;
+// The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in main.js's tokensCss; this part
+// used to carry a copy. The key stays, since a provideStyle key is part of the contract with the settings file.
+const tokensCss = '/* the tokens are declared in main.js */';
 // The plain page outline DB Refinements uses for page icons, so search results match.
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
@@ -117,7 +107,8 @@ const searchCss = `
 
 /* Matched words: the soft wash used in the preview, in place of Logseq's yellow block. In a loose match
    Logseq marks stray letters; those stay plain, and the closest word gets the wash instead. */
-.cp__cmdk mark { background: var(--rf-mark) !important; color: inherit !important; font-weight: inherit; padding: 0 .06em; border-radius: 2px; }
+/* The searched words: bold, as the result list shows them (a wash was tried and dropped in 0.4.83). */
+.cp__cmdk mark { background: transparent !important; color: inherit !important; font-weight: 600; padding: 0; border-radius: 0; }
 .cp__cmdk [data-rf-loose] mark { background: transparent !important; padding: 0; }
 ::highlight(refinement-search-near) { background-color: color-mix(in srgb, var(--ls-primary-text-color, #888) 24%, transparent); }
 /* Typing markup such as [[ ]] and ** stays visible but faded. */

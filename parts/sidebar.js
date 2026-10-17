@@ -31,7 +31,7 @@ const titleCss = `
 ${TITLE} { cursor: pointer; }
 ${TITLE}:hover :is(span, a) {
   text-decoration-line: underline;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: .2em;
 }`;
@@ -39,7 +39,7 @@ ${TITLE}:hover :is(span, a) {
 // after the first is "an item preceded somewhere by another item".
 const dividerCss = `
 #right-sidebar .sidebar-item-list > .sidebar-item ~ .sidebar-item {
-  border-top: 3px solid color-mix(in srgb, var(--ls-primary-text-color, #888) 22%, transparent) !important;
+  border-top: 3px solid color-mix(in srgb, var(--ls-primary-text-color, #888) var(--rf-divider-pct, 22%), transparent) !important;
   margin-top: 10px;
   padding-top: 6px;
 }`;

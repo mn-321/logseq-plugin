@@ -216,11 +216,11 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-properties-area .property-pair.property-panel-row .property-key-panel :is(.property-k, a) {
   color: var(--ls-secondary-text-color, currentColor) !important;
 }
-.ls-properties-area .property-pair.property-panel-row .property-key-panel { font-size: .94em; }
+.ls-properties-area .property-pair.property-panel-row .property-key-panel { font-size: var(--rf-name); }
 /* A property list under a block sits on an ultra-light grey field with square corners, so its values read as
    facts filed under names, not as more blocks. The page's own list under its title is left as it is. */
 .ls-block .ls-properties-area:not(:is(.ls-page-title, .page-title) *):has(.property-pair) {
-  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 3%, transparent); border-radius: 0;
+  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct), transparent); border-radius: 0;
   padding: .15rem .9rem .15rem 0; margin-right: .5rem;
 }
 /* That box starts where the child blocks below start, so its bullets and names sit in their column, and
@@ -240,7 +240,7 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 /* The page's own properties under its title sit on the same light field, so properties look the same
    wherever they are. The field starts where the names start (the padding is taken back on the left). */
 .ls-page-properties.ls-properties-area:has(.property-pair) {
-  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 3%, transparent); border-radius: 0;
+  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct), transparent); border-radius: 0;
   padding: .3rem .9rem .3rem .5rem; margin-left: -.5rem;
 }
 /* One column of dots: a value is a block of its own and carried a bullet, so four properties showed
