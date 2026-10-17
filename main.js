@@ -262,7 +262,7 @@ const settingsSchema = [
   { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
     description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
-    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures, with the file type after them.' },
+    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
     description: 'In Linked references, puts the property name before a value (“Doctor: …”). Under a page’s tag tabs, the value that points to the page on screen gets the same faint grey “points here” mark as in Linked references, and a folded record shows that property beside its title (“Diagnosis: page”).' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
