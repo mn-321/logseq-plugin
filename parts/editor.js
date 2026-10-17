@@ -145,7 +145,8 @@ async function deleteCurrentBlock() {
   } catch (error) { console.error(error); notify(`Could not delete the block: ${error.message}`, 'warning'); }
 }
 // Shortcut: at the outermost level of the page, just after the top-level block that holds the current
-// one (and all of its children), an empty spacer block and then a new empty block with the cursor in it.
+// one (and all of its children), a new empty block with the cursor in it. With Air between top-level
+// blocks off, an empty spacer block goes in first, as the command always did.
 async function newOutermostBlock() {
   const current = await logseq.Editor.getCurrentBlock().catch(() => null) ||
     (await logseq.Editor.getSelectedBlocks().catch(() => null))?.[0];
@@ -161,8 +162,8 @@ async function newOutermostBlock() {
     }
     if (!top?.uuid) return;
     await logseq.Editor.exitEditingMode();
-    const spacer = await logseq.Editor.insertBlock(top.uuid, '', { sibling: true, before: false });
-    const block = spacer?.uuid && await logseq.Editor.insertBlock(spacer.uuid, '', { sibling: true, before: false });
+    const spacer = setting('topLevelGap') ? null : await logseq.Editor.insertBlock(top.uuid, '', { sibling: true, before: false });
+    const block = await logseq.Editor.insertBlock((spacer || top).uuid, '', { sibling: true, before: false });
     if (block?.uuid) await logseq.Editor.editBlock(block.uuid);
     // Logseq hides the dot of an empty block itself, but shows it on a block made in the last half
     // second and only decides when it draws the block. The spacer is never typed in, so it would keep

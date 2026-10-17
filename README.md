@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.67.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.68.
 
 Besides the look of pages, it holds:
 
@@ -64,6 +64,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Faint nesting lines | `indentGuides` | on | Visual hierarchy |
 | Plainer properties | `plainProperties` | on | Visual hierarchy |
 | Hidden properties arrow on every block | `hiddenPropsChevron` | on | Visual hierarchy |
+| Air between top-level blocks | `topLevelGap` | on | Visual hierarchy |
 | Hide the dot on empty blocks | `quietEmptyBullets` | on | Visual hierarchy |
 | Show what a block holds | `childTypeCues` | on | Visual hierarchy |
 | Line beside embedded content | `embedLine` | on | Visual hierarchy |
@@ -144,6 +145,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Dates | A grey box in the normal text font | No border or calendar icon. Covers date values and links to journal pages. Turn off with **Dates in a soft grey box**. |
 | What sits below a block | After the block’s text: `↳`, a dashed circle with the number of unfinished tasks at any depth, and small image or PDF icons for files directly below | Hover shows the counts. Shown on ordinary pages and on the Journals list. Done and canceled tasks are not counted. Turn off with **Show what a block holds**. |
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
+| Groups | A little space above every top-level block, so groups read as groups without an empty block typed between them | Turn off with **Air between top-level blocks**. |
 | Empty blocks | A block with no text, nothing nested under it and no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at it shows the dot faintly; it is back in full while you type in it | Turn off with **Hide the dot on empty blocks**. |
 | Embeds | A faint line at the left of embedded blocks and pages | Turn off with **Line beside embedded content**. |
 | Tags | A tag at the right of a block, the `#Tag` above a tag page's title and the `#` before that title: the words in the text colour, only the `#` in the colour Logseq gives tags (the mark a link to a tag page carries). A tag word left in a sentence gets the same `#` | Turn off with **Tags as words with a coloured #**. |
@@ -352,7 +354,7 @@ Press `Cmd+Delete` while typing in a block. The block and the blocks nested unde
 
 **New block at the outermost level**
 
-Press `Option+Return` while typing in a block. After the top-level block you are in (and everything nested under it), the plugin adds an empty block as a spacer and then a new empty top-level block with the cursor in it.
+Press `Option+Return` while typing in a block. After the top-level block you are in (and everything nested under it), the plugin adds a new empty top-level block with the cursor in it. With **Air between top-level blocks** off, it adds an empty spacer block first, as it used to.
 
 **Fold all results / Unfold all results**
 

@@ -538,6 +538,11 @@ const hierarchyParts = {
 .ls-block .block-children-container:focus-within:not(:has(.block-children-container:focus-within)) > .block-children {
   border-left-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-line-pct), transparent) !important;
 }`,
+  // Space between groups comes from the stylesheet, not from empty blocks: every top-level block on a
+  // page body (and on a journal day) after the first gets a little air above it. Blocks under Linked
+  // references are level 0 too, so the rule is tied to the page body's own wrapper.
+  topLevelGap: `
+.ls-page-blocks .page-blocks-inner > .blocks-container > .blocks-list-wrap > .ls-block + .ls-block { margin-top: var(--rf-group-gap) !important; }`,
   // No dot on an empty block (no text, children, tags, properties or pictures), so it reads as a
   // gap between groups. The dot comes back faintly on hover, and fully while you type in the block.
   quietEmptyBullets: `

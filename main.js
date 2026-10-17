@@ -108,6 +108,7 @@ const tokensCss = `:root, body {
   --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 7%, transparent);
   --rf-here-line: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 38%, transparent);
   --rf-small: .82em;     /* labels beside text */
+  --rf-group-gap: .75em; /* the air above a top-level block */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
   /* the icon of a link to a tag's page: the colour Logseq's theme gives tags, checked in Logseq's order */
   --rf-tag-color: var(--lx-accent-11, var(--ls-tag-text-color, var(--ls-link-text-color, currentColor)));
@@ -236,6 +237,8 @@ const settingsSchema = [
     description: 'The page’s own properties under its title sit on the same light grey field as a property list under a block, with one dot per property (the value’s own bullet is gone) and “Add property” shown only while you point at them. Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules; when a row is too long to fit, a small triangle at its start opens it. Property names are grey so the values stand out. A property list under a block sits on a very light grey field, and the tag tabs below a page’s properties start with #.' },
   { key: 'hiddenPropsChevron', type: 'boolean', title: 'Hidden properties arrow on every block', default: true,
     description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow.' },
+  { key: 'topLevelGap', type: 'boolean', title: 'Air between top-level blocks', default: true,
+    description: 'A little space above every top-level block on a page, so groups read as groups without an empty block typed between them. New block at the outermost level then adds no spacer block. Applies right away.' },
   { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
     description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
