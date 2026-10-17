@@ -251,20 +251,11 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-page-properties:is(:hover, :focus-within) .ls-new-property { opacity: var(--rf-quiet) !important; }
 .ls-page-properties .ls-new-property:is(:hover, :focus-within) { opacity: 1 !important; }
 `],
-  ['quietEmptyProps', `/* A fresh record shows every property of its tag with no value (Logseq marks the pill .empty-value and
-   the list row .property-panel-row-empty). Those wait until the caret is in the block (you are typing in it),
-   then come back quiet, so a record shows what it knows. Not on hover: a row that appears under the pointer
-   pushes every block below it down (seen by the owner, 0.4.76). The page's own list under its title is left alone. */
-.ls-block > .block-main-container .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { display: none; }
-.ls-block > .block-main-container:focus-within .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { display: flex; opacity: var(--rf-quiet); }
-/* No stray dot before the first pill that shows while the empty ones are hidden. */
-.ls-block > .block-main-container:not(:focus-within) .positioned-properties.block-below .bottom-property-pill:has(.empty-value) + .bottom-property-pill::before { content: none; }
-/* The list sits beside the block's row (.ls-block > .ls-block-content-indent), so the block itself is what is pointed at;
-   a nested block under the pointer does not count. */
-.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { display: none; }
-.ls-block:focus-within:not(:has(.ls-block:focus-within)) > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { display: grid; opacity: var(--rf-quiet); }
-/* A list with nothing filled in at all: its field waits too. */
-.ls-block:not(:focus-within) > .ls-block-content-indent > .ls-properties-area:has(.property-pair):not(:has(.property-pair:not(.property-panel-row-empty))) { display: none; }
+  ['quietEmptyProps', `/* A property with no value yet (Logseq marks the pill .empty-value and the list row .property-panel-row-empty)
+   is faint, never hidden: the owner wants every property that Logseq shows to stay on screen, and nothing to move.
+   The page's own list under its title is left alone. */
+.ls-block > .block-main-container .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { opacity: var(--rf-faint); }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { opacity: var(--rf-faint); }
 `],
   ['showUsage', `/* While one count of the usage line is on, the other reference rows step back (not away: Logseq's list
    measures its rows, and a row of no height breaks it); one comes forward under the pointer. Marked by
