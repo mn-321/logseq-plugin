@@ -5,74 +5,12 @@
 // The shared plumbing (parts/shared.js): its header says what each helper does.
 const shared = window.refinementShared;
 const { host, notify, openEntity, waitFor } = shared;
-// This part's own clean-up list and stop key. The clean-up stops this part's screen watcher first, so
-// nothing re-applies while the steps undo their changes; a new copy sweeps what an earlier one left.
-const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop',
-  before: () => stopWatchingDom(), sweep: sweepEarlierCopy });
+// This part's own clean-up list and stop key; a new copy sweeps what an earlier one left on screen.
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop', sweep: sweepEarlierCopy });
+// The core's screen watcher (window.refinementCore, taken in main()): this part's updaters run on it,
+// so the plugin has one MutationObserver (GUIDE.md), and they run before the core's own.
+let watchDom, watchDomEarly;
 
-/* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
-   stop the others.
-   - Early ones (watchDomEarly) run at once on every change, before the screen is drawn, so that
-     Logseq's own look never shows first. They are given the changes and must be quick.
-   - The others (watchDom) run once in the next frame, so many changes at once cost one pass.
-   The watcher does not react to what these functions change themselves: what the early ones
-   change is set aside, and what the later pass changes is shown to the early ones once. */
-const domWatch = { updaters: new Set(), early: [], observer: null, frame: 0, win: null, doc: null };
-function runEarly(records) {
-  for (const fn of [...domWatch.early]) {
-    try { perf.time(fn.name, () => fn(domWatch.doc, records)); } catch (error) { updaterFailed(fn, error, domWatch.early); }
-  }
-  domWatch.observer?.takeRecords();
-}
-function ensureDomWatch() {
-  if (domWatch.observer) return domWatch.doc;
-  const doc = host(), win = doc.defaultView;
-  domWatch.doc = doc;
-  domWatch.win = win;
-  domWatch.observer = new win.MutationObserver(records => {
-    perf.seen('screen watcher', records);
-    runEarly(records);
-    // A change of class or id alone (pointing, selecting) needs no later pass.
-    if (domWatch.frame || !records.some(record => record.type !== 'attributes')) return;
-    const timing = perf.frameState();
-    domWatch.frame = win.requestAnimationFrame(() => {
-      domWatch.frame = 0;
-      perf.pass(timing);
-      for (const fn of [...domWatch.updaters]) {
-        try { perf.time(fn.name, () => fn(doc)); } catch (error) { updaterFailed(fn, error, domWatch.updaters); }
-      }
-      perf.passDone();
-      const own = domWatch.observer?.takeRecords() || [];
-      if (own.length) runEarly(own);
-    });
-  });
-  domWatch.observer.observe(doc.body, { subtree: true, childList: true, characterData: true,
-    attributes: true, attributeFilter: ['data-ref', 'data-uuid', 'class', 'blockid', 'data-hl-type'] });
-  return doc;
-}
-function watchDom(update) {
-  const doc = ensureDomWatch();
-  domWatch.updaters.add(update);
-  update(doc);
-}
-function watchDomEarly(update) {
-  ensureDomWatch();
-  domWatch.early.push(update);
-}
-function stopWatchingDom() {
-  domWatch.observer?.disconnect();
-  if (domWatch.frame) domWatch.win?.cancelAnimationFrame(domWatch.frame);
-  domWatch.observer = null;
-  domWatch.frame = 0;
-  domWatch.updaters.clear();
-  domWatch.early.length = 0;
-}
-
-/* The plugin's watchers live in Logseq's window, so they outlive the plugin's own frame. A new copy
-   runs the previous copy's clean-up and removes anything still left on screen. */
-const STRAY_ELEMENTS = '[data-refinement-search-button], .rf-search-preview, .rf-search-guide, .rf-search-meta, .rf-search-peek, .rf-search-where, .rf-filter-results, .rf-filter-suggest';
-// Every mark this plugin sets on Logseq's own elements (grep "data-rf-" / "dataset.rf" when adding one).
-const STRAY_ATTRIBUTES = ['filtering', 'with-preview', 'grouped', 'moved', 'group-end', 'same-page', 'current', 'loose', 'sig', 'query', 'uuid'].map(name => 'data-rf-' + name);
 // What an earlier copy may have left on screen (run by takeOverFromEarlierCopy, from shared.js).
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
@@ -80,9 +18,6 @@ function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
 }
-
-// DB Refinements measures its screen watcher; this plugin keeps the same watcher without the measuring.
-const perf = { time: (name, fn) => fn(), seen() {}, frameState() {}, pass() {}, passDone() {}, style() {} };
 
 /* One small scale for everything the plugin draws, so cues added at different times look alike.
    Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
@@ -1892,6 +1827,7 @@ const RELOAD_SETTINGS = settingsSchema.filter(item => item.type !== 'heading').m
 
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
+  ({ watchDom, watchDomEarly } = window.refinementCore);
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'calmer-search-tokens', style: tokensCss });
   if (setting('tidySearch')) {
