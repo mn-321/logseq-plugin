@@ -259,6 +259,12 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 /* A list with nothing filled in at all: its field waits too. */
 .ls-block:not(:hover):not(:focus-within) > .ls-block-content-indent > .ls-properties-area:has(.property-pair):not(:has(.property-pair:not(.property-panel-row-empty))) { display: none; }
 `],
+  ['showUsage', `/* While one count of the usage line is on, the other reference rows step back (not away: Logseq's list
+   measures its rows, and a row of no height breaks it); one comes forward under the pointer. Marked by
+   updateUsageLine in the links part. */
+#main-content-container .references .ls-block[data-refinement-usage-dim] > .block-main-container, #main-content-container .references .ls-block[data-refinement-usage-dim] > .ls-block-content-indent { opacity: .22; }
+#main-content-container .references .ls-block[data-refinement-usage-dim]:hover > .block-main-container, #main-content-container .references .ls-block[data-refinement-usage-dim]:hover > .ls-block-content-indent { opacity: 1; }
+`],
   ['ownTagHidden', `/* On a tag's own page, every record and reference carries that tag; the tag is left off there.
    The rows (and the Tags cells of its table) are marked by updateOwnTags. */
 [data-refinement-own-tag] { display: none !important; }

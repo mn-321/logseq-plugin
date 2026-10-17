@@ -510,6 +510,61 @@ function updateDateTense(doc) {
     dateTense.marked.add(link);
   }
 }
+/* How the page is used: one line under the title, "owner · 3   attendees · 2   in text · 4", counted from the
+   incoming links the cue pass already reads (the property names are the graph's own). A count is a filter:
+   while one is on, the other rows under Linked references step back, and the count wears the "here" mark.
+   Nothing is written. */
+const usage = { line: null, filter: null, hidden: new Set(), html: '', pageUuid: '' };
+function usageParts() {
+  const incoming = cueMarks.incoming, counts = new Map();
+  for (const names of incoming.values()) for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
+  const parts = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, n]) => [name, name, n]);
+  if (incoming.tagged?.size) parts.push(['tagged', 'tagged', incoming.tagged.size]);
+  if (incoming.inText?.size) parts.push(['text', 'in text', incoming.inText.size]);
+  return parts;
+}
+function applyUsageFilter(doc, filter) {
+  const hide = new Set();
+  if (filter) {
+    const incoming = cueMarks.incoming;
+    for (const row of doc.querySelectorAll('#main-content-container .references .ls-block[blockid]')) {
+      if (row.parentElement?.closest('.ls-block')) continue; // a block below a reference goes with its reference
+      const uuid = row.getAttribute('blockid'), names = incoming.get(uuid);
+      const match = filter === 'text' ? !names && !incoming.tagged?.has(uuid) : filter === 'tagged' ? incoming.tagged?.has(uuid) : names?.has(filter);
+      if (!match) hide.add(row);
+    }
+  }
+  for (const el of usage.hidden) if (!hide.has(el)) { el.removeAttribute('data-refinement-usage-dim'); usage.hidden.delete(el); }
+  for (const el of hide) if (!usage.hidden.has(el)) { el.setAttribute('data-refinement-usage-dim', ''); usage.hidden.add(el); }
+}
+function updateUsageLine(doc) {
+  const titles = [...provided.pageTitles(doc)].filter(el => !el.parentElement?.closest(PAGE_TITLE));
+  const title = titles.length === 1 ? titles[0] : null;
+  const uuid = title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '';
+  if (uuid !== usage.pageUuid) { usage.pageUuid = uuid; usage.filter = null; }
+  const parts = setting('showUsage') && title && uuid && cueMarks.incoming.pageUuid === uuid ? usageParts() : [];
+  let line = usage.line;
+  if (!parts.length) { line?.remove(); applyUsageFilter(doc, null); return; }
+  if (!line || line.ownerDocument !== doc) {
+    line = usage.line = doc.createElement('div');
+    line.className = 'refinement-usage';
+    line.addEventListener('mousedown', event => event.stopPropagation());
+    line.addEventListener('click', event => {
+      const chip = event.target.closest('a[data-usage]');
+      if (!chip) return;
+      event.preventDefault(); event.stopPropagation();
+      usage.filter = usage.filter === chip.dataset.usage ? null : chip.dataset.usage;
+      updateUsageLine(doc);
+    });
+  }
+  if (usage.filter && !parts.some(([key]) => key === usage.filter)) usage.filter = null;
+  const html = parts.map(([key, label, n]) => `<a href="#" data-usage="${escapeHtml(key)}"${usage.filter === key ? ' data-on=""' : ''} title="${usage.filter === key ? 'Show every reference again' : 'Show only these references'}">${escapeHtml(label)} <span class="rf-n">· ${n}</span></a>`).join('<span class="rf-gap"></span>');
+  if (usage.html !== html) { usage.html = html; line.innerHTML = html; }
+  // Right under the title row, above the page's own property list (the Alias of and path lines are placed again after it).
+  const after = title.querySelector('.is-page-title-row') || provided.titleAnchor(doc, title);
+  if (after.nextElementSibling !== line) after.after(line);
+  applyUsageFilter(doc, usage.filter);
+}
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
 const mentions = { marked: new Set() };
@@ -530,7 +585,7 @@ function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
-    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     // A link to a journal day needs no mark: Logseq gives every journal page an id that starts with
@@ -598,6 +653,9 @@ function stopDateLinks() {
   mentions.marked.clear();
   for (const el of dateTense.marked) el.removeAttribute('data-refinement-tense');
   dateTense.marked.clear();
+  usage.line?.remove();
+  for (const el of usage.hidden) el.removeAttribute('data-refinement-usage-dim');
+  usage.hidden.clear();
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();
@@ -929,6 +987,13 @@ async function incomingPropertyLinks() {
       if (!result.has(key)) result.set(key, new Set());
       result.get(key).add(String(name));
     }
+    // For the usage line: the blocks tagged with the page (a tag page), and the blocks that only mention
+    // it in their words (a reference that is neither a property value nor a tag, and not on the page itself).
+    result.pageUuid = String(page.uuid || '');
+    const uuidsOf = rows => new Set((rows || []).map(row => String(row[0])).filter(uuid => UUID.test(uuid)));
+    result.tagged = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/tags ?page] [?b :block/uuid ?uuid]]`));
+    const refs = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/refs ?page] [?b :block/uuid ?uuid] (not [?b :block/page ?page])]`));
+    result.inText = new Set([...refs].filter(uuid => !result.has(uuid) && !result.tagged.has(uuid)));
   } catch (error) { warnOnce('could not find records linking to this page', error); }
   return result;
 }
@@ -974,7 +1039,7 @@ async function refreshCues(version = ++refreshVersion) {
     provided.propertyCrumbs.values = propertyValues;
     if (dateLinks.document) provided.updatePropertyCrumbs(dateLinks.document);
     cueMarks.incoming = incoming;
-    if (dateLinks.document) updateCueMarks(dateLinks.document);
+    if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
     perf.add('refreshCues (start to finish)', performance.now() - started);
   } catch (error) {
     if (version !== refreshVersion) return;
@@ -982,7 +1047,7 @@ async function refreshCues(version = ++refreshVersion) {
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
     cueMarks.blockUuids = new Set();
     cueMarks.incoming = new Map();
-    if (dateLinks.document) updateCueMarks(dateLinks.document);
+    if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
     warnOnce('could not refresh current-page cues', error);
   }
 }
@@ -1102,7 +1167,7 @@ const cancelRefresh = () => clearTimeout(refreshTimer);
 const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
 function provide(core) {
   core.provide({ startDateLinks, startPdfCitations, startNestedReferenceLinks, scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
-    isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks });
+    isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
   core.onDbRound('refreshCues', refreshCues);
   core.onDbRound('refreshCrumbLinks', refreshCrumbLinks);
   core.onDbRound('loadPageLabelTitles', loadPageLabelTitles);

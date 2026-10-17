@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.73.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.74.
 
 Besides the look of pages, it holds:
 
@@ -57,6 +57,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Always show page title actions and tags | `showTitleChrome` | on | Pages |
 | Show what a page is above its title | `showPageKind` | on | Pages |
 | Show which page an alias belongs to | `showAliasOf` | on | Pages |
+| Show how a page is used | `showUsage` | on | Pages |
 | Mark the link to this page in Linked references | `markReferenceHere` | on | Pages |
 | Show inherited properties on tag pages | `showInherited` | on | Pages |
 | Show where a tag sits | `showTagPath` | on | Pages |
@@ -157,6 +158,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Page title row | The page’s tags and actions (such as **Set property**) stay visible above the title, muted until you point at them, with `#Page` on an untagged page (click it to set tags) | Turn off with **Always show page title actions and tags** and **Show what a page is above its title**. |
 | Linked references | The link to the page on screen has a faint grey wash behind it with a fine line beneath (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |
 | Alias pages | A small muted “Alias of …” line under the title of a page that another page lists as its alias; the name opens the original | Turn off with **Show which page an alias belongs to**. |
+| How a page is used | Under the title, one quiet line counting the references by how they arrive, with your own property names: “owner · 3   attendees · 2   in text · 4” (“tagged · n” on a tag page). Click a count and the other references under Linked references step back, with the “here” mark on the count; click again to bring them all forward | Counted from the database; nothing is written. Turn off with **Show how a page is used**. |
 | Tag pages | Under the tag's own properties, a line such as “Inherited from #Media: keywords, rating, website”, one per tag it extends; names open the tag or property | Turn off with **Show inherited properties on tag pages**. |
 | Where a tag sits | Under a tag page's title, the tags it extends from the top down, “#Entity › #Person › #Doctor”, the `#` in the tag colour, and “also under #X” for a second parent; names open the tag | Turn off with **Show where a tag sits**. |
 | Links inside a reference | A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar); the rest of the reference still opens the block | Turn off with **Links inside a reference open their own page**. |

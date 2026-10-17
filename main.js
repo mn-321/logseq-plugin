@@ -82,10 +82,10 @@ function stopWatchingDom() {
    anything still left on screen (sweepEarlierCopy). */
 const STOP_KEY = '__dbRefinementsStop';
 // Search marks (data-rf-*, .rf-search-*) belong to the search part (parts/search.js), which clears its own.
-const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-prompt-backdrop';
+const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense'].map(name => 'data-refinement-' + name)];
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim'].map(name => 'data-refinement-' + name)];
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
@@ -221,6 +221,8 @@ const settingsSchema = [
     description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
+  { key: 'showUsage', type: 'boolean', title: 'Show how a page is used', default: true,
+    description: 'Under a page’s title, one quiet line that counts its references by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references under Linked references step back; click it again to bring them all forward. Nothing is written. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
     description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,

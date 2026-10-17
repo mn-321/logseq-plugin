@@ -377,7 +377,7 @@ function startPageKind() {
 /* "#Page" on a page with no tag of its own, in the row of actions above the title. */
 .refinement-title-tags { margin-left: .6rem; font-size: .75rem; line-height: 1.5rem; white-space: nowrap; color: var(--ls-link-text-color, inherit); cursor: pointer; text-decoration: none; }
 .refinement-title-tags:hover { text-decoration: underline; }
-:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) {
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) {
   margin: .15rem 0 .25rem;
   font-size: .8rem;
   font-weight: 400;
@@ -385,13 +385,18 @@ function startPageKind() {
   color: var(--ls-primary-text-color, currentColor);
   opacity: var(--rf-quiet);
 }
-:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); cursor: pointer; }
 :is(.refinement-inherited, .refinement-tag-path) a.rf-tag { text-decoration: none; }
 .refinement-tag-path .rf-hash { color: var(--rf-tag-color); }
 .refinement-tag-path .rf-own { color: var(--ls-primary-text-color, currentColor); }
 .refinement-tag-path .rf-sep { opacity: var(--rf-faint); margin: 0 .1em; }
+/* How the page is used: each count is a filter on Linked references; the one that is on wears the "here" mark. */
+.refinement-usage a { text-decoration: none !important; padding: 0 .1em; border-radius: 0; }
+.refinement-usage a .rf-n { opacity: var(--rf-quiet); font-variant-numeric: tabular-nums; }
+.refinement-usage a[data-on] { background: var(--rf-here); box-shadow: inset 0 -1px 0 var(--rf-here-line); color: var(--ls-primary-text-color, currentColor); }
+.refinement-usage .rf-gap { display: inline-block; width: 1em; }
 .ls-page-properties .refinement-inherited { margin: .25rem 0 0 1.25rem; }
-:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
     for (const stray of host().querySelectorAll('.refinement-inherited')) stray.remove(); // left by an earlier load
     watchDom(updatePageKind);
     // The later pass can land a frame after Logseq draws a title (measured: about one pass in four
@@ -433,7 +438,7 @@ function startPageKind() {
 }
 
 function provide(core) {
-  core.provide({ startTitleChrome, startPageKind, schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, currentTitle });
+  core.provide({ startTitleChrome, startPageKind, schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, currentTitle, titleAnchor });
   core.onDbRound('loadPageKind', loadPageKind);
 }
 function start() {
