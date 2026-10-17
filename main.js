@@ -85,7 +85,7 @@ const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover'].map(name => 'data-refinement-' + name)];
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention'].map(name => 'data-refinement-' + name)];
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
@@ -248,6 +248,8 @@ const settingsSchema = [
     description: 'Replaces Logseq’s generic page icon with a plain outline in titles and sidebars. Custom page icons are never changed.' },
   { key: 'tintTags', type: 'boolean', title: 'Soft background behind tags', default: false,
     description: 'Puts a faint violet chip behind tags, both in the text and at the end of a block.' },
+  { key: 'tagMark', type: 'boolean', title: 'Tags as words with a coloured #', default: true,
+    description: 'A tag at the right of a block, the #Tag above a tag page’s title and the # before that title: the words in the text colour and only the # in the colour Logseq gives tags, the same mark a link to a tag page carries. A tag word left in a sentence gets the same #. Applies right away.' },
   { key: 'linksHeading', type: 'heading', title: 'Links and references', default: null,
     description: 'Changes here apply right away.' },
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.66.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. Three parts do write to notes, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.67.
 
 Besides the look of pages, it holds:
 
@@ -70,6 +70,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Dates in a soft grey box | `dateStyle` | on | Visual hierarchy |
 | Simpler page icons | `plainPageIcons` | on | Visual hierarchy |
 | Soft background behind tags | `tintTags` | off | Visual hierarchy |
+| Tags as words with a coloured # | `tagMark` | on | Visual hierarchy |
 | Quiet page links | `quietLinks` | on | Links and references |
 | Clearer Linked references | `referenceLayout` | on | Links and references |
 | Icons for block references and files | `referenceIcons` | on | Links and references |
@@ -145,6 +146,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Nesting lines | Faint lines beside nested blocks; the line beside the branch you point at or type in is a little stronger | Recolors Logseq's own line, so nothing moves. Turn off with **Faint nesting lines**. |
 | Empty blocks | A block with no text, nothing nested under it and no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at it shows the dot faintly; it is back in full while you type in it | Turn off with **Hide the dot on empty blocks**. |
 | Embeds | A faint line at the left of embedded blocks and pages | Turn off with **Line beside embedded content**. |
+| Tags | A tag at the right of a block, the `#Tag` above a tag page's title and the `#` before that title: the words in the text colour, only the `#` in the colour Logseq gives tags (the mark a link to a tag page carries). A tag word left in a sentence gets the same `#` | Turn off with **Tags as words with a coloured #**. |
 | Tag background (optional) | A faint violet chip behind tags, in text and at the end of a block | Off by default; turn on with **Soft background behind tags**. |
 | Page title row | The page’s tags and actions (such as **Set property**) stay visible above the title, muted until you point at them, with `#Page` on an untagged page (click it to set tags) | Turn off with **Always show page title actions and tags** and **Show what a page is above its title**. |
 | Linked references | The link to the page on screen has a faint grey wash behind it with a fine line beneath (on a journal, so does a date that points to that day); source pages are set apart by a gap and share one plain heading, followed by `· n` when a page holds several references; the grey parent path has a bullet with the reference stepped in below it; blocks below a reference are quiet | Turn off with **Mark the link to this page in Linked references** and **Clearer Linked references**. |

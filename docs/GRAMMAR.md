@@ -85,7 +85,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Small words | "Alias of …" under the title | the page is another page's alias | Show which page an alias belongs to (`showAliasOf`) | pages.js |
 | Small words | "Inherited from #Media: keywords, rating" closing the Tag Properties list | where a tag's properties come from | Show inherited properties on tag pages (`showInherited`) | pages.js |
 | Small words | a property's name in grey before a reference row | the row is a property's value | Show how records are linked (`linkLabels`) | styles.js, links.js |
-| Small words | `name: value · name: value`, grey names, no capsules; a list on a very light field; `#` before each tag tab; Add property only on hover | properties under a block and under a title | Plainer properties (`plainProperties`) | styles.js |
+| Small words | `name: value · name: value`, grey names, no capsules; a list on a very light field with the names in one column and every value lined up in a second; `#` before each tag tab; Add property only on hover | properties under a block and under a title | Plainer properties (`plainProperties`) | styles.js |
 | Small words | the tag's own tag left off its rows, table and references | a tag page's rows | Leave a tag page's own tag off its rows (`ownTagHidden`) | styles.js, links.js |
 | Chrome | named items smaller and lighter, in place | rarely used sidebar and toolbar items | Quiet these sidebar and toolbar items (`quietItems`) | chrome.js |
 | Chrome | generic icon gone from Favorites and Recent; journal days grey | the left sidebar's lists | Left sidebar icons only where they mean something (`quietSidebarIcons`) | styles.js, chrome.js |

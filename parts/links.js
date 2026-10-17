@@ -482,11 +482,27 @@ function updateSidebarJournals(doc) {
   for (const el of sidebarJournals) if (!found.has(el)) { el.removeAttribute('data-refinement-journal'); sidebarJournals.delete(el); }
   for (const el of found) { if (!el.hasAttribute('data-refinement-journal')) el.setAttribute('data-refinement-journal', ''); sidebarJournals.add(el); }
 }
+// A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
+// the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
+const mentions = { marked: new Set() };
+function updateMentions(doc) {
+  for (const el of mentions.marked) if (!el.isConnected) mentions.marked.delete(el);
+  if (!setting('tagMark')) {
+    for (const el of mentions.marked) el.removeAttribute('data-refinement-mention');
+    mentions.marked.clear();
+    return;
+  }
+  for (const span of doc.querySelectorAll('.ls-block .block-content .block-title-wrap span:not([class])')) {
+    if (span.children.length || span.hasAttribute('data-refinement-mention') || !/^#[^\s#\[\]]+$/.test(span.textContent)) continue;
+    span.setAttribute('data-refinement-mention', '');
+    mentions.marked.add(span);
+  }
+}
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
-    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     // A link to a journal day needs no mark: Logseq gives every journal page an id that starts with
@@ -549,6 +565,8 @@ function stopDateLinks() {
   for (const crumb of [...provided.propertyCrumbs.marked]) provided.unmarkPropertyCrumb(crumb);
   for (const [el, [attr]] of cueMarks.marked) el.removeAttribute(attr);
   cueMarks.marked.clear();
+  for (const el of mentions.marked) el.removeAttribute('data-refinement-mention');
+  mentions.marked.clear();
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();

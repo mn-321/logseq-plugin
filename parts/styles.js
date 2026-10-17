@@ -543,6 +543,22 @@ const hierarchyParts = {
   quietEmptyBullets: `
 .ls-block:not([data-collapsed="true"]):not(:has(> .block-children-container .ls-block)):has(> .block-main-container .block-content .block-title-wrap:empty):not(:has(> .block-main-container :is(.editor-wrapper, .block-content-wrapper :is(img, input, button, video, iframe, a, svg, .ls-properties-area, .block-body), .ls-block-right :is(.block-tags, .positioned-properties *), .block-content-or-editor-wrap > .positioned-properties *))) > .block-main-container .bullet-container { opacity: 0; transition: opacity .15s; }
 .ls-block:not([data-collapsed="true"]):not(:has(> .block-children-container .ls-block)):has(> .block-main-container .block-content .block-title-wrap:empty):not(:has(> .block-main-container :is(.editor-wrapper, .block-content-wrapper :is(img, input, button, video, iframe, a, svg, .ls-properties-area, .block-body), .ls-block-right :is(.block-tags, .positioned-properties *), .block-content-or-editor-wrap > .positioned-properties *))) > .block-main-container:hover .bullet-container { opacity: .35; }`,
+  // A tag is not a link, so it does not take the link's blue: Logseq draws every tag chip as a # link
+  // (a.hash-symbol) beside the name (a.tag > span), at the right of a block, above a tag page's title
+  // and before that title alike. The # alone takes the tag colour, the name the text colour, which is
+  // the mark a link to a tag page already carries. A tag word left in a sentence is a plain <span>#Tag</span>;
+  // the links part marks it (data-refinement-mention) and its first letter, the #, takes the colour.
+  tagMark: `
+:is(#main-content-container, #right-sidebar, #left-sidebar) a.hash-symbol { color: var(--rf-tag-color) !important; }
+:is(#main-content-container, #right-sidebar) a.tag:not(mark *) { color: var(--ls-primary-text-color, currentColor) !important; }
+:is(#main-content-container, #right-sidebar) a.tag:not(mark *):hover { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); text-underline-offset: .2em; }
+.ls-block .block-content span[data-refinement-mention] { display: inline-block; }
+.ls-block .block-content span[data-refinement-mention]::first-letter { color: var(--rf-tag-color); }
+.ls-bidirectional-properties [role="tab"] > span > span:last-child::before { color: var(--rf-tag-color); }
+/* The # before a tag page's title is Logseq's hash icon inside its Add icon button. */
+#main-content-container .ls-page-title .ls-icon-hash { color: var(--rf-tag-color) !important; }
+.refinement-title-tags { display: inline-block; color: var(--ls-primary-text-color, currentColor) !important; }
+.refinement-title-tags::first-letter { color: var(--rf-tag-color); }`,
   // Optional soft chip behind tags, inline and at the end of a block. Off by default: the plugin
   // otherwise keeps color for dates only.
   tintTags: `
