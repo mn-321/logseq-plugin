@@ -113,6 +113,7 @@ const tokensCss = `:root, body {
   --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent);
   --rf-here-line: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 38%, transparent);
   --rf-small: .82em;     /* labels beside text */
+  --rf-back: .22;        /* a row (and its chip) stepped back while another is chosen */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
   /* the icon of a link to a tag's page: the colour Logseq's theme gives tags, checked in Logseq's order */
   --rf-tag-color: var(--lx-accent-11, var(--ls-tag-text-color, var(--ls-link-text-color, currentColor)));
@@ -226,7 +227,7 @@ const settingsSchema = [
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
   { key: 'showUsage', type: 'boolean', title: 'Show how a page is used', default: true,
-    description: 'Under a page’s title, one quiet line that counts its references by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references under Linked references step back; click it again to bring them all forward. Nothing is written. Applies right away.' },
+    description: 'Beside the Linked references heading, the references counted by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references step back, and so do their counts; click it again to bring them all forward. Nothing is written. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
     description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
   { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,

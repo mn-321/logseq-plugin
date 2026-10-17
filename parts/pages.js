@@ -390,10 +390,14 @@ function startPageKind() {
 .refinement-tag-path .rf-hash { color: var(--rf-tag-color); }
 .refinement-tag-path .rf-own { color: var(--ls-primary-text-color, currentColor); }
 .refinement-tag-path .rf-sep { opacity: var(--rf-faint); margin: 0 .1em; }
-/* How the page is used: each count is a filter on Linked references; the one that is on wears the "here" mark. */
-.refinement-usage a { text-decoration: none !important; padding: 0 .1em; border-radius: 0; }
+/* How the page is used: each count mirrors the rows it stands for. All dark while every row shows; while one is
+   chosen, the others step back exactly as their rows do (--rf-back). Beside the Linked references heading. */
+.refinement-usage { opacity: 1; color: var(--ls-primary-text-color, currentColor); }
+.refinement-usage.rf-at-heading { display: inline-flex; align-items: baseline; margin: 0 0 0 1.2em; vertical-align: baseline; }
+.refinement-usage a { text-decoration: none !important; color: inherit; padding: 0; transition: opacity .15s; }
 .refinement-usage a .rf-n { opacity: var(--rf-quiet); font-variant-numeric: tabular-nums; }
-.refinement-usage a[data-on] { background: var(--rf-here); box-shadow: inset 0 -1px 0 var(--rf-here-line); color: var(--ls-primary-text-color, currentColor); }
+.refinement-usage[data-filtered] a:not([data-on]) { opacity: var(--rf-back); }
+.refinement-usage a:hover { opacity: 1; }
 .refinement-usage .rf-gap { display: inline-block; width: 1em; }
 .ls-page-properties .refinement-inherited { margin: .25rem 0 0 1.25rem; }
 :is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) a:hover { color: var(--ls-primary-text-color, currentColor); }` });

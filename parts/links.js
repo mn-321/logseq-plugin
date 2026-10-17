@@ -600,10 +600,14 @@ function updateUsageLine(doc) {
     });
   }
   if (usage.filter && !parts.some(([key]) => key === usage.filter)) usage.filter = null;
-  const html = parts.map(([key, label, n]) => `<a href="#" data-usage="${escapeHtml(key)}"${usage.filter === key ? ' data-on=""' : ''} title="${usage.filter === key ? 'Show every reference again' : 'Show only these references'}">${escapeHtml(label)} <span class="rf-n">· ${n}</span></a>`).join('<span class="rf-gap"></span>');
+  const html = parts.map(([key, label, n]) => `<a href="#" data-usage="${escapeHtml(key)}"${usage.filter === key ? ' data-on=""' : ''} title="${usage.filter === key ? 'Bring every reference forward again' : 'Step the other references back'}">${escapeHtml(label)} <span class="rf-n">· ${n}</span></a>`).join('<span class="rf-gap"></span>');
   if (usage.html !== html) { usage.html = html; line.innerHTML = html; }
-  // Right under the title row, above the page's own property list (the Alias of and path lines are placed again after it).
-  const after = title.querySelector('.is-page-title-row') || provided.titleAnchor(doc, title);
+  if (line.hasAttribute('data-filtered') !== Boolean(usage.filter)) line.toggleAttribute('data-filtered', Boolean(usage.filter));
+  // Beside the Linked references heading, which the counts are about; under the title row only while that
+  // heading is not drawn yet (Logseq draws the references late).
+  const heading = [...doc.querySelectorAll('#main-content-container .references .ls-foldable-title')].find(el => /^\s*linked references/i.test(el.textContent));
+  const after = heading || title.querySelector('.is-page-title-row') || provided.titleAnchor(doc, title);
+  line.classList.toggle('rf-at-heading', Boolean(heading));
   if (after.nextElementSibling !== line) after.after(line);
   applyUsageFilter(doc, usage.filter);
 }
