@@ -32,7 +32,7 @@ Git: one version per commit. No global identity is set; commit with
 ## The state today
 
 - 0.4.79 on `main`. `docs/GRAMMAR.md` (written at 0.4.63) states the visual and behavioural grammar and what is built, dropped or open; a drawn version is the private artifact "Refinements Grammar" (claude.ai/artifact/FvVhNv4GPgbUUpsdPFvchV). The grammar round built nine changes the owner then looked at (see "The grammar round" below); each has its own setting.
-- The owner's words at the end of that round, which hold until they say otherwise: leave Todos and the tag tree alone; keep it simple; no extra space between blocks (Logseq's own spacing); no property Logseq shows may become invisible (faint is fine); they will look at the changes in `Work` themselves.
+- The owner's words at the end of that round, which hold until they say otherwise: leave Todos and the tag tree alone; keep it simple; no extra space between blocks (Logseq's own spacing); no property Logseq shows may become invisible (faint is fine). Later the same evening they asked for all the remaining recommendations (0.4.81 to 0.4.87), for the ↳ cue only on folded blocks, for the pencil after a date value to go, and for tag chips to be drawn as grey monospace words without the `#`, since tags act like classes.
 - The code is a core plus parts (see the table). Every helper exists once (`parts/shared.js`); in the three files the cleanup split (tags, todos, search) no function is over 80 lines; the ones still over it elsewhere are listed under "Cleanup (October 2026)" below.
 - The owner uses the plugin in `Work` and lets journal-day dates run there (settings `autoDateGraphs: Plugin Test Graph, Work`).
 
@@ -45,7 +45,7 @@ Git: one version per commit. No global identity is set; commit with
 
 - Seen once (0.4.77): a record written from the command line about ten seconds after a plugin reload was not noticed by `DB.onChanged` until the journal-date check was run by hand (`window.journalDatesDebug.autoDateNew()` in the plugin frame).
 - The plugin API refuses every icon value a plugin sends (`upsert_block_property` with `{type, id}` logs "Invalid icon", 2.0.2); an icon on a tag is picked on its page with Logseq's own Add icon.
-- Change 7 of the grammar page (the `#` and the date box on the rows of the `[[` picker), the housekeeping tokens and wording, and the three documentation items are not done; see `docs/GRAMMAR.md`.
+- Still open from the grammar page: change 9 (one write path with an inverse, mostly in Todos and the tag tree), housekeeping 10, 17 (the two views' own scales and bars), 21, 24 to 26 and 28 (Todos, the tree, and the Cmd+Z check of the editor commands), and the Logseq defaults left on purpose; see `docs/GRAMMAR.md`.
 
 - Add tags to this page (Cmd+T) opens the plugin's own Tags list under the title since 0.4.82, the same list the `#Page` label opens; on the Journals list it says so and does nothing.
 - On **Book** in the test graph, `published at`, `authors` and `isbn` hold empty descriptions (test data, not plugin code).

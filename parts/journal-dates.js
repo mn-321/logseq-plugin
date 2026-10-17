@@ -296,7 +296,7 @@ async function fillMissingDates() {
 
 const settingsSchema = [
   { key: 'journalDateHeading', type: 'heading', title: 'Journal day as date', default: null,
-    description: 'The only part of the plugin that writes to your notes. Also in the command palette: “Fill missing dates from journal days”.' },
+    description: 'The only part that writes without you pressing anything, and only after asking unless Ask before filling is off. Also in the command palette: “Fill missing dates from journal days”.' },
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },
   { key: 'autoDateAsk', type: 'boolean', title: 'Ask before filling', default: true,

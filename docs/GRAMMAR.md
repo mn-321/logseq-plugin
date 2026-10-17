@@ -43,6 +43,8 @@ Two more places hold cues that are not about one row:
 
 The three rules the owner set, which the axes come from: the bullet says what a row is; a mark before a link says what it points to; anything after the text says what the block holds. The arrow symbol is not used.
 
+**Exceptions written in (0.4.87).** A date is the one cue that wraps its words. A row that is a link is still a block; the dot says where the link goes. State is the one axis in colour, in Logseq's family, and Todos uses the same family. Hidden properties are something the block holds, so their chevron sits after the text. On a highlight a link takes the colour that reads. The ↳ cue shows only on a folded block: while the children are on screen, nothing needs to say what is below. A date value has no pencil: it is plainly a value you can change.
+
 ### Every cue on the grid
 
 | Place | Cue | Means | Setting (key) | Where |
@@ -153,6 +155,10 @@ One toast, through Logseq's own message, at warning level, that names what to do
 | The dark Undo bar | nothing; it goes after 7 s | nothing |
 | Copy as rich text | cancels | nothing |
 
+### Written-in rules of behaviour (0.4.87)
+
+Fold all is undone by Unfold all. Escape on the ghost value means later; `k` is the no. Escape closes a window (Todos as a window) and never a view (Todos as a page or sidebar, the tag tree). A warning refuses, a plain note reports. One box asks, drawn from `shared.modal` or in its look; one bar, from `shared.showUndoBar`, follows a write with Undo (Todos and the tree still carry their own).
+
 ### What a reload must never do
 
 A reload must leave one of everything: the new copy runs the old copy's clean-up, stops its watchers and sweeps any mark, note or box the old copy left. It must never write to notes. It must never show "Reload the plugin to apply this change" for a default being filled in. It must redraw every cue as it was. Three reloads in a row are the test. One thing a reload forgets: the records you answered `k` to, so a record made in the minute before the reload may be asked about once more.
@@ -196,7 +202,7 @@ Typed, not a command: a year-first date inside `[[ ]]` becomes the journal's nam
 
 ## Ten changes that would make a page read better
 
-**Status at 0.4.79.** Built and kept, each behind its own setting: 1 (dot, icon, words; 0.4.72, without the tree's Set icon, which the API refuses), 2 (0.4.75), 4 (0.4.77), 5 (0.4.74, with the other rows dimmed rather than hidden), 6 (0.4.73, without the tree's root hues), 10 (0.4.69). Built and taken out: 3 (0.4.68, removed 0.4.78: the owner wants Logseq's own spacing). Drafted and dropped: 8 ("too complicated"). Not started: 7 and 9. Todos and the tag tree are off limits for now.
+**Status at 0.4.87.** Built and kept, each behind its own setting: 1 (dot, icon, words; 0.4.72, without the tree's Set icon, which the API refuses), 2 (0.4.75, and since 0.4.81 the whole ↳ cue shows only while folded), 4 (0.4.77), 5 (0.4.74, with the other rows dimmed rather than hidden), 6 (0.4.73, without the tree's root hues), 7 (0.4.84), 10 (0.4.69). Built and taken out: 3 (0.4.68, removed 0.4.78: the owner wants Logseq's own spacing). Drafted and dropped: 8 ("too complicated"). Not started: 9 (mostly Todos and the tag tree, off limits for now).
 
 The departures further down make the code keep its own rules; none of them changes how a page reads. These ten do. Each follows one of the axes further than the plugin takes it today. For each: what is there now, what is proposed, why, and what it would take. None is built. They are for the owner to pick from by looking at the drawing on the grammar page, then at a trial in the test graph.
 
@@ -213,7 +219,7 @@ The departures further down make the code keep its own rules; none of them chang
 
 ## Housekeeping: where the code departs from its own rules
 
-**Status at 0.4.79.** Done: 1 (one colour for `#`, 0.4.67), 2 (no file type word, 0.4.70), 22 (Undo after a fill, 0.4.77). The rest stand as written.
+**Status at 0.4.87.** Done: 1 (0.4.67), 2 (0.4.70), 5 to 9 and 11 (the tokens, 0.4.83), 15 (0.4.83), 16 in part (the rich-copy card, 0.4.86; the merge box is in the tree), 17 in part (one bar in shared.js, 0.4.84; the views keep theirs), 18 to 20 (0.4.82), 22 (0.4.77), 23 (0.4.82), 27 (0.4.84), 31 (0.4.82), 33 to 36 (0.4.87). Written in rather than changed: 3, 4, 12 to 14, 29, 30, 32. Open: 10, 21, 24 to 26 (Todos and the tree), 28 (the Cmd+Z check).
 
 These change nothing about how a page reads; they make the code keep its own rules. For each: what is there now, one proposal, and the reason. The owner decides by looking; "write it in" means the grammar changes, not the code.
 
@@ -264,7 +270,7 @@ These change nothing about how a page reads; they make the code keep its own rul
 
 ## What Logseq still draws against the grammar
 
-**Status at 0.4.79.** Done: 1 and 2 (the tag mark, 0.4.67), 3 (dot, icon, words, 0.4.72), 4 (empty properties faint, 0.4.79; the owner ruled out hiding them). The rest stand as written.
+**Status at 0.4.87.** Done: 1 and 2 (the tag mark, 0.4.67; the owner has since asked for tag chips as grey monospace words without the `#`, which comes next), 3 (dot, icon, words, 0.4.72), 4 (empty properties faint, 0.4.79; the owner ruled out hiding them), 6 (the picker marks, 0.4.84). Open: 9 (the bare count, to be looked at), 11 (the hover preview, to be looked at once). The rest are left on purpose.
 
 The plugin changes how Logseq draws things; some of Logseq's own drawing still bends the rules. For each: what Logseq draws, which rule it bends, and one proposal. "Leave" is a proposal too, with its reason.
 
