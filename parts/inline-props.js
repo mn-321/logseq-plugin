@@ -35,6 +35,8 @@ const settingsSchema = [
     description: 'The letters before :: need only start a field’s name: pro:: opens project’s values when only one of the record’s own fields (or, failing that, one of all your properties) starts so; when several do, the name list opens filtered by them, so nothing is guessed. The record’s fields are listed in the order of their pills. Applies at once.' },
   { key: 'inlinePropsGather', type: 'boolean', title: 'A field that takes several stays open', default: true,
     description: 'After Enter writes a page into a field that takes several (attendees), the list stays open with the letters cleared and no row chosen; more letters and Enter add the next, Enter with nothing typed (or Escape) finishes and takes the token out of the text. Applies at once.' },
+  { key: 'inlinePropsEscapeClears', type: 'boolean', title: 'Escape takes the token out', default: true,
+    description: 'Escape closes the list and takes p:: or name:: out of the text (Cmd+Z brings it back); leaving the block with the list open, by Tab or a click elsewhere, does the same, so a block is never saved with the token in it. Off, Escape keeps the words as typed. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -533,10 +535,18 @@ function onKey(event) {
   else if (event.key === 'ArrowUp') { stop(); move(-1); }
   else if (finishing) { stop(); removeToken(); closeMenu(); }
   else if (event.key === 'Enter' && rows.some(selectable)) { stop(); pickSelected(); }
-  // Escape closes the list and keeps you in the block; the token stays as typed and is not asked about again
-  // until the text changes.
-  else if (event.key === 'Escape') { stop(); state.dismissed = state.box.value; closeMenu(); }
-  else if (event.key === 'Tab') closeMenu();
+  // Escape closes the list and keeps you in the block. With the token taken out (0.4.99), Cmd+Z brings it back;
+  // without, it stays as typed and is not asked about again until the text changes.
+  else if (event.key === 'Escape') { stop(); if (clearsOnLeave()) removeToken(); else state.dismissed = state.box.value; closeMenu(); }
+  else if (event.key === 'Tab') { if (clearsOnLeave()) removeToken(); closeMenu(); }
+}
+const clearsOnLeave = () => setting('inlinePropsEscapeClears');
+// A press outside the list and the block while the list is open (0.4.99): the token leaves the text before the
+// block loses the caret, so the block is never saved with p:: or name:: in it.
+function onPointerDown(event) {
+  if (!state.menu?.isConnected || !clearsOnLeave()) return;
+  if (state.menu.contains(event.target) || event.target === state.box) return;
+  removeToken(); closeMenu();
 }
 let checkTimer = 0;
 function onEditorChange(event) {
@@ -584,6 +594,7 @@ function start() {
   listen(win, ['keydown'], onKey);
   listen(win, ['input', 'keyup', 'click'], onEditorChange);
   listen(win, ['focusout'], onFocusOut);
+  listen(win, ['pointerdown'], onPointerDown); // pointerdown: Logseq takes the editor away before mousedown fires (seen 2026-10-17)
   onUnload(logseq.App.onRouteChanged(() => { state.allowed = null; closeMenu(); }));
   onUnload(logseq.onSettingsChanged(() => { state.allowed = null; }));
   onUnload(() => { clearTimeout(checkTimer); closeMenu(); });
