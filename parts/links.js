@@ -40,22 +40,64 @@ const ownKinds = (node, metadata) => {
       /!\[[^\]]*\]\([^)]*\)|(?:^|[\s(])(?:assets\/|\.\/assets\/)/i.test(title))
   };
 };
-function summarize(node, badges, metadata, assetTypes) {
+// What sits below a block: unfinished tasks and files at any depth (shown always), and, for a folded block,
+// the kinds inside (the owner's own tags, counted) and the nearest due day of an unfinished task.
+function summarize(node, badges, metadata, assetTypes, inside) {
   const own = ownKinds(node, metadata);
-  const descendants = { task: 0, asset: 0, assetTypes: new Set() };
+  const descendants = { task: 0, asset: 0, assetTypes: new Set(), tags: new Map(), due: 0 };
   for (const child of node.children || []) {
     if (!child || Array.isArray(child)) continue;
-    const kinds = summarize(child, badges, metadata, assetTypes);
+    const kinds = summarize(child, badges, metadata, assetTypes, inside);
     descendants.task += kinds.task;
+    for (const [title, n] of kinds.tags) descendants.tags.set(title, (descendants.tags.get(title) || 0) + n);
+    if (kinds.due && (!descendants.due || kinds.due < descendants.due)) descendants.due = kinds.due;
     const types = assetTypes.get(child.uuid);
     if (ownKinds(child, metadata).asset || types?.size) {
       descendants.asset++;
       for (const type of types || ['asset']) descendants.assetTypes.add(type);
     }
   }
-  if (UUID.test(node.uuid || '') && (descendants.task || descendants.asset))
+  if (UUID.test(node.uuid || '') && (descendants.task || descendants.asset || descendants.tags.size || descendants.due))
     badges.set(node.uuid, descendants);
-  return { task: Number(own.task) + descendants.task, asset: Number(own.asset) + descendants.asset };
+  const tags = new Map(descendants.tags);
+  for (const title of inside?.tags.get(String(node.uuid)) || []) tags.set(title, (tags.get(title) || 0) + 1);
+  const ownDue = own.task ? inside?.due.get(String(node.uuid)) || 0 : 0;
+  const due = ownDue && (!descendants.due || ownDue < descendants.due) ? ownDue : descendants.due;
+  return { task: Number(own.task) + descendants.task, asset: Number(own.asset) + descendants.asset, tags, due };
+}
+// For every block on the page: its own tags (the owner's, by title; Logseq's own classes such as Task are
+// left out) and its due day (Deadline, else Scheduled), as the journal day number.
+async function descendantKinds(tree) {
+  const ids = treeIds(tree);
+  const result = { tags: new Map(), due: new Map() };
+  if (!ids.length || !logseq.DB?.datascriptQuery) return result;
+  try {
+    const tagRows = await logseq.DB.datascriptQuery(`[:find ?uuid ?title ?ident
+      :where ${idsIn('?b', ids)} [?b :block/uuid ?uuid] [?b :block/tags ?t] [?t :block/title ?title] [(get-else $ ?t :db/ident :none) ?ident]]`);
+    for (const [uuid, title, ident] of tagRows || []) {
+      if (/^:?logseq\.class\//.test(String(ident))) continue;
+      const key = String(uuid);
+      if (!result.tags.has(key)) result.tags.set(key, []);
+      result.tags.get(key).push(String(title));
+    }
+    const dueRows = await logseq.DB.datascriptQuery(`[:find ?uuid ?day
+      :where ${idsIn('?b', ids)} [?b :block/uuid ?uuid]
+      (or-join [?b ?day] (and [?b :logseq.property/deadline ?d] [?d :block/journal-day ?day]) (and [?b :logseq.property/scheduled ?d] [?d :block/journal-day ?day]))]`);
+    for (const [uuid, day] of dueRows || []) {
+      const key = String(uuid), n = Number(day);
+      if (Number.isFinite(n) && (!result.due.has(key) || n < result.due.get(key))) result.due.set(key, n);
+    }
+  } catch (error) { warnOnce('could not read what folded blocks hold', error); }
+  return result;
+}
+// "due Fri" within the week, "due today", else "due Oct 20".
+function dueLabel(day) {
+  const date = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100);
+  const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((date - today) / 86400000);
+  if (days === 0) return 'due today';
+  if (days > 0 && days < 7) return 'due ' + date.toLocaleDateString(undefined, { weekday: 'short' });
+  return 'due ' + date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 function collectNodes(tree, nodes = []) {
   for (const node of tree || []) {
@@ -875,7 +917,8 @@ function updateChildAssetCues(doc) {
     const old = [...wrap.children].find(el => el.classList.contains('refinement-child-assets'));
     if (block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
     const types = kinds.asset ? [...kinds.assetTypes].sort() : [];
-    const signature = `${kinds.task}|${kinds.asset}|${types.join(',')}`;
+    const insideTags = [...(kinds.tags || [])].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3);
+    const signature = `${kinds.task}|${kinds.asset}|${types.join(',')}|${insideTags.map(([t, n]) => t + n).join(',')}|${kinds.due || 0}`;
     if (old?.getAttribute('data-types') === signature) continue;
     old?.remove();
     const label = [kinds.task && `${kinds.task} unfinished task${kinds.task === 1 ? '' : 's'} below`,
@@ -895,6 +938,25 @@ function updateChildAssetCues(doc) {
     };
     if (kinds.task) { icon('task'); cue.appendChild(doc.createTextNode(String(kinds.task))); }
     for (const type of types) icon(`asset-${type}`);
+    // While the block is folded: the kinds inside and the nearest due day (hidden by the stylesheet while open).
+    if (insideTags.length || kinds.due) {
+      const more = doc.createElement('span');
+      more.className = 'refinement-child-kinds';
+      for (const [title, n] of insideTags) {
+        const part = doc.createElement('span');
+        part.className = 'rf-kind';
+        part.innerHTML = `<span class="rf-sep">·</span> ${n} <span class="rf-hash">#</span>${escapeHtml(title)}`;
+        more.appendChild(part);
+      }
+      if (kinds.due) {
+        const part = doc.createElement('span');
+        part.className = 'rf-kind';
+        part.innerHTML = `<span class="rf-sep">·</span> ${escapeHtml(dueLabel(kinds.due))}`;
+        more.appendChild(part);
+      }
+      cue.appendChild(more);
+      if (!kinds.task && !kinds.asset) cue.setAttribute('data-only-folded', '');
+    }
     wrap.appendChild(cue);
   }
 }
@@ -1022,7 +1084,7 @@ async function refreshCues(version = ++refreshVersion) {
   try {
     let tree = await logseq.Editor.getCurrentPageBlocksTree();
     if (!tree?.length) tree = await shownPagesTree();
-    const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), graphWide('referenced', referencedNodeIds), directAssetTypes(tree), graphWide('propertyValues', propertyValueBlocks), incomingPropertyLinks()]);
+    const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming, inside] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), graphWide('referenced', referencedNodeIds), directAssetTypes(tree), graphWide('propertyValues', propertyValueBlocks), incomingPropertyLinks(), descendantKinds(tree)]);
     if (version !== refreshVersion) return;
     pdfCitations.sources = pdfSources.sources;
     pdfCitations.pageUuid = pdfSources.pageUuid;
@@ -1030,7 +1092,7 @@ async function refreshCues(version = ++refreshVersion) {
     if (dateLinks.document) provided.updateListProps(dateLinks.document);
     updatePdfCitations();
     const badges = new Map();
-    for (const block of tree || []) summarize(block, badges, metadata, assetTypes);
+    for (const block of tree || []) summarize(block, badges, metadata, assetTypes, inside);
     childAssetCues.clear();
     if (setting('childTypeCues')) for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);

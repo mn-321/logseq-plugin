@@ -119,6 +119,12 @@ ${referenceIcon('.refinement-child-asset-pdf', documentIcon)}
 ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .refinement-child-assets span::before { margin-right: 0; opacity: 1; }
 .refinement-child-task { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; border: 1px dashed currentColor; border-radius: 50%; }
+/* The kinds inside and the nearest due day show while the block is folded; a cue that has nothing else to say waits with them. */
+.refinement-child-kinds { display: none; }
+.refinement-child-kinds .rf-sep { opacity: var(--rf-faint); margin: 0 .25em 0 .1em; }
+.refinement-child-kinds .rf-hash { color: var(--rf-tag-color); }
+.ls-block[data-collapsed="true"] > .block-main-container .refinement-child-kinds { display: inline; }
+.ls-block:not([data-collapsed="true"]) > .block-main-container .refinement-child-assets[data-only-folded] { display: none; }
 `],
   ['quietLinks', `/* Type cues on rendered references. Tags keep Logseq's own look. */
 /* A link to a tag's own page looks like a page link (underlined name) but its icon is in the colour
