@@ -116,8 +116,9 @@ const tokensCss = `:root, body {
   --rf-small: .82em;     /* labels beside text */
   --rf-back: .22;        /* a row (and its chip) stepped back while another is chosen */
   --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
-  /* the icon of a link to a tag's page: the colour Logseq's theme gives tags, checked in Logseq's order */
-  --rf-tag-color: var(--lx-accent-11, var(--ls-tag-text-color, var(--ls-link-text-color, currentColor)));
+  /* the # of a tag (before a link to a tag's page, a tag word in a sentence, a tag page's title, the pickers): the grey
+     of the tag chips (0.4.114, at the owner's word: no blue tag anywhere; it was the colour Logseq's theme gives tags) */
+  --rf-tag-color: var(--ls-secondary-text-color, currentColor);
 }`;
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
