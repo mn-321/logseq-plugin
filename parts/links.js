@@ -808,7 +808,9 @@ function updateValuePicker(doc) {
     let icon = main.querySelector('.refinement-value-icon');
     if (!wanted) icon?.remove();
     else {
-      if (!icon) { icon = doc.createElement('span'); icon.className = 'refinement-value-icon'; main.prepend(icon); }
+      // After Logseq's checkbox, in the slot where a page's own icon sits (0.4.117: before it, the checkbox stood in a
+      // column of its own and the rows with an icon of their own did not line up).
+      if (!icon) { icon = doc.createElement('span'); icon.className = 'refinement-value-icon'; const box = main.querySelector(':scope > .ui__checkbox'); if (box) box.after(icon); else main.prepend(icon); }
       if (icon.dataset.kind !== wanted) { icon.dataset.kind = wanted; icon.innerHTML = wanted === 'block' ? '<span class="refinement-value-dot">•</span>' : provided.propPageIcon(page); }
     }
     seen.add(row); valuePicker.marked.add(row);
