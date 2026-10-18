@@ -636,6 +636,15 @@ function updateUsageLine(doc) {
    popup: the slash menu and the (( menu share the id and are left alone. A page and a tag with the same name
    cannot be told apart by name alone. */
 const pickerMarks = { marked: new Set(), tags: new Map() };  // tags: row -> { node, original }
+// The values Proposals in the pills has pencilled into the record in edit, by name (0.4.123): a row that is one says so.
+function proposedTitles(doc) {
+  const box = doc.activeElement;
+  const uuid = box?.matches?.('textarea') ? box.closest('.ls-block[blockid]')?.getAttribute('blockid') : null;
+  if (!uuid || !provided.proposalsFor) return null;
+  const set = new Set();
+  for (const item of provided.proposalsFor(uuid)) for (const t of String(item.shown).split(', ')) set.add(t.trim().toLowerCase());
+  return set.size ? set : null;
+}
 const PICKER_TAGS = /(?:^|\s+)#[^#\s\[\]]+(?:\s+#[^#\s\[\]]+)*\s*$/;
 function pickerKind(row) {
   const line = row.querySelector('.flex-col > .items-start');
@@ -680,7 +689,7 @@ function unmarkPickerTags(row) {
   pickerMarks.tags.delete(row);
 }
 function unmarkPickerRow(row) {
-  if (row.isConnected) { row.removeAttribute('data-refinement-pick'); if (!pickerMarks.tags.has(row)) row.removeAttribute('data-refinement-pick-tags'); }
+  if (row.isConnected) { row.removeAttribute('data-refinement-pick'); row.removeAttribute('data-refinement-proposed'); if (!pickerMarks.tags.has(row)) row.removeAttribute('data-refinement-pick-tags'); }
   unmarkPickerTags(row);
   pickerMarks.marked.delete(row);
 }
@@ -710,7 +719,7 @@ function hashtagKind(row) {
 }
 function updatePickerMarks(doc) {
   const menus = setting('pickerMarks') ? doc.querySelectorAll(':is([data-editor-popup-ref="page-search"], [data-editor-popup-ref="page-search-hashtag"]) #ui__ac') : [];
-  const seen = new Set();
+  const seen = new Set(), proposed = proposedTitles(doc);
   for (const menu of menus) {
     const hashtag = !!menu.closest('[data-editor-popup-ref="page-search-hashtag"]');
     if (hashtag) loadTagInfo(doc);
@@ -718,6 +727,7 @@ function updatePickerMarks(doc) {
       const kind = hashtag ? hashtagKind(row) : pickerKind(row);
       if (!kind) continue;
       if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
+      if (!hashtag) { const name = (row.querySelector('.flex-col > .items-start')?.textContent || row.textContent).replace(PICKER_TAGS, '').trim().toLowerCase(); row.toggleAttribute('data-refinement-proposed', kind !== 'new' && !!proposed?.has(name)); }
       if (hashtag) {
         const info = kind === 'tag' ? tagInfo.byLower?.get(row.textContent.trim().toLowerCase()) || '' : '';
         if (info) { if (row.getAttribute('data-refinement-pick-tags') !== info) row.setAttribute('data-refinement-pick-tags', info); } else row.removeAttribute('data-refinement-pick-tags');
@@ -791,7 +801,7 @@ function loadValuePages(doc) {
 function updateValuePicker(doc) {
   const rows = setting('valuePickerMarks') && provided.propPages ? doc.querySelectorAll('.property-select .cp__select-results .menu-link') : [];
   if (rows.length) loadValuePages(doc);
-  const seen = new Set();
+  const seen = new Set(), proposed = proposedTitles(doc);
   for (const row of rows) {
     const main = row.querySelector('.justify-between > .items-center');
     if (!main) continue;
@@ -801,6 +811,7 @@ function updateValuePicker(doc) {
     if (!kind) continue;
     const label = kind === 'block' ? 'block' : kind === 'tag' ? 'tag' : kind === 'page' ? (page.tags.find(t => t.title !== 'Page')?.title || 'page') : '';
     if (row.getAttribute('data-refinement-value') !== kind) row.setAttribute('data-refinement-value', kind);
+    row.toggleAttribute('data-refinement-proposed', kind !== 'new' && !!proposed?.has(lower));
     if (label) { if (row.getAttribute('data-refinement-value-kind') !== label) row.setAttribute('data-refinement-value-kind', label); } else row.removeAttribute('data-refinement-value-kind');
     if (crumb) { const day = crumb.textContent.trim(); crumb.toggleAttribute('data-refinement-value-day', !!(dateLinkName(day) || dateLinks.names.has(day.toLowerCase()))); }
     // The mark before the words: a page with an icon of its own already has it (Logseq draws it), the rest get one.
@@ -818,7 +829,7 @@ function updateValuePicker(doc) {
   for (const row of valuePicker.marked) if (!seen.has(row)) unmarkValueRow(row);
 }
 function unmarkValueRow(row) {
-  row.removeAttribute('data-refinement-value'); row.removeAttribute('data-refinement-value-kind');
+  row.removeAttribute('data-refinement-value'); row.removeAttribute('data-refinement-value-kind'); row.removeAttribute('data-refinement-proposed');
   for (const el of row.querySelectorAll('[data-refinement-value-day]')) el.removeAttribute('data-refinement-value-day');
   for (const icon of row.querySelectorAll('.refinement-value-icon')) icon.remove();
   valuePicker.marked.delete(row);

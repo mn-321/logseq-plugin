@@ -554,6 +554,8 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 [data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick-tags]::after { font-family: inherit !important; }
 #ui__ac .menu-link[data-refinement-pick-tags]::after { content: attr(data-refinement-pick-tags); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
 #ui__ac .menu-link[data-refinement-pick="relative"] { color: var(--ls-secondary-text-color) !important; }
+/* A row that is a value Proposals in the pills has pencilled into the record in edit says so, in plain quiet words after the name (0.4.123). */
+#ui__ac .menu-link[data-refinement-proposed] .flex-col > .items-start::after { content: 'proposed'; margin-left: .6em; font-size: var(--rf-small); font-style: normal; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; font-style: italic; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start > .opacity-50 { position: absolute; left: -1.5em; top: 0; }
 /* The # picker (0.4.107): no icon slot, so the # is drawn before the words; the New tag row needs no room for a +. */
@@ -568,6 +570,7 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .property-select .refinement-value-icon svg { width: 1em; height: 1em; }
 .property-select .refinement-value-dot { font-size: .72em; opacity: var(--rf-faint); line-height: 1; }
 .property-select #ui__ac .menu-link[data-refinement-value="new"] .justify-between > .items-center:first-child { font-style: italic; color: var(--ls-secondary-text-color); }
+.property-select #ui__ac .menu-link[data-refinement-proposed] .justify-between > .items-center:first-child::after { content: 'proposed'; margin-left: .6em; font-size: var(--rf-small); color: var(--ls-secondary-text-color); }
 .property-select .breadcrumb__label[data-refinement-value-day] { display: inline-block; padding: 0 .3em; border-radius: .22em; background: ${wash('--rf-wash-pct')}; font-variant-numeric: tabular-nums; }
 `],
   ['propertyPickerTypes', `/* The property picker says each type (marked by updatePropertyPicker in the links part): the type icon the line
