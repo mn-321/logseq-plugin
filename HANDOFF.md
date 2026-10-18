@@ -24,6 +24,7 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | The gentle theme (a separate Logseq theme) | `~/logseq-gentle-theme/` |
 | Standing advice for plugin and CLI work | `GUIDE.md` |
 | History (audit, reviews, session diaries, the cleanup prompt) | `docs/history/` |
+| The prompt for the next round (autocomplete as one system, the look of not yet written) | `docs/REFINE-PROMPT-2026-10-18.md`; the review round's prompt is `docs/REVIEW-PROMPT-2026-10-18.md` |
 | Test graph | Logseq graph **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`); seed in `test/plugin-test-graph.edn` (the graph has gained things the seed lacks) |
 | Live legend of every cue | page **Plugin Visual Cues** in the test graph |
 | Logseq | `/Applications/Logseq.app`, 2.0.2, DB version; CLI `~/.local/bin/logseq` |
