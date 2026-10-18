@@ -87,6 +87,16 @@ async function descendantKinds(tree) {
       const key = String(uuid), n = Number(day);
       if (Number.isFinite(n) && (!result.due.has(key) || n < result.due.get(key))) result.due.set(key, n);
     }
+    // A Deadline or Scheduled of the Date-and-time kind is a timestamp, not a journal page (0.4.108; a ref is a small
+    // entity id, a timestamp is past 1e11, so the comparison tells them apart without a type predicate).
+    const stampRows = await logseq.DB.datascriptQuery(`[:find ?uuid ?ms
+      :where ${idsIn('?b', ids)} [?b :block/uuid ?uuid] (or [?b :logseq.property/deadline ?ms] [?b :logseq.property/scheduled ?ms]) [(> ?ms 100000000000)]]`);
+    for (const [uuid, ms] of stampRows || []) {
+      const key = String(uuid), d = new Date(Number(ms));
+      if (Number.isNaN(d.getTime())) continue;
+      const n = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+      if (!result.due.has(key) || n < result.due.get(key)) result.due.set(key, n);
+    }
   } catch (error) { warnOnce('could not read what folded blocks hold', error); }
   return result;
 }
@@ -827,7 +837,7 @@ function updateMentions(doc) {
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
-  for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
+  for (const part of [updateReferenceRows, updateChildAssetCues, updateDayCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
     updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks, updatePropertyPicker, updateValuePicker]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
@@ -1109,7 +1119,7 @@ const childAssetCues = new Map();
 // What sits below a block, written after its text: ↳, then a dashed circle and a count for
 // unfinished tasks at any depth, then an icon for each kind of file directly below.
 function updateChildAssetCues(doc) {
-  for (const cue of doc.querySelectorAll('.refinement-child-assets')) {
+  for (const cue of doc.querySelectorAll('.refinement-child-assets:not(.refinement-day-cue)')) {
     const uuid = cue.closest('.ls-block[blockid]')?.getAttribute('blockid');
     if (!childAssetCues.has(uuid)) cue.remove();
   }
@@ -1270,21 +1280,69 @@ let refreshTimer;
 let refreshVersion = 0;
 // The Journals list shows several pages at once and Logseq names none of them as the current page,
 // so the blocks of every page whose title is on screen are read instead.
+const dayOf = new Map(); // top-level block uuid -> the page (journal day) it sits on, for the day cues (0.4.108)
 async function shownPagesTree() {
   const doc = dateLinks.document;
+  dayOf.clear();
   if (!doc) return [];
   const uuids = [...new Set([...provided.pageTitles(doc)].map(title => title.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '')
     .filter(uuid => UUID.test(uuid)))].slice(0, 12);
   const trees = await Promise.all(uuids.map(async uuid => {
     try {
-      const tree = await logseq.Editor.getPageBlocksTree(uuid);
-      if (tree?.length) return tree;
-      const page = await logseq.Editor.getPage(uuid);
-      const name = page?.name || page?.title || page?.originalName;
-      return name ? await logseq.Editor.getPageBlocksTree(name) || [] : [];
+      let tree = await logseq.Editor.getPageBlocksTree(uuid);
+      if (!tree?.length) {
+        const page = await logseq.Editor.getPage(uuid);
+        const name = page?.name || page?.title || page?.originalName;
+        tree = name ? await logseq.Editor.getPageBlocksTree(name) || [] : [];
+      }
+      for (const node of tree || []) if (node?.uuid) dayOf.set(String(node.uuid), uuid);
+      return tree;
     } catch { return []; }
   }));
   return trees.flat().filter(Boolean);
+}
+/* A day says what it holds (dayCues, 0.4.108): on the Journals list, after each day's title, the folded cue's family
+   without the ↳: the dashed circle with the unfinished tasks of the day, the nearest due day, and the kinds of record
+   inside by the owner's tags (up to three, counted), in the slot after the text, as a folded block says what it holds.
+   Nothing steps back: a day with nothing open has a shorter cue. A journal opened on its own shows none; its rows are there. */
+const dayCues = new Map();
+function addDayKinds(days, uuid, kinds) {
+  const day = days.get(uuid) || { task: 0, tags: new Map(), due: 0 };
+  day.task += kinds.task;
+  for (const [title, n] of kinds.tags) day.tags.set(title, (day.tags.get(title) || 0) + n);
+  if (kinds.due && (!day.due || kinds.due < day.due)) day.due = kinds.due;
+  days.set(uuid, day);
+}
+function updateDayCues(doc) {
+  for (const cue of doc.querySelectorAll('.refinement-day-cue')) {
+    const uuid = cue.closest('.ls-block[blockid]')?.getAttribute('blockid');
+    if (!dayCues.has(uuid)) cue.remove();
+  }
+  if (!dayCues.size) return;
+  for (const title of provided.pageTitles(doc)) {
+    const block = title.querySelector('.ls-block[blockid]'), uuid = block?.getAttribute('blockid'), kinds = dayCues.get(uuid);
+    if (!kinds || !title.closest('.journal-item')) continue;
+    const wrap = [...block.querySelectorAll('.block-title-wrap')].find(el => el.closest('.ls-block[blockid]') === block);
+    if (!wrap) continue;
+    const old = [...wrap.children].find(el => el.classList.contains('refinement-day-cue'));
+    if (block.querySelector('textarea, [contenteditable="true"]')) { old?.remove(); continue; }
+    const insideTags = [...kinds.tags].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3);
+    const signature = `${kinds.task}|${insideTags.map(([t, n]) => t + n).join(',')}|${kinds.due || 0}`;
+    if (old?.getAttribute('data-types') === signature) continue;
+    old?.remove();
+    const cue = doc.createElement('span');
+    cue.className = 'refinement-child-assets refinement-day-cue';
+    cue.setAttribute('data-types', signature);
+    cue.setAttribute('contenteditable', 'false');
+    const label = [kinds.task && `${kinds.task} unfinished task${kinds.task === 1 ? '' : 's'}`, kinds.due && dueLabel(kinds.due), ...insideTags.map(([t, n]) => `${n} ${t}`)].filter(Boolean).join(' · ');
+    cue.setAttribute('aria-label', label); cue.setAttribute('title', label);
+    const parts = [];
+    if (kinds.task) parts.push(`<span class="refinement-child-task" aria-hidden="true"></span>${kinds.task}`);
+    if (kinds.due) parts.push(escapeHtml(dueLabel(kinds.due)));
+    for (const [t, n] of insideTags) parts.push(`<span class="rf-day-kind">${n} ${escapeHtml(t)}</span>`);
+    cue.innerHTML = parts.map(part => `<span class="rf-kind">${part}</span>`).join('<span class="rf-sep">·</span>');
+    wrap.appendChild(cue);
+  }
 }
 async function refreshCues(version = ++refreshVersion) {
   const started = performance.now();
@@ -1298,11 +1356,18 @@ async function refreshCues(version = ++refreshVersion) {
     provided.listProps.pageBlocks = new Set(collectNodes(tree).map(node => String(node.uuid)));
     if (dateLinks.document) provided.updateListProps(dateLinks.document);
     updatePdfCitations();
-    const badges = new Map();
-    for (const block of tree || []) summarize(block, badges, metadata, assetTypes, inside);
+    const badges = new Map(), days = new Map();
+    for (const block of tree || []) {
+      const kinds = summarize(block, badges, metadata, assetTypes, inside);
+      const day = dayOf.get(String(block?.uuid));
+      if (day) addDayKinds(days, day, kinds);
+    }
     childAssetCues.clear();
     if (setting('childTypeCues')) for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
     if (dateLinks.document) updateChildAssetCues(dateLinks.document);
+    dayCues.clear();
+    if (setting('dayCues')) for (const [uuid, kinds] of days) if (kinds.task || kinds.tags.size || kinds.due) dayCues.set(uuid, kinds);
+    if (dateLinks.document) updateDayCues(dateLinks.document);
     // UUID syntax alone also identifies pages. Only database-confirmed blocks count as block links.
     cueMarks.blockUuids = setting('referenceIcons') ? nodeIds : new Set();
     provided.propertyCrumbs.values = propertyValues;
@@ -1312,8 +1377,8 @@ async function refreshCues(version = ++refreshVersion) {
     perf.add('refreshCues (start to finish)', performance.now() - started);
   } catch (error) {
     if (version !== refreshVersion) return;
-    childAssetCues.clear();
-    if (dateLinks.document) updateChildAssetCues(dateLinks.document);
+    childAssetCues.clear(); dayCues.clear();
+    if (dateLinks.document) { updateChildAssetCues(dateLinks.document); updateDayCues(dateLinks.document); }
     cueMarks.blockUuids = new Set();
     cueMarks.incoming = new Map();
     if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }

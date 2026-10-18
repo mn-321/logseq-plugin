@@ -127,6 +127,15 @@ ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .refinement-child-kinds .rf-hash { color: var(--rf-tag-color); }
 .ls-block[data-collapsed="true"] > .block-main-container .refinement-child-kinds { display: inline; }
 `],
+  ['dayCues', `/* A day says what it holds (updateDayCues in the links part): the folded cue's family after a day's title on the
+   Journals list, shown whether or not the day is folded. The title row's font is large, so the cue takes the size the
+   tag label above a title keeps (.75rem, HANDOFF), not --rf-small of the title. */
+.refinement-child-assets.refinement-day-cue { display: inline-flex !important; align-items: baseline; margin-left: .6em; font-size: .75rem; font-weight: 400; vertical-align: .15em; }
+.refinement-day-cue .rf-kind { display: inline-flex; align-items: baseline; gap: .25em; }
+.refinement-day-cue .refinement-child-task { align-self: center; margin-right: .3em; }
+.refinement-day-cue .rf-sep { opacity: var(--rf-faint); margin: 0 .35em; }
+.refinement-day-cue .rf-day-kind { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+`],
   ['quietLinks', `/* Type cues on rendered references. Tags keep Logseq's own look. */
 /* A link to a tag's own page looks like a page link (underlined name) but its icon is in the colour
    Logseq gives tags, where a page's icon is in the full text colour. The icon is the tag's own, or a

@@ -239,6 +239,8 @@ const settingsSchema = [
     description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
   { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,
     description: 'On the Journals list, Logseq gives every day at least a screen’s worth of height, so an empty day is a long gap. Each day is now as tall as its blocks. Applies right away.' },
+  { key: 'dayCues', type: 'boolean', title: 'A day says what it holds', default: true,
+    description: 'On the Journals list, after each day’s title, in small quiet words: a dashed circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”), the way a folded block says what it holds. A day with nothing open has a shorter cue; nothing steps back. A journal opened on its own shows none. Applies right away.' },
   { key: 'hierarchyHeading', type: 'heading', title: 'Visual hierarchy', default: null,
     description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
   { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,

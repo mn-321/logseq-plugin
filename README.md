@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.107.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.108.
 
 Besides the look of pages, it holds:
 
@@ -64,6 +64,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Show where a tag sits | `showTagPath` | on | Pages |
 | Leave a tag page’s own tag off its rows | `ownTagHidden` | on | Pages |
 | Journal days only as tall as what they hold | `compactJournals` | on | Pages |
+| A day says what it holds | `dayCues` | on | Pages |
 | Faint nesting lines | `indentGuides` | on | Visual hierarchy |
 | Plainer properties | `plainProperties` | on | Visual hierarchy |
 | Empty properties faint | `quietEmptyProps` | on | Visual hierarchy |
@@ -189,7 +190,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Empty properties | A property with no value yet is drawn faint under a block and in a block's property list, so filled values stand out; nothing is hidden and nothing moves | Turn off with **Empty properties faint**. |
 | Tag pages | On a tag's own page, the rows of its table, the records under it and its Linked references do not repeat that tag; other tags stay. | Turn off with **Leave a tag page's own tag off its rows**. |
 | Left sidebar lists | Favorites and Recent show an icon only where it says something: Logseq's generic page icon is left out (names stay lined up); a tag's #, a page's own icon and an icon from its tag stay. Journal days are in grey. | Turn off with **Left sidebar icons only where they mean something**. |
-| Journals list | Each day is only as tall as what it holds, instead of at least 500px. | Turn off with **Journal days only as tall as what they hold**. |
+| Journals list | Each day is only as tall as what it holds, instead of at least 500px. After each day’s title, in small quiet words, what the day holds, the way a folded block says it: a dashed circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”); a day with nothing open has a shorter cue, and nothing steps back. A journal opened on its own shows none. | Turn off with **Journal days only as tall as what they hold** and **A day says what it holds**. |
 | Hidden properties | While you point at a block that has hidden properties, or near the spot where its arrow sits, a small grey chevron shows right after the block's own text, turning like the fold arrow beside a block: pointing right while they are folded, down while they are open (an open one stays visible). Click it to open or fold them. Logseq shows its own “Show hidden properties” button only on a block you have zoomed into; there it becomes the same arrow. Tasks get it too, because Logseq counts an empty Priority or Deadline as hidden. It is left off a folded block and waits while the block is being edited. | Turn off with **Hidden properties arrow on every block**. |
 | Records under a page's tag tabs | Each tab name starts with `#` in the name's own colour (a tab is not a link). In each record, the value that points to the page on screen has the faint grey “points here” mark; a folded record shows that property beside its title (“owner: page”) | The `#` comes with **Plainer properties**; the mark and the folded label with **Show how records are linked**. |
 
