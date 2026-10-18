@@ -16,7 +16,7 @@ A reader looks at a row and asks a few questions. Each question has one place on
 
 2. **What does this link point to?** A mark before the link says so. Nothing before the words, and a faint underline under them: a page. The page's own icon stays in the text colour. The icon in the tag colour, or a `#` in that colour: a tag's own page. A small dot: a block. The status and priority icons in place of the dot: a block that is a task. A grey document or picture icon: a file. Nothing under or after the words for a block link.
 
-3. **What does this block hold?** Anything after the block's text says so. `↳` then a dashed circle and a number: that many unfinished tasks below, at any depth. `↳` then small file icons: files directly below. The hover gives the counts.
+3. **What does this block hold?** Anything after the block's text says so. `↳` then a small open circle and a number (solid since 0.4.112; a dashed circle is Logseq's Backlog): that many unfinished tasks below, at any depth. `↳` then small file icons: files directly below. The hover gives the counts.
 
 4. **What state is it in?** The status and priority icons. They are Logseq's own. The plugin does not redraw them; it moves them in front of a linked task and uses their colours in Todos.
 
@@ -70,7 +70,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Around the words | brackets faded in the grey path; the path uses its room before cutting | markup in a parent path | Tidy parent paths (`tidyPaths`) | styles.js, links.js |
 | Around the words | a faint violet chip | a tag (off by default) | Soft background behind tags (`tintTags`) | styles.js |
 | Around the words | a muted steel blue | a page link on a highlight, so it stays readable | Quiet page links (`quietLinks`) | styles.js |
-| After the text | `↳`, a dashed circle and a number | unfinished tasks below, at any depth | Show what a block holds (`childTypeCues`) | styles.js, links.js |
+| After the text | `↳`, a small open circle and a number | unfinished tasks below, at any depth | Show what a block holds (`childTypeCues`) | styles.js, links.js |
 | After the text | `↳` and small picture or document icons | files directly below | Show what a block holds (`childTypeCues`) | styles.js, links.js |
 | After the text | `· 1 #Decision`, `· due Fri`, only while the block is folded | the kinds inside and the nearest due day (0.4.75) | Show what a block holds (`childTypeCues`) | styles.js, links.js |
 | After the text | `”` then `(p. 1)` or `(Document title, p. 1)` in small grey | the source of a PDF highlight | Compact PDF citations (`pdfCitations`) | styles.js, links.js |
