@@ -687,6 +687,51 @@ function updatePickerMarks(doc) {
   }
   for (const row of pickerMarks.marked) if (!seen.has(row)) unmarkPickerRow(row);
 }
+/* The property picker says each name's type (propertyPickerTypes, 0.4.101). After each name in Logseq's Add
+   property list its type in quiet monospace words (Date, Person · many, yes/no …), and in place of the letter T
+   Logseq draws before every name the type icon the line list draws (parts/inline-props.js provides typeIcon,
+   typeLabel and its schema, read through the core's graphWide cache). A row names its property in a title
+   (":user.property/date"), so the type is found by ident; a property the schema lacks (Logseq's own) keeps its T.
+   The icon is a small element put first into Logseq's icon slot and taken out again when the mark goes. */
+const propertyPicker = { marked: new Set(), byIdent: null, at: 0, loading: null };
+function loadPropertyTypes(doc) {
+  if (propertyPicker.loading || (propertyPicker.byIdent && Date.now() - propertyPicker.at < 30000)) return;
+  propertyPicker.loading = provided.propSchema().then(schema => {
+    propertyPicker.byIdent = new Map(schema.props.map(prop => [prop.ident, prop]));
+    propertyPicker.at = Date.now(); propertyPicker.loading = null;
+    updatePropertyPicker(doc);
+  }).catch(error => { propertyPicker.loading = null; warnOnce('the property types could not be read', error); });
+}
+function updatePropertyPicker(doc) {
+  const rows = setting('propertyPickerTypes') && provided.propSchema ? doc.querySelectorAll('.ls-property-dialog .cp__select-results .menu-link') : [];
+  if (rows.length) loadPropertyTypes(doc);
+  const seen = new Set();
+  for (const row of rows) {
+    const ident = String(row.querySelector('[title^=":"]')?.getAttribute('title') || '').slice(1);
+    const prop = propertyPicker.byIdent?.get(ident);
+    // Logseq's own "+ New option: …" row makes a property: dashed, as every row that makes something.
+    const kind = prop ? prop.type : /^\+?\s*New option\b/i.test(row.textContent.trim()) ? 'new' : '';
+    if (!kind) continue;
+    const label = prop ? provided.propTypeLabel(prop) : '';
+    if (row.getAttribute('data-refinement-prop') !== kind) row.setAttribute('data-refinement-prop', kind);
+    if (row.getAttribute('data-refinement-prop-type') !== label) row.setAttribute('data-refinement-prop-type', label);
+    const slot = prop && row.querySelector('.pt-1');
+    if (slot) {
+      // React keeps a row's elements and shows another property in them when the list is filtered, so the icon
+      // is kept by ident and drawn again when the row's property changes.
+      let icon = slot.querySelector('.refinement-prop-icon');
+      if (!icon) { icon = doc.createElement('span'); icon.className = 'refinement-prop-icon'; slot.prepend(icon); }
+      if (icon.dataset.ident !== ident) { icon.dataset.ident = ident; icon.innerHTML = provided.propTypeIcon(prop); }
+    }
+    seen.add(row); propertyPicker.marked.add(row);
+  }
+  for (const row of propertyPicker.marked) if (!seen.has(row)) unmarkPropertyRow(row);
+}
+function unmarkPropertyRow(row) {
+  row.removeAttribute('data-refinement-prop'); row.removeAttribute('data-refinement-prop-type');
+  for (const icon of row.querySelectorAll('.refinement-prop-icon')) icon.remove();
+  propertyPicker.marked.delete(row);
+}
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
 const mentions = { marked: new Set() };
@@ -707,7 +752,7 @@ function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
-    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks, updatePropertyPicker]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     // A link to a journal day needs no mark: Logseq gives every journal page an id that starts with
@@ -782,6 +827,7 @@ function stopDateLinks() {
   for (const el of usage.hidden) el.removeAttribute('data-refinement-usage-dim');
   usage.hidden.clear();
   for (const row of [...pickerMarks.marked]) unmarkPickerRow(row);
+  for (const row of [...propertyPicker.marked]) unmarkPropertyRow(row);
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();

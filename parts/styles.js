@@ -525,6 +525,15 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start > .opacity-50 { position: absolute; left: -1.5em; top: 0; }
 `],
+  ['propertyPickerTypes', `/* The property picker says each type (marked by updatePropertyPicker in the links part): the type icon the line
+   list draws in place of Logseq's letter T, the type in quiet monospace words at the right of the row, and Logseq's
+   own "+ New option" row in a dashed box. */
+.ls-property-dialog .menu-link[data-refinement-prop] .ls-icon-letter-t { display: none !important; }
+.ls-property-dialog .menu-link[data-refinement-prop] .refinement-prop-icon { display: inline-flex; align-items: center; color: var(--ls-secondary-text-color); }
+.ls-property-dialog .menu-link[data-refinement-prop] { align-items: center; }
+.ls-property-dialog .menu-link[data-refinement-prop="new"] .gap-1:not(.tip) { align-self: flex-start; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
+.ls-property-dialog .menu-link[data-refinement-prop]::after { content: attr(data-refinement-prop-type); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: nowrap; }
+`],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
 .refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }

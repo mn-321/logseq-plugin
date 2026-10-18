@@ -585,6 +585,11 @@ const menuCss = `
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-rip-ghost] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-rip-ghost] .empty-value { display: none !important; }`;
 
+// The marks and the schema, for the pickers the links part marks and the link box's list (0.4.101).
+function provide(core) {
+  core.provide({ propSchema: () => graphWide('inlinePropsSchema', loadSchema), propPages: () => graphWide('inlinePropsPages', loadPages),
+    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg });
+}
 function start() {
   const core = window.refinementCore;
   ({ dsQuery, graphWide, journalTitleFor } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor']));
@@ -600,5 +605,5 @@ function start() {
   onUnload(() => { clearTimeout(checkTimer); closeMenu(); });
   window.inlinePropsDebug = { state, loadSchema, loadPages, parseDay, tokenAt };
 }
-(window.refinementParts ||= []).push({ name: 'inline properties', schema: settingsSchema, start, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'inline properties', schema: settingsSchema, provide, start, stop: runUnloadTasks });
 })();
