@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.110.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.111.
 
 Besides the look of pages, it holds:
 
@@ -68,6 +68,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Faint nesting lines | `indentGuides` | on | Visual hierarchy |
 | Plainer properties | `plainProperties` | on | Visual hierarchy |
 | Empty properties faint | `quietEmptyProps` | on | Visual hierarchy |
+| Empty slots read as the row | `emptySlotsInRow` | on | Visual hierarchy |
 | Hidden properties arrow on every block | `hiddenPropsChevron` | on | Visual hierarchy |
 | Hide the dot on empty blocks | `quietEmptyBullets` | on | Visual hierarchy |
 | Show what a block holds | `childTypeCues` | on | Visual hierarchy |
@@ -188,6 +189,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Page labels | A page link whose shown name ends in a tag name (“Name #tag”) shows the stored title alone | Turn off with **Page links without trailing tags**. |
 | Properties | Under a block, properties read as `name: value · name: value` with no capsule outlines; property names are grey so the values stand out. A property list under a block (one name per line) sits on a very light grey field with square corners, and so does the page's own list under its title, with one dot per property and **Add property** shown only while you point at the list (on the page and in the right sidebar); the grey ends above the Add property row, which keeps its place and has no grey of its own. | Turn off with **Plainer properties**. |
 | Empty properties | A property with no value yet is drawn faint under a block and in a block's property list, so filled values stand out; nothing is hidden and nothing moves | Turn off with **Empty properties faint**. |
+| Empty slots under a block | An empty slot Logseq lists under a block reads like the row of filled properties above it, `Scheduled: ···`, faint, without the type icon, the value's bullet or the grey field; a click on the `···` still opens Logseq's picker | Turn off with **Empty slots read as the row**. |
 | Tag pages | On a tag's own page, the rows of its table, the records under it and its Linked references do not repeat that tag; other tags stay. | Turn off with **Leave a tag page's own tag off its rows**. |
 | Left sidebar lists | Favorites and Recent show an icon only where it says something: Logseq's generic page icon is left out (names stay lined up); a tag's #, a page's own icon and an icon from its tag stay. Journal days are in grey. | Turn off with **Left sidebar icons only where they mean something**. |
 | Journals list | Each day is only as tall as what it holds, instead of at least 500px. After each day’s title, in small quiet words, what the day holds, the way a folded block says it: a dashed circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”); a day with nothing open has a shorter cue, and nothing steps back. A journal opened on its own shows none. | Turn off with **Journal days only as tall as what they hold** and **A day says what it holds**. |

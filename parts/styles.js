@@ -276,6 +276,18 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-block > .block-main-container .positioned-properties.block-below .bottom-property-pill:has(.empty-value) { opacity: var(--rf-faint); }
 .ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { opacity: var(--rf-faint); }
 `],
+  ['emptySlotsInRow', `/* An empty slot Logseq lists under a block (0.4.111) reads in the row's grammar, "Scheduled: ···": Logseq's
+   list row keeps its name and its ··· (the value's own control, which still opens the picker) and loses the type icon and
+   the value's bullet; a list of nothing but empty slots loses the grey field. The page's own list under its title is left alone. */
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty { display: flex !important; align-items: center; gap: .3em; font-size: .875rem; padding: 0 !important; margin: 0 !important; min-height: 0 !important; line-height: 1.5; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty :is(.property-key-panel, .property-key-inner, .property-value-container, .property-value, .property-value-inner, .trigger) { min-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty .property-value-inner .ui__button { height: auto !important; padding: 0 !important; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty :is(.property-icon, .property-panel-bullet) { display: none !important; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty .property-key-panel { width: auto !important; min-width: 0 !important; flex: none; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty .property-k::after { content: ':'; }
+.ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty .property-value-container { flex: 1 1 auto; min-width: 0; }
+.ls-block > .ls-block-content-indent > .ls-properties-area:has(.property-pair):not(:has(.property-pair:not(.property-panel-row-empty))) { background: none !important; padding: 0 !important; margin: 0 0 0 -3px !important; }
+`],
   ['showUsage', `/* While one count of the usage line is on, the other reference rows step back (not away: Logseq's list
    measures its rows, and a row of no height breaks it); one comes forward under the pointer. Marked by
    updateUsageLine in the links part. */
