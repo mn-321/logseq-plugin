@@ -181,6 +181,8 @@ function removeGhost(doc) {
   for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost');
 }
 async function showAsk(item) {
+  // While Proposals in the pills asks in the record's pill, this part draws nothing, not even a question already queued (0.4.125).
+  if (window.refinementCore?.provided?.proposalsOwnDates?.()) { ask.open = null; askNext(); return; }
   const [title, day] = await Promise.all([askTitle(item.uuid), askTitle(item.journalId)]);
   if (!day) { ask.open = null; askNext(); return; }
   const doc = host(), win = doc.defaultView;
@@ -239,7 +241,7 @@ async function showAsk(item) {
     }
     gone = 0;
     const own = el => el.closest('.ls-block[blockid]') === row;
-    const pill = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && p.firstElementChild?.textContent.trim().toLowerCase() === name.toLowerCase());
+    const pill = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].find(p => own(p) && p.firstElementChild?.textContent.trim().replace(/:$/, '').toLowerCase() === name.toLowerCase()); // the pill's name carries a colon (0.4.125; the line list learnt this in 0.4.96)
     const target = pill || [...row.querySelectorAll('.block-title-wrap')].find(own);
     if (!target) { if (!usedGhost) showNote(); return; }
     if (target.querySelector(':scope > .jdd-ghost')) return;
