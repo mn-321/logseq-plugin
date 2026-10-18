@@ -1257,6 +1257,7 @@ async function propertyValueBlocks() {
 // Records that point at the open page through one of your own Node properties (for example a test
 // whose Diagnosis is this page). Logseq lists them under tag tabs below the page's properties but
 // doesn't say which property links them, so collect each record with its property names.
+const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
 async function incomingPropertyLinks() {
   const result = new Map();
   try {
@@ -1271,7 +1272,8 @@ async function incomingPropertyLinks() {
       [?prop :db/ident ?attr]
       [?b ?attr ?page]
       [?prop :block/title ?name]
-      [?b :block/uuid ?uuid]]`);
+      [?b :block/uuid ?uuid]
+      ${LIVE}]`);
     for (const [uuid, name, attr] of rows || []) {
       // Only properties you made; built-in links such as tags, aliases and parents are left out.
       if (!UUID.test(String(uuid)) || !name || !/^:?user\.property\//.test(String(attr))) continue;
@@ -1282,9 +1284,11 @@ async function incomingPropertyLinks() {
     // For the usage line: the blocks tagged with the page (a tag page), and the blocks that only mention
     // it in their words (a reference that is neither a property value nor a tag, and not on the page itself).
     result.pageUuid = String(page.uuid || '');
+    // Blocks in the recycle bin keep their refs; Logseq lists none of them, so neither does the line (0.4.132:
+    // a recycled stress page made Atlas read in text · 1503 over ten references).
     const uuidsOf = rows => new Set((rows || []).map(row => String(row[0])).filter(uuid => UUID.test(uuid)));
-    result.tagged = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/tags ?page] [?b :block/uuid ?uuid]]`));
-    const refs = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/refs ?page] [?b :block/uuid ?uuid] (not [?b :block/page ?page])]`));
+    result.tagged = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/tags ?page] [?b :block/uuid ?uuid] ${LIVE}]`));
+    const refs = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/refs ?page] [?b :block/uuid ?uuid] (not [?b :block/page ?page]) ${LIVE}]`));
     result.inText = new Set([...refs].filter(uuid => !result.has(uuid) && !result.tagged.has(uuid)));
   } catch (error) { warnOnce('could not find records linking to this page', error); }
   return result;
