@@ -27,7 +27,7 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | What to do next, ranked, and the rules every change keeps | `docs/NEXT.md` |
 | The drawn guide to every part | `docs/VISUAL-GUIDE.html`, published as "DB Refinements Field Guide" (claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ) |
 | The prompts of the last rounds (finished) | `docs/history/REFINE-PROMPT-2026-10-18.md` (the autocomplete round, built as 0.4.118 to 0.4.127) and `docs/history/REVIEW-PROMPT-2026-10-18.md` (the review round); their "Rules that hold" are carried in `docs/NEXT.md` |
-| Not committed | `docs/history/VISUAL-GRAMMAR-2026-10-18.html` (an older drawn grammar at 0.4.117, untracked, maker not recorded; superseded by the guide). The stray `CLEANUP-PROMPT.md` at the top was removed on 2026-10-18 (the kept copy is `docs/history/CLEANUP-PROMPT-2026-10-16.md`) |
+| Moved out | `VISUAL-GRAMMAR-2026-10-18.html` (an older drawn grammar at 0.4.117, never committed, superseded by the guide) is in `~/logseq-plugin-archive/`. The stray `CLEANUP-PROMPT.md` at the top was removed on 2026-10-18 (the kept copy is `docs/history/CLEANUP-PROMPT-2026-10-16.md`) |
 | Test graph | Logseq graph **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`); seed in `test/plugin-test-graph.edn` (the graph has gained things the seed lacks) |
 | Live legend of every cue | page **Plugin Visual Cues** in the test graph |
 | Logseq | `/Applications/Logseq.app`, 2.0.2, DB version; CLI `~/.local/bin/logseq` |
