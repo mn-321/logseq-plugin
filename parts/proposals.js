@@ -19,8 +19,8 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', stopKey: '__refinementProposalsStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost, .rfp-undo')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
-let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements;
+  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost, .rfp-undo, .rfp-made')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
+let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -30,6 +30,8 @@ const settingsSchema = [
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
+  { key: 'proposeDayInWords', type: 'boolean', title: 'A day in the words', default: true,
+    description: 'The last words of the record read as a day (tomorrow, friday, next fri, 23 oct, +3; a bare weekday needs four letters or more) are pencilled into the record’s empty Deadline, else due date, else date, and nowhere else. Runs in the graphs named under Properties in the line. Applies at once.' },
   { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
     description: 'After a value is written into a record (Tab on a proposal, Enter in the line list), a small grey “undo ⌘z” sits beside it in the record’s own row for seven seconds; a click on it, or Cmd+Z while the caret is still in that block, takes the value back to pencilled. Off, the dark bar at the bottom offers Undo as before. Applies at once.' },
   { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
@@ -94,7 +96,7 @@ function peopleNamed(prop, wordSet, title, pages) {
 // What the rules may run on: the graphs named for the line list (people, parent) and for the journal day.
 async function allowed() {
   if (!own('pillProposals')) return null;
-  const inline = (rule('people named') || rule("the parent's fields")) && await graphNamedIn(inlinePropsSetting('inlinePropsGraphs'));
+  const inline = (rule('people named') || rule("the parent's fields") || own('proposeDayInWords')) && await graphNamedIn(inlinePropsSetting('inlinePropsGraphs'));
   const days = ownsDates() && journalDates.setting('autoDate') && journalDates.setting('autoDateAsk') && await journalDates.allowedHere();
   if (!inline && !days) return null;
   const [schema, pages, setup] = await Promise.all([propSchema(), propPages(), days ? journalDates.setup() : null]);
@@ -103,7 +105,23 @@ async function allowed() {
 /* The rules, on one pulled block and the words it is read with (its saved title, or the text box while it is in edit):
    the people named, the parent's (or the page's) same-named field, the journal day. recent says whether the
    record counts as written now (the block in edit always does). */
-function itemsFor(b, title, ctx, recent) {
+/* A day in the words (0.4.122): the last one to three words of the record read as a day with the line list's reader
+   (tomorrow, friday, next fri, 23 oct, oct 23, 2026-10-23, +3). A bare weekday needs four letters or more (friday,
+   not fri: "sat" and "sun" are words), "next" and a weekday three; never a bare number, never a month alone. */
+const DAY_WORDS = /^(?:today|tomorrow|yesterday|tmr|next\s+[a-z]{3,9}|[a-z]{4,9}|[+-]\d{1,3}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+[a-z]{3,9}\.?(?:\s+\d{4})?|[a-z]{3,9}\.?\s+\d{1,2}(?:,?\s+\d{4})?)$/i;
+function dayInWords(title) {
+  if (!parseDay) return null;
+  const words = String(title || '').replace(/#?\[\[[0-9a-f-]{36}\]\]/gi, ' ').trim().replace(/[.,;:!?]+$/, '').split(/\s+/).filter(Boolean);
+  const today = new Date();
+  for (let n = Math.min(3, words.length); n >= 1; n--) {
+    const tail = words.slice(-n).join(' ').toLowerCase();
+    if (!DAY_WORDS.test(tail)) continue;
+    const d = parseDay(tail, today);
+    if (d) return { date: d, tail };
+  }
+  return null;
+}
+async function itemsFor(b, title, ctx, recent) {
   const { inline, schema, pages, setup, pageById } = ctx;
   const tags = (pick(b, 'block/tags') || []).map(idOf), wordSet = words(title);
   const fields = fieldsOfTags(tags, schema), parent = pick(b, 'block/parent'), page = pick(b, 'block/page'), items = [];
@@ -126,6 +144,16 @@ function itemsFor(b, title, ctx, recent) {
     const prop = schema.props.find(p => p.ident === setup.ident);
     if (prop && pick(page, 'block/journal-day') && recent) items.push({ ident: setup.ident, prop, ids: [], journal: idOf(page), day: Number(pick(page, 'block/journal-day')), shown: String(pick(page, 'block/title') ?? ''), how: 'day' });
   }
+  // A day in the words goes into the record's empty Deadline, else due date, else date, and nowhere else.
+  if (inline && own('proposeDayInWords')) {
+    const found = dayInWords(title);
+    const target = found && ['logseq.property/deadline', 'due date', 'date'].map(key => fields.find(p => (p.ident === key || p.lower === key) && (p.type === 'date' || p.type === 'datetime'))).find(Boolean);
+    if (target && !valuesOf(b, target.ident).length && !items.some(item => item.ident === target.ident)) {
+      const d = found.date, day = dayNumber(d);
+      const shown = await journalTitleFor(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      items.push({ ident: target.ident, prop: target, ids: [], day, when: target.type === 'datetime' ? d.getTime() : null, shown, how: 'words' });
+    }
+  }
   return items;
 }
 const cleanWords = title => String(title || '').replace(/#?\[\[[0-9a-f-]{36}\]\]/gi, '').trim();
@@ -137,7 +165,7 @@ async function compute() {
     const uuid = String(pick(b, 'block/uuid') ?? '');
     if (!uuid) continue;
     const title = String(pick(b, 'block/title') ?? '');
-    const items = itemsFor(b, title, ctx, Number(pick(b, 'block/created-at') || 0) >= state.started - 60000);
+    const items = await itemsFor(b, title, ctx, Number(pick(b, 'block/created-at') || 0) >= state.started - 60000);
     // The cursor (0.4.120) is kept across rounds: a passed value stays passed while the record is on screen.
     if (items.length) proposals.set(uuid, { words: cleanWords(title), items, cursor: Math.min(recFor(uuid)?.cursor || 0, items.length) });
   }
@@ -157,7 +185,8 @@ async function liveCompute(box) {
     if (!ctx || version !== liveVersion) return;
     const [[b] = []] = await dsQuery(`[:find (pull ?b ${BLOCK_PULL}) :where [?b :block/uuid #uuid "${uuid}"]]`);
     if (!b || version !== liveVersion) return;
-    const items = itemsFor(b, text, ctx, true);
+    const items = await itemsFor(b, text, ctx, true);
+    if (version !== liveVersion) return;
     state.live = items.length ? { uuid, words: cleanWords(text), items, cursor: Math.min(recFor(uuid)?.cursor || 0, items.length) } : null;
     if (!items.length) state.proposals.delete(uuid); // a word deleted takes its value away, from the round's copy too
     draw(host(), null);
@@ -221,14 +250,17 @@ function draw(doc, records) {
   const recs = allRecs();
   for (const g of doc.querySelectorAll('.rfp-ghost')) {
     const row = g.closest('.ls-block[blockid]'), rec = recs.get(row?.getAttribute('blockid') || '');
-    if (!rec || !rec.items.some(item => item.ident === g.dataset.rfpIdent)) { g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal'); g.remove(); }
+    if (!rec || !rec.items.some(item => item.ident === g.dataset.rfpIdent)) { g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal'); const made = g.closest('.rfp-made-pill'); g.remove(); if (made && !made.querySelector('.rfp-undo')) made.remove(); }
   }
+  for (const el of doc.querySelectorAll('.rfp-made')) if (!el.querySelector('.rfp-ghost, .rfp-undo, .rfp-made-pill')) el.remove(); // a made pill or row with nothing left in it
   for (const [uuid, rec] of recs) {
     for (const row of doc.querySelectorAll(`.ls-block[blockid="${uuid}"]`)) {
       const owned = el => el.closest('.ls-block[blockid]') === row;
       const pills = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(owned);
       for (const item of rec.items) {
-        const pill = pills.find(p => pillName(p) === item.prop.lower);
+        // A field with no pill yet (a Task's Deadline hides while empty) gets one made for its ghost (0.4.122), so the
+        // value is pencilled where it will land; the made pill goes when the ghost does and Logseq's own pill arrives.
+        const pill = pills.find(p => pillName(p) === item.prop.lower) || makePill(doc, row, item);
         const target = pill ? (pill.querySelector('.bottom-property-content') || pill) : [...row.querySelectorAll('.block-title-wrap')].find(owned);
         if (!target) continue;
         const had = [...target.querySelectorAll(':scope > .rfp-ghost')].find(g => g.dataset.rfpIdent === item.ident);
@@ -300,6 +332,26 @@ function onUndoKey(event) {
   event.preventDefault(); event.stopImmediatePropagation();
   runUndo(u);
 }
+// A pill made for a field Logseq shows no pill for, in the record's own pill row (made too when the record has none).
+function makePill(doc, row, item) {
+  const main = [...row.querySelectorAll('.block-main-container')].find(el => el.closest('.ls-block[blockid]') === row);
+  if (!main) return null;
+  // Logseq's shape (read 2026-10-18): block-main-container > div.flex-col > div.flex-col > [the content, positioned-properties.block-below > bottom-properties-row > pills].
+  let rowEl = [...main.querySelectorAll('.positioned-properties.block-below')].find(el => el.closest('.ls-block[blockid]') === row);
+  if (!rowEl) {
+    const inner = [...main.querySelectorAll(':scope > .flex-col > .flex-col')].find(el => el.closest('.ls-block[blockid]') === row) || main.querySelector(':scope > .flex-col') || main;
+    rowEl = doc.createElement('div'); rowEl.className = 'positioned-properties block-below flex flex-col gap-1 text-sm rfp-made';
+    rowEl.innerHTML = '<div class="bottom-properties-row"></div>';
+    inner.appendChild(rowEl);
+  }
+  const strip = rowEl.querySelector('.bottom-properties-row') || rowEl;
+  const pill = doc.createElement('div');
+  pill.className = 'bottom-property-pill rfp-made rfp-made-pill';
+  pill.setAttribute('contenteditable', 'false');
+  pill.innerHTML = `<span class="rfp-made-name">${escapeHtml(item.prop.title)}:</span><span class="bottom-property-content"></span>`;
+  strip.appendChild(pill);
+  return pill;
+}
 // The record being written, when it has ghosts: the ghost under its cursor carries the keys (0.4.120: one value
 // at a time; the cursor moves on with Tab and Shift+Tab, and past the last value the keys are Logseq's again).
 const current = rec => (rec && rec.items[Math.min(rec.cursor || 0, rec.items.length)]) || null;
@@ -334,6 +386,8 @@ async function fill(uuid, onlyIdent) {
   for (const item of items) {
     try {
       if (item.journal) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.journal);
+      else if (item.when) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.when);
+      else if (item.day) { const id = await journalIdFor(item.day, item.shown); if (!id) throw new Error('no journal page for that day'); await logseq.Editor.upsertBlockProperty(uuid, item.ident, id); }
       else if (item.prop.many) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.ids, { entityId: true, reset: true });
       else await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.ids[0], { entityId: true });
       written.push(item);
@@ -391,6 +445,9 @@ const css = `
 .rfp-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
+/* A pill made for a field with no pill yet (0.4.122): the name as the row writes it, the ghost after it. */
+.rfp-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
+.rfp-made-name { color: var(--ls-secondary-text-color, currentColor); }
 /* The quiet undo (0.4.121): a small grey word and its key beside the value just written, for seven seconds. */
 .rfp-undo { display: inline-flex; align-items: baseline; gap: .3em; margin-left: .45em; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; vertical-align: baseline; }
 .rfp-undo button { all: unset; cursor: pointer; font: inherit; color: inherit; }
@@ -398,7 +455,7 @@ const css = `
 .rfp-undo kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; text-transform: lowercase; }`;
 
 // Why a value is proposed, in the words the line list shows beside it (0.4.118).
-const WHY = { named: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
+const WHY = { named: 'in your words', words: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
 // The record's proposals for one field (or all of them), for the line list, which opens on them (0.4.118).
 function proposalsFor(uuid, ident) {
   const rec = recFor(uuid);
@@ -410,7 +467,7 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements']));
+  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements', 'parseDay', 'dayNumber', 'journalIdFor', 'journalTitleFor']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);

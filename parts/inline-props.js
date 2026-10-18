@@ -665,7 +665,8 @@ const menuCss = `
 // The marks and the schema, for the pickers the links part marks and the link box's list (0.4.101).
 function provide(core) {
   core.provide({ propSchema: () => graphWide('inlinePropsSchema', loadSchema), propPages: () => graphWide('inlinePropsPages', loadPages), inlinePropsSetting: setting,
-    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg, ripRowHtml: rowHtml });
+    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg, ripRowHtml: rowHtml,
+    parseDay, dayNumber, journalIdFor /* the day reader and the journal page, for a day in the words (parts/proposals.js, 0.4.122) */ });
 }
 function start() {
   const core = window.refinementCore;
