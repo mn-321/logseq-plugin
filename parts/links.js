@@ -670,20 +670,50 @@ function unmarkPickerTags(row) {
   pickerMarks.tags.delete(row);
 }
 function unmarkPickerRow(row) {
-  if (row.isConnected) row.removeAttribute('data-refinement-pick');
+  if (row.isConnected) { row.removeAttribute('data-refinement-pick'); if (!pickerMarks.tags.has(row)) row.removeAttribute('data-refinement-pick-tags'); }
   unmarkPickerTags(row);
   pickerMarks.marked.delete(row);
 }
+/* The # tag picker (0.4.107, under the same setting): Logseq draws its rows without an icon slot, so a tag row is
+   known by its name (tagPages.titles) and the stylesheet draws the # in the tag colour before the words; at the right,
+   in the slot the [[ menu uses for a page's tags, what the tag sits under and the fields it brings ("under Occurrence
+   · + date"), from the schema the line list reads; the "New tag …" row is dashed, as every row that makes something. */
+const tagInfo = { byLower: null, at: 0, loading: null };
+function loadTagInfo(doc) {
+  if (tagInfo.loading || (tagInfo.byLower && Date.now() - tagInfo.at < 30000) || !provided.propSchema) return;
+  tagInfo.loading = Promise.all([provided.propSchema(), provided.propPages()]).then(([schema, pages]) => {
+    const byId = new Map(pages.map(p => [p.id, p])), map = new Map();
+    for (const p of pages) {
+      if (!p.isTag) continue;
+      const under = (schema.parentsOf.get(p.id) || []).map(id => byId.get(id)?.title).filter(t => t && t !== 'Root Tag');
+      const adds = (schema.classProps.get(p.id) || []).map(id => schema.byId.get(id)?.title).filter(Boolean);
+      map.set(p.lower, [under.length ? `under ${under.join(', ')}` : '', adds.length ? `+ ${adds.join(', ')}` : ''].filter(Boolean).join(' · '));
+    }
+    tagInfo.byLower = map; tagInfo.at = Date.now(); tagInfo.loading = null;
+    updatePickerMarks(doc);
+  }).catch(error => { tagInfo.loading = null; warnOnce('the parents of the tags could not be read', error); });
+}
+function hashtagKind(row) {
+  const text = (row.querySelector('.flex-col > .items-start')?.textContent || row.textContent).trim();
+  if (/^new tag\b/i.test(text)) return 'new';
+  return tagPages.titles.has(text.toLowerCase()) ? 'tag' : '';
+}
 function updatePickerMarks(doc) {
-  const menu = setting('pickerMarks') ? doc.querySelector('[data-editor-popup-ref="page-search"] #ui__ac') : null;
-  const rows = menu ? menu.querySelectorAll('.menu-link') : [];
+  const menus = setting('pickerMarks') ? doc.querySelectorAll(':is([data-editor-popup-ref="page-search"], [data-editor-popup-ref="page-search-hashtag"]) #ui__ac') : [];
   const seen = new Set();
-  for (const row of rows) {
-    const kind = pickerKind(row);
-    if (!kind) continue;
-    if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
-    if (kind === 'page' || kind === 'page-own') markPickerTags(row); else unmarkPickerTags(row);
-    seen.add(row); pickerMarks.marked.add(row);
+  for (const menu of menus) {
+    const hashtag = !!menu.closest('[data-editor-popup-ref="page-search-hashtag"]');
+    if (hashtag) loadTagInfo(doc);
+    for (const row of menu.querySelectorAll('.menu-link')) {
+      const kind = hashtag ? hashtagKind(row) : pickerKind(row);
+      if (!kind) continue;
+      if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
+      if (hashtag) {
+        const info = kind === 'tag' ? tagInfo.byLower?.get(row.textContent.trim().toLowerCase()) || '' : '';
+        if (info) { if (row.getAttribute('data-refinement-pick-tags') !== info) row.setAttribute('data-refinement-pick-tags', info); } else row.removeAttribute('data-refinement-pick-tags');
+      } else if (kind === 'page' || kind === 'page-own') markPickerTags(row); else unmarkPickerTags(row);
+      seen.add(row); pickerMarks.marked.add(row);
+    }
   }
   for (const row of pickerMarks.marked) if (!seen.has(row)) unmarkPickerRow(row);
 }
@@ -735,6 +765,52 @@ function unmarkPropertyRow(row) {
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
 const mentions = { marked: new Set() };
+/* The value picker on a pill says what each row is (valuePickerMarks, 0.4.107): Logseq's Set <property> list draws a
+   page or a block as bare words, a block with its page as a small line above. Each row gets the mark the page uses:
+   the plain page rectangle or the page's own icon (which Logseq draws itself) before a page, the # in the tag colour
+   before a tag's page, a small dot before a block; the kind in quiet monospace words at the right (Person, tag, page,
+   block); a journal day in the line above a block in the grey date box; the New row dashed. By name, as the [[ menu. */
+const valuePicker = { marked: new Set(), pages: null, at: 0, loading: null };
+function loadValuePages(doc) {
+  if (valuePicker.loading || (valuePicker.pages && Date.now() - valuePicker.at < 30000)) return;
+  valuePicker.loading = provided.propPages().then(pages => {
+    valuePicker.pages = new Map(pages.map(p => [p.lower, p])); valuePicker.at = Date.now(); valuePicker.loading = null;
+    updateValuePicker(doc);
+  }).catch(error => { valuePicker.loading = null; warnOnce('the pages for the value picker could not be read', error); });
+}
+function updateValuePicker(doc) {
+  const rows = setting('valuePickerMarks') && provided.propPages ? doc.querySelectorAll('.property-select .cp__select-results .menu-link') : [];
+  if (rows.length) loadValuePages(doc);
+  const seen = new Set();
+  for (const row of rows) {
+    const main = row.querySelector('.justify-between > .items-center');
+    if (!main) continue;
+    const name = main.textContent.trim(), lower = name.toLowerCase(), crumb = row.querySelector('.breadcrumb__label');
+    const page = crumb ? null : valuePicker.pages?.get(lower);
+    const kind = /^\+?\s*new\b/i.test(name) ? 'new' : crumb ? 'block' : page ? (page.isTag ? 'tag' : 'page') : '';
+    if (!kind) continue;
+    const label = kind === 'block' ? 'block' : kind === 'tag' ? 'tag' : kind === 'page' ? (page.tags.find(t => t.title !== 'Page')?.title || 'page') : '';
+    if (row.getAttribute('data-refinement-value') !== kind) row.setAttribute('data-refinement-value', kind);
+    if (label) { if (row.getAttribute('data-refinement-value-kind') !== label) row.setAttribute('data-refinement-value-kind', label); } else row.removeAttribute('data-refinement-value-kind');
+    if (crumb) { const day = crumb.textContent.trim(); crumb.toggleAttribute('data-refinement-value-day', !!(dateLinkName(day) || dateLinks.names.has(day.toLowerCase()))); }
+    // The mark before the words: a page with an icon of its own already has it (Logseq draws it), the rest get one.
+    const wanted = kind === 'new' ? '' : kind === 'block' ? 'block' : main.querySelector('.ui__icon') ? '' : kind;
+    let icon = main.querySelector('.refinement-value-icon');
+    if (!wanted) icon?.remove();
+    else {
+      if (!icon) { icon = doc.createElement('span'); icon.className = 'refinement-value-icon'; main.prepend(icon); }
+      if (icon.dataset.kind !== wanted) { icon.dataset.kind = wanted; icon.innerHTML = wanted === 'block' ? '<span class="refinement-value-dot">•</span>' : provided.propPageIcon(page); }
+    }
+    seen.add(row); valuePicker.marked.add(row);
+  }
+  for (const row of valuePicker.marked) if (!seen.has(row)) unmarkValueRow(row);
+}
+function unmarkValueRow(row) {
+  row.removeAttribute('data-refinement-value'); row.removeAttribute('data-refinement-value-kind');
+  for (const el of row.querySelectorAll('[data-refinement-value-day]')) el.removeAttribute('data-refinement-value-day');
+  for (const icon of row.querySelectorAll('.refinement-value-icon')) icon.remove();
+  valuePicker.marked.delete(row);
+}
 function updateMentions(doc) {
   for (const el of mentions.marked) if (!el.isConnected) mentions.marked.delete(el);
   if (!setting('tagMark')) {
@@ -752,7 +828,7 @@ function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
   for (const part of [updateReferenceRows, updateChildAssetCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
-    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks, updatePropertyPicker]) perf.time(part.name, () => part(doc));
+    updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks, updatePropertyPicker, updateValuePicker]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
     // A link to a journal day needs no mark: Logseq gives every journal page an id that starts with
@@ -828,6 +904,7 @@ function stopDateLinks() {
   usage.hidden.clear();
   for (const row of [...pickerMarks.marked]) unmarkPickerRow(row);
   for (const row of [...propertyPicker.marked]) unmarkPropertyRow(row);
+  for (const row of [...valuePicker.marked]) unmarkValueRow(row);
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();
