@@ -256,7 +256,7 @@ async function valueRows(prop, filter) {
       const hits = lower ? ofClass.filter(p => p.lower.includes(lower)) : ofClass.slice(0, 12);
       hits.sort((a, b) => (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
       const kindOf = p => p.tags.find(t => t.title !== 'Page')?.title || 'page';
-      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), icon: pageIcon(p), value: { id: p.id, uuid: p.uuid, title: p.title } }));
+      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: pageIcon(p), value: { id: p.id, uuid: p.uuid, title: p.title } }));
       if (f && !hits.some(p => p.lower === lower)) {
         const cls = prop.classes[0];
         rows.push({ kind: 'make-page', label: `Make ${cls ? cls.title : 'page'} “${f}”`, dashed: true, icon: svg('plus'), value: { title: f, cls } });
@@ -361,7 +361,7 @@ const selectable = row => !!row && row.kind !== 'info';
 // One row of a list, as the page draws it (the link box draws its rows with this too, 0.4.102).
 const rowHtml = (row, i, selected) => row.kind === 'info'
   ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
-  : `<div class="rip-row${selected ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`;
+  : `<div class="rip-row${selected ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : row.mono ? 'rip-right rip-mono' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`;
 function renderMenu() {
   const doc = host(), menu = menuEl(doc);
   const rows = state.rows;
@@ -596,7 +596,7 @@ const menuCss = `
 .rip-menu { position: fixed; z-index: 10001; min-width: 260px; max-width: 380px; max-height: 300px; overflow-y: auto; padding: 4px 0; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 6px 20px rgba(0, 0, 0, .14); font-size: .9em; }
 .rip-head { display: flex; align-items: baseline; gap: 8px; padding: 4px 12px 5px; border-bottom: 1px solid var(--ls-border-color); margin-bottom: 3px; }
 .rip-head-name { font-weight: 500; }
-.rip-head-type { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.rip-head-type { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
 .rip-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; cursor: pointer; white-space: nowrap; }
 .rip-row.rip-sel { background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-row.rip-info { color: var(--ls-secondary-text-color); cursor: default; font-size: var(--rf-small, .82em); padding-top: 5px; }
@@ -608,7 +608,9 @@ const menuCss = `
 .rip-emoji { font-size: .95em; line-height: 1; }
 .rip-day { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; padding: 0 .3em; border-radius: 3px; background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
-.rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+/* Monospace is for tag names only (0.4.113): a kind at the right is one, a type or a count is not. */
+.rip-right.rip-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
 .rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) var(--rf-dash-pct, 45%), transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
 .rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
 .bottom-property-content > .rip-ghost { margin-left: 0; }

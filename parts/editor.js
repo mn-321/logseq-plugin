@@ -202,7 +202,7 @@ function linkBoxRows(filter) {
   const rank = (lower) => (lower === f ? 0 : lower.startsWith(f) ? 1 : 2);
   const kindOf = p => p.isTag ? 'tag' : (p.tags.find(t => t.title !== 'Page')?.title || 'page');
   const hits = [
-    ...linkBox.pages.filter(p => p.lower.includes(f)).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), icon: provided.propPageIcon(p), lower: p.lower, value: p.title })),
+    ...linkBox.pages.filter(p => p.lower.includes(f)).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: provided.propPageIcon(p), lower: p.lower, value: p.title })),
     ...linkBox.journals.filter(j => j.lower.includes(f)).map(j => ({ kind: 'value', label: j.title, right: 'journal', icon: dateBox(), lower: j.lower, value: j.title })),
   ].sort((a, b) => rank(a.lower) - rank(b.lower) || a.lower.localeCompare(b.lower)).slice(0, 9);
   if (!hits.some(h => h.lower === f)) hits.push({ kind: 'value', label: `Make page “${filter.trim()}”`, dashed: true, icon: provided.ripSvg('plus'), value: filter.trim() });

@@ -550,6 +550,8 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 #ui__ac .menu-link[data-refinement-pick="page"] svg.tabler-icon-file > * { visibility: hidden !important; }
 #ui__ac .menu-link[data-refinement-pick="page-own"] .items-start > .opacity-50:has(.ls-icon-file) { display: none !important; }
 #ui__ac .menu-link[data-refinement-pick-tags] { align-items: center; }
+/* In the # picker the right side is what a tag sits under and the fields it brings, in plain words (0.4.113: monospace is for tag names). */
+[data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick-tags]::after { font-family: inherit !important; }
 #ui__ac .menu-link[data-refinement-pick-tags]::after { content: attr(data-refinement-pick-tags); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
 #ui__ac .menu-link[data-refinement-pick="relative"] { color: var(--ls-secondary-text-color) !important; }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
@@ -575,7 +577,7 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .ls-property-dialog .menu-link[data-refinement-prop] .refinement-prop-icon { display: inline-flex; align-items: center; color: var(--ls-secondary-text-color); }
 .ls-property-dialog .menu-link[data-refinement-prop] { align-items: center; }
 .ls-property-dialog .menu-link[data-refinement-prop="new"] .gap-1:not(.tip) { align-self: flex-start; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
-.ls-property-dialog .menu-link[data-refinement-prop]::after { content: attr(data-refinement-prop-type); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: nowrap; }
+.ls-property-dialog .menu-link[data-refinement-prop]::after { content: attr(data-refinement-prop-type); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: nowrap; }
 `],
   ['linkBoxList', `/* The link box's list (askPageTitle in the editor part): the line list's rows (.rip-row, drawn by the inline-props
    stylesheet) inside the small box, and the grey box of a journal day in the glyph slot. */
