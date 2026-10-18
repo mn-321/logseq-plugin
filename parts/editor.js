@@ -10,7 +10,7 @@ const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
-let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker;
+let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -178,6 +178,36 @@ async function newOutermostBlock() {
   } catch (error) { console.error(error); notify(`Could not add the block: ${error.message}`, 'warning'); }
 }
 
+/* The link box (Link selected text to a page). With linkBoxList (0.4.102) a list under the field, drawn from the
+   graph with the marks the page uses (the line list's rows: a page's own icon or the plain rectangle, the # in
+   the tag colour for a tag's page, the small grey box for a journal day, the kind in quiet monospace words at the
+   right), filtered as you type; Up and Down move, Enter links the highlighted row, a click picks one. A dashed
+   "Make page …" row is offered only when no title matches the letters exactly, and never above a match, so a
+   typo cannot make a page. Pages, tags and journal days; blocks are not listed (a text search over every block
+   is a different thing). Off, the field is bare and Enter links what was typed, as before. */
+const linkBox = { pages: null, journals: null, at: 0 };
+async function linkBoxCandidates() {
+  if (linkBox.pages && Date.now() - linkBox.at < 30000) return linkBox;
+  const [pages, days] = await Promise.all([provided.propPages(), graphWide('linkBoxJournals', () =>
+    dsQuery('[:find ?t ?d :where [?p :block/journal-day ?d] [?p :block/title ?t]]'))]);
+  linkBox.pages = pages;
+  linkBox.journals = days.map(([t, d]) => ({ title: String(t), lower: String(t).toLowerCase(), day: d })).sort((a, b) => b.day - a.day);
+  linkBox.at = Date.now();
+  return linkBox;
+}
+const dateBox = () => '<span class="rf-datebox"></span>';
+function linkBoxRows(filter) {
+  const f = filter.trim().toLowerCase();
+  if (!f) return [];
+  const rank = (lower) => (lower === f ? 0 : lower.startsWith(f) ? 1 : 2);
+  const kindOf = p => p.isTag ? 'tag' : (p.tags.find(t => t.title !== 'Page')?.title || 'page');
+  const hits = [
+    ...linkBox.pages.filter(p => p.lower.includes(f)).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), icon: provided.propPageIcon(p), lower: p.lower, value: p.title })),
+    ...linkBox.journals.filter(j => j.lower.includes(f)).map(j => ({ kind: 'value', label: j.title, right: 'journal', icon: dateBox(), lower: j.lower, value: j.title })),
+  ].sort((a, b) => rank(a.lower) - rank(b.lower) || a.lower.localeCompare(b.lower)).slice(0, 9);
+  if (!hits.some(h => h.lower === f)) hits.push({ kind: 'value', label: `Make page “${filter.trim()}”`, dashed: true, icon: provided.ripSvg('plus'), value: filter.trim() });
+  return hits;
+}
 function askPageTitle(label) {
   try {
     return modal(null, (box, finish, doc) => {
@@ -186,10 +216,37 @@ function askPageTitle(label) {
       const input = doc.createElement('input');
       input.type = 'text';
       input.placeholder = 'Page title';
+      const withList = setting('linkBoxList') && provided.propPages && provided.ripRowHtml;
+      const list = doc.createElement('div');
+      list.className = 'refinement-link-list';
+      let rows = [], sel = 0, version = 0;
+      const render = () => {
+        if (!rows.length) { list.innerHTML = ''; list.hidden = true; return; }
+        if (sel < 0 || sel >= rows.length) sel = 0;
+        list.hidden = false;
+        list.innerHTML = rows.map((row, i) => provided.ripRowHtml(row, i, i === sel)).join('');
+        list.querySelector('.rip-sel')?.scrollIntoView?.({ block: 'nearest' });
+      };
+      const refresh = async () => {
+        const my = ++version;
+        try { await linkBoxCandidates(); } catch (error) { warnOnce('the link box could not read the graph', error); return; }
+        if (my !== version || !box.isConnected) return;
+        rows = linkBoxRows(input.value); sel = 0; render();
+      };
       input.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); finish(input.value); }
+        if (event.isComposing) return;
+        if (event.key === 'Enter') { event.preventDefault(); finish(rows[sel] ? rows[sel].value : input.value); }
+        else if (withList && event.key === 'ArrowDown' && rows.length) { event.preventDefault(); sel = (sel + 1) % rows.length; render(); }
+        else if (withList && event.key === 'ArrowUp' && rows.length) { event.preventDefault(); sel = (sel - 1 + rows.length) % rows.length; render(); }
       });
-      box.append(heading, input, modalHint(doc, 'Enter to link · Esc to cancel'));
+      if (withList) {
+        input.addEventListener('input', refresh);
+        list.addEventListener('mousedown', event => event.preventDefault()); // the caret stays in the field
+        list.addEventListener('click', event => { const row = event.target.closest('.rip-row[data-index]'); if (row) finish(rows[Number(row.dataset.index)].value); });
+        list.hidden = true;
+        linkBoxCandidates().catch(() => {});
+      }
+      box.append(heading, input, ...(withList ? [list] : []), modalHint(doc, withList ? 'Enter links the highlighted row · Esc to cancel' : 'Enter to link · Esc to cancel'));
       input.focus();
     });
   } catch (error) { return Promise.resolve(window.prompt('Page title:', '')); }
@@ -411,7 +468,8 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker']));
+  provided = core.provided;
+  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
 (window.refinementParts ||= []).push({ name: 'editor', schema: [], provide, start, stop: runUnloadTasks });
 })();

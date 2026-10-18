@@ -534,6 +534,13 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .ls-property-dialog .menu-link[data-refinement-prop="new"] .gap-1:not(.tip) { align-self: flex-start; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
 .ls-property-dialog .menu-link[data-refinement-prop]::after { content: attr(data-refinement-prop-type); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: nowrap; }
 `],
+  ['linkBoxList', `/* The link box's list (askPageTitle in the editor part): the line list's rows (.rip-row, drawn by the inline-props
+   stylesheet) inside the small box, and the grey box of a journal day in the glyph slot. */
+.refinement-prompt .refinement-link-list { margin: 8px -8px 0; max-height: 260px; overflow-y: auto; }
+.refinement-prompt .refinement-link-list[hidden] { display: none; }
+.refinement-prompt .refinement-link-list .rip-row { padding: 3px 8px; border-radius: 4px; }
+.refinement-prompt .rf-datebox { display: inline-block; width: .6em; height: .75em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); }
+`],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
 .refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }

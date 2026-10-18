@@ -349,6 +349,10 @@ function placeMenu(menu, box) {
   else { menu.style.bottom = ''; menu.style.top = `${top}px`; }
 }
 const selectable = row => !!row && row.kind !== 'info';
+// One row of a list, as the page draws it (the link box draws its rows with this too, 0.4.102).
+const rowHtml = (row, i, selected) => row.kind === 'info'
+  ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
+  : `<div class="rip-row${selected ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`;
 function renderMenu() {
   const doc = host(), menu = menuEl(doc);
   const rows = state.rows;
@@ -356,9 +360,7 @@ function renderMenu() {
   const idle = state.gather && !state.filter.trim();
   if (!rows.some(selectable) || (idle && state.sel < 0)) { state.sel = -1; } else if (state.sel < 0 || !selectable(rows[state.sel])) state.sel = rows.findIndex(selectable);
   const head = state.stage === 'value' && state.prop ? `<div class="rip-head"><span class="rip-head-name">${escapeHtml(state.prop.title)}</span><span class="rip-head-type">${escapeHtml(typeLabel(state.prop))}</span></div>` : '';
-  menu.innerHTML = head + rows.map((row, i) => row.kind === 'info'
-    ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
-    : `<div class="rip-row${i === state.sel ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`).join('');
+  menu.innerHTML = head + rows.map((row, i) => rowHtml(row, i, i === state.sel)).join('');
   // Logseq swaps the text box while it redraws a block, so the live one is taken when it still edits this block.
   const live = doc.activeElement;
   if (live?.matches?.('textarea') && live !== state.box && live.closest('.ls-block[blockid]')?.getAttribute('blockid') === state.uuid) state.box = live;
@@ -588,7 +590,7 @@ const menuCss = `
 // The marks and the schema, for the pickers the links part marks and the link box's list (0.4.101).
 function provide(core) {
   core.provide({ propSchema: () => graphWide('inlinePropsSchema', loadSchema), propPages: () => graphWide('inlinePropsPages', loadPages),
-    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg });
+    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg, ripRowHtml: rowHtml });
 }
 function start() {
   const core = window.refinementCore;
