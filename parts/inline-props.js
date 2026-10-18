@@ -23,7 +23,7 @@ const { host, notify, showUndoBar } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (inline properties): ', stopKey: '__refinementInlinePropsStop',
   sweep: doc => { try { for (const el of doc.querySelectorAll('.rip-menu, .rip-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-rip-ghost]')) el.removeAttribute('data-rip-ghost'); } catch (error) { /* nothing left over */ } } });
 const { graphNamedIn } = shared;
-let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor;
+let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor, undoBeside;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -547,10 +547,14 @@ async function pickSelected() {
     // The text box already lacks the token; the saved block may still carry it for a moment.
     const words = shorten((gather ? box.value.slice(0, state.start) : box.value).trim().split('\n')[0] || await blockWords(uuid));
     if (!gather) closeMenu();
-    showUndoBar(`${prop.title}: ${value.shown || value.title} set on “${words || 'this block'}”`, async () => {
+    const undoAll = async () => {
       await undoValue();
       if (made) await logseq.Editor.deletePage(made.title).catch(error => warnOnce('the new page could not be removed again', error));
-    }, error => { warnOnce('the value could not be taken off again', error); notify('The value could not be taken off again', 'warning'); });
+    };
+    const onFail = error => { warnOnce('the value could not be taken off again', error); notify('The value could not be taken off again', 'warning'); };
+    // The quiet undo beside the value (0.4.121, parts/proposals.js), else the bar at the bottom.
+    if (undoBeside) undoBeside(uuid, prop.ident, prop.title, `${prop.title}: ${value.shown || value.title}`, undoAll, onFail);
+    else showUndoBar(`${prop.title}: ${value.shown || value.title} set on “${words || 'this block'}”`, undoAll, onFail);
     if (box.isConnected) box.focus();
   } catch (error) {
     warnOnce('the value could not be written', error);
@@ -665,7 +669,7 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor']));
+  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor, undoBeside } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor', 'undoBeside']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-inline-props', style: menuCss });
   const win = host().defaultView;

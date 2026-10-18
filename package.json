@@ -1,6 +1,6 @@
 {
   "name": "logseq-db-refinements",
-  "version": "0.4.120",
+  "version": "0.4.121",
   "private": true,
   "description": "Personal readability refinements for Logseq DB graphs, with calmer search, journal-day dates, copy as rich text, a todo manager and a tag tree",
   "main": "loader.js",

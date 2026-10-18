@@ -19,7 +19,7 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', stopKey: '__refinementProposalsStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
+  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost, .rfp-undo')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
 let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -30,6 +30,8 @@ const settingsSchema = [
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
+  { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
+    description: 'After a value is written into a record (Tab on a proposal, Enter in the line list), a small grey “undo ⌘z” sits beside it in the record’s own row for seven seconds; a click on it, or Cmd+Z while the caret is still in that block, takes the value back to pencilled. Off, the dark bar at the bottom offers Undo as before. Applies at once.' },
   { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
     description: 'The proposals are worked out from the words in the text box as you type them, so a name is pencilled in the moment its word is finished, and a value whose word you delete goes away; the record you are writing gets them whatever its age. Off, they come only after the plugin’s check that follows a save, a second or two later. Applies at once.' },
 ];
@@ -237,6 +239,66 @@ function draw(doc, records) {
     }
   }
   markFirst(doc);
+  drawUndos(doc);
+}
+
+/* The quiet undo (0.4.121): after a value is written into a record, a small grey "undo ⌘z" beside it in the record's
+   own row for seven seconds, in place of the dark bar at the bottom; a click, or Cmd+Z while the caret is still in
+   that block, runs the undo. Drawn on the early pass like the ghosts, so Logseq's redraw of the pill cannot lose it. */
+const UNDO_FOR = 7000;
+const undos = []; // { uuid, ident, name, text, undo, onFail, until }
+function undoBeside(uuid, ident, name, text, undo, onFail) {
+  if (!own('undoBesideValue')) { showUndoBar(text, undo, onFail); return; }
+  const i = undos.findIndex(u => u.uuid === uuid && u.ident === ident);
+  if (i >= 0) undos.splice(i, 1);
+  undos.push({ uuid, ident, name, text, undo, onFail, until: Date.now() + UNDO_FOR });
+  draw(host(), null);
+  setTimeout(() => { expireUndos(); draw(host(), null); }, UNDO_FOR + 50);
+}
+function expireUndos() { const now = Date.now(); for (let i = undos.length - 1; i >= 0; i--) if (undos[i].until <= now) undos.splice(i, 1); }
+async function runUndo(u) {
+  const i = undos.indexOf(u);
+  if (i >= 0) undos.splice(i, 1);
+  draw(host(), null);
+  try { await u.undo(); } catch (error) { if (u.onFail) u.onFail(error); else { warnOnce('the value could not be taken off again', error); notify('The value could not be taken off again', 'warning'); } }
+}
+function undoEl(doc, u) {
+  const el = doc.createElement('span');
+  el.className = 'rfp-undo';
+  el.setAttribute('contenteditable', 'false');
+  el.dataset.rfpUndo = u.ident;
+  el.innerHTML = `<button type="button" title="${escapeHtml(u.text)}">undo</button><kbd>⌘z</kbd>`;
+  el.addEventListener('mousedown', event => event.stopPropagation());
+  el.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); runUndo(u); });
+  return el;
+}
+function drawUndos(doc) {
+  expireUndos();
+  for (const el of doc.querySelectorAll('.rfp-undo')) {
+    const uuid = el.closest('.ls-block[blockid]')?.getAttribute('blockid');
+    if (!undos.some(u => u.uuid === uuid && u.ident === el.dataset.rfpUndo)) el.remove();
+  }
+  for (const u of undos) {
+    for (const row of doc.querySelectorAll(`.ls-block[blockid="${u.uuid}"]`)) {
+      const owned = el => el.closest('.ls-block[blockid]') === row;
+      const pill = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(owned).find(p => pillName(p) === u.name.toLowerCase());
+      const target = pill ? (pill.querySelector('.bottom-property-content') || pill) : [...row.querySelectorAll('.block-title-wrap')].find(owned);
+      if (!target || [...target.querySelectorAll(':scope > .rfp-undo')].some(el => el.dataset.rfpUndo === u.ident)) continue;
+      target.appendChild(undoEl(doc, u));
+    }
+  }
+}
+// Cmd+Z while the caret is in a block with a fresh undo beside a value runs that undo instead of Logseq's.
+function onUndoKey(event) {
+  if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'z') return;
+  const box = event.target;
+  if (!box?.matches?.('textarea')) return;
+  const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
+  expireUndos();
+  const u = [...undos].reverse().find(u => u.uuid === uuid);
+  if (!u) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  runUndo(u);
 }
 // The record being written, when it has ghosts: the ghost under its cursor carries the keys (0.4.120: one value
 // at a time; the cursor moves on with Tab and Shift+Tab, and past the last value the keys are Logseq's again).
@@ -268,23 +330,29 @@ async function fill(uuid, onlyIdent) {
   const cursor = Math.max(0, Math.min((rec.cursor || 0) - (taken >= 0 && taken < (rec.cursor || 0) ? 1 : 0), left.length));
   setRec(uuid, left.length ? { ...rec, items: left, cursor } : null);
   draw(host(), null);
-  const undos = [], done = [];
+  const written = [];
   for (const item of items) {
     try {
       if (item.journal) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.journal);
       else if (item.prop.many) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.ids, { entityId: true, reset: true });
       else await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.ids[0], { entityId: true });
-      undos.push(() => logseq.Editor.removeBlockProperty(uuid, item.ident));
-      done.push(`${item.prop.title}: ${item.shown}`);
+      written.push(item);
     } catch (error) {
       warnOnce('a proposed value could not be written', error);
       notify(`Could not set ${item.prop.title}: ${error?.message || error}`, 'warning');
     }
   }
-  if (!done.length) return;
-  showUndoBar(`${done.join(' · ')} set on “${shorten(rec.words || 'this record')}”`,
-    async () => { for (const undo of undos.reverse()) await undo(); },
-    error => { warnOnce('the proposed values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
+  if (!written.length) return;
+  // Undo takes the value off again and pencils it back in, so one Tab can take it once more.
+  const onFail = error => { warnOnce('the proposed values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); };
+  const restore = async item => {
+    await logseq.Editor.removeBlockProperty(uuid, item.ident);
+    const now = recFor(uuid) || { words: rec.words, items: [], cursor: 0 };
+    if (!now.items.some(i => i.ident === item.ident)) setRec(uuid, { ...now, items: [...now.items, item] });
+    draw(host(), null);
+  };
+  if (own('undoBesideValue')) for (const item of written) undoBeside(uuid, item.ident, item.prop.title, `${item.prop.title}: ${item.shown}`, () => restore(item), onFail);
+  else showUndoBar(`${written.map(item => `${item.prop.title}: ${item.shown}`).join(' · ')} set on “${shorten(rec.words || 'this record')}”`, async () => { for (const item of [...written].reverse()) await restore(item); }, onFail);
 }
 // Shift+Tab passes the value under the cursor: it stays pencilled (a click still takes it), the hint moves on.
 function pass(uuid) {
@@ -322,7 +390,12 @@ const css = `
 .rfp-keys kbd { text-transform: lowercase; }
 .rfp-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
-.bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }`;
+.bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
+/* The quiet undo (0.4.121): a small grey word and its key beside the value just written, for seven seconds. */
+.rfp-undo { display: inline-flex; align-items: baseline; gap: .3em; margin-left: .45em; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; vertical-align: baseline; }
+.rfp-undo button { all: unset; cursor: pointer; font: inherit; color: inherit; }
+.rfp-undo button:hover { color: var(--ls-primary-text-color, currentColor); }
+.rfp-undo kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; text-transform: lowercase; }`;
 
 // Why a value is proposed, in the words the line list shows beside it (0.4.118).
 const WHY = { named: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
@@ -333,7 +406,7 @@ function proposalsFor(uuid, ident) {
   return rec.items.filter(item => !ident || item.ident === ident).map(item => ({ ...item, why: WHY[item.how] || '' }));
 }
 function provide(core) {
-  core.provide({ proposalsOwnDates: ownsDates, refreshProposals: refresh, proposalsFor });
+  core.provide({ proposalsOwnDates: ownsDates, refreshProposals: refresh, proposalsFor, undoBeside });
 }
 function start() {
   const core = window.refinementCore;
@@ -341,13 +414,14 @@ function start() {
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);
+  listen(host().defaultView, ['keydown'], onUndoKey);
   // keyup too: Logseq handles Backspace itself and sets the text without an input event (seen 2026-10-18); focusin: a record clicked into gets its proposals at once.
   listen(host().defaultView, ['input', 'keyup', 'focusin'], onEditorInput);
   listen(host().defaultView, ['focusout'], onFocusOut);
   watchDomEarly(function drawProposals(doc, records) { draw(doc, records); });
   core.onDbRound('proposals', refresh);
   onUnload(logseq.onSettingsChanged(() => { state.proposals = new Map(); state.live = null; refresh(); }));
-  onUnload(() => { clearTimeout(liveTimer); state.proposals = new Map(); state.live = null; try { draw(host(), null); } catch (error) { /* the window may be gone */ } });
+  onUnload(() => { clearTimeout(liveTimer); state.proposals = new Map(); state.live = null; undos.length = 0; try { draw(host(), null); } catch (error) { /* the window may be gone */ } });
   refresh();
   window.proposalsDebug = { state, compute, refresh, liveCompute };
 }
