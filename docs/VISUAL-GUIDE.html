@@ -1,0 +1,667 @@
+<title>DB Refinements Field Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a field guide. A cool grey bench, white "sheets" drawn like Logseq pages for every specimen,
+   and one cobalt annotation ink for labels, so the guide's own marks never read as the plugin's.
+   SOURCE OF TRUTH: docs/VISUAL-GUIDE.html in the plugin folder. Refresh it when a version ships (see HANDOFF.md),
+   then republish with the Artifact tool, url https://claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ (read it first). */
+:root {
+  --bench: #eceef1;
+  --ink: #1b1f25;
+  --ink-2: #565e69;
+  --rule: #d3d8de;
+  --anno: #2849b8;
+  --anno-wash: #2849b814;
+  --paused: #8a6a1f;
+  --paused-wash: #f3ead2;
+
+  /* Logseq-like sheet, the plugin's rules are drawn on these */
+  --sheet: #ffffff;
+  --ls-text: #262a30;
+  --ls-sec: #6c737d;
+  --ls-border: #e2e5e9;
+  --bullet: #9aa1ab;
+  --done: #4e9a62; --doing: #c99325; --late: #c4473b; --review: #5b84c4;
+
+  --f-display: "Schibsted Grotesk", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --f-ls: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --f-tag: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bench: #14171b; --ink: #e5e8ec; --ink-2: #9aa3ae; --rule: #2b3138;
+  --anno: #8ea8ff; --anno-wash: #8ea8ff1f; --paused: #e2bd62; --paused-wash: #3a3018;
+  --sheet: #1f2328; --ls-text: #d8dce1; --ls-sec: #8e96a0; --ls-border: #343a42; --bullet: #6b737d;
+  --done: #7fbf8c; --doing: #e2b24c; --late: #e0675c; --review: #86a6db;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bench: #14171b; --ink: #e5e8ec; --ink-2: #9aa3ae; --rule: #2b3138;
+  --anno: #8ea8ff; --anno-wash: #8ea8ff1f; --paused: #e2bd62; --paused-wash: #3a3018;
+  --sheet: #1f2328; --ls-text: #d8dce1; --ls-sec: #8e96a0; --ls-border: #343a42; --bullet: #6b737d;
+  --done: #7fbf8c; --doing: #e2b24c; --late: #e0675c; --review: #86a6db;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bench); color: var(--ink); font: 17px/1.55 var(--f-body); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-block: 44px 90px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 5.5vw, 3.4rem); font-weight: 800; line-height: 1.02; letter-spacing: -.015em; }
+h2 { font-size: 1.7rem; font-weight: 700; line-height: 1.15; }
+h3 { font-size: 1.02rem; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--anno); }
+code, .k { font-family: var(--f-mono); font-size: .86em; }
+.eyebrow { font: 500 .78rem/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--anno); }
+.lede { max-width: 66ch; color: var(--ink-2); font-size: 1.08rem; }
+.stamp { display: flex; flex-wrap: wrap; gap: 8px 18px; font: .85rem var(--f-mono); color: var(--ink-2); }
+.stamp b { color: var(--ink); font-weight: 500; }
+
+header.top { display: grid; gap: 18px; margin-bottom: 34px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+nav.toc a { text-decoration: none; font: 500 .86rem var(--f-body); color: var(--ink); border: 1px solid var(--rule); padding: 5px 11px; border-radius: 999px; background: var(--sheet); }
+nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--anno); color: var(--anno); outline: none; }
+
+section.part { margin-top: 64px; display: grid; gap: 20px; }
+.part-head { display: grid; gap: 8px; border-top: 2px solid var(--ink); padding-top: 14px; }
+.part-head .lede { font-size: 1rem; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); }
+
+/* A specimen: a drawn sheet and its caption */
+.spec { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; display: grid; grid-template-rows: auto 1fr; overflow: hidden; min-width: 0; }
+.spec .sheet { padding: 18px 18px 16px; border-bottom: 1px dashed var(--rule); font: 15px/1.6 var(--f-ls); color: var(--ls-text); overflow-x: auto; }
+.spec .cap { padding: 12px 18px 15px; display: grid; gap: 7px; align-content: start; font-size: .95rem; }
+.spec .cap h3 { font-size: .98rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; font: .74rem/1.3 var(--f-mono); color: var(--ink-2); }
+.meta span { border: 1px solid var(--rule); border-radius: 4px; padding: 2px 6px; }
+.meta .set { color: var(--anno); border-color: color-mix(in srgb, var(--anno) 35%, transparent); }
+.meta .off { color: var(--paused); border-color: color-mix(in srgb, var(--paused) 45%, transparent); }
+
+/* ---------- Logseq imitation: the plugin's look as it is ---------- */
+.blk { display: flex; gap: 9px; align-items: baseline; padding: 1px 0; }
+.blk + .blk { margin-top: 2px; }
+.bul { flex: none; width: 16px; display: inline-flex; justify-content: center; }
+.bul::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--bullet); transform: translateY(-2px); }
+.bul.fold::before { box-shadow: 0 0 0 4px color-mix(in srgb, var(--bullet) 28%, transparent); }
+.bul.none::before { background: transparent; }
+.bul.page::before { width: 8px; height: 10px; border-radius: 1.5px; background: transparent; border: 1.4px solid var(--ls-sec); transform: translateY(0); }
+.bul.quote::before { content: "“"; width: auto; height: auto; background: none; color: var(--ls-sec); font-size: 1.3em; line-height: .6; transform: translateY(4px); }
+.body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.body .txt { flex: 1 1 auto; min-width: 0; }
+.ind { margin-left: 25px; }
+.ind2 { margin-left: 50px; }
+.nest { border-left: 1px solid color-mix(in srgb, var(--ls-text) 10%, transparent); margin-left: 7px; padding-left: 17px; }
+.nest.hot { border-left-color: color-mix(in srgb, var(--ls-text) 26%, transparent); }
+
+.pl { color: var(--ls-text); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ls-text) 26%, transparent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.ico { display: inline-block; width: 1em; text-align: center; margin-right: 2px; }
+.tg { color: var(--ls-sec); font-weight: 600; margin-right: 1px; }
+.dot::before { content: "•"; color: color-mix(in srgb, var(--ls-text) 50%, transparent); margin-right: 4px; }
+.file { color: color-mix(in srgb, var(--ls-text) 50%, transparent); margin-right: 3px; }
+.status { display: inline-block; width: .8em; height: .8em; border-radius: 50%; border: 1.6px solid var(--doing); transform: translateY(1px); margin-right: 3px; }
+.status.done { background: var(--done); border-color: var(--done); }
+.status.bl { border-style: dashed; border-color: var(--ls-sec); }
+.date { background: color-mix(in srgb, var(--ls-text) 8%, transparent); border-radius: 3px; padding: 0 5px; }
+.date.past { color: var(--ls-sec); }
+.date.today { background: color-mix(in srgb, var(--ls-text) 13%, transparent); font-weight: 500; }
+.date.late { color: var(--doing); }
+.chip { font: .84em var(--f-tag); color: var(--ls-sec); margin-left: auto; white-space: nowrap; }
+.chip + .chip { margin-left: 8px; }
+.mono { font-family: var(--f-tag); }
+.q { color: color-mix(in srgb, var(--ls-text) 70%, transparent); }
+.f { color: color-mix(in srgb, var(--ls-text) 50%, transparent); }
+.sm { font-size: .82em; }
+.props { font-size: .9em; color: var(--ls-text); }
+.props .n { color: var(--ls-sec); }
+.props .sep { color: color-mix(in srgb, var(--ls-text) 50%, transparent); margin: 0 5px; }
+.props .empty { opacity: .5; }
+.pencil { font-style: italic; color: color-mix(in srgb, var(--ls-text) 70%, transparent); }
+.hint { font: .78em var(--f-tag); color: var(--ls-sec); margin-left: 6px; }
+.cap-k { display: inline-block; font: .74em/1.4 var(--f-tag); border: 1px solid var(--ls-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--ls-sec); }
+.cue { font-size: .82em; color: color-mix(in srgb, var(--ls-text) 70%, transparent); }
+.solid { display: inline-block; width: .62em; height: .62em; border-radius: 50%; background: color-mix(in srgb, var(--ls-text) 55%, transparent); margin: 0 2px; }
+.here { background: color-mix(in srgb, var(--ls-text) 7%, transparent); box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ls-text) 38%, transparent); padding: 0 2px; }
+.chev { color: var(--ls-sec); font-size: .8em; margin-left: 4px; }
+.title { font: 700 1.7em/1.2 var(--f-ls); margin: 2px 0 4px; }
+.above { font-size: .78em; color: var(--ls-sec); display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.under { font-size: .82em; color: var(--ls-sec); }
+.field { background: color-mix(in srgb, var(--ls-text) 3%, transparent); padding: 6px 10px; display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px; font-size: .92em; }
+.field .n { color: var(--ls-sec); }
+.vb::before { content: "•"; color: var(--bullet); display: inline-block; width: 16px; margin-left: 2px; }
+.vt { padding-left: 18px; }
+.heading { font-weight: 600; }
+.path { font-size: .82em; color: var(--ls-sec); }
+.path u { text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--ls-sec) 40%, transparent); }
+.usage { font-size: .86em; display: flex; gap: 14px; flex-wrap: wrap; margin: 2px 0 8px; }
+.usage .back { color: color-mix(in srgb, var(--ls-text) 22%, transparent); }
+.gap { height: 12px; }
+.embed { border-left: 2px solid color-mix(in srgb, var(--ls-text) 26%, transparent); padding-left: 10px; }
+.menu { border: 1px solid var(--ls-border); border-radius: 7px; box-shadow: 0 6px 20px rgb(0 0 0 / .08); padding: 4px; max-width: 360px; font-size: .92em; background: var(--sheet); }
+.mrow { display: flex; gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 4px; }
+.mrow.sel { background: color-mix(in srgb, var(--ls-text) 7%, transparent); }
+.mrow .r { margin-left: auto; font: .82em var(--f-tag); color: var(--ls-sec); white-space: nowrap; }
+.mrow .why { margin-left: auto; font-size: .82em; color: var(--ls-sec); }
+.slot { width: 1.1em; text-align: center; flex: none; color: var(--ls-sec); }
+.slot.rect::before { content: ""; display: inline-block; width: 8px; height: 10px; border: 1.4px solid var(--ls-sec); border-radius: 1.5px; }
+.slot.day::before { content: ""; display: inline-block; width: 11px; height: 9px; border-radius: 2px; background: color-mix(in srgb, var(--ls-text) 13%, transparent); }
+.kbd { display: inline-block; font: .8rem/1.5 var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: var(--sheet); color: var(--ink); white-space: nowrap; }
+.caret { display: inline-block; width: 1.5px; height: 1.05em; background: var(--ls-text); vertical-align: -2px; margin-left: 1px; }
+.searchwin { border: 1px solid var(--ls-border); border-radius: 9px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); font-size: .9em; }
+.searchwin .box { grid-column: 1 / -1; padding: 9px 12px; border-bottom: 1px solid var(--ls-border); }
+.searchwin .res { padding: 8px 10px; display: grid; gap: 3px; }
+.searchwin .prev { border-left: 1px solid var(--ls-border); padding: 8px 12px; background: color-mix(in srgb, var(--ls-text) 2%, transparent); }
+.grp { font-size: .78em; color: var(--ls-sec); margin-top: 4px; }
+.hit { font-weight: 700; }
+.undo-bar { display: inline-flex; gap: 14px; align-items: center; background: #2a2d33; color: #f1f2f4; border-radius: 7px; padding: 7px 12px; font-size: .9em; }
+.undo-bar b { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.toast { display: inline-block; border: 1px solid var(--ls-border); border-left: 3px solid var(--doing); border-radius: 6px; padding: 6px 10px; font-size: .9em; }
+.paused-sheet { position: relative; opacity: .55; }
+.paused-sheet::after { content: "paused"; position: absolute; top: 10px; right: 12px; font: 500 .7rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--paused); }
+
+/* ---------- guide's own diagrams ---------- */
+.rules { display: grid; gap: 14px; }
+.rulerow { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 22px 18px 18px; overflow-x: auto; }
+.anatomy { display: grid; grid-template-columns: auto auto 1fr auto; gap: 0 10px; align-items: end; min-width: 560px; font: 16px/1.6 var(--f-ls); color: var(--ls-text); }
+.anatomy .lbl { font: 500 .74rem/1.25 var(--f-mono); color: var(--anno); padding-bottom: 6px; border-bottom: 2px solid var(--anno); margin-bottom: 6px; }
+.anatomy .lbl small { display: block; font-family: var(--f-body); font-size: .82rem; color: var(--ink-2); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.three > div { background: var(--anno-wash); border-radius: 8px; padding: 12px 14px; font-size: .95rem; }
+.three b { display: block; font-family: var(--f-display); margin-bottom: 2px; }
+
+.map { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.grp-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; text-decoration: none; color: inherit; }
+.grp-card:hover, .grp-card:focus-visible { border-color: var(--anno); outline: none; }
+.grp-card h3 { font-size: 1.05rem; }
+.grp-card p { font-size: .9rem; color: var(--ink-2); }
+.grp-card ul { margin: 0; padding-left: 18px; font-size: .88rem; }
+.grp-card.paused { background: var(--paused-wash); }
+
+.flow { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; overflow-x: auto; }
+.flow svg { display: block; min-width: 720px; width: 100%; height: auto; }
+.flow svg text { font-family: var(--f-body); fill: var(--ink); }
+.flow svg .s { font-size: 12px; fill: var(--ink-2); }
+.flow svg .m { font-family: var(--f-mono); font-size: 11.5px; fill: var(--anno); }
+.flow svg .box { fill: var(--sheet); stroke: var(--rule); stroke-width: 1.3; }
+.flow svg .box.core { fill: var(--anno-wash); stroke: var(--anno); }
+.flow svg .box.pz { fill: var(--paused-wash); stroke: var(--paused); stroke-dasharray: 4 3; }
+.flow svg .arr { stroke: var(--ink-2); stroke-width: 1.3; fill: none; }
+.flow svg .ah { fill: var(--ink-2); }
+
+table.t { width: 100%; border-collapse: collapse; font-size: .93rem; background: var(--sheet); }
+.tw { border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; }
+table.t th, table.t td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.t th { font: 500 .74rem var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); background: color-mix(in srgb, var(--bench) 50%, var(--sheet)); }
+table.t tr:last-child td { border-bottom: 0; }
+.keys td:first-child { white-space: nowrap; }
+
+footer.how { margin-top: 70px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 8px; font-size: .95rem; }
+footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+@media (max-width: 560px) {
+  .searchwin { grid-template-columns: 1fr; }
+  .searchwin .prev { border-left: 0; border-top: 1px solid var(--ls-border); }
+}
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: border-color .15s, color .15s; } }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">Logseq DB · personal plugin</span>
+  <h1>DB Refinements, every part on one page</h1>
+  <p class="lede">The plugin changes how Logseq draws a page so that pages, blocks, links, tags, properties and dates are easy to tell apart, and it helps while you write a record. Each picture below is drawn the way the plugin looks today, with what it means, the setting that turns it off, and the file that holds it.</p>
+  <div class="stamp"><span>version <b>0.4.135</b></span><span>refreshed <b>2026-10-18</b></span><span>Logseq <b>2.0.2</b> (DB graphs)</span><span>next steps: <b>docs/NEXT.md</b></span></div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#rules">The three rules</a><a href="#map">Map</a><a href="#reading">Reading a page</a><a href="#writing">Writing a record</a><a href="#pickers">Pickers</a><a href="#around">Around the page</a><a href="#tools">Tools</a><a href="#paused">Paused</a><a href="#writes">When it writes</a><a href="#code">Inside the code</a>
+  </nav>
+</header>
+
+<!-- ============ RULES ============ -->
+<section class="part" id="rules">
+  <div class="part-head"><span class="eyebrow">Start here</span><h2>Three places on a row, three questions</h2>
+  <p class="lede">Every mark the plugin adds answers one question, and each question has one place on the row. This is the rule everything else follows.</p></div>
+  <div class="rulerow">
+    <div class="anatomy">
+      <div class="lbl">BULLET<small>What is this row?</small></div>
+      <div class="lbl">BEFORE A LINK<small>What does it point to?</small></div>
+      <div class="lbl" style="border-color:transparent">&nbsp;<small>&nbsp;</small></div>
+      <div class="lbl">AFTER THE TEXT<small>What does it hold?</small></div>
+      <div><span class="bul fold"></span></div>
+      <div>Kickoff with <span class="pl">Mateo Ruiz</span></div>
+      <div>about <span class="dot"></span>the budget block</div>
+      <div><span class="cue">↳ <span class="solid"></span>2 · 1 Decision · due Fri</span></div>
+    </div>
+  </div>
+  <div class="three">
+    <div><b>The bullet says what a row is.</b>A dot is a block. A small rectangle is a page listed as a row. A quotation mark is a PDF highlight. No dot is an empty spacer.</div>
+    <div><b>A mark before a link says what it points to.</b>Nothing but a faint underline: a page. A small dot: a block. A status circle: a task. A grey icon: a file.</div>
+    <div><b>Anything after the text says what it holds.</b>On a folded block: the open tasks, files and kinds of record inside, and the nearest due day.</div>
+  </div>
+</section>
+
+<!-- ============ MAP ============ -->
+<section class="part" id="map">
+  <div class="part-head"><span class="eyebrow">Map</span><h2>The five groups of the settings window</h2>
+  <p class="lede">The guide follows the same five groups you see in the plugin's settings window, so a picture here and a switch there are always in the same place.</p></div>
+  <div class="map">
+    <a class="grp-card" href="#reading"><h3>Reading a page</h3><p>How pages, rows and links look. Nothing here writes to notes.</p><ul><li>Pages</li><li>Visual hierarchy</li><li>Links and references</li></ul></a>
+    <a class="grp-card" href="#writing"><h3>Writing a record</h3><p>Help while you write. Nothing is written until you press a key.</p><ul><li>Properties in the line</li><li>Proposals in the pills</li><li>Journal day as date</li></ul></a>
+    <a class="grp-card" href="#around"><h3>Around the page</h3><p>The sidebars, the toolbar and search.</p><ul><li>Sidebars and toolbar</li><li>Search</li><li>Search in the right sidebar</li></ul></a>
+    <a class="grp-card" href="#tools"><h3>Tools</h3><p>Commands you run on purpose.</p><ul><li>Copy as rich text</li><li>Shortcuts and actions</li></ul></a>
+    <a class="grp-card paused" href="#paused"><h3>Paused</h3><p>Switched off since 0.4.128 at your word. They draw nothing while off.</p><ul><li>Todos</li><li>Expectations</li><li>Tag tree</li></ul></a>
+  </div>
+</section>
+
+<!-- ============ READING ============ -->
+<section class="part" id="reading">
+  <div class="part-head"><span class="eyebrow">Group 1</span><h2>Reading a page</h2>
+  <p class="lede">The look of links, tags, dates, properties, titles and references. All of these only change how things are drawn.</p></div>
+
+  <h3>Links</h3>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Lunch with <span class="pl">Ada Okafor</span> and <span class="pl"><span class="ico">🧭</span>Atlas</span></span></span></div>
+    </div><div class="cap"><h3>A link to a page</h3><p>Normal text colour with a faint underline. A page's own icon stays in the text colour.</p><div class="meta"><span class="set">Quiet page links</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Filed under <span class="tg">#</span><span class="pl">Imaging</span></span></span></div>
+    </div><div class="cap"><h3>A link to a tag's own page</h3><p>The same underline, with a grey <code>#</code> (or the tag's icon) in front, so a tag never looks like a plain page.</p><div class="meta"><span class="set">Quiet page links</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">See <span class="dot"></span>the budget block and <span class="status"></span>Send the draft</span></span></div>
+    </div><div class="cap"><h3>A link to a block or a task</h3><p>A small faint dot before a block, nothing under the words. A linked task shows its status circle in the dot's place.</p><div class="meta"><span class="set">Icons for block references and files</span><span>links.js · styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt"><span class="file">▤</span><span class="pl">scan-report.pdf</span> and <span class="file">▨</span><span class="pl">x-ray.png</span></span></span></div>
+    </div><div class="cap"><h3>A link to a file</h3><p>A grey document or picture icon in front, the page underline, and no file-type word after.</p><div class="meta"><span class="set">Icons for block references and files</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul quote"></span><span class="body"><span class="txt">The margins were clear on every side. <span class="f sm">” (Pathology report, p. 3)</span></span></span></div>
+    </div><div class="cap"><h3>A PDF highlight</h3><p>Reads as a quotation, with a small citation after it. A click opens the exact spot in the PDF.</p><div class="meta"><span class="set">Compact PDF citations</span><span>links.js · styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="path">Atlas › <u>Kickoff</u> › notes</div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Agreed the scope</span></span></div>
+    </div><div class="cap"><h3>Grey parent paths</h3><p>The path above a reference shows plain words with a soft underline instead of <code>[[Name]]</code>, and uses its room before cutting.</p><div class="meta"><span class="set">Tidy parent paths</span><span class="set">Plain links in grey paths</span><span>links.js</span></div></div></article>
+  </div>
+
+  <h3>Tags</h3>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Weekly sync</span><span class="chip">Meeting</span></span></div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Use the new scanner</span><span class="chip">Decision</span></span></div>
+    </div><div class="cap"><h3>Tags read as class names</h3><p>A tag at the right of a block is a grey monospace name with no <code>#</code>, because a tag says what kind of thing the block is. Since 0.4.134 it stays on the row in narrow columns.</p><div class="meta"><span class="set">Tags as grey class names</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">An idea for <span class="tg">#</span>Imaging later</span></span></div>
+    </div><div class="cap"><h3>A tag left inside a sentence</h3><p>Keeps its <code>#</code>, in the tag grey. The optional faint violet chip behind tags is off by default.</p><div class="meta"><span class="set">Tags as grey class names</span><span class="off">Soft background behind tags · off</span></div></div></article>
+  </div>
+
+  <h3>Dates</h3>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Seen <span class="date past">Oct 9th, 2026</span>, again <span class="date today">Oct 18th, 2026</span>, next <span class="date">Oct 24th, 2026</span></span></span></div>
+    </div><div class="cap"><h3>Dates in a grey box, with their tense</h3><p>A date is the one mark that wraps its words. A past day is quieter, today is firmer, a day to come is plain. No pencil after a date value; a click still opens the picker.</p><div class="meta"><span class="set">Dates in a soft grey box</span><span class="set">Dates carry their tense</span><span>links.js · styles.js</span></div></div></article>
+  </div>
+
+  <h3>Properties under a block</h3>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Kickoff call</span><span class="chip">Meeting</span></span></div>
+      <div class="ind props"><span class="n">attendees:</span> <span class="pl">Mateo Ruiz</span><span class="sep">·</span><span class="n">date:</span> <span class="date">Oct 14th</span><span class="sep">·</span><span class="empty"><span class="n">project:</span> ···</span></div>
+    </div><div class="cap"><h3>One plain row of name and value</h3><p>No capsule outlines; grey names, values in the text colour. A property with nothing in it yet is faint, never hidden.</p><div class="meta"><span class="set">Plainer properties</span><span class="set">Empty properties faint</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt"><span class="status bl" style="border-style:dashed"></span>Book the scan</span><span class="chip">Task</span></span></div>
+      <div class="ind props empty"><span class="n">Scheduled:</span> ···<span class="sep">·</span><span class="n">Deadline:</span> ···</div>
+    </div><div class="cap"><h3>Empty slots read as the row</h3><p>The empty slots Logseq lists under a task look like the row above, faint, with no icon or bullet. The dashed circle is Logseq's own Backlog status.</p><div class="meta"><span class="set">Empty slots read as the row</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Follow-up visit <span class="chev">›</span></span></span></div>
+    </div><div class="cap"><h3>The hidden-properties arrow</h3><p>While you point at a block that holds a hidden value, a small grey chevron sits after its text; a click opens them. Empty slots do not count.</p><div class="meta"><span class="set">Hidden properties arrow on every block</span><span>properties.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="field">
+        <span class="n">hospital</span><span class="vt"><span class="ico">🏥</span>City of Hope</span>
+        <span class="n">doctors</span><span class="vb"><span class="pl">Ada Okafor</span></span>
+        <span class="n">notes</span><span class="vt">Bring the old films</span>
+        <span class="n">date</span><span class="vt"><span class="date">Sep 21st, 2026</span></span>
+      </div>
+    </div><div class="cap"><h3>A page's property list in one column</h3><p>On a very light field, names in one column and every value starting at the same edge, whether or not Logseq gave it a bullet. Add property shows only on hover.</p><div class="meta"><span class="set">Plainer properties</span><span>properties.js · styles.js</span></div></div></article>
+  </div>
+
+  <h3>What a block holds, nesting and space</h3>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul fold"></span><span class="body"><span class="txt">Atlas planning <span class="cue">↳ <span class="solid"></span>2 <span class="file">▤</span> · 1 Decision · due Fri</span></span></span></div>
+    </div><div class="cap"><h3>A folded block says what it holds</h3><p>Only while folded: open tasks at any depth, files directly below, the kinds of record inside, and the nearest due day. An open block shows nothing.</p><div class="meta"><span class="set">Show what a block holds</span><span>links.js · styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Symptoms</span></span></div>
+      <div class="nest hot"><div class="blk"><span class="bul"></span><span class="body"><span class="txt">Headache in the morning</span></span></div><div class="blk"><span class="bul"></span><span class="body"><span class="txt">Better after food</span></span></div></div>
+      <div class="blk"><span class="bul none"></span><span class="body"><span class="txt">&nbsp;</span></span></div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Medication</span></span></div>
+    </div><div class="cap"><h3>Nesting lines and empty spacers</h3><p>Faint lines beside nested blocks, firmer beside the branch you point at. An empty block shows no dot, so it works as space.</p><div class="meta"><span class="set">Faint nesting lines</span><span class="set">Hide the dot on empty blocks</span><span>styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">From the protocol:</span></span></div>
+      <div class="ind embed"><div class="blk"><span class="bul"></span><span class="body"><span class="txt">Fast for six hours before</span></span></div></div>
+    </div><div class="cap"><h3>Embedded content</h3><p>A faint line down the left of anything embedded from elsewhere.</p><div class="meta"><span class="set">Line beside embedded content</span><span>styles.js</span></div></div></article>
+  </div>
+
+  <h3>Around a page's title</h3>
+  <div class="grid wide">
+    <article class="spec"><div class="sheet">
+      <div class="above"><span>Add icon · Set property</span><span class="mono">Project</span></div>
+      <div class="title"><span class="ico">🧭</span>Atlas</div>
+      <div class="under">Alias of <span class="pl">Project Atlas</span></div>
+    </div><div class="cap"><h3>What a page is, above its title</h3><p>The page's tags sit beside its actions as grey class names, always visible. An untagged page says <code>Page</code> there; a click opens the plugin's Tags list (also <span class="kbd">⌘T</span>). An alias says which page it belongs to.</p><div class="meta"><span class="set">Always show page title actions and tags</span><span class="set">Show what a page is above its title</span><span class="set">Show which page an alias belongs to</span><span>pages.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="above"><span class="mono">Tag</span></div>
+      <div class="title"><span class="tg">#</span>Imaging</div>
+      <div class="under"><span class="tg">#</span><span class="pl">Occurrence</span> › <span class="tg">#</span><span class="pl">Imaging</span></div>
+      <div class="gap"></div>
+      <div class="under">Inherited from <span class="tg">#</span><span class="pl">Occurrence</span>: date, place</div>
+    </div><div class="cap"><h3>A tag page says where it sits</h3><p>Under the title, the tags it extends from the top down. Under its own properties, the ones it inherits. On a tag page the rows do not repeat that tag.</p><div class="meta"><span class="set">Show where a tag sits</span><span class="set">Show inherited properties on tag pages</span><span class="set">Leave a tag page's own tag off its rows</span><span>pages.js · links.js</span></div></div></article>
+  </div>
+
+  <h3>Linked references and the Journals list</h3>
+  <div class="grid wide">
+    <article class="spec"><div class="sheet">
+      <div class="heading">Linked references <span class="q">12</span></div>
+      <div class="usage"><span>project · 8</span><span class="back">related · 1</span><span class="back">in text · 3</span></div>
+      <div class="heading">Weekly sync <span class="q sm">· 2</span></div>
+      <div class="ind"><div class="path"><span class="bul" style="width:auto;margin-right:6px"></span>Kickoff call</div>
+      <div class="ind props"><span class="n">project:</span> <span class="here">Atlas</span></div></div>
+      <div class="gap"></div>
+      <div class="heading">Oct 16th, 2026</div>
+      <div class="ind"><div class="blk"><span class="bul"></span><span class="body"><span class="txt">Asked Priya about <span class="here">Atlas</span></span></span></div></div>
+    </div><div class="cap"><h3>How a page is used, and where it is pointed at</h3><p>Under the heading, the references counted by how they arrive, with your own property names. Click one and the other rows and counts step back together. The link to this page wears a faint wash with a fine line beneath. Source pages are set apart by a gap, never a line. Recycled pages are not counted (0.4.132); journals have no usage line (0.4.133).</p><div class="meta"><span class="set">Show how a page is used</span><span class="set">Mark the link to this page in Linked references</span><span class="set">Clearer Linked references</span><span>links.js · styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="heading">Oct 17th, 2026 <span class="cue">&nbsp;<span class="solid"></span>2 · due Mon · <span class="mono">2 Meeting · 1 Decision</span></span></div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Weekly sync</span><span class="chip">Meeting</span></span></div>
+      <div class="gap"></div>
+      <div class="heading">Oct 16th, 2026 <span class="cue">&nbsp;<span class="mono">1 Occurrence</span></span></div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Scan at the clinic</span><span class="chip">Imaging</span></span></div>
+    </div><div class="cap"><h3>A day says what it holds</h3><p>Each day is only as tall as its content. After the day's title: its open tasks, the nearest due day, and the kinds of record inside. Nothing steps back by age.</p><div class="meta"><span class="set">A day says what it holds</span><span class="set">Journal days only as tall as what they hold</span><span>links.js · styles.js</span></div></div></article>
+  </div>
+</section>
+
+<!-- ============ WRITING ============ -->
+<section class="part" id="writing">
+  <div class="part-head"><span class="eyebrow">Group 2</span><h2>Writing a record</h2>
+  <p class="lede">Three helpers share one look and one keyboard. Anything the plugin could fill in is <span class="pencil">pencilled in</span>: italic, in the quiet grey, with no box. It is written only when you press Tab, Enter or click. These work only in the graphs you name in their settings.</p></div>
+  <div class="grid wide">
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Met Priya about Atlas <span class="mono">a::pri</span><span class="caret"></span></span><span class="chip">Meeting</span></span></div>
+      <div class="ind props"><span class="n">attendees:</span> <span class="pencil">Priya Nair</span></div>
+      <div class="ind" style="margin-top:6px"><div class="menu">
+        <div class="mrow sel"><span class="slot rect"></span><span>Priya Nair</span><span class="why">named in your words</span></div>
+        <div class="mrow"><span class="slot rect"></span><span>Priyanka Das</span><span class="r">Person</span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">Make Person “pri”</span></div>
+      </div></div>
+    </div><div class="cap"><h3>Properties typed in the line</h3><p>Type a field's first letters and <code>::</code> at the end of the block (<code>p::</code> lists every field, <code>a::pri</code> goes straight to attendees). A list opens under the property row, on the proposed value, with the reason beside it. Enter writes. Escape or leaving the block takes the typed letters back out. A field that takes several pages stays open.</p><div class="meta"><span class="set">Properties typed in the line</span><span class="set">First letters name the field</span><span class="set">A field that takes several stays open</span><span>inline-props.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Talked with Mateo about the scan next fri<span class="caret"></span></span><span class="chip">Meeting</span></span></div>
+      <div class="ind props"><span class="n">attendees:</span> <span class="pencil">Mateo Ruiz</span><span class="hint"><span class="cap-k">tab</span> takes · <span class="cap-k">⇧tab</span> passes</span><span class="sep">·</span><span class="n">date:</span> <span class="pencil">Oct 23rd, 2026</span><span class="sep">·</span><span class="n">project:</span> <span class="pl">Atlas</span><span class="hint">undo <span class="cap-k">⌘z</span></span></div>
+    </div><div class="cap"><h3>Proposals in the pills</h3><p>While you type, the plugin pencils in what it can see: a person named in your words, a day such as “next fri”, the parent block's or page's project, the journal day. Tab takes the one with the hint and moves on; Shift+Tab passes it. After a write, a quiet <code>undo ⌘z</code> sits beside the value for seven seconds. The hint leaves after twenty takes.</p><div class="meta"><span class="set">Proposals in the pills</span><span class="set">While you type</span><span class="set">A day in the words</span><span class="set">Undo beside the value</span><span>proposals.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Blood test results back</span><span class="chip">Occurrence</span></span></div>
+      <div class="ind props"><span class="n">date:</span> <span class="pencil">Oct 18th, 2026</span></div>
+    </div><div class="cap"><h3>Journal day as date</h3><p>A new record written on a journal day gets that day pencilled into its empty Date. Only in the graphs and tags you name (now: Plugin Test Graph and Work). With Proposals in the pills off, it asks the older way, with <span class="kbd">j</span> and <span class="kbd">k</span>.</p><div class="meta"><span class="set">Fill dates automatically</span><span class="set">Ask before filling</span><span class="set">Only in these graphs</span><span>journal-dates.js</span></div></div></article>
+  </div>
+
+  <div class="tw"><table class="t keys">
+    <thead><tr><th>Key</th><th>While a value is pencilled in</th><th>While the line list is open</th></tr></thead>
+    <tbody>
+      <tr><td><span class="kbd">Tab</span></td><td>Writes the value with the hint, moves the hint on, the caret stays</td><td>Closes the list</td></tr>
+      <tr><td><span class="kbd">⇧ Tab</span></td><td>Passes it; it stays pencilled</td><td></td></tr>
+      <tr><td><span class="kbd">Enter</span></td><td></td><td>Writes the chosen row; with nothing to pick it does nothing, so the block never splits</td></tr>
+      <tr><td><span class="kbd">Esc</span></td><td>Never says no. Closes a list, else leaves the block</td><td>Closes the list and takes the typed letters out</td></tr>
+      <tr><td><span class="kbd">⌘Z</span></td><td>Right after a write: takes the value back to pencilled</td><td></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ PICKERS ============ -->
+<section class="part" id="pickers">
+  <div class="part-head"><span class="eyebrow">Group 1, links section</span><h2>Logseq's pickers, marked like the page</h2>
+  <p class="lede">Logseq's own lists keep their order, but every row now wears the mark its link would have on the page, and anything that would make something new is pencilled in.</p></div>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <div><span class="mono">[[at</span><span class="caret"></span></div>
+      <div class="menu" style="margin-top:6px">
+        <div class="mrow sel"><span class="slot">🧭</span><span>Atlas</span><span class="r">Project</span></div>
+        <div class="mrow"><span class="slot tg">#</span><span>Attachments</span></div>
+        <div class="mrow"><span class="slot rect"></span><span>Atlas notes</span></div>
+        <div class="mrow"><span class="slot day"></span><span>Oct 18th, 2026 <span class="q sm">Today</span></span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">New page “at”</span></div>
+      </div>
+    </div><div class="cap"><h3>The <code>[[</code> menu</h3><p>A page's icon or the plain rectangle, a <code>#</code> before a tag, the grey box before a day, the page's tags at the right. It stays empty until you type a letter. A value proposed for this record says “proposed”. Escape takes the <code>[[</code> and letters back out, so no page is made by accident.</p><div class="meta"><span class="set">The [[ menu and the # picker say what each row is</span><span class="set">Empty [[ ]] menu until you type</span><span class="set">Escape takes [[ and # out</span><span>links.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div><span class="mono">#ima</span><span class="caret"></span></div>
+      <div class="menu" style="margin-top:6px">
+        <div class="mrow sel"><span class="slot tg">#</span><span>Imaging</span><span class="r">under Occurrence · + date</span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">New tag “ima”</span></div>
+      </div>
+    </div><div class="cap"><h3>The <code>#</code> picker</h3><p>Each tag with what it sits under and the fields it brings.</p><div class="meta"><span class="set">The [[ menu and the # picker say what each row is</span><span>links.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="menu">
+        <div class="mrow sel"><span class="slot">▦</span><span>deadline</span><span class="r">Date</span></div>
+        <div class="mrow"><span class="slot">☺</span><span>attendees</span><span class="r">Person · many</span></div>
+        <div class="mrow"><span class="slot">☐</span><span>urgent</span><span class="r">yes/no</span></div>
+      </div>
+    </div><div class="cap"><h3>Add property</h3><p>Each property's type in quiet words at the right, and its type icon in place of Logseq's <code>T</code>.</p><div class="meta"><span class="set">The property picker says each type</span><span>links.js · inline-props.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="menu">
+        <div class="mrow"><span class="slot">☐</span><span class="slot rect"></span><span>Mateo Ruiz <span class="q sm">proposed</span></span><span class="r">Person</span></div>
+        <div class="mrow"><span class="slot">☐</span><span class="slot dot" style="width:auto"></span><span>Kickoff call</span><span class="r">block</span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">New value</span></div>
+      </div>
+    </div><div class="cap"><h3>The value picker on a property</h3><p>After Logseq's checkbox: the page's mark, the kind at the right, “proposed” on a pencilled value.</p><div class="meta"><span class="set">The value picker says what each row is</span><span>links.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div style="border:1px solid var(--ls-border);border-radius:6px;padding:6px 10px">Link “the scan” to <span class="mono">ada</span><span class="caret"></span></div>
+      <div class="menu" style="margin-top:6px">
+        <div class="mrow sel"><span class="slot rect"></span><span>Ada Okafor</span><span class="r">Person</span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">Make page “ada”</span></div>
+      </div>
+    </div><div class="cap"><h3>The link box</h3><p>Link selected text to a page (<span class="kbd">⌘⇧L</span>) lists your pages as you type. Make page shows only when nothing matches exactly, and never above a match.</p><div class="meta"><span class="set">The link box lists your pages</span><span>editor.js</span></div></div></article>
+  </div>
+</section>
+
+<!-- ============ AROUND ============ -->
+<section class="part" id="around">
+  <div class="part-head"><span class="eyebrow">Group 3</span><h2>Around the page</h2>
+  <p class="lede">The sidebars, the toolbar and the search window. Search settings apply after a reload.</p></div>
+  <div class="grid wide">
+    <article class="spec"><div class="sheet">
+      <div class="searchwin">
+        <div class="box">atlas <span class="caret"></span></div>
+        <div class="res">
+          <div class="grp">Atlas</div>
+          <div class="mrow sel"><span class="slot">•</span><span><span class="hit">Atlas</span> kickoff notes</span><span class="r">Meeting · today</span></div>
+          <div class="mrow"><span class="slot">•</span><span>Budget for <span class="hit">Atlas</span></span><span class="r">Oct 9</span></div>
+          <div class="grp">Oct 16th, 2026</div>
+          <div class="mrow"><span class="slot">•</span><span>Asked Priya about <span class="hit">Atlas</span></span></div>
+        </div>
+        <div class="prev"><div class="heading">Atlas kickoff notes</div><div class="props q"><span class="n">attendees:</span> Mateo Ruiz</div><div class="blk"><span class="bul"></span><span class="body">Agreed the scope</span></div></div>
+      </div>
+    </div><div class="cap"><h3>A calmer search window</h3><p>Compact rows, results grouped page by page, what each result is and when it was edited, and a preview of the selected result at the right where a line can be edited. Typed codes filter; a search that is only <code>#Tag</code> shows the tag's own page first.</p><div class="meta"><span class="set">Tidy the search window</span><span class="set">Roomier search window</span><span class="set">Put search results page by page</span><span class="set">Preview the selected result</span><span class="set">Filter search with codes</span><span>search.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="grp">Favorites</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ico">🧭</span>Atlas</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="tg">#</span>Imaging</div>
+      <div class="grp">Recent</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ada Okafor</div>
+      <div class="q">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Oct 17th, 2026</div>
+      <div class="f sm" style="margin-top:6px">Flashcards &nbsp; Graph view</div>
+    </div><div class="cap"><h3>The left sidebar and toolbar</h3><p>Icons only where they say something, journal days in grey, rarely used items smaller and lighter in place.</p><div class="meta"><span class="set">Left sidebar icons only where they mean something</span><span class="set">Quiet these sidebar and toolbar items</span><span>chrome.js · styles.js</span></div></div></article>
+
+    <article class="spec"><div class="sheet">
+      <div class="heading" style="display:flex;justify-content:space-between"><span><span class="pl">Atlas</span></span><span class="sm q">⌕ Search</span></div>
+      <div class="props q"><span class="n">status:</span> Active</div>
+      <div style="height:3px;background:color-mix(in srgb,var(--ls-text) 22%,transparent);margin:10px 0"></div>
+      <div class="heading"><span class="pl">Oct 17th, 2026</span></div>
+    </div><div class="cap"><h3>The right sidebar</h3><p>Flat panels with a thick line between items. A click on an item's title opens it in the main view. A Search button keeps search open there (<span class="kbd">⌘⌥F</span>). Since 0.4.135 a page opened there has its own via labels and usage line.</p><div class="meta"><span class="set">Tidy the right sidebar</span><span class="set">Sidebar titles open their page</span><span class="set">Thick line between sidebar items</span><span class="set">Search button in the right sidebar</span><span>sidebar.js · chrome.js · search.js</span></div></div></article>
+  </div>
+</section>
+
+<!-- ============ TOOLS ============ -->
+<section class="part" id="tools">
+  <div class="part-head"><span class="eyebrow">Group 4</span><h2>Tools</h2>
+  <p class="lede">Commands that act only when you run them. Each is also in the command palette under the same name. When a command can't run it says what to do in one warning, and changes nothing.</p></div>
+  <div class="tw"><table class="t">
+    <thead><tr><th>Command</th><th>Key</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>Link selected text to a page</td><td><span class="kbd">⌘⇧L</span></td><td>Asks for a page in the link box, then writes <code>[words]([[page]])</code></td></tr>
+      <tr><td>Open selected text as page</td><td><span class="kbd">⌘⌥P</span></td><td>Turns the selection into <code>[[name]]</code> and opens the page</td></tr>
+      <tr><td>Make a page from this block</td><td>bullet menu</td><td>A new page with a link back and copies of the children</td></tr>
+      <tr><td>Add tags to this page</td><td><span class="kbd">⌘T</span></td><td>Opens the Tags list under the title</td></tr>
+      <tr><td>Delete this block</td><td><span class="kbd">⌘⌫</span></td><td>Removes the block with the blocks under it</td></tr>
+      <tr><td>New block at the outermost level</td><td><span class="kbd">⌥↩</span></td><td>A spacer and a new top-level block</td></tr>
+      <tr><td>Fold all / Unfold all results in this query</td><td></td><td>Presses the fold arrows; each undoes the other</td></tr>
+      <tr><td>Choose properties shown in this list</td><td></td><td>A tick list; writes only to the plugin's settings</td></tr>
+      <tr><td>Fill missing dates from journal days</td><td></td><td>Says how many records it found and asks first</td></tr>
+      <tr><td>Copy as rich text (page menu, bullet menu)</td><td></td><td>Copies tidy formatted text for people who don't use Logseq; only reads</td></tr>
+      <tr><td>Refinements: troubleshooting</td><td></td><td>One box listing the checks: what the plugin finds on this page, copy warnings, measuring</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid">
+    <article class="spec"><div class="sheet">
+      <span class="toast">Click in a block first</span>
+    </div><div class="cap"><h3>How it refuses</h3><p>One warning, in Logseq's own message, naming what to do. A refusal never changes anything.</p><div class="meta"><span>shared.js</span></div></div></article>
+    <article class="spec"><div class="sheet">
+      <span class="undo-bar">Date filled for “Blood test results back” <b>Undo</b></span>
+    </div><div class="cap"><h3>The Undo bar</h3><p>One dark bar at the bottom for seven seconds, after a write you did not press a key on the value for.</p><div class="meta"><span>shared.js</span></div></div></article>
+  </div>
+</section>
+
+<!-- ============ PAUSED ============ -->
+<section class="part" id="paused">
+  <div class="part-head"><span class="eyebrow">Group 5</span><h2>Paused</h2>
+  <p class="lede">Switched off at your word since 0.4.128. While off they add nothing: no toolbar button, command or shortcut. To bring one back: its first switch under Paused, then Reload plugin.</p></div>
+  <div class="grid">
+    <article class="spec"><div class="sheet paused-sheet">
+      <div class="heading">Today</div>
+      <div class="blk"><span class="status" style="border-color:var(--doing)"></span><span class="body"><span class="txt">Send the draft</span><span class="date today">Oct 18</span></span></div>
+      <div class="blk"><span class="status" style="border-color:var(--review)"></span><span class="body"><span class="txt">Review the scan report</span><span class="date" style="box-shadow:inset 0 0 0 1px var(--late)">Oct 15</span></span></div>
+    </div><div class="cap"><h3>Todos and Expectations</h3><p>Every task in the graph, grouped by when it needs you; status, priority and dates changed in place, with an Undo bar.</p><div class="meta"><span class="off">Use Todos and Expectations · off</span><span>todos.js</span></div></div></article>
+    <article class="spec"><div class="sheet paused-sheet">
+      <div><span class="tg">#</span><b>Occurrence</b></div>
+      <div class="ind"><span class="tg">#</span>Imaging <span class="q sm">date</span></div>
+      <div class="ind"><span class="tg">#</span>Meeting</div>
+      <div><span class="tg">#</span><b>Entity</b></div>
+      <div class="ind"><span class="tg">#</span>Person</div>
+    </div><div class="cap"><h3>Tag tree</h3><p>All tags as one tree under a few root tags, where tags are made, moved, renamed and merged.</p><div class="meta"><span class="off">Use the tag tree · off</span><span>tags.js</span></div></div></article>
+  </div>
+</section>
+
+<!-- ============ WRITES ============ -->
+<section class="part" id="writes">
+  <div class="part-head"><span class="eyebrow">Safety</span><h2>When the plugin writes to your notes</h2>
+  <p class="lede">Four ways and no other. Nothing writes on a timer, on a reload or when you change page.</p></div>
+  <div class="three">
+    <div><b>A key on a value</b>Enter in the line list, Tab or a click on a pencilled value. Undo sits beside it.</div>
+    <div><b>After asking</b>Journal day as date, in the named graphs only. Fill missing dates asks with a count.</div>
+    <div><b>When you run a command</b>The shortcuts and commands above, on the block you are in. Fold all presses Logseq's arrows.</div>
+    <div><b>In its own views</b>The search preview saves a line you edit. Todos and the tag tree, while paused, write nothing.</div>
+  </div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section class="part" id="code">
+  <div class="part-head"><span class="eyebrow">For whoever works on it next</span><h2>Inside the code</h2>
+  <p class="lede">One core and a set of parts, one file per area. The core watches the screen and the database; the parts put small marks on Logseq's elements; one fixed stylesheet draws from the marks.</p></div>
+  <div class="flow">
+    <svg viewBox="0 0 1000 420" role="img" aria-label="How the plugin is built: Logseq feeds the core's screen watcher and database round, which run the parts; the parts mark elements and the stylesheets draw them">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+      <rect class="box" x="20" y="30" width="190" height="96" rx="9"/>
+      <text x="36" y="58" font-weight="700">Logseq 2.0.2</text>
+      <text class="s" x="36" y="80">draws the page,</text>
+      <text class="s" x="36" y="97">stores the graph</text>
+
+      <rect class="box core" x="270" y="16" width="250" height="124" rx="9"/>
+      <text x="286" y="42" font-weight="700">The core</text><text class="m" x="378" y="42">main.js</text>
+      <text class="s" x="286" y="66">screen watcher (before paint + next frame)</text>
+      <text class="s" x="286" y="86">database round after every edit</text>
+      <text class="s" x="286" y="106">settings list, commands, part loader</text>
+      <text class="s" x="286" y="126">self-check after a Logseq update</text>
+
+      <rect class="box" x="580" y="16" width="190" height="56" rx="9"/>
+      <text x="596" y="40" font-weight="700">Shared helpers</text><text class="m" x="596" y="60">parts/shared.js · loaded first</text>
+      <rect class="box" x="580" y="84" width="190" height="56" rx="9"/>
+      <text x="596" y="108" font-weight="700">Troubleshooting</text><text class="m" x="596" y="128">parts/diagnostics.js</text>
+
+      <rect class="box" x="810" y="16" width="170" height="124" rx="9"/>
+      <text x="826" y="42" font-weight="700">Stylesheets</text><text class="m" x="826" y="62">parts/styles.js</text>
+      <text class="s" x="826" y="86">fixed rules that draw</text>
+      <text class="s" x="826" y="104">from data-refinement-*</text>
+      <text class="s" x="826" y="122">marks; one token scale</text>
+
+      <path class="arr" d="M210 78 H266" marker-end="url(#a)"/>
+      <path class="arr" d="M395 140 V180" marker-end="url(#a)"/>
+      <path class="arr" d="M895 182 V144" marker-end="url(#a)"/>
+      <text class="s" x="905" y="168">marks</text>
+
+      <text x="20" y="200" font-weight="700">Reading a page</text>
+      <rect class="box" x="20" y="212" width="150" height="46" rx="8"/><text class="m" x="32" y="232">pages.js</text><text class="s" x="32" y="249">around the title</text>
+      <rect class="box" x="180" y="212" width="150" height="46" rx="8"/><text class="m" x="192" y="232">links.js</text><text class="s" x="192" y="249">links, dates, refs, pickers</text>
+      <rect class="box" x="340" y="212" width="150" height="46" rx="8"/><text class="m" x="352" y="232">properties.js</text><text class="s" x="352" y="249">property lists, fold all</text>
+
+      <text x="520" y="200" font-weight="700">Writing a record</text>
+      <rect class="box" x="520" y="212" width="150" height="46" rx="8"/><text class="m" x="532" y="232">inline-props.js</text><text class="s" x="532" y="249">the line list, schema</text>
+      <rect class="box" x="680" y="212" width="150" height="46" rx="8"/><text class="m" x="692" y="232">proposals.js</text><text class="s" x="692" y="249">pencilled values, Tab</text>
+      <rect class="box" x="840" y="212" width="140" height="46" rx="8"/><text class="m" x="852" y="232">journal-dates.js</text><text class="s" x="852" y="249">journal day</text>
+
+      <text x="20" y="300" font-weight="700">Around the page</text>
+      <rect class="box" x="20" y="312" width="150" height="46" rx="8"/><text class="m" x="32" y="332">chrome.js</text><text class="s" x="32" y="349">quiet sidebar items</text>
+      <rect class="box" x="180" y="312" width="150" height="46" rx="8"/><text class="m" x="192" y="332">sidebar.js</text><text class="s" x="192" y="349">right sidebar titles</text>
+      <rect class="box" x="340" y="312" width="150" height="46" rx="8"/><text class="m" x="352" y="332">search.js</text><text class="s" x="352" y="349">the search window</text>
+
+      <text x="520" y="300" font-weight="700">Tools and settings</text>
+      <rect class="box" x="520" y="312" width="150" height="46" rx="8"/><text class="m" x="532" y="332">editor.js</text><text class="s" x="532" y="349">commands, link box</text>
+      <rect class="box" x="680" y="312" width="150" height="46" rx="8"/><text class="m" x="692" y="332">rich-copy.js</text><text class="s" x="692" y="349">copy as rich text</text>
+      <rect class="box" x="840" y="312" width="140" height="46" rx="8"/><text class="m" x="852" y="332">settings-panel.js</text><text class="s" x="852" y="349">settings window</text>
+
+      <text x="20" y="396" font-weight="700">Paused</text>
+      <rect class="box pz" x="100" y="374" width="150" height="34" rx="8"/><text class="m" x="114" y="396">todos.js</text>
+      <rect class="box pz" x="260" y="374" width="150" height="34" rx="8"/><text class="m" x="274" y="396">tags.js</text>
+    </svg>
+  </div>
+  <div class="tw"><table class="t">
+    <thead><tr><th>Read first</th><th>What it holds</th></tr></thead>
+    <tbody>
+      <tr><td><code>HANDOFF.md</code></td><td>Where things stand, every ruling you made, what was tried and rejected, how each round was checked</td></tr>
+      <tr><td><code>docs/NEXT.md</code></td><td>What to do next, ranked, and the standing rules every change keeps</td></tr>
+      <tr><td><code>GUIDE.md</code></td><td>How to work on the code, the reload loop, the command line</td></tr>
+      <tr><td><code>docs/GRAMMAR.md</code></td><td>Every cue on the grid, and when the plugin writes, asks, refuses and undoes</td></tr>
+      <tr><td><code>README.md</code></td><td>Every setting and feature, in the words you read in the app</td></tr>
+      <tr><td><code>docs/history/</code></td><td>Earlier rounds' prompts, audit, reviews and diaries; read for why, not for what to do</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer class="how">
+  <h3>Keeping this page current</h3>
+  <ol>
+    <li>The page's source is <code>docs/VISUAL-GUIDE.html</code> in the plugin folder.</li>
+    <li>When a version ships that changes a look, a setting or a key, edit the matching picture or caption and the version stamp at the top.</li>
+    <li>Republish it to the same link with the Artifact tool (<code>claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ</code>), and update <code>docs/NEXT.md</code> in the same pass.</li>
+  </ol>
+  <p class="meta"><span>Pictures are drawn to match the plugin; for the real thing see the page Plugin Visual Cues in the Plugin Test Graph.</span></p>
+</footer>
+
+</div>
