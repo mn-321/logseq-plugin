@@ -28,7 +28,7 @@ const settingsSchema = [
   { key: 'todosHeading', type: 'heading', title: 'Todos', default: null,
     description: 'A window with every task in the graph, grouped by when it needs you, by status or by page. Open it from the checklist button in the toolbar, from the command palette (Todos) or with its shortcut.' },
   { key: 'todosEnabled', type: 'boolean', title: 'Use Todos and Expectations', default: false,
-    description: 'Paused for now (0.4.128): off, Todos and Expectations add no toolbar button, no command and no shortcut, and the settings below do nothing. Turn on to use them again. Applies after you reload the plugin.' },
+    description: 'Paused for now: off, Todos and Expectations add no toolbar button, no command and no shortcut, and the settings below do nothing. Turn on to use them again. Applies after you reload the plugin.' },
   { key: 'todosToolbarButton', type: 'boolean', title: 'Todos button in the toolbar', default: true,
     description: 'A checklist button at the top right of Logseq opens Todos. Applies after you reload the plugin.' },
   { key: 'todosOpensAs', type: 'enum', title: 'The buttons and shortcuts open Todos and Expectations as', default: 'page', enumChoices: ['window', 'page', 'sidebar'], enumPicker: 'radio',

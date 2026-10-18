@@ -2,7 +2,9 @@
 (() => {
 /* Settings panel: a window listing every setting of the plugin, opened from “Refinements settings”
    in Logseq's three-dots menu (top right) or from the command palette. Sections are listed on the
-   left; the search box looks through every setting's name and explanation.
+   left under five umbrella groups (0.4.129: Reading a page, Writing a record, Around the page, Tools,
+   Paused), each with a numbered picture of where its sections work; the search box looks through every
+   setting's name and explanation.
    Logseq 2.0.2 gives plugins no way to add to that menu, so the item is added when the menu opens:
    the plugin notices the click on the three-dots button and puts its item under “Plugins”.
    Settings are saved with logseq.updateSettings, the same place Logseq's own settings page writes. */
@@ -115,6 +117,56 @@ const css = `
 .refinement-settings footer button { padding: 4px 10px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .refinement-settings footer button:hover, .refinement-settings .rs-find input:focus, .refinement-settings .rs-control input:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-settings [hidden] { display: none !important; }
+/* Umbrella groups (0.4.129): a group label in the list on the left with its sections under it, and a picture
+   at the top of the page that shows where on screen each section works, numbered like the list beside it. */
+.refinement-settings nav .rs-group { margin-top: 12px; padding: 5px 10px; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; opacity: .55; }
+.refinement-settings nav .rs-group:first-child { margin-top: 0; }
+.refinement-settings nav .rs-group[aria-current=true] { opacity: 1; }
+.refinement-settings nav .rs-sec { padding-left: 18px; }
+.refinement-settings .rs-card { margin-top: 16px; padding: 12px 14px 14px; border: 1px solid var(--rs-line); border-radius: 9px; background: color-mix(in srgb, var(--ls-primary-text-color) 2%, transparent); }
+.refinement-settings .rs-card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.refinement-settings .rs-card-title { font-size: 15px; font-weight: 600; }
+.refinement-settings .rs-card-note { font-size: 12.5px; opacity: .62; }
+.refinement-settings .rs-card-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 205px); gap: 14px; align-items: start; }
+.refinement-settings .rs-art { display: grid; gap: 6px; min-width: 0; font-size: 12px; line-height: 1.45; }
+.refinement-settings .rs-zone { position: relative; min-width: 0; padding: 6px 8px 6px 30px; border: 1px solid var(--rs-line); border-radius: 7px; background: var(--ls-primary-background-color); cursor: pointer; overflow: hidden; }
+.refinement-settings .rs-zone::before, .refinement-settings .rs-legend .rs-n { content: attr(data-n); display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; font-size: 10px; font-weight: 600; line-height: 1; opacity: .7; }
+.refinement-settings .rs-zone::before { position: absolute; left: 7px; top: 7px; }
+.refinement-settings .rs-art.rs-focus .rs-zone { opacity: .45; }
+.refinement-settings .rs-art.rs-focus .rs-zone[aria-current], .refinement-settings .rs-zone:hover { opacity: 1 !important; border-color: color-mix(in srgb, var(--ls-primary-text-color) 35%, transparent); }
+.refinement-settings .rs-zone.rs-off > * { opacity: .45; text-decoration: line-through; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-settings .rs-zone.rs-off { padding-right: 56px; }
+.refinement-settings .rs-zone.rs-off::after { content: 'paused'; position: absolute; right: 8px; top: 7px; font-size: 10px; opacity: .6; }
+.refinement-settings .rs-art .win { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 6px; }
+.refinement-settings .rs-art .win .rs-zone { padding-top: 26px; padding-left: 8px; }
+.refinement-settings .rs-art .m { opacity: .55; }
+.refinement-settings .rs-art .t { font-size: 15px; font-weight: 600; line-height: 1.25; }
+.refinement-settings .rs-art .h { font-weight: 600; }
+.refinement-settings .rs-art .b { display: inline-block; width: 4px; height: 4px; margin: 0 6px 2px 0; border-radius: 50%; background: currentColor; opacity: .4; vertical-align: middle; }
+.refinement-settings .rs-art .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.refinement-settings .rs-art .ind { padding-left: 10px; }
+.refinement-settings .rs-art u { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 2px; }
+.refinement-settings .rs-art .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+.refinement-settings .rs-art .dbox { padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--ls-primary-text-color) 8%, transparent); }
+.refinement-settings .rs-art .pencil { font-style: italic; opacity: .6; }
+.refinement-settings .rs-art .cap { display: inline-block; padding: 0 3px; border: 1px solid var(--ls-border-color); border-bottom-width: 2px; border-radius: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; line-height: 1.3; opacity: .75; }
+.refinement-settings .rs-art .caret { display: inline-block; width: 1px; height: 1em; margin-left: 1px; background: currentColor; vertical-align: -2px; }
+.refinement-settings .rs-art .menu { display: inline-block; margin: 3px 0 0 10px; padding: 2px 0; border: 1px solid var(--ls-border-color); border-radius: 5px; font-size: 11px; }
+.refinement-settings .rs-art .menu .mrow { display: flex; gap: 10px; justify-content: space-between; padding: 0 8px; }
+.refinement-settings .rs-art .menu .mrow.sel { background: color-mix(in srgb, var(--ls-primary-text-color) 7%, transparent); }
+.refinement-settings .rs-art .box { padding: 1px 6px; border: 1px solid var(--ls-border-color); border-radius: 4px; margin-bottom: 3px; }
+.refinement-settings .rs-art .tb { margin-top: 4px; padding-top: 3px; border-top: 1px solid var(--rs-line); opacity: .6; font-size: 11px; }
+.refinement-settings .rs-art .doc { margin: 4px 0 0 10px; padding: 4px 8px; border: 1px solid var(--rs-line); border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.refinement-settings .rs-legend { display: grid; gap: 2px; align-content: start; }
+.refinement-settings .rs-legend button { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px; align-items: start; padding: 5px 6px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; opacity: .75; }
+.refinement-settings .rs-legend button:hover, .refinement-settings .rs-legend button[aria-current] { opacity: 1; background: var(--rs-wash); }
+.refinement-settings .rs-legend .rs-n { margin-top: 1px; }
+.refinement-settings .rs-legend b { display: block; font-weight: 600; font-size: 13px; }
+.refinement-settings .rs-legend .rs-d { display: block; font-size: 12px; line-height: 1.35; opacity: .65; }
+.refinement-settings .rs-legend button.rs-off b::after { content: ' · paused'; font-weight: 400; opacity: .6; }
+/* One section on screen: the picture keeps its zones, the list beside it says only the section's own words, so the settings start higher. */
+.refinement-settings .rs-card.rs-card-focus .rs-card-note, .refinement-settings .rs-card.rs-card-focus .rs-legend button:not([aria-current]) .rs-d { display: none; }
+.refinement-settings .rs-row.rs-paused > .rs-text, .refinement-settings .rs-row.rs-paused > .rs-control { opacity: .45; }
 `;
 const SEARCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>';
 
@@ -162,6 +214,72 @@ const PREVIEWS = {
   searchFilters: on => `<div class="menu" style="margin-left:0">${on ? '<span class="pill">#Task</span> todo' : '#Task todo'}</div><div class="m">${on ? '3 open tasks tagged Task' : 'pages mentioning “Task todo”'}</div>`,
   searchPreview: on => `<div class="row"><span>${B}Echo</span>${on ? '<span class="side">Echo<br>· Kickoff</span>' : ''}</div>`,
 };
+
+/* Umbrella groups (0.4.129): the sections gathered by what they are for, each group with a picture of where on
+   screen its sections work. A zone of the picture is marked data-section with the heading key of the section it
+   explains; the number on it is given when it is drawn, so the picture and the list beside it always agree. A
+   section no group names goes into Other. */
+const ART_B = '<i class="b"></i>';
+const GROUPS = [
+  { key: 'reading', title: 'Reading a page', note: 'How pages, rows and links look. Nothing here writes to your notes.',
+    headings: ['pageHeading', 'hierarchyHeading', 'linksHeading'],
+    legend: { pageHeading: 'Around the title: what the page is, its tags and path, how it is used',
+      hierarchyHeading: 'The rows: properties, empty slots, dates, what a folded block holds',
+      linksHeading: 'Links: the mark before a link, references, the pickers' },
+    art: () => `
+      <div class="rs-zone" data-section="pageHeading"><div class="m">Add icon · Set property &nbsp;<span class="mono">Project</span></div><div class="t">Echo</div><div class="m"># Entity › # Project</div></div>
+      <div class="rs-zone" data-section="hierarchyHeading"><div class="row"><span>${ART_B}Kickoff call <span class="m">↳ ● 2 · 1 Decision</span></span><span class="mono m">Meeting</span></div>
+        <div class="ind"><span class="m">attendees:</span> <u>Mateo Ruiz</u> <span class="m">·</span> <span class="m">date:</span> <span class="dbox">Oct 14th</span> <span class="m">· Scheduled: ···</span></div></div>
+      <div class="rs-zone" data-section="linksHeading"><div>${ART_B}Ask <u>Mateo Ruiz</u> about <span class="m">•</span> the budget block</div><div class="m">Linked references &nbsp; attendees · 3 &nbsp; in text · 4</div></div>` },
+  { key: 'writing', title: 'Writing a record', note: 'Help while you write: a list for a field, values guessed from your words, the journal day. Nothing is written until you press a key.',
+    headings: ['inlinePropsHeading', 'proposalsHeading', 'journalDateHeading'],
+    legend: { inlinePropsHeading: 'Type a field’s name and :: and pick its value from a list',
+      proposalsHeading: 'Values guessed from your words, pencilled in; Tab takes one',
+      journalDateHeading: 'The day you wrote a record on, as its date' },
+    art: () => `
+      <div class="rs-zone" data-section="inlinePropsHeading"><div>${ART_B}Met Priya about Atlas <span class="mono">o::pri</span><span class="caret"></span></div>
+        <div class="menu"><div class="mrow sel"><span>▭ Priya Nair</span><span class="m mono">Person</span></div><div class="mrow"><span class="pencil">+ Make Person “pri”</span></div></div></div>
+      <div class="rs-zone" data-section="proposalsHeading"><div><span class="m">attendees:</span> <span class="pencil">Priya Nair</span> <span class="m"><span class="cap">tab</span> takes · <span class="cap">⇧tab</span> passes</span></div>
+        <div><span class="m">project:</span> <u>Atlas</u> <span class="m">undo <span class="cap">⌘z</span></span></div></div>
+      <div class="rs-zone" data-section="journalDateHeading"><div><span class="m">date:</span> <span class="pencil">Oct 18th, 2026</span> <span class="m">· the day the record was written</span></div></div>` },
+  { key: 'around', title: 'Around the page', note: 'The sidebars, the toolbar and search.',
+    headings: ['appearanceHeading', 'searchHeading', 'searchSidebarHeading'],
+    legend: { appearanceHeading: 'The left and right sidebars and the toolbar',
+      searchHeading: 'The search window: grouping, details, a preview',
+      searchSidebarHeading: 'Search kept open in the right sidebar' },
+    art: () => `<div class="win">
+      <div class="rs-zone" data-section="appearanceHeading"><div class="m">Favorites</div><div>Echo</div><div class="m">Recent</div><div>Mateo Ruiz</div><div class="m">Oct 14th</div><div class="tb">⌂ ← → ···</div></div>
+      <div class="rs-zone" data-section="searchHeading"><div class="box">echo</div><div class="h">Echo</div><div class="ind">${ART_B}Kickoff <span class="m">· today</span></div><div class="ind">${ART_B}Budget <span class="m">· Oct 9</span></div></div>
+      <div class="rs-zone" data-section="searchSidebarHeading"><div class="h">Search</div><div class="box">echo</div><div>${ART_B}Kickoff</div></div></div>` },
+  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, and the plugin’s keys.',
+    headings: ['richCopyHeading', 'shortcutsHeading'],
+    legend: { richCopyHeading: 'Copy a page or a block as tidy formatted text',
+      shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks' },
+    art: () => `
+      <div class="rs-zone" data-section="richCopyHeading"><div class="row"><span>${ART_B}Kickoff call</span><span class="m">Copy as rich text</span></div>
+        <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div></div>
+      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⇧L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
+  { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
+    headings: ['todosHeading', 'expectationsHeading', 'tagTreeHeading'],
+    legend: { todosHeading: 'Every task in the graph in one list',
+      expectationsHeading: 'What you are waiting on others for',
+      tagTreeHeading: 'All your tags as one tree' },
+    art: () => `
+      <div class="rs-zone" data-section="todosHeading"><div class="row"><span>◯ Renew certificate</span><span class="m">today</span></div><div class="row"><span>◯ Send invites</span><span class="m">Fri</span></div></div>
+      <div class="rs-zone" data-section="expectationsHeading"><div class="row"><span>⧗ Contract back from Kestrel</span><span class="m">waiting</span></div></div>
+      <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>` },
+];
+// A paused part's sections, by the switch that turns it back on.
+const PAUSE_SWITCH = { todosHeading: 'todosEnabled', expectationsHeading: 'todosEnabled', tagTreeHeading: 'tagTreeEnabled' };
+function groupsOf(sections) {
+  const groups = GROUPS.map(group => ({ ...group, sections: [] }));
+  const other = { key: 'other', title: 'Other', note: '', headings: [], legend: {}, art: null, sections: [] };
+  for (const section of sections) (groups.find(group => group.headings.includes(section.heading.key)) || other).sections.push(section);
+  for (const group of groups) group.sections.sort((a, b) => group.headings.indexOf(a.heading.key) - group.headings.indexOf(b.heading.key));
+  const shown = [...groups, other].filter(group => group.sections.length);
+  for (const group of shown) for (const section of group.sections) section.group = group;
+  return shown;
+}
 
 // The plugin's whole settings list, as given to Logseq (main.js gives its own and every part's).
 const schema = () => logseq._settingsSchema || [];
@@ -229,6 +347,7 @@ function open() {
     entry.markChanged();
     entry.drawPreview?.(value);
     if (entry.reload) reloadWanted = true;
+    if (Object.values(PAUSE_SWITCH).includes(entry.item.key)) markPaused();
     status.textContent = reloadWanted ? 'Saved. Some changes show after you reload the plugin.' : 'Saved.';
     status.classList.toggle('rs-needs-reload', reloadWanted);
     updateCounts();
@@ -320,9 +439,12 @@ function open() {
     return [input, show];
   };
 
-  const sections = sectionsOf(schema());
+  const groups = groupsOf(sectionsOf(schema()));
+  const sections = groups.flatMap(group => group.sections);
   const entries = [];
   const body = el(doc, 'div', { class: 'rs-body' });
+  const card = el(doc, 'div', { class: 'rs-card' });
+  body.append(card);
   const empty = el(doc, 'div', { class: 'rs-empty', hidden: true });
   for (const section of sections) {
     const sectionReload = RELOAD_RE.test(section.heading.description || '');
@@ -384,25 +506,66 @@ function open() {
     nav.append(b);
     return b;
   };
-  for (const section of sections) section.button = navButton(section.heading.title, section.heading.key);
+  for (const group of groups) {
+    group.button = navButton(group.title, 'group:' + group.key);
+    group.button.classList.add('rs-group');
+    for (const section of group.sections) { section.button = navButton(section.heading.title, section.heading.key); section.button.classList.add('rs-sec'); }
+  }
   nav.append(el(doc, 'hr'));
   const changedButton = navButton('Changed by you', 'changed');
   function updateCounts() {
     for (const section of sections) section.button.lastChild.textContent = section.items.length;
+    for (const group of groups) group.button.lastChild.textContent = '';
     changedButton.lastChild.textContent = entries.filter(entry => entry.value !== entry.item.default).length;
   }
 
-  let current = lastSection && (lastSection === 'changed' || sections.some(s => s.heading.key === lastSection)) ? lastSection : sections[0]?.heading.key;
+  let current = lastSection && (lastSection === 'changed' || sections.some(s => s.heading.key === lastSection) || groups.some(g => 'group:' + g.key === lastSection))
+    ? lastSection : groups[0] ? 'group:' + groups[0].key : sections[0]?.heading.key;
+  const isPaused = headingKey => !!PAUSE_SWITCH[headingKey] && !entries.find(entry => entry.item.key === PAUSE_SWITCH[headingKey])?.value;
+  // A paused part's rows step back, all but the switch that turns it on.
+  function markPaused() {
+    for (const entry of entries) entry.row.classList.toggle('rs-paused', isPaused(entry.section.heading.key) && entry.item.key !== PAUSE_SWITCH[entry.section.heading.key]);
+  }
+  // The group's picture: each zone numbered like the list beside it; the section on screen stands out.
+  function drawCard(group, sectionKey) {
+    card.textContent = '';
+    card.hidden = !group?.art;
+    card.classList.toggle('rs-card-focus', !!sectionKey);
+    if (card.hidden) return;
+    const art = el(doc, 'div', { class: 'rs-art' + (sectionKey ? ' rs-focus' : '') });
+    art.innerHTML = group.art();
+    const legend = el(doc, 'div', { class: 'rs-legend' });
+    group.sections.forEach((section, index) => {
+      const key = section.heading.key, n = String(index + 1), off = isPaused(key);
+      for (const zone of art.querySelectorAll(`[data-section="${key}"]`)) {
+        zone.dataset.n = n;
+        zone.title = section.heading.title;
+        zone.toggleAttribute('aria-current', key === sectionKey);
+        zone.classList.toggle('rs-off', off);
+        zone.addEventListener('click', () => show(key));
+      }
+      const button = el(doc, 'button', { type: 'button' }, el(doc, 'span', { class: 'rs-n' }, n),
+        el(doc, 'span', {}, el(doc, 'b', {}, section.heading.title), el(doc, 'span', { class: 'rs-d' }, group.legend[key] || '')));
+      button.toggleAttribute('aria-current', key === sectionKey);
+      button.classList.toggle('rs-off', off);
+      button.addEventListener('click', () => show(key));
+      legend.append(button);
+    });
+    card.append(el(doc, 'div', { class: 'rs-card-head' }, el(doc, 'span', { class: 'rs-card-title' }, group.title), group.note ? el(doc, 'span', { class: 'rs-card-note' }, group.note) : null),
+      el(doc, 'div', { class: 'rs-card-grid' }, art, legend));
+  }
   function show(key = current) {
     current = key;
     lastSection = key;
     const words = find.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const groupKey = key.startsWith('group:') ? key.slice(6) : null;
     const searching = words.length > 0;
     box.classList.toggle('rs-searching', searching);
     box.classList.toggle('rs-listing', searching || key === 'changed');
     for (const entry of entries) {
       const shown = searching ? words.every(word => entry.haystack.includes(word))
         : key === 'changed' ? entry.value !== entry.item.default
+        : groupKey ? entry.section.group.key === groupKey
         : entry.section.heading.key === key;
       entry.row.hidden = !shown;
       entry.mark(searching ? words : []);
@@ -413,7 +576,10 @@ function open() {
       section.button.classList.toggle('rs-has-hits', searching && hits);
       section.button.setAttribute('aria-current', String(!searching && section.heading.key === key));
     }
+    for (const group of groups) group.button.setAttribute('aria-current', String(!searching && groupKey === group.key));
     changedButton.setAttribute('aria-current', String(!searching && key === 'changed'));
+    if (searching || key === 'changed') { card.hidden = true; card.textContent = ''; }
+    else drawCard(groupKey ? groups.find(group => group.key === groupKey) : sections.find(section => section.heading.key === key)?.group, groupKey ? null : key);
     const none = !entries.some(entry => !entry.row.hidden);
     empty.hidden = !none;
     empty.textContent = searching ? `No setting matches “${find.value.trim()}”.` : 'Every setting is at its default.';
@@ -471,6 +637,7 @@ function open() {
   backdrop.append(box);
   doc.body.append(backdrop);
   updateCounts();
+  markPaused();
   show(current);
   find.focus();
 }

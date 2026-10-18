@@ -25,7 +25,7 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'proposalsHeading', type: 'heading', title: 'Proposals in the pills', default: null,
-    description: 'After you write a record, what the graph can already tell (the journal day, the people named in the words, the parent’s project) is pencilled in, italic, in the record’s own pills. While you write the record, Tab takes them and Escape says no; a click fills one value. Nothing is written until then; the bar at the bottom offers Undo.' },
+    description: 'While you write a record, what the graph can already tell (the people named in your words, a day such as “next fri”, the parent’s project, the journal day) is pencilled in, italic, in the record’s own pills. Tab takes the one with the hint, Shift+Tab passes it, a click takes one. Nothing is written until then; a small undo sits beside a value just written.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
