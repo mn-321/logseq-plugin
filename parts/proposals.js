@@ -9,10 +9,12 @@
      record's text, in an empty field that takes that class, only when exactly one such page matches;
    - the parent's value, in a child's empty field of the same name (a Decision under a Meeting gets its
      project), when that value is a page the field can hold.
-   Nothing is written. j fills every ghost of the record nearest the top of the screen and the bar
-   offers one Undo; a click on a ghost fills that one; k leaves that record alone for the session.
-   The ghosts of the other records stay drawn, so a question never vanishes: only the key is one record
-   at a time. While you type in a block its keys stay yours and its ghosts wait. Only names the graph
+   Nothing is written. While you write a record its ghosts are drawn as you type (0.4.115): Tab takes every
+   one of them and the bar offers one Undo, Escape says no and the record is not asked about again this
+   session; a second Escape leaves the block, as in Logseq. With nothing proposed, Tab and Escape are
+   Logseq's. A click on a ghost fills that one, in edit or not. The ghosts of other records stay drawn, so
+   a question never vanishes. (j and k, outside edit on the record nearest the top, were retired: the
+   answer belongs to the record you are writing.) Only names the graph
    has are ever written to; only empty fields are ever proposed for; the people and parent rules run in
    the graphs named under Properties in the line, the day in the graphs named under Journal day as date. */
 const shared = window.refinementShared;
@@ -24,9 +26,9 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'proposalsHeading', type: 'heading', title: 'Proposals in the pills', default: null,
-    description: 'After you write a record, what the graph can already tell (the journal day, the people named in the words, the parent’s project) is drawn dashed in the record’s own pills. j fills the record nearest the top of the screen, a click fills one value, k leaves the record alone. Nothing is written until then; the bar at the bottom offers Undo.' },
+    description: 'After you write a record, what the graph can already tell (the journal day, the people named in the words, the parent’s project) is drawn dashed in the record’s own pills. While you write the record, Tab takes them and Escape says no; a click fills one value. Nothing is written until then; the bar at the bottom offers Undo.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
-    description: 'The dashed values in a record’s pills after it has been written, and the j and k keys. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
+    description: 'The dashed values in a record’s pills after it has been written, and Tab to take them or Escape to say no while you write the record. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
 ];
@@ -137,7 +139,7 @@ function ghostEl(doc, item, withName) {
   g.className = 'rfp-ghost';
   g.setAttribute('contenteditable', 'false');
   g.dataset.rfpIdent = item.ident;
-  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it (j)">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>j</kbd> fills · <kbd>k</kbd> leaves it</span>`;
+  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>tab</kbd> takes · <kbd>esc</kbd> no</span>`;
   g.addEventListener('mousedown', event => event.stopPropagation());
   g.addEventListener('click', event => {
     if (!event.target.closest('.rfp-value')) return;
@@ -151,11 +153,10 @@ function draw(doc, records) {
   if (records && !addsElements(records)) return;
   for (const g of doc.querySelectorAll('.rfp-ghost')) {
     const row = g.closest('.ls-block[blockid]'), rec = state.proposals.get(row?.getAttribute('blockid') || '');
-    if (!rec || !rec.items.some(item => item.ident === g.dataset.rfpIdent) || inEdit(row)) { g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal'); g.remove(); }
+    if (!rec || !rec.items.some(item => item.ident === g.dataset.rfpIdent)) { g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal'); g.remove(); }
   }
   for (const [uuid, rec] of state.proposals) {
     for (const row of doc.querySelectorAll(`.ls-block[blockid="${uuid}"]`)) {
-      if (inEdit(row)) continue;
       const owned = el => el.closest('.ls-block[blockid]') === row;
       const pills = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(owned);
       for (const item of rec.items) {
@@ -171,14 +172,9 @@ function draw(doc, records) {
   }
   markFirst(doc);
 }
-// The record nearest the top of the main area that has a ghost on screen: its first ghost carries the keys.
+// The record being written, when it has ghosts: its first ghost carries the keys.
 function firstOnScreen(doc) {
-  let best = null, top = Infinity;
-  for (const g of doc.querySelectorAll('#main-content-container .rfp-ghost')) {
-    const y = g.getBoundingClientRect().top;
-    if (y >= 0 && y < top) { top = y; best = g; }
-  }
-  return best;
+  return [...doc.querySelectorAll('.rfp-ghost')].find(g => { const row = g.closest('.ls-block[blockid]'); return row && inEdit(row); }) || null;
 }
 function markFirst(doc) {
   const first = firstOnScreen(doc);
@@ -186,7 +182,7 @@ function markFirst(doc) {
   first?.setAttribute('data-rfp-first', '');
 }
 
-/* Writing: j fills every ghost of the first record, a click fills one; one bar with one Undo. k leaves the record. */
+/* Writing: Tab fills every ghost of the record being written, a click fills one; one bar with one Undo. Escape leaves the record. */
 async function fill(uuid, onlyIdent) {
   const rec = state.proposals.get(uuid);
   if (!rec) return;
@@ -217,17 +213,19 @@ function decline(uuid) {
   state.proposals.delete(uuid);
   draw(host(), null);
 }
-const typing = el => !!el && (el.matches?.('input, textarea, select, [contenteditable="true"]') || el.closest?.('[contenteditable="true"]'));
+// Tab and Escape in the text box of a record that has proposals; a picker open under the caret (Logseq's, or the
+// line list) keeps its keys. Taken in the capture phase on Logseq's window, before Logseq's own handlers.
 function onKey(event) {
-  if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
-  if (typing(event.target) || event.target.closest?.('.refinement-tags, .refinement-todos')) return;
-  const key = event.key.toLowerCase();
-  if (key !== 'j' && key !== 'k') return;
-  const doc = host(), first = firstOnScreen(doc);
-  const uuid = first?.closest('.ls-block[blockid]')?.getAttribute('blockid');
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.isComposing) return;
+  if (event.key !== 'Tab' && event.key !== 'Escape') return;
+  const box = event.target;
+  if (!box?.matches?.('textarea')) return;
+  const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
   if (!uuid || !state.proposals.has(uuid)) return;
-  event.preventDefault(); event.stopPropagation();
-  if (key === 'j') fill(uuid); else decline(uuid);
+  const doc = box.ownerDocument;
+  if (doc.querySelector('#ui__ac, .rip-menu, .absolute-modal, [data-editor-popup-ref]')) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  if (event.key === 'Tab') fill(uuid); else decline(uuid);
 }
 
 const css = `
@@ -239,6 +237,7 @@ const css = `
 .rfp-value:hover { color: var(--ls-primary-text-color, currentColor); border-style: solid; }
 .rfp-keys { display: none; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .rfp-ghost[data-rfp-first] .rfp-keys { display: inline; }
+.rfp-keys kbd { text-transform: lowercase; }
 .rfp-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }`;
