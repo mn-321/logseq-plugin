@@ -597,7 +597,8 @@ function updateUsageLine(doc) {
   const title = titles.length === 1 ? titles[0] : null;
   const uuid = title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '';
   if (uuid !== usage.pageUuid) { usage.pageUuid = uuid; usage.filter = null; }
-  const parts = setting('showUsage') && title && uuid && cueMarks.incoming.pageUuid === uuid ? usageParts() : [];
+  // Not on a journal: what points at a day (a record's date) is the day's own rows, and says nothing new (0.4.133).
+  const parts = setting('showUsage') && title && uuid && !journalUuid(uuid) && cueMarks.incoming.pageUuid === uuid ? usageParts() : [];
   let line = usage.line;
   if (!parts.length) { line?.remove(); applyUsageFilter(doc, null); return; }
   if (!line || line.ownerDocument !== doc) {
