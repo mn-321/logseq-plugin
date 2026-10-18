@@ -240,11 +240,16 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 /* A little air between a record's properties and the blocks written beneath it. */
 .ls-block > .block-main-container :is(.positioned-properties.block-below, .ls-block-properties):last-child { margin-bottom: .2rem; }
 /* The page's own properties under its title sit on the same light field, so properties look the same
-   wherever they are. The field starts where the names start (the padding is taken back on the left). */
+   wherever they are. The field starts where the names start (the padding is taken back on the left). The field
+   ends above the "Add property" row (0.4.103, at the owner's word): the row keeps its place, so nothing moves
+   when it appears under the pointer, but the grey stops at the last property; the row is Logseq's h-7 button
+   (1.75rem) with .3rem of air above it, so the field is drawn that much short of the bottom. */
 .ls-page-properties.ls-properties-area:has(.property-pair) {
-  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct), transparent); border-radius: 0;
+  background: linear-gradient(${wash('--rf-field-pct')}, ${wash('--rf-field-pct')}) top / 100% 100% no-repeat; border-radius: 0;
   padding: .3rem .9rem .3rem .5rem; margin-left: -.5rem;
 }
+.ls-page-properties.ls-properties-area:has(.property-pair):has(.ml-5 > .ls-new-property) { background-size: 100% calc(100% - 2.05rem); }
+.ls-page-properties.ls-properties-area:has(.property-pair) .ml-5:has(> .ls-new-property) { padding-top: .3rem; }
 /* One column of dots: a value is a block of its own and carried a bullet, so four properties showed
    eight dots. The name's dot (or type icon) stays; the value's bullet goes. */
 .ls-page-properties .property-value-panel .block-control-wrap { display: none !important; }
