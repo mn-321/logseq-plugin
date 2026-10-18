@@ -1,10 +1,10 @@
 # The grammar of DB Refinements
 
-Written 2026-10-16 at 0.4.63, revised at 0.4.64 to 0.4.66, and brought up to date at 0.4.79, 0.4.87 and 0.4.93 (the status paragraphs say what is built, dropped or open at 0.4.91), from what the plugin does today. Nothing here is new; it is the rules the code already follows, written in one place, and a list of where the code departs from them. The departures are proposals. Nothing was changed to write this.
+Written 2026-10-16 at 0.4.63, revised at 0.4.64 to 0.4.66, and brought up to date at 0.4.79, 0.4.87, 0.4.93 and 0.4.131 (the status paragraphs under the ten changes, the housekeeping and Logseq's drawing still say what was built, dropped or open at 0.4.91; the cue table, Part 2 and the commands are the plugin at 0.4.131), from what the plugin does. Nothing here is new; it is the rules the code already follows, written in one place, and a list of where the code departs from them. The departures are proposals. Nothing was changed to write this.
 
 Seen on screen while writing it, in the Plugin Test Graph: the page **Plugin Visual Cues** (every cue with its example), and the page **Ada Okafor** (its property list, its `#Project` tab and its Linked references). The rest was read in the code and the README.
 
-Where things are: the tokens in `tokensCss` in `main.js`; the page stylesheets in `parts/styles.js`; the "points here" rules in `parts/links.js`; the title words in `parts/pages.js`; the toasts, boxes and lifecycle in `parts/shared.js`; the three writing parts in `parts/journal-dates.js`, `parts/todos.js` and `parts/tags.js`; the commands in `parts/editor.js` and `main.js`.
+Where things are: the tokens in `tokensCss` in `main.js`; the page stylesheets in `parts/styles.js`; the "points here" rules in `parts/links.js`; the title words in `parts/pages.js`; the toasts, boxes and lifecycle in `parts/shared.js`; the three writing parts in `parts/journal-dates.js`, `parts/todos.js` and `parts/tags.js` (Todos and the tag tree paused since 0.4.128); the line list in `parts/inline-props.js` and the proposals in the pills in `parts/proposals.js`; the marks in Logseq's pickers in `parts/links.js`; the commands in `parts/editor.js` and `main.js`.
 
 ## Part 1: how things look
 
@@ -33,7 +33,7 @@ A reader looks at a row and asks a few questions. Each question has one place on
 | Here | `--rf-here` (7%) over `--rf-here-line` (38%) | the link to the page on screen under Linked references: a wash with a hairline beneath, like a pencil mark |
 | Small | `--rf-small` (.82em) | labels beside text |
 | Accent | `--rf-accent` | the optional tag chip; the only colour of the plugin's own |
-| Tag colour | `--rf-tag-color` | the icon or `#` before a link to a tag's own page; the colour Logseq's theme gives tags |
+| Tag colour | `--rf-tag-color` | the icon or `#` before a link to a tag's own page, the `#` of a tag word in a sentence and in the pickers; since 0.4.114 the theme's secondary text colour, the grey of the tag chips (before, the colour Logseq's theme gives tags) |
 
 Two more places hold cues that are not about one row:
 
@@ -76,7 +76,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | After the text | `”` then `(p. 1)` or `(Document title, p. 1)` in small grey | the source of a PDF highlight | Compact PDF citations (`pdfCitations`) | styles.js, links.js |
 | After the text | `via owner: page`, the page marked | why a folded record is listed under this page's tab | Show how records are linked (`linkLabels`) | styles.js, links.js |
 | After the text | `· n` after a source page's heading | that page holds n references | Clearer Linked references (`referenceLayout`) | styles.js, links.js |
-| After the text | a small grey chevron while you point at the block | the block has hidden properties; click opens them | Hidden properties arrow on every block (`hiddenPropsChevron`) | properties.js |
+| After the text | a small grey chevron while you point at the block | the block holds a value of a property set to hide by default (an empty slot is not one, 0.4.110); click opens them | Hidden properties arrow on every block (`hiddenPropsChevron`) | properties.js |
 | State | the status and priority icons as Logseq draws them | status and priority | (Logseq's own) | |
 | State, in Todos | the circle's colour: yellow doing, blue in review, green done; priority bars orange and red; a red outline on a late date; today in the text colour; a planned day in italics; canceled struck through | where a task stands | Todos, Expectations | todos.js |
 | Lines | a faint line beside nested blocks, firmer beside the branch under the pointer or caret | nesting | Faint nesting lines (`indentGuides`) | styles.js |
@@ -90,7 +90,8 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Small words | "Alias of …" under the title | the page is another page's alias | Show which page an alias belongs to (`showAliasOf`) | pages.js |
 | Small words | "Inherited from #Media: keywords, rating" closing the Tag Properties list | where a tag's properties come from | Show inherited properties on tag pages (`showInherited`) | pages.js |
 | Small words | a property's name in grey before a reference row | the row is a property's value | Show how records are linked (`linkLabels`) | styles.js, links.js |
-| Small words | `name: value · name: value`, grey names, no capsules; a list on a very light field with the names in one column and every value lined up in a second; `#` before each tag tab; Add property only on hover | properties under a block and under a title | Plainer properties (`plainProperties`) | styles.js |
+| Small words | `name: value · name: value`, grey names, no capsules; a list on a very light field with the names in one column and every value lined up in a second, a value without a bullet moved in to the bulleted values' words (0.4.130); the field ending above Add property, which shows only on hover, as plain words with the + (0.4.103, 0.4.104) | properties under a block and under a title | Plainer properties (`plainProperties`) | styles.js |
+| Small words | an empty slot as `Scheduled: ···` in the row's column, faint, no icon, bullet or field | a property with nothing in it yet (0.4.111) | Empty slots read as the row (`emptySlotsInRow`) | styles.js |
 | Small words | the tag's own tag left off its rows, table and references | a tag page's rows | Leave a tag page's own tag off its rows (`ownTagHidden`) | styles.js, links.js |
 | Chrome | named items smaller and lighter, in place | rarely used sidebar and toolbar items | Quiet these sidebar and toolbar items (`quietItems`) | chrome.js |
 | Chrome | generic icon gone from Favorites and Recent; journal days grey | the left sidebar's lists | Left sidebar icons only where they mean something (`quietSidebarIcons`) | styles.js, chrome.js |
@@ -102,8 +103,17 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Search window | at the right of a row, what it is and when it was edited; a first line under a heading | more about each result | Say more about each search result (`searchDetails`) | search.js |
 | Search window | results from one page together, the page named once | grouping | Put search results page by page (`groupSearch`) | search.js |
 | Search window | a panel at the right showing the selected result and its blocks; a soft wash on the searched words | the preview | Preview the selected result (`searchPreview`), Preview: edit with Logseq's own editor (`searchPreviewEditor`) | search.js |
-| Search window | a list of names under the box as you type a code | the typed filters | Filter search with codes (`searchFilters`) | search.js |
+| Search window | a list of names under the box as you type a code; a search that is only `#Tag` lists the tag's own page first, marked "tag page" (0.4.131) | the typed filters | Filter search with codes (`searchFilters`) | search.js |
 | Tag tree | `#` in the root's colour before every tag under it; heavier names on tags with tags inside; light chips for a tag's own properties, grey words for inherited ones | the tree | Root tags (`tagTreeRoots`) and the tag tree's other settings | tags.js |
+| After a day's title | on the Journals list: the solid circle with the number of unfinished tasks that day, the nearest due day, the kinds of record inside in grey monospace (`2 Meeting · 1 Decision`) | what a day holds (0.4.108, 0.4.112) | A day says what it holds (`dayCues`) | links.js, styles.js |
+| Pickers | the line list: after `p::`, `name::` or the first letters of a name, a list under the record's property row, the type's icon before each field, the record's own fields first, the proposed value first with why beside it | a property typed in the line (0.4.94 to 0.4.98, 0.4.118) | Properties typed in the line (`inlineProps`, in the graphs named in `inlinePropsGraphs`) | inline-props.js |
+| Pickers | in the `[[` menu: the plain page rectangle, a page's own icon, the `#` before a tag, the grey box before a journal day, a page's tags in grey monospace at the right, New page pencilled in, "proposed" after a value the record has pencilled | what each row is (0.4.84, 0.4.100, 0.4.116, 0.4.123) | The [[ menu and the # picker say what each row is (`pickerMarks`) | links.js, styles.js |
+| Pickers | in the `#` picker: `#` before a tag, at the right what it sits under and the fields it brings (`under Occurrence · + date`), New tag pencilled in | what each tag is (0.4.107) | The [[ menu and the # picker say what each row is (`pickerMarks`) | links.js, styles.js |
+| Pickers | in Add property: the type's icon in place of Logseq's T, the type in quiet words at the right | what each property takes (0.4.101, 0.4.113) | The property picker says each type (`propertyPickerTypes`) | links.js, styles.js |
+| Pickers | in a pill's value picker: checkbox, then the page rectangle, the page's own icon or the dot, then the name; "proposed" after a pencilled value | what each value is (0.4.107, 0.4.117, 0.4.123) | The value picker says what each row is (`valuePickerMarks`) | links.js, styles.js |
+| Pickers | under the field of Link selected text to a page, a list of pages drawn as the line list draws its rows, the kind in grey monospace at the right | the pages you can link (0.4.102) | The link box lists your pages (`linkBoxList`) | editor.js, inline-props.js |
+
+Todos, Expectations and the tag tree are paused since 0.4.128 (Use Todos and Expectations, `todosEnabled`; Use the tag tree, `tagTreeEnabled`; both off by default): while off they register and draw nothing, toolbar buttons included. Their rows here and in Part 2 describe them for when they are switched back on.
 
 A tag belongs to the block, not to the text: Logseq shows it at the right of the row, and a tag typed at the end of the text moves there. Since 0.4.89 (Tags as grey class names, `tagMark`; 0.4.67 had the words in the text colour with only the `#` in the tag colour) the tag at the right of a block, the label above a title and the tag tabs are grey monospace names without the `#`, since a tag acts like a class; a tag word left in a sentence keeps its `#` in the tag colour, as does the `#` before a tag page's own title. The chip above a title keeps a slot the width of the × Logseq swaps in under the pointer, so the name never moves, and the line under the chosen tab is a hairline (0.4.91). Since 0.4.73 a tag page shows its path under the title (`showTagPath`), since 0.4.74 any page shows how it is used (`showUsage`; since 0.4.88 the counts sit under the Linked references heading and mirror their rows, all dark while every reference shows, the others stepped back to `--rf-back` while one is chosen), and since 0.4.79 a property with no value is faint, never hidden (`quietEmptyProps`).
 
@@ -111,10 +121,11 @@ A tag belongs to the block, not to the text: Logseq shows it at the right of the
 
 ### When the plugin writes to notes
 
-The plugin writes to notes in three ways, and no other.
+The plugin writes to notes in four ways, and no other.
 
-- **From its own views, when you change something there.** Todos and Expectations write a task's status, priority, date or first line when you change it in the list, add a task when you press Enter in the add box, and delete one from its menu. The tag tree moves, makes, renames and merges tags, and moves properties between tags, when you do that in the tree. The search preview saves a line you edited, splits one on Enter and removes an empty one on Backspace.
-- **After asking.** Journal day as date fills an empty Date property on a new record only in the graphs named in its settings, and with Ask before filling on, only after you answer the ghost value in the record's row (or the note, when the record is not on screen). Fill missing dates from journal days asks in a box first and says how many it found.
+- **From its own views, when you change something there.** Todos and Expectations write a task's status, priority, date or first line when you change it in the list, add a task when you press Enter in the add box, and delete one from its menu. The tag tree moves, makes, renames and merges tags, and moves properties between tags, when you do that in the tree. The search preview saves a line you edited, splits one on Enter and removes an empty one on Backspace. (Todos and the tag tree are paused since 0.4.128.)
+- **While you write a record, when you press a key on a value.** The line list writes a property when you press Enter on a value; Proposals in the pills writes a pencilled value when you press Tab on it or click it. Each write has the small undo beside the value.
+- **After asking.** Journal day as date fills an empty Date property on a new record only in the graphs named in its settings, and with Ask before filling on, only after you answer the ghost value in the record's row (or the note, when the record is not on screen). While Proposals in the pills is on, the journal part hands this asking to it: the day is pencilled into the Date pill and Tab writes it. Fill missing dates from journal days asks in a box first and says how many it found.
 - **When you run a command.** Link selected text to a page, Open selected text as page, Make a page from this block, Delete this block and New block at the outermost level write to the block you are in, when you run them. A year-first date typed inside `[[ ]]` becomes the journal's name as you type it. Fold all and Unfold all press Logseq's fold arrows, which Logseq saves.
 
 Nothing writes on a timer, on a reload or on a page change. Copy as rich text only reads. Choose properties shown in this list writes to the plugin's settings, not to notes, and says so in its box.
@@ -154,6 +165,9 @@ One toast, through Logseq's own message, at warning level, that names what to do
 | A menu in Todos or the tree | closes it | closes it |
 | An edit in place (a task's text, a tag's name) | leaves the text as it was | saves (a task's text) or leaves it (a tag's name) |
 | The dark Undo bar | nothing; it goes after 7 s | nothing |
+| A pencilled value | never refuses it; closes a list or menu, else leaves the block | nothing; the value stays pencilled |
+| The line list | closes the list and takes the token out of the text (`inlinePropsEscapeClears`) | takes the token out, as leaving the block by Tab does |
+| Logseq's `[[` menu or `#` picker | takes the `[[` or `#` and the letters out of the text, then Logseq closes it (`pickerEscapeClears`) | Logseq's own |
 | Copy as rich text | cancels | nothing |
 
 ### Written-in rules of behaviour (0.4.87)
@@ -170,26 +184,28 @@ Shortcuts are the settings in the Shortcuts section; each applies after a reload
 
 | Command (setting) | Writes | Asks | Refuses with | Undo | Where |
 | --- | --- | --- | --- | --- | --- |
-| Link selected text to a page (`linkShortcut`) | the block: `[words]([[page]])` | the box, for the page title | "Select the words to display, then press Mod+Shift+L"; "The selection changed…"; "Use a single-line label without ]" | none of its own | editor.js |
+| Link selected text to a page (`linkShortcut`) | the block: `[words]([[page]])` | the box, for the page title | "Select the words to display, then run Link selected text to a page"; "The selection changed…"; "Use a single-line label without ]" | none of its own | editor.js |
 | Open selected text as page (`openShortcut`) | the block: `[[name]]`; makes the page | no | "Select text in a block, then run the command within 30 seconds"; part done: "Opened the page; the selected text was left as it was" | none of its own | editor.js |
-| Make a page from this block (`copyShortcut`; bullet) | a new page with a link back and copies of the children; the block stays | no | "Select a block first"; "The block needs a title"; "Page … already exists; nothing copied" | none | editor.js |
-| Add tags to this page (`tagShortcut`; `#Page` above the title) | nothing itself; opens Logseq's Set tags | Logseq's dialog | "Open a page first" (also on the Journals list) | Logseq's | editor.js, pages.js |
+| Make a page from this block (`copyShortcut`; bullet) | a new page with a link back and copies of the children; the block stays | no | "Click in a block first"; "The block needs a title"; "Page … already exists; nothing copied" | none | editor.js |
+| Add tags to this page (`tagShortcut`; `#Page` above the title) | nothing itself; opens the plugin's Tags list under the title, the one `#Page` opens (0.4.82) | the Tags list | "Open a page first" (also on the Journals list) | Logseq's | editor.js, pages.js |
 | Delete this block (`deleteBlockShortcut`) | removes the block and its children, or the selected blocks, or only selected text | no | "Click in a block first" | none of its own | editor.js |
 | New block at the outermost level (`outermostBlockShortcut`) | a spacer and a new top-level block | no | "Click in a block first" | none of its own | editor.js |
 | Fold all / Unfold all results in this query | the fold state Logseq saves | no | "No query found on this page. Click in a query or one of its results first" | its twin | properties.js |
-| Choose properties shown in this list | the plugin's settings only | the box, with the tick list | "Click in a record of a query or list first" | Show all | properties.js |
+| Choose properties shown in this list | the plugin's settings only | the box, with the tick list | "Click in a record first" | Show all | properties.js |
 | Refinements settings | settings | no | | Reset beside each setting | settings-panel.js |
-| Refinements: troubleshooting (and its eight tools) | nothing | the box listing the tools | each tool: "Click into the block to check first, then run this again", "Open a page first", "Measuring is off…" | | diagnostics.js |
+| Refinements: troubleshooting (and its eight tools) | nothing | the box listing the tools | each tool: "Click in a block first, then run this again", "Open a page first", "Measuring is off…" | | diagnostics.js |
 | Search in right sidebar (`searchShortcut`) | nothing | no | "Search did not open. You can also press Mod+Enter inside search…" | | search.js |
 | Fill missing dates from journal days | the Date property of every undated record | the box, with the count | "This graph is not listed under Only in these graphs…"; "Couldn't find the tags … or a Date-type property…"; "Every record already has a date…" | none | journal-dates.js |
 | Copy page as rich text (page menu), Copy selected blocks as rich text (bullet: Copy as rich text) | nothing; reads only | its own card | "Nothing to copy here"; "Open a page first"; with nothing selected it offers the page | | rich-copy.js |
-| Todos, Todos as a window / as a page / in the right sidebar (`todosShortcut`, `todosOpensAs`, `todosToolbarButton`, `todosDoneDays`) | see the view below | | | | todos.js |
-| Expectations and its three (`expectationsShortcut`, `expectationsTag`, `expectationsStateProperty`, `expectationsToolbarButton`) | see the view below | | | | todos.js |
-| Tag tree, Tag tree as a page, Tag tree in the right sidebar (`tagTreeShortcut`, `tagTreeOpensAs`, `tagTreeToolbarButton`, `tagTreeRoots`) | see the view below | | | | tags.js |
+| Todos (paused), Todos as a window / as a page / in the right sidebar (`todosShortcut`, `todosOpensAs`, `todosToolbarButton`, `todosDoneDays`) | see the view below | | | | todos.js |
+| Expectations (paused) and its three (`expectationsShortcut`, `expectationsTag`, `expectationsStateProperty`, `expectationsToolbarButton`) | see the view below | | | | todos.js |
+| Tag tree (paused), Tag tree as a page, Tag tree in the right sidebar (`tagTreeShortcut`, `tagTreeOpensAs`, `tagTreeToolbarButton`, `tagTreeRoots`) | see the view below | | | | tags.js |
 
 Typed, not a command: a year-first date inside `[[ ]]` becomes the journal's name (`dateLinkFormats`); the `[[` menu stays empty until you type (`quietLinkMenu`); a link inside a reference opens its own page on click (`innerReferenceLinks`). Copy as rich text's one setting, Layout (`layout`), is remembered from its card.
 
 ### The three writing parts
+
+These are the three parts that write to notes as a part of their own, rather than on a key pressed on a value. Todos and the tag tree are paused since 0.4.128. The line list and the proposals in the pills write only when you press Enter or Tab on a value or click it, so they are not in this table.
 
 | | Journal day as date | Todos and Expectations | Tag tree |
 | --- | --- | --- | --- |
