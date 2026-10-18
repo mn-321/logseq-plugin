@@ -258,7 +258,7 @@ const settingsSchema = [
   { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
     description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
   { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
-    description: 'Dates in your notes, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and property capsules keep plain dates.' },
+    description: 'Dates in your notes, a record’s own dates in the pill row under it, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and the capsules at the side of a block keep plain dates.' },
   { key: 'dateTense', type: 'boolean', title: 'Dates carry their tense', default: true,
     description: 'A date in the past is quieter, today is a little firmer, a date to come stays as it is; an overdue Scheduled or Deadline keeps Logseq’s yellow. Applies right away.' },
   { key: 'plainPageIcons', type: 'boolean', title: 'Simpler page icons', default: true,

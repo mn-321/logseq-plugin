@@ -452,10 +452,11 @@ ${dateStyles(['.ls-datetime', '.timestamp', '.ls-block a.page-ref:is([data-refin
 .ls-datetime > * + * { margin-left: .35em; }
 /* In a property list the date keeps its box but takes the weight of the values around it. */
 .property-value-container :is(.ls-datetime, .timestamp, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])) { font-weight: inherit !important; }
-/* Inside property capsules at the side or below a block, a date is plain text in the normal text colour. */
-:is(html, .dark) .ls-block .positioned-properties :is(.ls-datetime, .timestamp, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])),
-:is(html, .dark) .ls-block .positioned-properties :is(.ls-datetime, .timestamp, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])):hover,
-:is(html, .dark) .ls-block .positioned-properties :is(.ls-datetime, .timestamp) :is(a, .page-reference) {
+/* Inside property capsules at the side of a block, a date is plain text in the normal text colour. The pill row below
+   a block keeps the box (0.4.109): a record's own Date read as plain words there while the Deadline beside it was boxed. */
+:is(html, .dark) .ls-block .positioned-properties:not(.block-below) :is(.ls-datetime, .timestamp, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])),
+:is(html, .dark) .ls-block .positioned-properties:not(.block-below) :is(.ls-datetime, .timestamp, a.page-ref:is([data-refinement-date], [data-uuid^="00000001-"])):hover,
+:is(html, .dark) .ls-block .positioned-properties:not(.block-below) :is(.ls-datetime, .timestamp) :is(a, .page-reference) {
   background: transparent !important; padding: 0 !important; border-radius: 0 !important;
   color: var(--ls-primary-text-color, currentColor) !important; font-size: inherit !important; font-weight: inherit !important; text-decoration: none !important;
 }
