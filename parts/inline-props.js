@@ -21,7 +21,7 @@ const { host, notify, showUndoBar } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (inline properties): ', stopKey: '__refinementInlinePropsStop',
   sweep: doc => { try { for (const el of doc.querySelectorAll('.rip-menu, .rip-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-rip-ghost]')) el.removeAttribute('data-rip-ghost'); } catch (error) { /* nothing left over */ } } });
 const { graphNamedIn } = shared;
-let dsQuery, graphWide, journalTitleFor;
+let dsQuery, graphWide, journalTitleFor, coreSetting;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -313,6 +313,15 @@ async function tokenAt(box) {
     if (!hits.length) hits = starting(schema.props);
     if (hits.length === 1) return { stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(word) };
     if (hits.length > 1) return { stage: 'name', prop: null, name: word, prefix: w, filter, start: tail(word) };
+    // The token forgives a missing space (0.4.106): "Mateoa::pri" names no field, but its tail "a" starts one;
+    // the shortest tail that starts exactly one of the record's own fields (else of all) is read, and the word before it stays.
+    const fields = await fieldsOf(uuid, schema);
+    for (let n = 1; n < w.length; n++) {
+      const t = w.slice(w.length - n);
+      let hits = fields.filter(prop => prop.lower.startsWith(t));
+      if (!hits.length) hits = schema.props.filter(prop => prop.lower.startsWith(t));
+      if (hits.length === 1) return { stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(t) };
+    }
   }
   return { stage: 'new', prop: null, name: word, filter, start: tail(word) };
 }
@@ -421,6 +430,7 @@ async function check(box) {
   if (!box.isConnected && !ownBox(host().activeElement)) return closeMenu();
   if (changed) { state.sel = 0; state.gather = false; }
   if (state.gather) { if (!token.filter.trim()) state.sel = -1; rows.push({ kind: 'info', label: 'Enter with nothing typed finishes' }); }
+  else if (token.stage === 'value' && !rows.some(selectable)) rows.push({ kind: 'info', label: `nothing matches “${token.filter.trim()}” · Esc takes the token out` });
   state.rows = rows;
   renderMenu();
 }
@@ -537,12 +547,32 @@ function onKey(event) {
   else if (event.key === 'ArrowUp') { stop(); move(-1); }
   else if (finishing) { stop(); removeToken(); closeMenu(); }
   else if (event.key === 'Enter' && rows.some(selectable)) { stop(); pickSelected(); }
+  // Enter with nothing to pick does nothing (0.4.106): it used to reach Logseq, which split the block and saved the token.
+  else if (event.key === 'Enter') { stop(); }
   // Escape closes the list and keeps you in the block. With the token taken out (0.4.99), Cmd+Z brings it back;
   // without, it stays as typed and is not asked about again until the text changes.
   else if (event.key === 'Escape') { stop(); if (clearsOnLeave()) removeToken(); else state.dismissed = state.box.value; closeMenu(); }
   else if (event.key === 'Tab') { if (clearsOnLeave()) removeToken(); closeMenu(); }
 }
 const clearsOnLeave = () => setting('inlinePropsEscapeClears');
+/* Escape takes [[ or # out of Logseq's own pickers (0.4.106; setting pickerEscapeClears in main.js): the key meant
+   "never mind", yet a [[Name]] or #Name left in the text became a page or a tag when the block was saved (seen
+   2026-10-17: [[Pri, Escape, Escape made the page Pri). The letters leave through the editor, so Cmd+Z brings them
+   back; a new page or tag is made only through the picker's own New row. Logseq's own Escape then closes the picker. */
+const PICKER_POPUPS = '[data-editor-popup-ref="page-search"], [data-editor-popup-ref="page-search-hashtag"]';
+function onPickerEscape(event) {
+  if (event.key !== 'Escape' || event.isComposing || !coreSetting('pickerEscapeClears')) return;
+  const box = event.target;
+  if (!box?.matches?.('textarea') || !box.closest('.ls-block[blockid]')) return;
+  const popup = host().querySelector(PICKER_POPUPS);
+  if (!popup) return;
+  const caret = box.selectionStart;
+  if (caret !== box.selectionEnd) return;
+  const before = box.value.slice(0, caret), after = box.value.slice(caret);
+  let m;
+  if (popup.dataset.editorPopupRef === 'page-search' && (m = before.match(/\[\[([^\[\]\n]*)$/))) replaceRange(box, caret - m[0].length, caret + (after.startsWith(']]') ? 2 : 0), '');
+  else if (popup.dataset.editorPopupRef === 'page-search-hashtag' && (m = before.match(/(?:^|\s)(#[^\s#]*)$/))) replaceRange(box, caret - m[1].length, caret, '');
+}
 // A press outside the list and the block while the list is open (0.4.99): the token leaves the text before the
 // block loses the caret, so the block is never saved with p:: or name:: in it.
 function onPointerDown(event) {
@@ -594,11 +624,12 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, journalTitleFor } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor']));
+  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-inline-props', style: menuCss });
   const win = host().defaultView;
   listen(win, ['keydown'], onKey);
+  listen(win, ['keydown'], onPickerEscape);
   listen(win, ['input', 'keyup', 'click'], onEditorChange);
   listen(win, ['focusout'], onFocusOut);
   listen(win, ['pointerdown'], onPointerDown); // pointerdown: Logseq takes the editor away before mousedown fires (seen 2026-10-17)
