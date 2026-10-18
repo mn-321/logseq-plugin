@@ -103,7 +103,6 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
-  --rf-dash-pct: 45%;    /* was the dashed outline of a thing not yet there; since 0.4.116 such a thing is pencilled in (italic, the quiet colour, no box) and the token is kept for a theme that still draws one */
   --rf-field-pct: 3%;    /* the field behind a property list */
   --rf-divider-pct: 22%; /* the thick line between right-sidebar items */
   --rf-name: .94em;      /* a property's name beside its value */
