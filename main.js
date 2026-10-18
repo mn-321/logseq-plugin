@@ -250,7 +250,7 @@ const settingsSchema = [
   { key: 'quietEmptyProps', type: 'boolean', title: 'Empty properties faint', default: true,
     description: 'A property with no value yet (Logseq shows it as a dashed line) is drawn faint under a block and in a block’s property list, so a record’s filled values stand out. Nothing is hidden and nothing moves. The page’s own list under its title is not touched. Applies right away.' },
   { key: 'hiddenPropsChevron', type: 'boolean', title: 'Hidden properties arrow on every block', default: true,
-    description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow.' },
+    description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow. Hidden means a value Logseq hides: an empty slot, such as a task’s unset Scheduled, gets no arrow.' },
   { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
     description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
   { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,

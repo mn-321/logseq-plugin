@@ -641,25 +641,18 @@ async function chooseListProperties(event) {
    own button (when zoomed in) loses its words too. Logseq's per-block switch behind its button cannot
    be reached by a plugin, so the arrow uses Logseq's "show all properties" for that one block (as
    selecting it and pressing p a does) and hides the rows that adds which are not hidden properties,
-   so the same list opens. A property is hidden as Logseq decides it: set to hide by default, or set
-   to hide when empty and empty on a tag's property. */
+   so the same list opens. A hidden property is a value that Logseq hides: a property set to hide by default
+   that the block holds. An empty slot (a tag's property set to hide when empty, with nothing in it; Logseq's
+   four task fields are all so) is not one (0.4.110): the arrow sat on nearly every task and opened blanks. */
 const hiddenProps = { byBlock: new Map(), buttons: new Set(), marked: new Set(), generation: 0, hover: null };
 // Properties Logseq never lists (its own internal ones) and the query of a query block.
 const HIDDEN_LISTED = `(or-join [?p] (not [?p :logseq.property/built-in? true]) [?p :logseq.property/public? true])
   [?p :db/ident ?pi] [(not= ?pi :logseq.property/query)] [?p :block/title ?title]`;
-// A block's tags, and the tags those extend.
-const HIDDEN_TAGGED = '(or-join [?b ?c] [?b :block/tags ?c] (and [?b :block/tags ?c0] [?c0 :logseq.property.class/extends ?c]))';
 async function loadHiddenProps() {
   if (!setting('hiddenPropsChevron')) return;
   const generation = ++hiddenProps.generation;
   try {
-    const rows = (await Promise.all([
-      dsQuery(`[:find ?u ?title :where [?p :logseq.property/hide? true] ${HIDDEN_LISTED} [?b ?pi] [?b :block/uuid ?u]]`),
-      dsQuery(`[:find ?u ?title :where [?p :logseq.property/hide? true] ${HIDDEN_LISTED}
-        [?c :logseq.property.class/properties ?p] ${HIDDEN_TAGGED} [?b :block/uuid ?u]]`),
-      dsQuery(`[:find ?u ?title :where [?p :logseq.property/hide-empty-value true] ${HIDDEN_LISTED}
-        [?c :logseq.property.class/properties ?p] ${HIDDEN_TAGGED} (not [?b ?pi]) [?b :block/uuid ?u]]`),
-    ])).flat();
+    const rows = await dsQuery(`[:find ?u ?title :where [?p :logseq.property/hide? true] ${HIDDEN_LISTED} [?b ?pi] [?b :block/uuid ?u]]`);
     if (generation !== hiddenProps.generation) return;
     const byBlock = new Map();
     for (const [uuid, title] of rows) {
