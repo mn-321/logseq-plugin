@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.130.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.131.
 
 Besides the look of pages, it holds:
 
@@ -289,7 +289,7 @@ The **Search** button at the top of the right sidebar can be hidden with **Searc
 
 **Preview the selected result**: a panel at the right of the search window shows the selected result with its blocks. Click a line to edit it; a saved line shows a bar at the bottom with **Undo** for a few seconds. **Preview: edit with Logseq's own editor (trial)** is off by default.
 
-**Filter search with codes**: type `#tag`, `in:Page`, `p:Name` or `p:Name=value` for a property (`property:` and `prop:` work too), `is:task`, `todo`, `done`, `page`, `journal` or `block`, and `edited:today`, `yesterday`, `week`, `month`, `year` or a count such as `3d` or `2w`. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in `[[ ]]`. The window's **? More tips** guide lists them all.
+**Filter search with codes**: type `#tag`, `in:Page`, `p:Name` or `p:Name=value` for a property (`property:` and `prop:` work too), `is:task`, `todo`, `done`, `page`, `journal` or `block`, and `edited:today`, `yesterday`, `week`, `month`, `year` or a count such as `3d` or `2w`. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in `[[ ]]`. The window's **? More tips** guide lists them all. A search that is only `#Tag`, for a tag you have, lists the tag's own page first (marked `#`, “tag page” at the right), so Enter opens it, and the records tagged with it below.
 
 ## Journal day as date
 

@@ -1278,6 +1278,17 @@ async function runSearchFilters(parsed) {
     text: plainSearchText(String(title), names).replace(/\[\[([^\]]+)\]\]/g, '$1').slice(0, 400) || 'Untitled',
     pageUuid: pages.get(p)?.uuid || null, pageTitle: pages.get(p)?.title || '',
   }));
+  // A search that is only #Tag (0.4.131): the tag's own page is the first row, then what is tagged with it, so Enter
+  // on #Meeting opens the Meeting page, as Logseq's own search would. Before, only the tagged records were listed.
+  const loneTag = parsed.tags.length === 1 && !parsed.words.length && !parsed.pages.length && !parsed.props.length &&
+    !parsed.kinds.length && !parsed.since && !parsed.bad.length;
+  if (loneTag) {
+    const ids = catalog.tags.filter(tag => tag.lower === parsed.tags[0].toLowerCase()).map(tag => tag.id).filter(isEntityId);
+    const own = ids.length ? await dsQuery(`[:find ?u ?t ?updated :where ${idsIn('?p', ids)} [?p :block/uuid ?u] [?p :block/title ?t]
+      [(get-else $ ?p :block/updated-at 0) ?updated]]`) : [];
+    list.unshift(...own.map(([u, t, updated]) => ({ uuid: String(u).toLowerCase(), isPage: true, isTag: true, updated: Number(updated) || 0, text: String(t), pageUuid: null, pageTitle: '' })));
+    if (own.length) return { list, total: rows.length, heading: `${described.join(', ')}, after the tag’s own page` };
+  }
   return { list, total: rows.length, heading: described.join(', ') };
 }
 
@@ -1456,7 +1467,7 @@ function renderFilterResults(root) {
   const rows = f.loading || f.note ? '' : f.list.map((item, i) => `
     <div class="rf-fr-row" data-i="${i}" data-rf-uuid="${escapeHtml(item.uuid)}"${i === f.current ? ' data-rf-current' : ''}>
       ${item.isPage ? '' : `<div class="rf-fr-path">${escapeHtml(item.pageTitle)}</div>`}
-      <div class="rf-fr-line"><span class="rf-fr-icon">${item.isPage ? '▢' : '•'}</span><span class="rf-fr-text">${markWords(item.text, f.words)}</span><span class="rf-fr-meta"></span></div>
+      <div class="rf-fr-line"><span class="rf-fr-icon">${item.isTag ? '#' : item.isPage ? '▢' : '•'}</span><span class="rf-fr-text">${markWords(item.text, f.words)}</span><span class="rf-fr-meta"></span></div>
     </div>`).join('');
   box.innerHTML = `<div class="rf-fr-head">${escapeHtml(head)}</div>${rows}
     ${!f.loading && !f.note && !f.list.length ? '<div class="rf-fr-none">Nothing matches.</div>' : ''}
@@ -1468,7 +1479,7 @@ function renderFilterResults(root) {
 function refreshFilterLabels(root) {
   for (const row of root.querySelectorAll('.rf-fr-row')) {
     const meta = searchExtras.meta.get(row.dataset.rfUuid), item = searchFilter.list[Number(row.dataset.i)];
-    const label = [meta ? kindLabel(meta) : item?.isPage ? 'Page' : '', editedLabel(meta?.updated || item?.updated)].filter(Boolean).join(' · ');
+    const label = [item?.isTag ? 'tag page' : meta ? kindLabel(meta) : item?.isPage ? 'Page' : '', editedLabel(meta?.updated || item?.updated)].filter(Boolean).join(' · ');
     const el = row.querySelector('.rf-fr-meta');
     if (el && el.textContent !== label) el.textContent = label;
   }
