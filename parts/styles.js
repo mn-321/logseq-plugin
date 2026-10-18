@@ -240,9 +240,17 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-bidirectional-properties [role="tab"] > span > span:last-child::before { content: '#'; margin-right: .05em; }
 /* Records listed under a tag tab start where the page's own blocks start. */
 .ls-bidirectional-block-container .blocks-list-wrap > .ls-block[level="0"] { margin-left: -1.25rem; }
-/* A value written as text (such as an email) has no bullet column (.property-panel-bullet, 16px, then a 4px gap), so it
-   sat left of the values beside it; it is moved in by the same width, so every value starts in one column. */
-.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet)) > .property-value { padding-left: 20px; }
+/* One column for every value of a page's properties (0.4.130; 0.4.91 tried with 20px). Logseq gives a value a bullet
+   unless its property is text or a url, and draws a text value as a small block pulled 20px left (a later rule here
+   pulled it 4px more), so "Endoscopy" started left of the bulleted values' words. The pulls are undone and the value
+   is moved in by the bullet column (2px, the 16px bullet, a 4px gap), so its words start where a bulleted value's do.
+   A text value that starts with a page's icon (a link to a page that has one, marked by the properties part) puts
+   that icon in the bullet's place instead, and its words after it. */
+.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet)) > .property-value { padding-left: 22px; }
+.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet)) .property-value-inner { left: 0 !important; }
+.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet)) .property-block-container { margin-left: 0 !important; }
+.ls-page-properties .property-value-container[data-refinement-value-lead="icon"] > .property-value { padding-left: 1px; }
+.ls-page-properties .property-value-container[data-refinement-value-lead="icon"] .block-title-wrap > .page-reference:first-child a.page-ref > .icon-emoji-wrap:first-child { margin-right: 2px; }
 .property-pair .property-value-inner:has(.property-block-container) { position: relative; left: -4px; }
 /* A query's "2 results" sits on the same line as its title and ends where the #tags end. */
 .custom-query-title.justify-between { align-items: baseline; }

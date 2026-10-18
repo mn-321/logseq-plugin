@@ -835,11 +835,35 @@ function provide(core) {
   core.onDbRound('loadHiddenProps', loadHiddenProps);
   core.onDbRound('loadPropertyNames', loadPropertyNames);
 }
+/* A page property value that starts with a page's icon (0.4.130): a text value whose first thing is a link to a page
+   with an icon of its own (Hospital: City of Hope). It is marked so the stylesheet can put the icon where the other
+   values' bullets are. Only the first node counts: "See [[City of Hope]]" starts with words, not the icon. */
+const valueLeads = new Set();
+function markValueLeads(doc) {
+  const seen = new Set();
+  if (setting('plainProperties')) for (const box of doc.querySelectorAll('.ls-page-properties .property-value-container:not(:has(> .property-panel-bullet))')) {
+    let first = box.querySelector('.block-title-wrap')?.firstChild;
+    while (first && first.nodeType === 3 && !first.nodeValue.trim()) first = first.nextSibling;
+    const link = first?.nodeType === 1 && first.matches('.page-reference') ? first.querySelector('a.page-ref') : null;
+    if (!link?.firstElementChild?.matches('.icon-emoji-wrap')) continue;
+    seen.add(box);
+    if (box.getAttribute('data-refinement-value-lead') !== 'icon') box.setAttribute('data-refinement-value-lead', 'icon');
+  }
+  for (const box of valueLeads) if (!seen.has(box)) box.removeAttribute('data-refinement-value-lead');
+  valueLeads.clear();
+  for (const box of seen) valueLeads.add(box);
+}
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
   ({ setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas, pdfCitations, dateLinks, attribute } =
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'REFERENCE_AREAS', 'referenceAreas', 'pdfCitations', 'dateLinks', 'attribute']));
+  watchDomEarly(function valueLeadsEarly(doc) { markValueLeads(doc); });
+  // Once now and once after a reload has swept the earlier copy's marks, when the page may not change again for a while.
+  markValueLeads(host());
+  const leadTimer = setTimeout(() => markValueLeads(host()), 600);
+  onUnload(() => clearTimeout(leadTimer));
+  onUnload(() => { for (const box of valueLeads) box.removeAttribute('data-refinement-value-lead'); valueLeads.clear(); });
 }
 (window.refinementParts ||= []).push({ name: 'properties', schema: [], provide, start, stop: runUnloadTasks });
 })();
