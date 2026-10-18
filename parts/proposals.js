@@ -30,7 +30,9 @@ const settingsSchema = [
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
     description: 'The pencilled values in a record’s pills while it is written, and Tab to take them or Escape to say no while you write the record. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
-    description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
+    description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
+  { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
+    description: 'The proposals are worked out from the words in the text box as you type them, so a name is pencilled in the moment its word is finished, and a value whose word you delete goes away; the record you are writing gets them whatever its age. Off, they come only after the plugin’s check that follows a save, a second or two later. Applies at once.' },
 ];
 const own = shared.settingReader(settingsSchema);
 const rulesOn = () => new Set(String(own('pillProposalRules') || '').toLowerCase().replace(/’/g, "'").split(',').map(s => s.trim()).filter(Boolean));
@@ -63,7 +65,8 @@ function fieldsOfTags(tagIds, schema) {
 /* The proposals: uuid → { words, items: [{ ident, prop, ids, journal?, shown }] }, worked out after each
    database round from the records written since the plugin started (and a minute before), graph-wide
    in one query. Drawing is done from this map on the screen watcher's early pass. */
-const state = { started: Date.now(), proposals: new Map(), declined: new Set(), running: false, again: false };
+const state = { started: Date.now(), proposals: new Map(), declined: new Set(), running: false, again: false,
+  live: null /* { uuid, words, items } for the block in edit, from its text box (0.4.119) */ };
 const words = title => new Set(String(title || '').toLowerCase().replace(/\[\[[0-9a-f-]{36}\]\]/gi, ' ').split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 async function recentRecords() {
   const since = state.started - 60000;
@@ -87,40 +90,102 @@ function peopleNamed(prop, wordSet, title, pages) {
   if (!found.length || (!prop.many && found.length > 1)) return null;
   return found;
 }
-async function compute() {
-  const proposals = new Map();
-  if (!own('pillProposals')) return proposals;
+// What the rules may run on: the graphs named for the line list (people, parent) and for the journal day.
+async function allowed() {
+  if (!own('pillProposals')) return null;
   const inline = (rule('people named') || rule("the parent's fields")) && await graphNamedIn(inlinePropsSetting('inlinePropsGraphs'));
   const days = ownsDates() && journalDates.setting('autoDate') && journalDates.setting('autoDateAsk') && await journalDates.allowedHere();
-  if (!inline && !days) return proposals;
-  const [schema, pages, setup, records] = await Promise.all([propSchema(), propPages(), days ? journalDates.setup() : null, recentRecords()]);
-  const pageById = new Map(pages.map(p => [p.id, p]));
-  for (const b of records) {
+  if (!inline && !days) return null;
+  const [schema, pages, setup] = await Promise.all([propSchema(), propPages(), days ? journalDates.setup() : null]);
+  return { inline, days, schema, pages, setup, pageById: new Map(pages.map(p => [p.id, p])) };
+}
+/* The rules, on one pulled block and the words it is read with (its saved title, or the text box while it is in edit):
+   the people named, the parent's (or the page's) same-named field, the journal day. recent says whether the
+   record counts as written now (the block in edit always does). */
+function itemsFor(b, title, ctx, recent) {
+  const { inline, schema, pages, setup, pageById } = ctx;
+  const tags = (pick(b, 'block/tags') || []).map(idOf), wordSet = words(title);
+  const fields = fieldsOfTags(tags, schema), parent = pick(b, 'block/parent'), page = pick(b, 'block/page'), items = [];
+  const parentIsBlock = parent && pick(parent, 'block/page');
+  const pageTags = new Set((pick(page, 'block/tags') || []).map(idOf));
+  for (const prop of fields) {
+    if (prop.type !== 'node' || !prop.classes.length || valuesOf(b, prop.ident).length) continue;
+    const classIds = new Set(prop.classes.map(c => c.id));
+    let found = null, how = '';
+    if (inline && rule('people named')) { found = peopleNamed(prop, wordSet, title, pages); how = 'named'; }
+    if (!found && inline && rule("the parent's fields") && parentIsBlock) {
+      const theirs = valuesOf(parent, prop.ident).map(id => pageById.get(id)).filter(p => p && p.tags.some(t => classIds.has(t.id)));
+      if (theirs.length && (prop.many || theirs.length === 1)) { found = theirs; how = 'parent'; }
+    }
+    // The page a record is written on is a parent too (0.4.119): a Meeting on Ada Okafor's page proposes Ada.
+    if (!found && inline && rule("the parent's fields") && page && !pick(page, 'block/journal-day') && [...pageTags].some(t => classIds.has(t)) && pageById.has(idOf(page))) { found = [pageById.get(idOf(page))]; how = 'page'; }
+    if (found) items.push({ ident: prop.ident, prop, ids: found.map(p => p.id), shown: found.map(p => p.title).join(', '), how });
+  }
+  if (setup && setup.tags.some(t => tags.includes(t)) && !valuesOf(b, setup.ident).length) {
+    const prop = schema.props.find(p => p.ident === setup.ident);
+    if (prop && pick(page, 'block/journal-day') && recent) items.push({ ident: setup.ident, prop, ids: [], journal: idOf(page), day: Number(pick(page, 'block/journal-day')), shown: String(pick(page, 'block/title') ?? ''), how: 'day' });
+  }
+  return items;
+}
+const cleanWords = title => String(title || '').replace(/#?\[\[[0-9a-f-]{36}\]\]/gi, '').trim();
+async function compute() {
+  const proposals = new Map();
+  const ctx = await allowed();
+  if (!ctx) return proposals;
+  for (const b of await recentRecords()) {
     const uuid = String(pick(b, 'block/uuid') ?? '');
     if (!uuid || state.declined.has(uuid)) continue;
-    const tags = (pick(b, 'block/tags') || []).map(idOf), title = String(pick(b, 'block/title') ?? ''), wordSet = words(title);
-    const fields = fieldsOfTags(tags, schema), parent = pick(b, 'block/parent'), items = [];
-    const parentIsBlock = parent && pick(parent, 'block/page');
-    for (const prop of fields) {
-      if (prop.type !== 'node' || !prop.classes.length || valuesOf(b, prop.ident).length) continue;
-      let found = null, how = '';
-      if (inline && rule('people named')) { found = peopleNamed(prop, wordSet, title, pages); how = 'named'; }
-      if (!found && inline && rule("the parent's fields") && parentIsBlock) {
-        const classIds = new Set(prop.classes.map(c => c.id));
-        const theirs = valuesOf(parent, prop.ident).map(id => pageById.get(id)).filter(p => p && p.tags.some(t => classIds.has(t.id)));
-        if (theirs.length && (prop.many || theirs.length === 1)) { found = theirs; how = 'parent'; }
-      }
-      if (found) items.push({ ident: prop.ident, prop, ids: found.map(p => p.id), shown: found.map(p => p.title).join(', '), how });
-    }
-    if (setup && setup.tags.some(t => tags.includes(t)) && !valuesOf(b, setup.ident).length) {
-      const page = pick(b, 'block/page'), created = Number(pick(b, 'block/created-at') || 0);
-      const prop = schema.props.find(p => p.ident === setup.ident);
-      if (prop && pick(page, 'block/journal-day') && created >= state.started - 60000) items.push({ ident: setup.ident, prop, ids: [], journal: idOf(page), day: Number(pick(page, 'block/journal-day')), shown: String(pick(page, 'block/title') ?? ''), how: 'day' });
-    }
-    if (items.length) proposals.set(uuid, { words: title.replace(/#?\[\[[0-9a-f-]{36}\]\]/gi, '').trim(), items });
+    const title = String(pick(b, 'block/title') ?? '');
+    const items = itemsFor(b, title, ctx, Number(pick(b, 'block/created-at') || 0) >= state.started - 60000);
+    if (items.length) proposals.set(uuid, { words: cleanWords(title), items });
   }
   return proposals;
 }
+/* While you type (0.4.119): the same rules on the text box of the block in edit, 40 ms after each key, from the
+   lists already in memory and one small pull of the block (its tags, values, parent and page). The block in edit
+   counts as written now whatever its age; the round after the save confirms. */
+const BLOCK_PULL = '[* {:block/tags [:db/id]} {:block/page [:db/id :block/title :block/journal-day {:block/tags [:db/id]}]} {:block/parent [* {:block/page [:db/id]}]}]';
+let liveTimer = 0, liveVersion = 0;
+async function liveCompute(box) {
+  const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
+  if (!uuid || !own('pillProposalsLive')) return;
+  const version = ++liveVersion, text = box.value.split('\n')[0];
+  try {
+    const ctx = await allowed();
+    if (!ctx || version !== liveVersion) return;
+    const [[b] = []] = await dsQuery(`[:find (pull ?b ${BLOCK_PULL}) :where [?b :block/uuid #uuid "${uuid}"]]`);
+    if (!b || version !== liveVersion || state.declined.has(uuid)) return;
+    const items = itemsFor(b, text, ctx, true);
+    state.live = items.length ? { uuid, words: cleanWords(text), items } : null;
+    if (!items.length) state.proposals.delete(uuid); // a word deleted takes its value away, from the round's copy too
+    draw(host(), null);
+  } catch (error) { warnOnce('the proposals could not be read from the text box', error); }
+}
+function onEditorInput(event) {
+  const box = event.target;
+  if (!box?.matches?.('textarea') || !box.closest('.ls-block[blockid]')) return;
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => liveCompute(box), 40);
+}
+// The block left edit: its live proposals hand over to the round's copy (the saved text now has the same words).
+function onFocusOut(event) {
+  const box = event.target;
+  if (!box?.matches?.('textarea') || !state.live) return;
+  const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
+  if (uuid !== state.live.uuid) return;
+  setTimeout(() => {
+    const live = host().activeElement;
+    if (live?.matches?.('textarea') && live.closest('.ls-block[blockid]')?.getAttribute('blockid') === uuid) return;
+    if (state.live?.uuid === uuid) { state.proposals.set(uuid, state.live); state.live = null; draw(host(), null); }
+  }, 120);
+}
+// The record's proposals: the live ones while it is in edit, else the round's.
+const recFor = uuid => (state.live?.uuid === uuid ? state.live : state.proposals.get(uuid)) || null;
+function setRec(uuid, rec) {
+  if (state.live?.uuid === uuid) state.live = rec;
+  if (rec) state.proposals.set(uuid, rec); else state.proposals.delete(uuid);
+}
+function allRecs() { const m = new Map(state.proposals); if (state.live) m.set(state.live.uuid, state.live); return m; }
 async function refresh() {
   if (state.running) { state.again = true; return; }
   state.running = true;
@@ -151,11 +216,12 @@ function ghostEl(doc, item, withName) {
 }
 function draw(doc, records) {
   if (records && !addsElements(records)) return;
+  const recs = allRecs();
   for (const g of doc.querySelectorAll('.rfp-ghost')) {
-    const row = g.closest('.ls-block[blockid]'), rec = state.proposals.get(row?.getAttribute('blockid') || '');
+    const row = g.closest('.ls-block[blockid]'), rec = recs.get(row?.getAttribute('blockid') || '');
     if (!rec || !rec.items.some(item => item.ident === g.dataset.rfpIdent)) { g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal'); g.remove(); }
   }
-  for (const [uuid, rec] of state.proposals) {
+  for (const [uuid, rec] of recs) {
     for (const row of doc.querySelectorAll(`.ls-block[blockid="${uuid}"]`)) {
       const owned = el => el.closest('.ls-block[blockid]') === row;
       const pills = [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(owned);
@@ -184,11 +250,11 @@ function markFirst(doc) {
 
 /* Writing: Tab fills every ghost of the record being written, a click fills one; one bar with one Undo. Escape leaves the record. */
 async function fill(uuid, onlyIdent) {
-  const rec = state.proposals.get(uuid);
+  const rec = recFor(uuid);
   if (!rec) return;
   const items = onlyIdent ? rec.items.filter(item => item.ident === onlyIdent) : rec.items;
   const left = rec.items.filter(item => !items.includes(item));
-  if (left.length) state.proposals.set(uuid, { ...rec, items: left }); else state.proposals.delete(uuid);
+  setRec(uuid, left.length ? { ...rec, items: left } : null);
   draw(host(), null);
   const undos = [], done = [];
   for (const item of items) {
@@ -210,7 +276,7 @@ async function fill(uuid, onlyIdent) {
 }
 function decline(uuid) {
   state.declined.add(uuid);
-  state.proposals.delete(uuid);
+  setRec(uuid, null);
   draw(host(), null);
 }
 // Tab and Escape in the text box of a record that has proposals; a picker open under the caret (Logseq's, or the
@@ -221,7 +287,7 @@ function onKey(event) {
   const box = event.target;
   if (!box?.matches?.('textarea')) return;
   const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
-  if (!uuid || !state.proposals.has(uuid)) return;
+  if (!uuid || !recFor(uuid)) return;
   const doc = box.ownerDocument;
   if (doc.querySelector('#ui__ac, .rip-menu, .absolute-modal, [data-editor-popup-ref]')) return;
   event.preventDefault(); event.stopImmediatePropagation();
@@ -244,10 +310,10 @@ const css = `
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }`;
 
 // Why a value is proposed, in the words the line list shows beside it (0.4.118).
-const WHY = { named: 'in your words', parent: 'from the parent', day: 'the journal day' };
+const WHY = { named: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
 // The record's proposals for one field (or all of them), for the line list, which opens on them (0.4.118).
 function proposalsFor(uuid, ident) {
-  const rec = state.proposals.get(uuid);
+  const rec = recFor(uuid);
   if (!rec) return [];
   return rec.items.filter(item => !ident || item.ident === ident).map(item => ({ ...item, why: WHY[item.how] || '' }));
 }
@@ -260,12 +326,14 @@ function start() {
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);
+  listen(host().defaultView, ['input', 'keyup'], onEditorInput); // keyup too: Logseq handles Backspace itself and sets the text without an input event (seen 2026-10-18)
+  listen(host().defaultView, ['focusout'], onFocusOut);
   watchDomEarly(function drawProposals(doc, records) { draw(doc, records); });
   core.onDbRound('proposals', refresh);
-  onUnload(logseq.onSettingsChanged(() => { state.proposals = new Map(); refresh(); }));
-  onUnload(() => { state.proposals = new Map(); try { draw(host(), null); } catch (error) { /* the window may be gone */ } });
+  onUnload(logseq.onSettingsChanged(() => { state.proposals = new Map(); state.live = null; refresh(); }));
+  onUnload(() => { clearTimeout(liveTimer); state.proposals = new Map(); state.live = null; try { draw(host(), null); } catch (error) { /* the window may be gone */ } });
   refresh();
-  window.proposalsDebug = { state, compute, refresh };
+  window.proposalsDebug = { state, compute, refresh, liveCompute };
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, provide, start, stop: runUnloadTasks });
 })();
