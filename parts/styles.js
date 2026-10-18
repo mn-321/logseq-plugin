@@ -258,6 +258,8 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
 .ls-page-properties .ls-new-property { opacity: 0 !important; transition: opacity .15s; }
 .ls-page-properties:is(:hover, :focus-within) .ls-new-property { opacity: var(--rf-quiet) !important; }
 .ls-page-properties .ls-new-property:is(:hover, :focus-within) { opacity: 1 !important; }
+/* The button itself has no grey behind it (0.4.104): plain words with the +, on the page's own ground. */
+.ls-page-properties .ls-new-property .ui__button, .ls-page-properties .ls-new-property .ui__button:hover { background: transparent !important; }
 `],
   ['quietEmptyProps', `/* A property with no value yet (Logseq marks the pill .empty-value and the list row .property-panel-row-empty)
    is faint, never hidden: the owner wants every property that Logseq shows to stay on screen, and nothing to move.
