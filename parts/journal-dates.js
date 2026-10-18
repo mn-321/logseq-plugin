@@ -318,10 +318,10 @@ const promptCss = `
 .jdd-ask-keys button:hover { background: var(--ls-tertiary-background-color); }
 .jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
 /* The ghost value in the record's own row: pencilled in means proposed, not written. */
-.jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; font-size: .95em; vertical-align: baseline; }
+.jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; vertical-align: baseline; } /* the pill's own size since 0.4.124 */
 .jdd-ghost-name { color: var(--ls-secondary-text-color, currentColor); }
 /* Pencilled in (0.4.116): italic in the quiet colour, no box; the day stands upright in its box once written. */
-.jdd-ghost-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-size: .95em; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
+.jdd-ghost-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
 .jdd-ghost-value:hover { color: var(--ls-primary-text-color, currentColor); }
 .jdd-ghost-keys { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .jdd-ghost-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }

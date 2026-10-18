@@ -433,11 +433,12 @@ function onKey(event) {
 
 const css = `
 /* A proposed value, pencilled in as the line list's ghost: proposed, not written. */
-.rfp-ghost { display: inline-flex; align-items: baseline; gap: .45em; margin-left: .35em; font-size: .95em; vertical-align: baseline; }
+/* The pencilled value at the pill's own size (0.4.124): it was .95em of .95em, 12.6px against a written 14px. */
+.rfp-ghost { display: inline-flex; align-items: baseline; gap: .45em; margin-left: .35em; vertical-align: baseline; }
 .bottom-property-content > .rfp-ghost { margin-left: 0; }
 .rfp-name { color: var(--ls-secondary-text-color, currentColor); }
 /* Pencilled in (0.4.116): italic in the quiet colour, no box; the value stands upright in its box once taken. */
-.rfp-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-size: .95em; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
+.rfp-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
 .rfp-value:hover { color: var(--ls-primary-text-color, currentColor); }
 .rfp-keys { display: none; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .rfp-ghost[data-rfp-first] .rfp-keys { display: inline; }

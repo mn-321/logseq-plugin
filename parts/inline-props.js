@@ -655,7 +655,7 @@ const menuCss = `
 .bottom-property-pill[data-rip-ghost] .rfp-ghost { display: none !important; }
 /* A row that makes something is pencilled in (0.4.116): italic in the quiet colour, no box, the + before it. */
 .rip-new { font-style: italic; color: var(--ls-secondary-text-color); }
-.rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
+.rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; } /* the pill's own size since 0.4.124 */
 .bottom-property-content > .rip-ghost { margin-left: 0; }
 .rip-ghost-name { color: var(--ls-secondary-text-color); }
 .rip-ghost-value { font-style: italic; padding: .02em .1em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
