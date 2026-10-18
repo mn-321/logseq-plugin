@@ -1,13 +1,13 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.127.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.128.
 
 Besides the look of pages, it holds:
 
 - **Search**: a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
 - **Right sidebar**: titles that open their page in the main view, and a clear line between items.
-- **Todos**: a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
-- **Tag tree**: all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
+- **Todos** (paused for now; switch on under **Paused** in the settings): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
+- **Tag tree** (paused for now; switch on under **Paused** in the settings): all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
 - **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
 - **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`). Only in the graphs you name.
@@ -126,6 +126,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Show the key hint until this many takes | `proposalHintTakes` | 20 | Proposals in the pills |
 | While you type | `pillProposalsLive` | on | Proposals in the pills |
 | Layout | `layout` | document | Copy as rich text |
+| Use Todos and Expectations | `todosEnabled` | off | Todos |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
 | Open Todos | `todosShortcut` | mod+alt+t | Todos |
@@ -134,6 +135,7 @@ In the order of the settings window. The key is the name in the settings file (`
 | Property that holds where it stands | `expectationsStateProperty` | juncture | Expectations |
 | Expectations button in the toolbar | `expectationsToolbarButton` | on | Expectations |
 | Open Expectations | `expectationsShortcut` | mod+alt+e | Expectations |
+| Use the tag tree | `tagTreeEnabled` | off | Tag tree |
 | Root tags | `tagTreeRoots` | Occurrence, Entity, Concept | Tag tree |
 | The button and shortcut open the tag tree as | `tagTreeOpensAs` | page | Tag tree |
 | Tag tree button in the toolbar | `tagTreeToolbarButton` | on | Tag tree |
@@ -151,9 +153,9 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | `Cmd+Delete` | Delete this block (with the blocks nested under it) |
 | `Option+Return` | New block at the outermost level |
 | `Cmd+Option+F` | Search in the right sidebar |
-| `Cmd+Option+T` | Todos (changed under **Todos** in the settings window) |
-| `Cmd+Option+E` | Expectations (changed under **Expectations** in the settings window) |
-| `Cmd+Option+G` | Tag tree (changed under **Tag tree** in the settings window) |
+| `Cmd+Option+T` | Todos, while it is switched on (changed under **Todos** in the settings window) |
+| `Cmd+Option+E` | Expectations, while Todos is switched on (changed under **Expectations** in the settings window) |
+| `Cmd+Option+G` | Tag tree, while it is switched on (changed under **Tag tree** in the settings window) |
 | none | Make a page from this block (also in a bullet's right-click menu) |
 
 ## Appearance
@@ -205,6 +207,8 @@ Branch cues refresh on navigation and graph edits. The plugin reads the current 
 
 ## Todos
 
+**Paused for now.** With **Use Todos and Expectations** off (the default since 0.4.128) Todos and Expectations add no toolbar button, no command and no shortcut. Switch it on in the settings window and reload the plugin to use them again; everything below then applies.
+
 Open it with the checklist button at the top right of Logseq, with `Cmd+Option+T`, or by running **Todos** from the command palette.
 
 Todos can show three ways:
@@ -241,6 +245,8 @@ Things you are waiting on someone else for, which are not your own tasks. It is 
 Settings (section **Expectations**): **Tag of an expectation** (`Expectation`), **Property that holds where it stands** (`juncture`; leave empty to use Logseq's status), **Expectations button in the toolbar** (on), **Open Expectations** shortcut (`mod+alt+e`).
 
 ## Tag tree
+
+**Paused for now.** With **Use the tag tree** off (the default since 0.4.128) the tag tree adds no toolbar button, page, sidebar panel, command or shortcut. Switch it on in the settings window and reload the plugin to use it again; everything below then applies.
 
 All your tags as one tree, so you can see what is inside each tag, make new tags in the right place and move tags around. Open it with the tree button at the top right of Logseq (Logseq may put it in the puzzle-piece menu first; the pin there keeps it in the toolbar), with `Cmd+Option+G`, or by running **Tag tree** from the command palette. It shows as a full view in the main area, or as a smaller panel in the right sidebar (**Tag tree in the right sidebar**).
 

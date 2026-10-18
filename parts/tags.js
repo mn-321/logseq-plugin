@@ -20,6 +20,8 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 const settingsSchema = [
   { key: 'tagTreeHeading', type: 'heading', title: 'Tag tree', default: null,
     description: 'All your tags as one tree under a few root tags, where you can see what is inside each tag, make new tags in the right place and move tags under other tags. Open it from the tree button in the toolbar, from the command palette (Tag tree) or with its shortcut.' },
+  { key: 'tagTreeEnabled', type: 'boolean', title: 'Use the tag tree', default: false,
+    description: 'Paused for now (0.4.128): off, the tag tree adds no toolbar button, no page, no sidebar panel, no command and no shortcut, and the settings below do nothing. Turn on to use it again. Applies after you reload the plugin.' },
   { key: 'tagTreeRoots', type: 'string', title: 'Root tags', default: 'Occurrence, Entity, Concept',
     description: 'The tags at the top of the tree, in this order, separated by commas. A root that does not exist yet can be made from the tree. Roots can also be added, reordered and removed from the tree itself (a root’s … menu, and + Root tag below the roots).' },
   { key: 'tagTreeOpensAs', type: 'enum', title: 'The button and shortcut open the tag tree as', default: 'page', enumChoices: ['page', 'sidebar'], enumPicker: 'radio',
@@ -1338,6 +1340,8 @@ async function openSidebar() {
 const openAs = () => (setting('tagTreeOpensAs') === 'sidebar' ? openSidebar : openPage)();
 
 function start() {
+  // Paused unless switched on (0.4.128): nothing is registered.
+  if (!setting('tagTreeEnabled')) return;
   logseq.provideStyle({ key: 'refinement-tags', style: css });
   registerHosts();
   const binding = setting('tagTreeShortcut').trim().toLowerCase();
