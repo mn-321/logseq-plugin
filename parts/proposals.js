@@ -115,7 +115,7 @@ async function compute() {
     if (setup && setup.tags.some(t => tags.includes(t)) && !valuesOf(b, setup.ident).length) {
       const page = pick(b, 'block/page'), created = Number(pick(b, 'block/created-at') || 0);
       const prop = schema.props.find(p => p.ident === setup.ident);
-      if (prop && pick(page, 'block/journal-day') && created >= state.started - 60000) items.push({ ident: setup.ident, prop, ids: [], journal: idOf(page), shown: String(pick(page, 'block/title') ?? ''), how: 'day' });
+      if (prop && pick(page, 'block/journal-day') && created >= state.started - 60000) items.push({ ident: setup.ident, prop, ids: [], journal: idOf(page), day: Number(pick(page, 'block/journal-day')), shown: String(pick(page, 'block/title') ?? ''), how: 'day' });
     }
     if (items.length) proposals.set(uuid, { words: title.replace(/#?\[\[[0-9a-f-]{36}\]\]/gi, '').trim(), items });
   }
@@ -243,8 +243,16 @@ const css = `
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }`;
 
+// Why a value is proposed, in the words the line list shows beside it (0.4.118).
+const WHY = { named: 'in your words', parent: 'from the parent', day: 'the journal day' };
+// The record's proposals for one field (or all of them), for the line list, which opens on them (0.4.118).
+function proposalsFor(uuid, ident) {
+  const rec = state.proposals.get(uuid);
+  if (!rec) return [];
+  return rec.items.filter(item => !ident || item.ident === ident).map(item => ({ ...item, why: WHY[item.how] || '' }));
+}
 function provide(core) {
-  core.provide({ proposalsOwnDates: ownsDates, refreshProposals: refresh });
+  core.provide({ proposalsOwnDates: ownsDates, refreshProposals: refresh, proposalsFor });
 }
 function start() {
   const core = window.refinementCore;

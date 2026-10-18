@@ -15,13 +15,15 @@
    caret where it was, and the dark bar offers Undo. Escape closes the list and leaves the words as typed.
    Only names the graph has are ever written to; a new page is made only through a pencilled "Make …" row, never
    the first row, and a new property still comes from Logseq's own Add property (see unknownRows).
+   Since 0.4.118 the list opens on what Proposals in the pills has pencilled into the field (proposalsFor, from
+   parts/proposals.js): that value first, highlighted, with why beside it, and one pencilled value per pill.
    It runs only in the graphs named in its settings, as Journal day as date does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (inline properties): ', stopKey: '__refinementInlinePropsStop',
   sweep: doc => { try { for (const el of doc.querySelectorAll('.rip-menu, .rip-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-rip-ghost]')) el.removeAttribute('data-rip-ghost'); } catch (error) { /* nothing left over */ } } });
 const { graphNamedIn } = shared;
-let dsQuery, graphWide, journalTitleFor, coreSetting;
+let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -37,6 +39,8 @@ const settingsSchema = [
     description: 'After Enter writes a page into a field that takes several (attendees), the list stays open with the letters cleared and no row chosen; more letters and Enter add the next, Enter with nothing typed (or Escape) finishes and takes the token out of the text. Applies at once.' },
   { key: 'inlinePropsEscapeClears', type: 'boolean', title: 'Escape takes the token out', default: true,
     description: 'Escape closes the list and takes p:: or name:: out of the text (Cmd+Z brings it back); leaving the block with the list open, by Tab or a click elsewhere, does the same, so a block is never saved with the token in it. Off, Escape keeps the words as typed. Applies at once.' },
+  { key: 'inlinePropsProposedFirst', type: 'boolean', title: 'The list opens on the proposal', default: true,
+    description: 'When Proposals in the pills has pencilled a value into the field you name (c:: on a record whose words name Lumen Labs), the list opens on that value, first and highlighted, with why beside it, so Enter takes it with no more letters; the pill shows one pencilled value at a time. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -244,19 +248,34 @@ async function nameRows(filter, prefix = '') {
   if (!rows.length && f) rows.push(...unknownRows(filter.trim()));
   return rows;
 }
+// What Proposals in the pills has pencilled into this field of the record (0.4.118): the list opens on it.
+const proposedHere = prop => setting('inlinePropsProposedFirst') && proposalsFor ? proposalsFor(state.uuid, prop.ident) : [];
 async function valueRows(prop, filter) {
   const f = filter.trim(), lower = f.toLowerCase();
   switch (prop.type) {
-    case 'date': return dayRows(f, false);
+    case 'date': {
+      const rows = await dayRows(f, false);
+      // The journal day proposed for this record goes first, with why, when it is not already a row (today is).
+      for (const item of proposedHere(prop)) {
+        if (!item.day || rows.some(r => r.value.day === item.day)) { const r = rows.find(r => r.value.day === item.day); if (r) { r.why = item.why; rows.splice(rows.indexOf(r), 1); rows.unshift(r); } continue; }
+        if (lower && !item.shown.toLowerCase().includes(lower) && !'journal day'.includes(lower)) continue;
+        rows.unshift({ kind: 'value', label: 'Journal day', right: item.shown, day: true, icon: svg('calendar'), why: item.why, value: { day: item.day, title: item.shown, when: null, shown: item.shown } });
+      }
+      return rows;
+    }
     case 'datetime': return dayRows(f, true);
     case 'node': {
       const pages = await graphWide('inlinePropsPages', loadPages);
       const classIds = new Set(prop.classes.map(c => c.id));
       const ofClass = classIds.size ? pages.filter(p => p.tags.some(t => classIds.has(t.id))) : pages;
       const hits = lower ? ofClass.filter(p => p.lower.includes(lower)) : ofClass.slice(0, 12);
-      hits.sort((a, b) => (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
+      // The proposed pages first (0.4.118), then an exact match, then names that start with the letters.
+      const proposed = new Map();
+      for (const item of proposedHere(prop)) for (const id of item.ids) proposed.set(id, item.why);
+      for (const p of ofClass) if (proposed.has(p.id) && !hits.includes(p) && (!lower || p.lower.includes(lower))) hits.push(p);
+      hits.sort((a, b) => proposed.has(b.id) - proposed.has(a.id) || (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
       const kindOf = p => p.tags.find(t => t.title !== 'Page')?.title || 'page';
-      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: pageIcon(p), value: { id: p.id, uuid: p.uuid, title: p.title } }));
+      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: pageIcon(p), why: proposed.get(p.id) || '', value: { id: p.id, uuid: p.uuid, title: p.title } }));
       if (f && !hits.some(p => p.lower === lower)) {
         const cls = prop.classes[0];
         rows.push({ kind: 'make-page', label: `Make ${cls ? cls.title : 'page'} “${f}”`, dashed: true, icon: svg('plus'), value: { title: f, cls } });
@@ -361,7 +380,7 @@ const selectable = row => !!row && row.kind !== 'info';
 // One row of a list, as the page draws it (the link box draws its rows with this too, 0.4.102).
 const rowHtml = (row, i, selected) => row.kind === 'info'
   ? `<div class="rip-row rip-info">${escapeHtml(row.label)}</div>`
-  : `<div class="rip-row${selected ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.right ? `<span class="${row.day ? 'rip-day' : row.mono ? 'rip-right rip-mono' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`;
+  : `<div class="rip-row${selected ? ' rip-sel' : ''}${row.dashed ? ' rip-make' : ''}" data-index="${i}"><span class="rip-glyph">${row.icon || ''}</span><span class="rip-label">${row.dashed ? `<span class="rip-new">${escapeHtml(row.label)}</span>` : escapeHtml(row.label)}</span>${row.why ? `<span class="rip-why">${escapeHtml(row.why)}</span>` : ''}${row.right ? `<span class="${row.day ? 'rip-day' : row.mono ? 'rip-right rip-mono' : 'rip-right'}">${escapeHtml(row.right)}</span>` : ''}</div>`;
 function renderMenu() {
   const doc = host(), menu = menuEl(doc);
   const rows = state.rows;
@@ -611,6 +630,12 @@ const menuCss = `
 /* Monospace is for tag names only (0.4.113): a kind at the right is one, a type or a count is not. */
 .rip-right.rip-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
+/* Why a row is first (0.4.118): "in your words", "from the parent", "the journal day", in plain quiet words before the kind. */
+.rip-why { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
+.rip-why + .rip-right, .rip-why + .rip-day { margin-left: .6em; }
+.rip-why + .rip-right::before { content: '· '; opacity: var(--rf-faint, .5); }
+/* One pencilled value per pill (0.4.118): while the list's ghost sits in a pill, the proposal's ghost there steps aside. */
+.bottom-property-pill[data-rip-ghost] .rfp-ghost { display: none !important; }
 /* A row that makes something is pencilled in (0.4.116): italic in the quiet colour, no box, the + before it. */
 .rip-new { font-style: italic; color: var(--ls-secondary-text-color); }
 .rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
@@ -627,7 +652,7 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting']));
+  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-inline-props', style: menuCss });
   const win = host().defaultView;
