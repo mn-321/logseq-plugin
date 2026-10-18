@@ -681,6 +681,14 @@ const hierarchyParts = {
 :is(#main-content-container, #right-sidebar) .block-tag a.hash-symbol { visibility: hidden; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *) { color: var(--ls-secondary-text-color, currentColor) !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); letter-spacing: .01em; text-decoration: none !important; }
 :is(#main-content-container, #right-sidebar) a.tag:not(mark *):hover { color: var(--ls-primary-text-color, currentColor) !important; }
+/* Logseq stacks a block's row (its words, then the chips and the side properties) once the block is under 600px
+   wide (an unnamed @container rule in its style.css; every .ls-block is a container), so in a narrow page area or
+   the right sidebar a chip sat on its own line and read as a child row. The row stays a row there, as it is when
+   wide (Logseq's own flex-row gap-1), and the chip keeps its place at the right (0.4.134). */
+@container (max-width: 600px) {
+  .block-row:not(.ls-page-title *) { flex-direction: row; gap: calc(var(--spacing, .25rem) * 1); }
+  .block-row:not(.ls-page-title *) .ls-block-right { margin-left: 0; }
+}
 /* In the title row the font is large; the tag label there keeps the size of the small words beside the title. */
 #main-content-container .ls-page-title a.tag:not(mark *) { font-size: .75rem; }
 .ls-block .block-content span[data-refinement-mention] { display: inline-block; }
