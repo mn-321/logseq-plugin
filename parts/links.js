@@ -313,14 +313,19 @@ function updateCueMarks(doc) {
         if (wrapper) found.set(wrapper, ['data-refinement-prop-label', name + ':']);
       }
     }
-    if (cueMarks.incoming.size) {
+    // A row in the right sidebar is judged against the page that sidebar item shows (0.4.135), the rest against the main view's.
+    const incomingOf = row => { const item = row.closest('#right-sidebar .sidebar-item'); return item ? sidebarCues.pages.get(item) : cueMarks.incoming; };
+    if (cueMarks.incoming.size || sidebarCues.pages.size) {
       for (const row of doc.querySelectorAll('.ls-block[blockid]')) {
-        const uuid = row.getAttribute('blockid'), names = cueMarks.incoming.get(uuid);
+        const incoming = incomingOf(row);
+        if (!incoming?.size) continue;
+        const uuid = row.getAttribute('blockid'), names = incoming.get(uuid);
+        const own = incoming === cueMarks.incoming ? provided.listProps.pageBlocks : incoming.own;
         // The page's own blocks say so in their properties, and Linked references already show the property.
-        if (!names || provided.listProps.pageBlocks.has(uuid) || row.closest(REFERENCE_AREAS)) continue;
+        if (!names || own?.has(uuid) || row.closest(REFERENCE_AREAS)) continue;
         const wrapper = wrapperOf(row);
         if (!wrapper) continue;
-        const label = [...names].join(', ') + ':', page = cueMarks.incoming.pageTitle || '';
+        const label = [...names].join(', ') + ':', page = incoming.pageTitle || '';
         // The record's own title, not a title drawn inside one of its property values.
         const title = wrapper.querySelector('.block-head-wrap .block-title-wrap') || wrapper.querySelector('.block-title-wrap');
         if (title) {
@@ -565,21 +570,21 @@ function updateDateTense(doc) {
 /* How the page is used: one line under the title, "owner · 3   attendees · 2   in text · 4", counted from the
    incoming links the cue pass already reads (the property names are the graph's own). A count is a filter:
    while one is on, the other rows under Linked references step back, and the count wears the "here" mark.
-   Nothing is written. */
-const usage = { line: null, filter: null, hidden: new Set(), html: '', pageUuid: '' };
-function usageParts() {
-  const incoming = cueMarks.incoming, counts = new Map();
+   Nothing is written. Drawn for the page in the main view and for each page open in the right sidebar
+   (0.4.135), each with its own count and filter. */
+const usage = { scopes: new Map() }; // the main view, or a sidebar item -> { line, filter, hidden, html, pageUuid }
+function usageParts(incoming) {
+  const counts = new Map();
   for (const names of incoming.values()) for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
   const parts = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, n]) => [name, name, n]);
   if (incoming.tagged?.size) parts.push(['tagged', 'tagged', incoming.tagged.size]);
   if (incoming.inText?.size) parts.push(['text', 'in text', incoming.inText.size]);
   return parts;
 }
-function applyUsageFilter(doc, filter) {
+function applyUsageFilter(scope, state, incoming, filter) {
   const hide = new Set();
   if (filter) {
-    const incoming = cueMarks.incoming;
-    for (const row of doc.querySelectorAll('#main-content-container .references .ls-block[blockid]')) {
+    for (const row of scope.querySelectorAll('.references .ls-block[blockid]')) {
       // Only rows that are references themselves are judged (a parent drawn above one, or a block below one, goes
       // with the reference it belongs to); a reference nested under its parent row is judged on its own.
       const uuid = row.getAttribute('blockid'), names = incoming.get(uuid);
@@ -589,41 +594,100 @@ function applyUsageFilter(doc, filter) {
       if (!match) hide.add(row);
     }
   }
-  for (const el of usage.hidden) if (!hide.has(el)) { el.removeAttribute('data-refinement-usage-dim'); usage.hidden.delete(el); }
-  for (const el of hide) if (!usage.hidden.has(el)) { el.setAttribute('data-refinement-usage-dim', ''); usage.hidden.add(el); }
+  for (const el of state.hidden) if (!hide.has(el)) { el.removeAttribute('data-refinement-usage-dim'); state.hidden.delete(el); }
+  for (const el of hide) if (!state.hidden.has(el)) { el.setAttribute('data-refinement-usage-dim', ''); state.hidden.add(el); }
 }
-function updateUsageLine(doc) {
+function usageScopes(doc) {
+  const scopes = [];
   const titles = [...provided.pageTitles(doc)].filter(el => !el.parentElement?.closest(PAGE_TITLE));
   const title = titles.length === 1 ? titles[0] : null;
   const uuid = title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '';
-  if (uuid !== usage.pageUuid) { usage.pageUuid = uuid; usage.filter = null; }
+  const main = doc.querySelector('#main-content-container');
+  if (main) scopes.push({ scope: main, title, uuid, incoming: title && uuid && cueMarks.incoming.pageUuid === uuid ? cueMarks.incoming : null });
+  for (const [item, incoming] of sidebarCues.pages) if (item.isConnected) scopes.push({ scope: item, title: null, uuid: incoming.pageUuid, incoming });
+  return scopes;
+}
+function updateUsageLine(doc) {
+  checkSidebarPages(doc);
+  const seen = new Set();
+  for (const { scope, title, uuid, incoming } of usageScopes(doc)) {
+    seen.add(scope);
+    let state = usage.scopes.get(scope);
+    if (!state) usage.scopes.set(scope, state = { line: null, filter: null, hidden: new Set(), html: '', pageUuid: '' });
+    drawUsageLine(doc, scope, state, title, uuid, incoming);
+  }
+  for (const [scope, state] of usage.scopes) if (!seen.has(scope)) { state.line?.remove(); applyUsageFilter(scope, state, new Map(), null); usage.scopes.delete(scope); }
+}
+function drawUsageLine(doc, scope, state, title, uuid, incoming) {
+  if (uuid !== state.pageUuid) { state.pageUuid = uuid; state.filter = null; }
   // Not on a journal: what points at a day (a record's date) is the day's own rows, and says nothing new (0.4.133).
-  const parts = setting('showUsage') && title && uuid && !journalUuid(uuid) && cueMarks.incoming.pageUuid === uuid ? usageParts() : [];
-  let line = usage.line;
-  if (!parts.length) { line?.remove(); applyUsageFilter(doc, null); return; }
+  const parts = setting('showUsage') && incoming && uuid && !journalUuid(uuid) ? usageParts(incoming) : [];
+  // Beside the Linked references heading, which the counts are about; in the main view under the title row
+  // while that heading is not drawn yet (Logseq draws the references late).
+  const heading = [...scope.querySelectorAll('.references .ls-foldable-title')].find(el => /^\s*linked references/i.test(el.textContent));
+  const after = heading || (title && (title.querySelector('.is-page-title-row') || provided.titleAnchor(doc, title)));
+  let line = state.line;
+  if (!parts.length || !after) { line?.remove(); applyUsageFilter(scope, state, incoming || new Map(), null); return; }
   if (!line || line.ownerDocument !== doc) {
-    line = usage.line = doc.createElement('div');
+    line = state.line = doc.createElement('div');
     line.className = 'refinement-usage';
     line.addEventListener('mousedown', event => event.stopPropagation());
     line.addEventListener('click', event => {
       const chip = event.target.closest('a[data-usage]');
       if (!chip) return;
       event.preventDefault(); event.stopPropagation();
-      usage.filter = usage.filter === chip.dataset.usage ? null : chip.dataset.usage;
+      state.filter = state.filter === chip.dataset.usage ? null : chip.dataset.usage;
       updateUsageLine(doc);
     });
   }
-  if (usage.filter && !parts.some(([key]) => key === usage.filter)) usage.filter = null;
-  const html = parts.map(([key, label, n]) => `<a href="#" data-usage="${escapeHtml(key)}"${usage.filter === key ? ' data-on=""' : ''} title="${usage.filter === key ? 'Bring every reference forward again' : 'Step the other references back'}">${escapeHtml(label)} <span class="rf-n">· ${n}</span></a>`).join('<span class="rf-gap"></span>');
-  if (usage.html !== html) { usage.html = html; line.innerHTML = html; }
-  if (line.hasAttribute('data-filtered') !== Boolean(usage.filter)) line.toggleAttribute('data-filtered', Boolean(usage.filter));
-  // Beside the Linked references heading, which the counts are about; under the title row only while that
-  // heading is not drawn yet (Logseq draws the references late).
-  const heading = [...doc.querySelectorAll('#main-content-container .references .ls-foldable-title')].find(el => /^\s*linked references/i.test(el.textContent));
-  const after = heading || title.querySelector('.is-page-title-row') || provided.titleAnchor(doc, title);
+  if (state.filter && !parts.some(([key]) => key === state.filter)) state.filter = null;
+  const html = parts.map(([key, label, n]) => `<a href="#" data-usage="${escapeHtml(key)}"${state.filter === key ? ' data-on=""' : ''} title="${state.filter === key ? 'Bring every reference forward again' : 'Step the other references back'}">${escapeHtml(label)} <span class="rf-n">· ${n}</span></a>`).join('<span class="rf-gap"></span>');
+  if (state.html !== html) { state.html = html; line.innerHTML = html; }
+  if (line.hasAttribute('data-filtered') !== Boolean(state.filter)) line.toggleAttribute('data-filtered', Boolean(state.filter));
   line.classList.toggle('rf-at-heading', Boolean(heading));
   if (after.nextElementSibling !== line) after.after(line);
-  applyUsageFilter(doc, usage.filter);
+  applyUsageFilter(scope, state, incoming, state.filter);
+}
+/* Pages open in the right sidebar: each gets its own look-up of what points at it, so its records carry the via
+   label and its Linked references the usage line, as in the main view (0.4.135). Logseq draws a sidebar page's
+   title as plain words in the item's header, so the page is found from its first block of its own. */
+const sidebarCues = { pages: new Map(), key: null }; // sidebar item -> the incoming map of the page it shows
+const SIDEBAR_PAGE = '#right-sidebar .sidebar-item.item-type-page';
+function sidebarPageKey(doc) {
+  return [...doc.querySelectorAll(SIDEBAR_PAGE)].map(item => {
+    const first = [...item.querySelectorAll('.ls-block[blockid]')].find(row => !row.closest(`${REFERENCE_AREAS}, .ls-bidirectional-properties`));
+    return first?.getAttribute('blockid') || item.querySelector('.page-title')?.textContent.trim() || '';
+  }).join('|');
+}
+function checkSidebarPages(doc) {
+  const key = sidebarPageKey(doc);
+  if (sidebarCues.key !== null && key !== sidebarCues.key) { sidebarCues.key = key; scheduleRefresh(); }
+}
+async function sidebarIncoming(doc) {
+  const found = new Map(), byPage = new Map();
+  sidebarCues.key = sidebarPageKey(doc);
+  for (const item of doc.querySelectorAll(SIDEBAR_PAGE)) {
+    const first = [...item.querySelectorAll('.ls-block[blockid]')].find(row => !row.closest(`${REFERENCE_AREAS}, .ls-bidirectional-properties`));
+    let page = null;
+    if (first) {
+      const block = await logseq.Editor.getBlock(first.getAttribute('blockid'));
+      if (isEntityId(block?.page?.id)) page = await logseq.Editor.getPage(block.page.id);
+    }
+    if (!page) {
+      const name = item.querySelector('.page-title')?.textContent.trim();
+      if (name) page = await logseq.Editor.getPage(name);
+    }
+    if (!isEntityId(page?.id)) continue;
+    const key = String(page.uuid);
+    if (!byPage.has(key)) byPage.set(key, (async () => {
+      const incoming = await incomingPropertyLinks(page);
+      // The page's own blocks say so in their properties, as in the main view (listProps.pageBlocks).
+      incoming.own = new Set(collectNodes(await logseq.Editor.getPageBlocksTree(key) || []).map(node => String(node.uuid)));
+      return incoming;
+    })());
+    found.set(item, await byPage.get(key));
+  }
+  return found;
 }
 /* The [[ menu says what each row is (pickerMarks; 0.4.84, 0.4.90, the whole family in 0.4.100). Each row of
    Logseq's page search is marked by what Logseq drew in its icon slot, and by its name against what the plugin
@@ -923,9 +987,12 @@ function stopDateLinks() {
   mentions.marked.clear();
   for (const el of dateTense.marked) el.removeAttribute('data-refinement-tense');
   dateTense.marked.clear();
-  usage.line?.remove();
-  for (const el of usage.hidden) el.removeAttribute('data-refinement-usage-dim');
-  usage.hidden.clear();
+  for (const state of usage.scopes.values()) {
+    state.line?.remove();
+    for (const el of state.hidden) el.removeAttribute('data-refinement-usage-dim');
+  }
+  usage.scopes.clear();
+  sidebarCues.pages = new Map(); sidebarCues.key = null;
   for (const row of [...pickerMarks.marked]) unmarkPickerRow(row);
   for (const row of [...propertyPicker.marked]) unmarkPropertyRow(row);
   for (const row of [...valuePicker.marked]) unmarkValueRow(row);
@@ -1259,10 +1326,10 @@ async function propertyValueBlocks() {
 // whose Diagnosis is this page). Logseq lists them under tag tabs below the page's properties but
 // doesn't say which property links them, so collect each record with its property names.
 const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
-async function incomingPropertyLinks() {
+async function incomingPropertyLinks(given) {
   const result = new Map();
   try {
-    const page = await logseq.Editor.getCurrentPage?.();
+    const page = given || await logseq.Editor.getCurrentPage?.();
     const id = page?.id;
     if (!isEntityId(id) || !logseq.DB?.datascriptQuery) return result;
     result.pageTitle = String(page.title || page.originalName || page.name || '');
@@ -1368,6 +1435,7 @@ async function refreshCues(version = ++refreshVersion) {
     let tree = await logseq.Editor.getCurrentPageBlocksTree();
     if (!tree?.length) tree = await shownPagesTree();
     const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming, inside] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), graphWide('referenced', referencedNodeIds), directAssetTypes(tree), graphWide('propertyValues', propertyValueBlocks), incomingPropertyLinks(), descendantKinds(tree)]);
+    const sidebarPages = dateLinks.document ? await sidebarIncoming(dateLinks.document) : new Map();
     if (version !== refreshVersion) return;
     pdfCitations.sources = pdfSources.sources;
     pdfCitations.pageUuid = pdfSources.pageUuid;
@@ -1391,6 +1459,7 @@ async function refreshCues(version = ++refreshVersion) {
     provided.propertyCrumbs.values = propertyValues;
     if (dateLinks.document) provided.updatePropertyCrumbs(dateLinks.document);
     cueMarks.incoming = incoming;
+    sidebarCues.pages = sidebarPages;
     if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
     perf.add('refreshCues (start to finish)', performance.now() - started);
   } catch (error) {
@@ -1399,6 +1468,7 @@ async function refreshCues(version = ++refreshVersion) {
     if (dateLinks.document) { updateChildAssetCues(dateLinks.document); updateDayCues(dateLinks.document); }
     cueMarks.blockUuids = new Set();
     cueMarks.incoming = new Map();
+    sidebarCues.pages = new Map();
     if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
     warnOnce('could not refresh current-page cues', error);
   }
