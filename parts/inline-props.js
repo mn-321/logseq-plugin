@@ -245,6 +245,17 @@ async function nameRows(filter, prefix = '') {
   const rest = schema.props.filter(prop => !fields.includes(prop) && fits(prop)).sort(f ? byStart : () => 0).map(asRow);
   if (rows.length && rest.length) rows.push({ kind: 'info', label: 'every property' });
   rows.push(...rest);
+  // With a prefix that several names start with and letters that fit none of them (st::pl: stage, start date), the
+  // names stay and the letters are read as the value: Enter picks a name and carries them over (0.4.120).
+  if (!rows.length && f && prefix) {
+    const starting = prop => prop.lower.startsWith(prefix);
+    const named = [...fields.filter(starting), ...schema.props.filter(prop => !fields.includes(prop) && starting(prop))];
+    if (named.length) {
+      rows.push(...named.map(prop => ({ ...asRow(prop), carry: filter.trim() })));
+      rows.push({ kind: 'info', label: `“${filter.trim()}” names none of these · Enter picks one and keeps the letters` });
+      return rows;
+    }
+  }
   if (!rows.length && f) rows.push(...unknownRows(filter.trim()));
   return rows;
 }
@@ -519,8 +530,8 @@ async function pickSelected() {
   if (!row || !selectable(row)) return;
   const box = state.box;
   if (row.kind === 'prop') {
-    // "p::fi" becomes "title::" and the list turns into values.
-    replaceRange(box, state.start, box.selectionStart, `${row.prop.title}::`);
+    // "p::fi" becomes "title::" and the list turns into values; letters that named no field carry over as the value (0.4.120).
+    replaceRange(box, state.start, box.selectionStart, `${row.prop.title}::${row.carry || ''}`);
     return;
   }
   const prop = state.prop, uuid = state.uuid;
@@ -571,7 +582,9 @@ function onKey(event) {
   // Escape closes the list and keeps you in the block. With the token taken out (0.4.99), Cmd+Z brings it back;
   // without, it stays as typed and is not asked about again until the text changes.
   else if (event.key === 'Escape') { stop(); if (clearsOnLeave()) removeToken(); else state.dismissed = state.box.value; closeMenu(); }
-  else if (event.key === 'Tab') { if (clearsOnLeave()) removeToken(); closeMenu(); }
+  // Tab closes the list and takes the token out, and does nothing else (0.4.120): before, Logseq indented the block
+  // or the proposals part wrote its values in the same press.
+  else if (event.key === 'Tab') { stop(); if (clearsOnLeave()) removeToken(); closeMenu(); }
 }
 const clearsOnLeave = () => setting('inlinePropsEscapeClears');
 /* Escape takes [[ or # out of Logseq's own pickers (0.4.106; setting pickerEscapeClears in main.js): the key meant

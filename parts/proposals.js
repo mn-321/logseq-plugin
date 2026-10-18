@@ -9,12 +9,11 @@
      record's text, in an empty field that takes that class, only when exactly one such page matches;
    - the parent's value, in a child's empty field of the same name (a Decision under a Meeting gets its
      project), when that value is a page the field can hold.
-   Nothing is written. While you write a record its ghosts are drawn as you type (0.4.115): Tab takes every
-   one of them and the bar offers one Undo, Escape says no and the record is not asked about again this
-   session; a second Escape leaves the block, as in Logseq. With nothing proposed, Tab and Escape are
-   Logseq's. A click on a ghost fills that one, in edit or not. The ghosts of other records stay drawn, so
-   a question never vanishes. (j and k, outside edit on the record nearest the top, were retired: the
-   answer belongs to the record you are writing.) Only names the graph
+   Nothing is written. While you write a record its ghosts are drawn as you type, from the text box itself
+   (0.4.119), and a hint sits on one of them: Tab takes that one and the hint moves to the next, Shift+Tab
+   passes one (it stays pencilled), past the last the keys are Logseq's again; Escape never refuses (0.4.120;
+   0.4.115 had Tab take all and Escape say no, j and k before that). A click on a ghost fills that one, in
+   edit or not. The ghosts of other records stay drawn, so a question never vanishes. Only names the graph
    has are ever written to; only empty fields are ever proposed for; the people and parent rules run in
    the graphs named under Properties in the line, the day in the graphs named under Journal day as date. */
 const shared = window.refinementShared;
@@ -28,7 +27,7 @@ const settingsSchema = [
   { key: 'proposalsHeading', type: 'heading', title: 'Proposals in the pills', default: null,
     description: 'After you write a record, what the graph can already tell (the journal day, the people named in the words, the parent’s project) is pencilled in, italic, in the record’s own pills. While you write the record, Tab takes them and Escape says no; a click fills one value. Nothing is written until then; the bar at the bottom offers Undo.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
-    description: 'The pencilled values in a record’s pills while it is written, and Tab to take them or Escape to say no while you write the record. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
+    description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
   { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
@@ -65,8 +64,8 @@ function fieldsOfTags(tagIds, schema) {
 /* The proposals: uuid → { words, items: [{ ident, prop, ids, journal?, shown }] }, worked out after each
    database round from the records written since the plugin started (and a minute before), graph-wide
    in one query. Drawing is done from this map on the screen watcher's early pass. */
-const state = { started: Date.now(), proposals: new Map(), declined: new Set(), running: false, again: false,
-  live: null /* { uuid, words, items } for the block in edit, from its text box (0.4.119) */ };
+const state = { started: Date.now(), proposals: new Map(), running: false, again: false,
+  live: null /* { uuid, words, items, cursor } for the block in edit, from its text box (0.4.119) */ };
 const words = title => new Set(String(title || '').toLowerCase().replace(/\[\[[0-9a-f-]{36}\]\]/gi, ' ').split(/[^\p{L}\p{N}]+/u).filter(Boolean));
 async function recentRecords() {
   const since = state.started - 60000;
@@ -134,10 +133,11 @@ async function compute() {
   if (!ctx) return proposals;
   for (const b of await recentRecords()) {
     const uuid = String(pick(b, 'block/uuid') ?? '');
-    if (!uuid || state.declined.has(uuid)) continue;
+    if (!uuid) continue;
     const title = String(pick(b, 'block/title') ?? '');
     const items = itemsFor(b, title, ctx, Number(pick(b, 'block/created-at') || 0) >= state.started - 60000);
-    if (items.length) proposals.set(uuid, { words: cleanWords(title), items });
+    // The cursor (0.4.120) is kept across rounds: a passed value stays passed while the record is on screen.
+    if (items.length) proposals.set(uuid, { words: cleanWords(title), items, cursor: Math.min(recFor(uuid)?.cursor || 0, items.length) });
   }
   return proposals;
 }
@@ -154,9 +154,9 @@ async function liveCompute(box) {
     const ctx = await allowed();
     if (!ctx || version !== liveVersion) return;
     const [[b] = []] = await dsQuery(`[:find (pull ?b ${BLOCK_PULL}) :where [?b :block/uuid #uuid "${uuid}"]]`);
-    if (!b || version !== liveVersion || state.declined.has(uuid)) return;
+    if (!b || version !== liveVersion) return;
     const items = itemsFor(b, text, ctx, true);
-    state.live = items.length ? { uuid, words: cleanWords(text), items } : null;
+    state.live = items.length ? { uuid, words: cleanWords(text), items, cursor: Math.min(recFor(uuid)?.cursor || 0, items.length) } : null;
     if (!items.length) state.proposals.delete(uuid); // a word deleted takes its value away, from the round's copy too
     draw(host(), null);
   } catch (error) { warnOnce('the proposals could not be read from the text box', error); }
@@ -204,7 +204,7 @@ function ghostEl(doc, item, withName) {
   g.className = 'rfp-ghost';
   g.setAttribute('contenteditable', 'false');
   g.dataset.rfpIdent = item.ident;
-  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>tab</kbd> takes · <kbd>esc</kbd> no</span>`;
+  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>tab</kbd> takes · <kbd>⇧tab</kbd> passes</span>`;
   g.addEventListener('mousedown', event => event.stopPropagation());
   g.addEventListener('click', event => {
     if (!event.target.closest('.rfp-value')) return;
@@ -238,9 +238,17 @@ function draw(doc, records) {
   }
   markFirst(doc);
 }
-// The record being written, when it has ghosts: its first ghost carries the keys.
+// The record being written, when it has ghosts: the ghost under its cursor carries the keys (0.4.120: one value
+// at a time; the cursor moves on with Tab and Shift+Tab, and past the last value the keys are Logseq's again).
+const current = rec => (rec && rec.items[Math.min(rec.cursor || 0, rec.items.length)]) || null;
 function firstOnScreen(doc) {
-  return [...doc.querySelectorAll('.rfp-ghost')].find(g => { const row = g.closest('.ls-block[blockid]'); return row && inEdit(row); }) || null;
+  for (const g of doc.querySelectorAll('.rfp-ghost')) {
+    const row = g.closest('.ls-block[blockid]');
+    if (!row || !inEdit(row)) continue;
+    const item = current(recFor(row.getAttribute('blockid')));
+    if (item && item.ident === g.dataset.rfpIdent) return g;
+  }
+  return null;
 }
 function markFirst(doc) {
   const first = firstOnScreen(doc);
@@ -248,13 +256,17 @@ function markFirst(doc) {
   first?.setAttribute('data-rfp-first', '');
 }
 
-/* Writing: Tab fills every ghost of the record being written, a click fills one; one bar with one Undo. Escape leaves the record. */
+/* Writing: Tab fills the ghost under the cursor of the record being written, a click fills one; one bar with one
+   Undo. Shift+Tab passes one (the cursor moves on, the value stays pencilled). Escape never refuses (0.4.120). */
 async function fill(uuid, onlyIdent) {
   const rec = recFor(uuid);
   if (!rec) return;
   const items = onlyIdent ? rec.items.filter(item => item.ident === onlyIdent) : rec.items;
   const left = rec.items.filter(item => !items.includes(item));
-  setRec(uuid, left.length ? { ...rec, items: left } : null);
+  // The cursor stays on its index, so the next value steps under it; a value taken before the cursor moves it back one.
+  const taken = rec.items.findIndex(item => items.includes(item));
+  const cursor = Math.max(0, Math.min((rec.cursor || 0) - (taken >= 0 && taken < (rec.cursor || 0) ? 1 : 0), left.length));
+  setRec(uuid, left.length ? { ...rec, items: left, cursor } : null);
   draw(host(), null);
   const undos = [], done = [];
   for (const item of items) {
@@ -274,24 +286,27 @@ async function fill(uuid, onlyIdent) {
     async () => { for (const undo of undos.reverse()) await undo(); },
     error => { warnOnce('the proposed values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
 }
-function decline(uuid) {
-  state.declined.add(uuid);
-  setRec(uuid, null);
+// Shift+Tab passes the value under the cursor: it stays pencilled (a click still takes it), the hint moves on.
+function pass(uuid) {
+  const rec = recFor(uuid);
+  if (!rec) return;
+  setRec(uuid, { ...rec, cursor: Math.min((rec.cursor || 0) + 1, rec.items.length) });
   draw(host(), null);
 }
-// Tab and Escape in the text box of a record that has proposals; a picker open under the caret (Logseq's, or the
-// line list) keeps its keys. Taken in the capture phase on Logseq's window, before Logseq's own handlers.
+// Tab and Shift+Tab in the text box of a record that has a value under its cursor; a picker open under the caret
+// (Logseq's, or the line list) keeps its keys, and past the last value the keys are Logseq's (indent, outdent).
+// Taken in the capture phase on Logseq's window, before Logseq's own handlers. Escape is Logseq's: it never refuses.
 function onKey(event) {
-  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.isComposing) return;
-  if (event.key !== 'Tab' && event.key !== 'Escape') return;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+  if (event.key !== 'Tab') return;
   const box = event.target;
   if (!box?.matches?.('textarea')) return;
   const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid');
-  if (!uuid || !recFor(uuid)) return;
+  if (!uuid || !current(recFor(uuid))) return;
   const doc = box.ownerDocument;
   if (doc.querySelector('#ui__ac, .rip-menu, .absolute-modal, [data-editor-popup-ref]')) return;
   event.preventDefault(); event.stopImmediatePropagation();
-  if (event.key === 'Tab') fill(uuid); else decline(uuid);
+  if (event.shiftKey) pass(uuid); else fill(uuid, current(recFor(uuid)).ident);
 }
 
 const css = `
@@ -326,7 +341,8 @@ function start() {
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);
-  listen(host().defaultView, ['input', 'keyup'], onEditorInput); // keyup too: Logseq handles Backspace itself and sets the text without an input event (seen 2026-10-18)
+  // keyup too: Logseq handles Backspace itself and sets the text without an input event (seen 2026-10-18); focusin: a record clicked into gets its proposals at once.
+  listen(host().defaultView, ['input', 'keyup', 'focusin'], onEditorInput);
   listen(host().defaultView, ['focusout'], onFocusOut);
   watchDomEarly(function drawProposals(doc, records) { draw(doc, records); });
   core.onDbRound('proposals', refresh);
