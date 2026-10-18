@@ -85,7 +85,7 @@ const STOP_KEY = '__dbRefinementsStop';
 const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage, .refinement-undo-bar, .refinement-prompt-backdrop';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim', 'pick'].map(name => 'data-refinement-' + name)];
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim', 'pick', 'pick-tags'].map(name => 'data-refinement-' + name)];
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
@@ -103,6 +103,7 @@ const tokensCss = `:root, body {
   --rf-hair-pct: 10%;    /* resting nesting lines */
   --rf-wash-pct: 8%;     /* the box behind a date */
   --rf-wash-strong-pct: 13%;
+  --rf-dash-pct: 45%;    /* the dashed outline of a thing not yet there: a ghost value, a Make row, the New page row */
   --rf-field-pct: 3%;    /* the field behind a property list */
   --rf-divider-pct: 22%; /* the thick line between right-sidebar items */
   --rf-name: .94em;      /* a property's name beside its value */
@@ -281,7 +282,7 @@ const settingsSchema = [
   { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
     description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
   { key: 'pickerMarks', type: 'boolean', title: 'The [[ menu says what each row is', default: true,
-    description: 'In the list that opens when you type [[, a # in the tag colour before a tag and a small grey box before a journal day; pages stay plain. Matched by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
+    description: 'In the list that opens when you type [[, each row carries the mark its link would have: a # in the tag colour before a tag, a small grey box before a journal day, the plain page rectangle or the page’s own icon before a page, its tags as grey class names at the right rather than “#Person” in the words; the relative days (Today, Last Wednesday …) step back to the quiet colour, and the New page row sits in a dashed box, since dashed means “not yet there”. Matched by what Logseq draws and by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
   { key: 'dateLinkFormats', type: 'boolean', title: 'Year-first dates in [[ ]] link to journals', default: true,
     description: 'Inside [[ ]], a date typed year first (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014, month and day with two digits) turns into that day\'s journal name, so the menu offers the journal page.' },
   { key: 'pdfCitations', type: 'boolean', title: 'Compact PDF citations', default: true,

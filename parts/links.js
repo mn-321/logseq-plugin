@@ -614,22 +614,78 @@ function updateUsageLine(doc) {
   if (after.nextElementSibling !== line) after.after(line);
   applyUsageFilter(doc, usage.filter);
 }
-// The [[ menu: each row is marked as a tag or a journal day, by its name against what the plugin knows (the
-// tags from loadTagPages, the journals from loadJournalDates or the date pattern), so the menu says what a
-// row is while you type. A page and a tag with the same name cannot be told apart here. The (( menu is left alone.
-const pickerMarks = { marked: new Set() };
+/* The [[ menu says what each row is (pickerMarks; 0.4.84, 0.4.90, the whole family in 0.4.100). Each row of
+   Logseq's page search is marked by what Logseq drew in its icon slot, and by its name against what the plugin
+   knows: tag (Logseq's # icon, or a name among the tag pages: the stylesheet colours the #), date (a journal day's
+   title: the grey box), page (the generic file icon: the plain page rectangle in its place), page-own (a page with
+   an icon of its own, which Logseq draws before the words: the generic icon makes way for it, as in the left
+   sidebar), relative (the calendar icon with words that are no journal title, Today or Last Wednesday: stepped
+   back to the quiet colour, never hidden), new (the + icon and "New page …": a dashed box, since dashed already
+   means "not yet there"). A page's trailing tags ("Ada Okafor #Person") leave the words and are drawn at the right
+   as grey monospace names (the text node is shortened and put back when the mark goes). Only the page-search
+   popup: the slash menu and the (( menu share the id and are left alone. A page and a tag with the same name
+   cannot be told apart by name alone. */
+const pickerMarks = { marked: new Set(), tags: new Map() };  // tags: row -> { node, original }
+const PICKER_TAGS = /(?:^|\s+)#[^#\s\[\]]+(?:\s+#[^#\s\[\]]+)*\s*$/;
+function pickerKind(row) {
+  const line = row.querySelector('.flex-col > .items-start');
+  const icon = line?.querySelector(':scope > .opacity-50 .ui__icon');
+  const text = (line?.textContent || row.textContent).trim();
+  if (!line || !icon) return '';
+  const is = name => icon.classList.contains('ls-icon-' + name);
+  const lower = text.toLowerCase();
+  if (is('hash') || tagPages.titles.has(lower)) return 'tag';
+  // Logseq draws a journal day with the generic file icon, and the relative days with a calendar.
+  if (dateLinks.names.has(lower) || dateLinkName(text)) return 'date';
+  if (is('calendar')) return 'relative';
+  if (is('plus')) return /^new (?:page|tag)\b/i.test(text) ? 'new' : '';
+  if (is('file')) return line.querySelector(':scope > .gap-1 > .ui__icon') ? 'page-own' : 'page';
+  return '';
+}
+// The last text node of a page row, when it ends in the page's tags: shortened to the words, the tags kept on
+// the row for the stylesheet. React sets a text node's value itself and never removes one it cannot find, so a
+// shortened node is safe; a node it rewrites (a new search) is simply read again.
+function markPickerTags(row) {
+  const line = row.querySelector('.flex-col > .items-start');
+  const walker = row.ownerDocument.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+  let node = null;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue.trim()) node = n;
+  const kept = pickerMarks.tags.get(row);
+  // A node shortened to nothing (the whole node was the tags) is blank, so the walker passes it by: the kept node
+  // decides, as long as it is still in the row with the shortened words.
+  if (kept) { if (kept.node.nodeValue === kept.shortened && line.contains(kept.node)) return; unmarkPickerTags(row); }
+  const m = node && PICKER_TAGS.exec(node.nodeValue);
+  if (!m) return;
+  const names = m[0].trim().split(/\s+/).map(t => t.replace(/^#/, '')).join('  ');
+  const shortened = node.nodeValue.slice(0, m.index);
+  pickerMarks.tags.set(row, { node, original: node.nodeValue, shortened });
+  node.nodeValue = shortened;
+  row.setAttribute('data-refinement-pick-tags', names);
+}
+function unmarkPickerTags(row) {
+  const kept = pickerMarks.tags.get(row);
+  if (!kept) return;
+  if (kept.node.nodeValue === kept.shortened) kept.node.nodeValue = kept.original;
+  row.removeAttribute('data-refinement-pick-tags');
+  pickerMarks.tags.delete(row);
+}
+function unmarkPickerRow(row) {
+  if (row.isConnected) row.removeAttribute('data-refinement-pick');
+  unmarkPickerTags(row);
+  pickerMarks.marked.delete(row);
+}
 function updatePickerMarks(doc) {
-  const menu = setting('pickerMarks') ? doc.getElementById('ui__ac') : null;
-  const rows = menu && !menu.classList.contains('ac-block-search') ? menu.querySelectorAll('.menu-link') : [];
+  const menu = setting('pickerMarks') ? doc.querySelector('[data-editor-popup-ref="page-search"] #ui__ac') : null;
+  const rows = menu ? menu.querySelectorAll('.menu-link') : [];
   const seen = new Set();
   for (const row of rows) {
-    const text = row.textContent.trim().toLowerCase();
-    const kind = tagPages.titles.has(text) ? 'tag' : dateLinks.names.has(text) || dateLinkName(text) ? 'date' : '';
+    const kind = pickerKind(row);
     if (!kind) continue;
     if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
+    if (kind === 'page' || kind === 'page-own') markPickerTags(row); else unmarkPickerTags(row);
     seen.add(row); pickerMarks.marked.add(row);
   }
-  for (const row of pickerMarks.marked) if (!seen.has(row)) { if (row.isConnected) row.removeAttribute('data-refinement-pick'); pickerMarks.marked.delete(row); }
+  for (const row of pickerMarks.marked) if (!seen.has(row)) unmarkPickerRow(row);
 }
 // A tag word left in a sentence: Logseq draws it as a plain <span>#Tag</span> with no class. It is marked so
 // the stylesheet can colour its # (see tagMark in styles.js); the mark is taken off when the setting is off.
@@ -693,6 +749,7 @@ async function refreshJournalDates() {
   updateDateLinks();
 }
 function startDateLinks() {
+  window.pickerMarksDebug = { pickerMarks, pickerKind, markPickerTags, updatePickerMarks };
   try {
     const doc = host();
     dateLinks.document = doc;
@@ -724,8 +781,7 @@ function stopDateLinks() {
   usage.line?.remove();
   for (const el of usage.hidden) el.removeAttribute('data-refinement-usage-dim');
   usage.hidden.clear();
-  for (const row of pickerMarks.marked) row.removeAttribute('data-refinement-pick');
-  pickerMarks.marked.clear();
+  for (const row of [...pickerMarks.marked]) unmarkPickerRow(row);
   ++dateLinks.version;
   restorePageLabels();
   childAssetCues.clear();

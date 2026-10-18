@@ -505,13 +505,25 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
 `],
-  ['pickerMarks', `/* The [[ menu says what each row is: a # in the tag colour before a tag, a small grey box before a journal
-   day, pages plain. Marked by updatePickerMarks in the links part, by name against the tags and journals it knows.
-   Logseq already draws a # icon before a tag row at half opacity; it takes the tag colour at full strength. */
+  ['pickerMarks', `/* The [[ menu says what each row is (marked by updatePickerMarks in the links part): a # in the tag colour
+   before a tag (Logseq's own # icon, drawn at half opacity, at full strength), a small grey box before a journal
+   day (in place of the generic file icon Logseq gives a journal page), the plain page rectangle in place of that
+   icon before a page, a page's own icon alone (the generic one makes way, as in the left sidebar), its tags as grey monospace names at the right, the relative
+   days (Today, Last Wednesday …) in the quiet colour, and the "New page" row in a dashed box with the + outside. */
 #ui__ac .menu-link[data-refinement-pick="tag"] .icon-cp-container { opacity: 1 !important; }
 #ui__ac .menu-link[data-refinement-pick="tag"] .ls-icon-hash { color: var(--rf-tag-color) !important; }
 #ui__ac .menu-link[data-refinement-pick="date"] { font-variant-numeric: tabular-nums; }
-#ui__ac .menu-link[data-refinement-pick="date"]::before { content: ''; display: inline-block; width: .6em; height: .75em; margin-right: .4em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); vertical-align: -.05em; }
+#ui__ac .menu-link[data-refinement-pick="date"] .items-start > .opacity-50:has(.ls-icon-file) { opacity: 1 !important; }
+#ui__ac .menu-link[data-refinement-pick="date"] svg.tabler-icon-file { width: .6em; height: .75em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); }
+#ui__ac .menu-link[data-refinement-pick="date"] svg.tabler-icon-file > * { visibility: hidden !important; }
+#ui__ac .menu-link[data-refinement-pick="page"] svg.tabler-icon-file { background: currentColor !important; mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important; -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important; }
+#ui__ac .menu-link[data-refinement-pick="page"] svg.tabler-icon-file > * { visibility: hidden !important; }
+#ui__ac .menu-link[data-refinement-pick="page-own"] .items-start > .opacity-50:has(.ls-icon-file) { display: none !important; }
+#ui__ac .menu-link[data-refinement-pick-tags] { align-items: center; }
+#ui__ac .menu-link[data-refinement-pick-tags]::after { content: attr(data-refinement-pick-tags); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
+#ui__ac .menu-link[data-refinement-pick="relative"] { color: var(--ls-secondary-text-color) !important; }
+#ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
+#ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start > .opacity-50 { position: absolute; left: -1.5em; top: 0; }
 `],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }

@@ -577,11 +577,11 @@ const menuCss = `
 .rip-day { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; padding: 0 .3em; border-radius: 3px; background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
-.rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
+.rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) var(--rf-dash-pct, 45%), transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
 .rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
 .bottom-property-content > .rip-ghost { margin-left: 0; }
 .rip-ghost-name { color: var(--ls-secondary-text-color); }
-.rip-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); border-radius: .22em; padding: .02em .28em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
+.rip-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) var(--rf-dash-pct, 45%), transparent); border-radius: .22em; padding: .02em .28em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-rip-ghost] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-rip-ghost] .empty-value { display: none !important; }`;
 
