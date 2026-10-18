@@ -122,6 +122,8 @@ async function autoDateAllowedHere() {
 }
 async function autoDateNew() {
   if (!setting('autoDate') || !await autoDateAllowedHere()) return;
+  // With Proposals in the pills on (parts/proposals.js, 0.4.105) the question is drawn there, in the record's own pill, from this part's setup; this part then only fills when asking is off.
+  if (setting('autoDateAsk') && window.refinementCore?.provided?.proposalsOwnDates?.()) return;
   if (autoDate.running) { autoDate.again = true; return; } // looked at once more when this round ends
   autoDate.running = true;
   try {
@@ -293,7 +295,7 @@ const settingsSchema = [
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },
   { key: 'autoDateAsk', type: 'boolean', title: 'Ask before filling', default: true,
-    description: 'The proposed day is drawn in the record’s own row as a dashed ghost value: j (or a click on it) writes it and a bar at the bottom offers Undo, k leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours. A record that is not on screen is asked about in a small note at the top right instead. Turn off to fill without asking.' },
+    description: 'The proposed day is drawn in the record’s own row as a dashed ghost value: j (or a click on it) writes it and a bar at the bottom offers Undo, k leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours. A record that is not on screen is asked about in a small note at the top right instead. While Proposals in the pills is on, the question is drawn in the record’s own date pill by that part instead, with the same keys. Turn off to fill without asking.' },
   { key: 'autoDateTags', type: 'string', title: 'Tags', default: '',
     description: 'Comma-separated tag names, without #. Tags that extend these are included. Nothing is filled while this is empty.' },
   { key: 'autoDateProperty', type: 'string', title: 'Date property', default: 'Date',
@@ -334,6 +336,10 @@ function scheduleDbWork() {
   dbWork.timer = setTimeout(() => { dbWork.since = 0; autoDateNew(); }, Math.max(0, Math.min(DB_PAUSE, dbWork.since + DB_LONGEST - now)));
 }
 
+function provide(core) {
+  // The proposals part asks for the day in the record's pill from this part's setup (0.4.105).
+  core.provide({ journalDates: { setup: () => graphWide('autoDateSetup', autoDateSetup), setting, allowedHere: autoDateAllowedHere } });
+}
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
   takeOverFromEarlierCopy();
@@ -347,5 +353,5 @@ function main() {
   // For troubleshooting from the devtools console (the part's own scope is closed otherwise).
   window.journalDatesDebug = { autoDate, ask, autoDateNew, autoDateSetup, undatedRecords, autoDateAllowedHere };
 }
-(window.refinementParts ||= []).push({ name: 'journal dates', schema: settingsSchema, start: main, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'journal dates', schema: settingsSchema, provide, start: main, stop: runUnloadTasks });
 })();

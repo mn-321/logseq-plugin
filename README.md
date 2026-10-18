@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.104.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.105.
 
 Besides the look of pages, it holds:
 
@@ -114,6 +114,8 @@ In the order of the settings window. The key is the name in the settings file (`
 | First letters name the field | `inlinePropsPrefix` | on | Properties in the line |
 | A field that takes several stays open | `inlinePropsGather` | on | Properties in the line |
 | Escape takes the token out | `inlinePropsEscapeClears` | on | Properties in the line |
+| Proposals in the pills | `pillProposals` | on | Proposals in the pills |
+| What is proposed | `pillProposalRules` | journal day, people named, the parent’s fields | Proposals in the pills |
 | Layout | `layout` | document | Copy as rich text |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
@@ -271,7 +273,7 @@ The **Search** button at the top of the right sidebar can be hidden with **Searc
 
 ## Journal day as date
 
-Fills an empty Date property on chosen records with the journal day they were written on. A date you entered yourself is never changed. By default it asks first, where the answer goes: the proposed day appears in the record's own row as a dashed ghost value (in its empty Date pill when Logseq shows one, else after its title). `j`, or a click on the day, writes it, and a dark bar at the bottom offers **Undo** for a few seconds; `k` leaves that record alone for the rest of the session; `Esc`, or the record leaving the screen, leaves it for now. While you are typing in a block, `j` and `k` stay yours. A record that is not on screen is asked about in a small note at the top right instead, with **Yes** and **No**; a note nobody answers goes away after about half a minute. One record is asked about at a time.
+Fills an empty Date property on chosen records with the journal day they were written on. A date you entered yourself is never changed. By default it asks first, where the answer goes. With **Proposals in the pills** on (the default), the question is drawn in the record's own date pill by that part, with the keys below; with it off, the proposed day appears in the record's own row as a dashed ghost value (in its empty Date pill when Logseq shows one, else after its title). `j`, or a click on the day, writes it, and a dark bar at the bottom offers **Undo** for a few seconds; `k` leaves that record alone for the rest of the session; `Esc`, or the record leaving the screen, leaves it for now. While you are typing in a block, `j` and `k` stay yours. A record that is not on screen is asked about in a small note at the top right instead, with **Yes** and **No**; a note nobody answers goes away after about half a minute. One record is asked about at a time.
 
 | Setting | What it does |
 | --- | --- |
@@ -313,6 +315,15 @@ Nothing is written until you press `Enter` on a value. Only names the graph has 
 | First letters name the field | `pro::` opens project's values when one field starts so; several open the name list filtered. Off, the whole name is needed. Applies at once. |
 | A field that takes several stays open | The list stays after `Enter` on a field that takes several pages; `Enter` with nothing typed finishes. Applies at once. |
 | Escape takes the token out | `Esc`, `Tab` or a click elsewhere takes `p::` or `name::` out of the text. Off, `Esc` keeps the words as typed. Applies at once. |
+
+## Proposals in the pills
+
+After you write a record, what the graph can already tell is drawn dashed in the record’s own pills: the journal day in an empty Date field, for the records **Journal day as date** names; a page whose first name or whole name is a word of the record, in an empty field that takes its class (“Priya” in the words of a Meeting proposes Priya Nair as an attendee), only when exactly one page matches that word; a child’s empty field filled from its parent’s, when the value is a page the field can hold (a Decision under a Meeting gets the Meeting’s project). Nothing is written. `j` fills every proposal of the record nearest the top of the screen and the bar at the bottom offers one **Undo**; a click on a dashed value fills that one; `k` leaves that record alone for the session. The other records’ proposals stay drawn, so a question never vanishes; only the key is one record at a time. While you type in a block its keys stay yours and its ghosts wait. Only empty fields are proposed for, only records written since the plugin started (and a minute before), and only names the graph has are ever written. The people and parent rules run in the graphs named under Properties in the line; the day in the graphs named under Journal day as date, which asks here instead of after the record’s title while this is on.
+
+| Setting | What it does |
+| --- | --- |
+| Proposals in the pills | The dashed values in a record’s pills and the `j` and `k` keys. Applies at once. |
+| What is proposed | Comma-separated, any of `journal day`, `people named`, `the parent’s fields`. Applies at once. |
 
 ## Copy as rich text
 

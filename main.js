@@ -82,10 +82,10 @@ function stopWatchingDom() {
    anything still left on screen (sweepEarlierCopy). */
 const STOP_KEY = '__dbRefinementsStop';
 // Search marks (data-rf-*, .rf-search-*) belong to the search part (parts/search.js), which clears its own.
-const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage, .refinement-undo-bar, .refinement-prompt-backdrop, .refinement-prop-icon, .refinement-link-list';
+const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage, .refinement-undo-bar, .refinement-prompt-backdrop, .refinement-prop-icon, .refinement-link-list, .rfp-ghost';
 // Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
 const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type'].map(name => 'data-refinement-' + name)];
+  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type', 'proposal'].map(name => 'data-refinement-' + name)];
 function sweepEarlierCopy(doc) {
   for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
   for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
@@ -343,7 +343,7 @@ function runDbWork() {
   const failed = error => warnOnce('a look-up after a change failed', error);
   const run = jobs => { for (const job of jobs) { try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); } } };
   // About the page on screen: after every round.
-  const pageJobs = [dbJobs.refreshCues, dbJobs.loadPageKind, dbJobs.refreshInlineValues, dbJobs.refreshCrumbLinks, dbJobs.loadHiddenProps];
+  const pageJobs = [dbJobs.refreshCues, dbJobs.loadPageKind, dbJobs.refreshInlineValues, dbJobs.refreshCrumbLinks, dbJobs.loadHiddenProps, dbJobs.proposals].filter(Boolean);
   // Whole-graph lists: now if they are due; otherwise one full round when they fall due.
   const fullRound = () => {
     clearTimeout(dbWork.slowTimer);
@@ -486,7 +486,7 @@ function main() {
    Logseq can keep an older loader.js cached that only loads this file. */
 // shared.js first: the other parts read window.refinementShared as they load. sidebar.js next: its
 // settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
-const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {
