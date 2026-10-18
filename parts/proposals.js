@@ -34,6 +34,8 @@ const settingsSchema = [
     description: 'The last words of the record read as a day (tomorrow, friday, next fri, 23 oct, +3; a bare weekday needs four letters or more) are pencilled into the record’s empty Deadline, else due date, else date, and nowhere else. Runs in the graphs named under Properties in the line. Applies at once.' },
   { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
     description: 'After a value is written into a record (Tab on a proposal, Enter in the line list), a small grey “undo ⌘z” sits beside it in the record’s own row for seven seconds; a click on it, or Cmd+Z while the caret is still in that block, takes the value back to pencilled. Off, the dark bar at the bottom offers Undo as before. Applies at once.' },
+  { key: 'proposalHintTakes', type: 'number', title: 'Show the key hint until this many takes', default: 20,
+    description: 'The small “tab takes · ⇧tab passes” beside the value Tab will take is a teaching device: it stops showing once you have taken that many values (the count is kept in the plugin’s settings file as proposalTakesSoFar; set it back to 0 there, or raise this number, to see the hint again; 0 shows it always). Applies at once.' },
   { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
     description: 'The proposals are worked out from the words in the text box as you type them, so a name is pencilled in the moment its word is finished, and a value whose word you delete goes away; the record you are writing gets them whatever its age. Off, they come only after the plugin’s check that follows a save, a second or two later. Applies at once.' },
 ];
@@ -364,8 +366,15 @@ function firstOnScreen(doc) {
   }
   return null;
 }
+// The hint leaves once learnt (0.4.126): after proposalHintTakes takes, counted in the settings file; 0 keeps it always.
+const takesSoFar = () => Number(logseq.settings?.proposalTakesSoFar) || 0;
+const hintWanted = () => { const limit = Number(own('proposalHintTakes')); return !(limit > 0) || takesSoFar() < limit; };
+function countTake() {
+  const limit = Number(own('proposalHintTakes'));
+  if (limit > 0 && takesSoFar() <= limit) logseq.updateSettings({ proposalTakesSoFar: takesSoFar() + 1 });
+}
 function markFirst(doc) {
-  const first = firstOnScreen(doc);
+  const first = hintWanted() ? firstOnScreen(doc) : null;
   for (const g of doc.querySelectorAll('.rfp-ghost[data-rfp-first]')) if (g !== first) g.removeAttribute('data-rfp-first');
   first?.setAttribute('data-rfp-first', '');
 }
@@ -397,6 +406,7 @@ async function fill(uuid, onlyIdent) {
     }
   }
   if (!written.length) return;
+  if (!onlyIdent || items.length) countTake();
   // Undo takes the value off again and pencils it back in, so one Tab can take it once more.
   const onFail = error => { warnOnce('the proposed values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); };
   const restore = async item => {
