@@ -15,16 +15,44 @@ Besides the look of pages, it holds:
 
 ## What is in the folder
 
-| File | What it is |
+The first group is the plugin itself and is all the release zip holds. The rest is for working on the plugin and stays out of the zip.
+
+| File or folder | What it is |
 | --- | --- |
 | `package.json` | Tells Logseq the plugin's name, version and starting file. |
 | `loader.js` | The starting file. It loads `main.js` fresh each time, so a reload picks up changes. |
 | `main.js` | The core: the screen watcher, the database round, the settings list, the self-check after a Logseq update, the commands, and the loader of the parts. |
-| `parts/` | The rest, one file per area, loaded by `main.js`: `shared.js` (the helpers every file uses), `diagnostics.js` (the troubleshooting tools), `editor.js` (the shortcuts and commands), `pages.js` (what is drawn around a page's title), `properties.js` (list properties, fold all, hidden properties), `links.js` (the cues on links and rows, dates, references, PDF citations), `chrome.js` (quieter sidebar and toolbar items), `styles.js` (the stylesheets), `sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js`, `tags.js` and `settings-panel.js` (the settings window). |
-| `tools/` | For working on the plugin, not needed to use it: `check.sh` checks the files, `release.sh` builds the zip. Not in the zip. |
-| `docs/` | The history of the plugin's work notes. Not in the zip. |
+| `parts/` | The rest of the plugin, one file per area, loaded by `main.js` in a fixed order (see below). |
 | `README.md` | This guide. |
-| `CHANGELOG.md` | What changed in each version. |
+| `CHANGELOG.md` | What changed in each version, and what was seen on screen before it was kept. |
+| `GUIDE.md` | How to work on the plugin: the rules the code keeps, the reload loop, the command line. Not in the zip. |
+| `HANDOFF.md` | Where things stand: the owner's decisions, what each round built, what is left open. Not in the zip. |
+| `docs/` | Work notes: `GRAMMAR.md` (every cue and how the plugin writes, asks and refuses), the prompts of the last rounds, and `history/` (the audit, the reviews, earlier session diaries). Not in the zip. |
+| `tools/` | `check.sh` (with `check.js`) checks every file, `release.sh` runs the checks and builds the zip. Not in the zip. |
+| `test/` | `plugin-test-graph.edn`, the seed of the Plugin Test Graph. Not in the zip. |
+| `dist/` | Copies of the release zips made for handing over; the zips themselves are not kept in git. The full set is in `~/logseq-plugin-archive/releases/`. |
+
+The files in `parts/`:
+
+| File | What it holds |
+| --- | --- |
+| `shared.js` | The helpers every file uses (boxes, the Undo bar, settings, clean-up). Loaded first. |
+| `diagnostics.js` | The troubleshooting tools (Check what the plugin finds, Copy warnings and the rest). |
+| `editor.js` | The shortcuts and commands that write to a block, and the link box. |
+| `pages.js` | What is drawn around a page's title: the page's kind, Alias of, Inherited from, where a tag sits. |
+| `properties.js` | List properties, fold all, hidden properties, one column for a page's property values. |
+| `links.js` | The marks on links and rows, dates, references, PDF citations, and the marks in Logseq's pickers. |
+| `chrome.js` | Quieter sidebar and toolbar items, the right sidebar's presentation, the empty `[[ ]]` menu. |
+| `styles.js` | The stylesheets. |
+| `sidebar.js` | Right sidebar titles that open their page, and the line between items. |
+| `search.js` | The search window: tidying, details, grouping, the preview, the typed codes. |
+| `journal-dates.js` | Journal day as date. |
+| `inline-props.js` | Properties in the line: the list after `p::` or `name::`. |
+| `proposals.js` | Proposals in the pills: values guessed from your words, Tab to take, the undo beside a value. |
+| `rich-copy.js` | Copy as rich text. |
+| `todos.js` | Todos and Expectations (paused: off unless switched on in the settings). |
+| `tags.js` | The tag tree (paused: off unless switched on in the settings). |
+| `settings-panel.js` | The settings window, its five groups and their pictures. |
 
 ## Install
 

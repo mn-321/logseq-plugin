@@ -13,18 +13,19 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | Plugin (git repo, branch `main`) | `/Users/claude-agent/logseq-plugin/` |
 | Core | `main.js` (the screen watcher, the database round, stylesheet sending, the settings schema, the self-check, `main()`, the commands, the part loader) |
 | Shared helpers and the contract between files | `parts/shared.js` (read its header) |
-| The areas, one file each | `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js`, `styles.js`, `diagnostics.js` |
-| The former plugins | `parts/sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js`, `tags.js`, `settings-panel.js` |
+| The areas, one file each | `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js`, `styles.js`, `diagnostics.js`; the README's "What is in the folder" says what each part holds |
+| The former plugins | `parts/sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js` and `tags.js` (both paused since 0.4.128), `settings-panel.js` |
 | Proposals in the pills (0.4.105) | `parts/proposals.js`: after a record is written, the journal day, the people named in its words and the parent's page-valued fields drawn dashed in its own pills with the line list's ghost; `j` fills the record nearest the top, a click fills one, `k` leaves it; it takes over the journal part's asking while on (`proposalsOwnDates`), worked out graph-wide on each database round (`core.onDbRound('proposals')`), drawn on the early pass |
 | Properties in the line (0.4.94 to 0.4.99) | `parts/inline-props.js`: the list under the record's property row after `p::`, `name::` or the first letters of a name, the per-type value rows, the ghost in the pill, the write with Undo, the gathering list for a field that takes several, the token taken out on Escape or on leaving; since 0.4.101 it also provides the schema, the type and page icons and the row renderer that the pickers use |
 | The pickers (0.4.100 to 0.4.102, 0.4.107) | the `[[` menu, the `#` picker and the property picker are marked in `parts/links.js` (`updatePickerMarks`, `updatePropertyPicker`, on the early pass), the value picker on a pill too (`updateValuePicker`); Escape takes `[[` and `#` out of Logseq's pickers in `parts/inline-props.js` (`onPickerEscape`, 0.4.106); the link box's list is in `parts/editor.js` (`askPageTitle`, `linkBoxRows`) |
 | The day cue (0.4.108) | `parts/links.js`: `shownPagesTree` remembers which day each top-level block belongs to (`dayOf`), `refreshCues` sums the folded cue's kinds per day, `updateDayCues` draws them after the day's title on the Journals list |
-| Checks and the release zip | `sh tools/check.sh`, `sh tools/release.sh` (zips go to `~/logseq-plugin-archive/releases/`) |
+| Checks and the release zip | `sh tools/check.sh`, `sh tools/release.sh` (zips go to `~/logseq-plugin-archive/releases/`; a copy handed to the owner is put in `dist/`, whose zips git ignores) |
 | Old backups, old zips, `main.js.orig` | `~/logseq-plugin-archive/` |
 | The gentle theme (a separate Logseq theme) | `~/logseq-gentle-theme/` |
 | Standing advice for plugin and CLI work | `GUIDE.md` |
 | History (audit, reviews, session diaries, the cleanup prompt) | `docs/history/` |
-| The prompt for the next round (autocomplete as one system, the look of not yet written) | `docs/REFINE-PROMPT-2026-10-18.md`; the review round's prompt is `docs/REVIEW-PROMPT-2026-10-18.md` |
+| The prompts of the last rounds | `docs/REFINE-PROMPT-2026-10-18.md` (autocomplete as one system, the look of not yet written; built as 0.4.118 to 0.4.127) and `docs/REVIEW-PROMPT-2026-10-18.md` (the review round) |
+| Not committed, not this project's | `docs/VISUAL-GRAMMAR-2026-10-18.html` (a drawn visual grammar, untracked since before the autocomplete round; who made it is not recorded) and `CLEANUP-PROMPT.md` at the top (ignored by git; the kept copy is `docs/history/CLEANUP-PROMPT-2026-10-16.md`) |
 | Test graph | Logseq graph **Plugin Test Graph** (`~/logseq/graphs/Plugin Test Graph`); seed in `test/plugin-test-graph.edn` (the graph has gained things the seed lacks) |
 | Live legend of every cue | page **Plugin Visual Cues** in the test graph |
 | Logseq | `/Applications/Logseq.app`, 2.0.2, DB version; CLI `~/.local/bin/logseq` |
