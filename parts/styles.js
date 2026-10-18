@@ -118,7 +118,8 @@ ${referenceIcon('.refinement-child-asset-image', imageIcon)}
 ${referenceIcon('.refinement-child-asset-pdf', documentIcon)}
 ${referenceIcon('.refinement-child-asset-asset', documentIcon)}
 .refinement-child-assets span::before { margin-right: 0; opacity: 1; }
-.refinement-child-task { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; border: 1px dashed currentColor; border-radius: 50%; }
+/* The circle is Logseq's open-task circle, solid (0.4.112): dashed was Logseq's Backlog and the plugin's "proposed" at once. */
+.refinement-child-task { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; border: 1px solid currentColor; border-radius: 50%; }
 /* The whole cue shows only on a block whose children are hidden (the owner's word, 0.4.81): while the
    children are on screen the reader sees them, so no bullet needs to say what is below it. */
 .ls-block:not([data-collapsed="true"]) > .block-main-container .refinement-child-assets { display: none; }
