@@ -10,10 +10,10 @@
    The values are predicted by the property's type: days for a Date (today, tomorrow, the weekdays, "next fri",
    2026-10-23, 23 oct, +3), pages of the right class for a page-valued field, the choices for a closed set,
    the values already used for free text, yes/no for a checkbox, the number or url as typed. While a row is
-   highlighted the value it would write is drawn dashed in the record's own property row (or at the top of
+   highlighted the value it would write is pencilled in (italic, the quiet colour, no box since 0.4.116) in the record's own property row (or at the top of
    the list when the row has no pill for it). Enter writes it, takes the token out of the text, leaves the
    caret where it was, and the dark bar offers Undo. Escape closes the list and leaves the words as typed.
-   Only names the graph has are ever written to; a new page is made only through a dashed "Make …" row, never
+   Only names the graph has are ever written to; a new page is made only through a pencilled "Make …" row, never
    the first row, and a new property still comes from Logseq's own Add property (see unknownRows).
    It runs only in the graphs named in its settings, as Journal day as date does. */
 const shared = window.refinementShared;
@@ -26,9 +26,9 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'inlinePropsHeading', type: 'heading', title: 'Properties in the line', default: null,
-    description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). The value is drawn dashed before you press Enter; after it the bar at the bottom offers Undo.' },
+    description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). The value is pencilled in, italic, before you press Enter; after it the bar at the bottom offers Undo.' },
   { key: 'inlineProps', type: 'boolean', title: 'Properties typed in the line', default: true,
-    description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from a dashed “Make …” row (a new property still comes from Logseq’s own Add property).' },
+    description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from an italic “Make …” row (a new property still comes from Logseq’s own Add property).' },
   { key: 'inlinePropsGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'Comma-separated graph names. The list opens only in the graphs named here; nothing happens while this is empty. Plugin settings are shared by all your graphs, so this keeps the writing out of the others.' },
   { key: 'inlinePropsPrefix', type: 'boolean', title: 'First letters name the field', default: true,
@@ -384,7 +384,7 @@ function closeMenu() {
   state.stage = null; state.prop = null; state.rows = []; state.sel = 0; state.gather = false;
   removeGhost();
 }
-/* The ghost: the highlighted value drawn dashed where it will go, in the record's empty pill for that property when
+/* The ghost: the highlighted value pencilled in where it will go, in the record's empty pill for that property when
    Logseq shows one, else in the list's own header. */
 function removeGhost() {
   const doc = host();
@@ -611,11 +611,12 @@ const menuCss = `
 /* Monospace is for tag names only (0.4.113): a kind at the right is one, a type or a count is not. */
 .rip-right.rip-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .rip-right { flex: 0 0 auto; margin-left: auto; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
-.rip-new { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) var(--rf-dash-pct, 45%), transparent); border-radius: .22em; padding: 0 .3em; color: var(--ls-secondary-text-color); }
+/* A row that makes something is pencilled in (0.4.116): italic in the quiet colour, no box, the + before it. */
+.rip-new { font-style: italic; color: var(--ls-secondary-text-color); }
 .rip-ghost { display: inline-flex; align-items: baseline; gap: .35em; margin-left: .45em; font-size: .95em; }
 .bottom-property-content > .rip-ghost { margin-left: 0; }
 .rip-ghost-name { color: var(--ls-secondary-text-color); }
-.rip-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color) var(--rf-dash-pct, 45%), transparent); border-radius: .22em; padding: .02em .28em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
+.rip-ghost-value { font-style: italic; padding: .02em .1em; color: var(--ls-secondary-text-color); font-variant-numeric: tabular-nums; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-rip-ghost] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-rip-ghost] .empty-value { display: none !important; }`;
 

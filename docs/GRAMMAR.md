@@ -63,7 +63,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Before the link | `•` before each row of the `((` picker | every row there is a block | Icons for block references and files (`referenceIcons`) | styles.js |
 | Around the words | a grey box in the text font; no icon, no border | a date, or a link to a journal page | Dates in a soft grey box (`dateStyle`) | styles.js |
 | Around the words | the box with its words in the secondary colour; today firmer on the stronger wash; a day to come as it is | a date's tense (0.4.69) | Dates carry their tense (`dateTense`) | styles.js, links.js |
-| Around the words | a dashed box, `Date: Oct 16th, 2026`, with `j fills · k leaves it` | a proposed value, not yet written (0.4.77) | Ask before filling (`autoDateAsk`) | journal-dates.js |
+| Around the words | pencilled in: italic in the quiet colour, no box, `Date: Oct 16th, 2026`, with `tab takes · esc no` (a dashed box until 0.4.116, j and k until 0.4.115) | a proposed value, not yet written (0.4.77) | Ask before filling (`autoDateAsk`) | journal-dates.js |
 | Around the words | a faint wash with a hairline beneath, square corners | the link to the page on screen, under Linked references and in the records under its tag tabs; on a journal, a date that points to that day | Mark the link to this page in Linked references (`markReferenceHere`) | links.js |
 | Around the words | the shown name without its trailing tag | a page link written as "Name #tag" | Page links without trailing tags (`pageLabels`) | links.js |
 | Around the words | plain words with a 2px underline in the grey path, instead of `[[Name]]` | a link in a parent path | Plain links in grey paths (`plainPathLinks`) | styles.js, links.js |

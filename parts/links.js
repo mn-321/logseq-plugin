@@ -630,7 +630,7 @@ function updateUsageLine(doc) {
    title: the grey box), page (the generic file icon: the plain page rectangle in its place), page-own (a page with
    an icon of its own, which Logseq draws before the words: the generic icon makes way for it, as in the left
    sidebar), relative (the calendar icon with words that are no journal title, Today or Last Wednesday: stepped
-   back to the quiet colour, never hidden), new (the + icon and "New page …": a dashed box, since dashed already
+   back to the quiet colour, never hidden), new (the + icon and "New page …": pencilled in, italic, since that already
    means "not yet there"). A page's trailing tags ("Ada Okafor #Person") leave the words and are drawn at the right
    as grey monospace names (the text node is shortened and put back when the mark goes). Only the page-search
    popup: the slash menu and the (( menu share the id and are left alone. A page and a tag with the same name
@@ -687,7 +687,7 @@ function unmarkPickerRow(row) {
 /* The # tag picker (0.4.107, under the same setting): Logseq draws its rows without an icon slot, so a tag row is
    known by its name (tagPages.titles) and the stylesheet draws the # in the tag colour before the words; at the right,
    in the slot the [[ menu uses for a page's tags, what the tag sits under and the fields it brings ("under Occurrence
-   · + date"), from the schema the line list reads; the "New tag …" row is dashed, as every row that makes something. */
+   · + date"), from the schema the line list reads; the "New tag …" row is pencilled in, as every row that makes something. */
 const tagInfo = { byLower: null, at: 0, loading: null };
 function loadTagInfo(doc) {
   if (tagInfo.loading || (tagInfo.byLower && Date.now() - tagInfo.at < 30000) || !provided.propSchema) return;
@@ -749,7 +749,7 @@ function updatePropertyPicker(doc) {
   for (const row of rows) {
     const ident = String(row.querySelector('[title^=":"]')?.getAttribute('title') || '').slice(1);
     const prop = propertyPicker.byIdent?.get(ident);
-    // Logseq's own "+ New option: …" row makes a property: dashed, as every row that makes something.
+    // Logseq's own "+ New option: …" row makes a property: pencilled in, as every row that makes something.
     const kind = prop ? prop.type : /^\+?\s*New option\b/i.test(row.textContent.trim()) ? 'new' : '';
     if (!kind) continue;
     const label = prop ? provided.propTypeLabel(prop) : '';
@@ -779,7 +779,7 @@ const mentions = { marked: new Set() };
    page or a block as bare words, a block with its page as a small line above. Each row gets the mark the page uses:
    the plain page rectangle or the page's own icon (which Logseq draws itself) before a page, the # in the tag colour
    before a tag's page, a small dot before a block; the kind in quiet monospace words at the right (Person, tag, page,
-   block); a journal day in the line above a block in the grey date box; the New row dashed. By name, as the [[ menu. */
+   block); a journal day in the line above a block in the grey date box; the New row pencilled in. By name, as the [[ menu. */
 const valuePicker = { marked: new Set(), pages: null, at: 0, loading: null };
 function loadValuePages(doc) {
   if (valuePicker.loading || (valuePicker.pages && Date.now() - valuePicker.at < 30000)) return;

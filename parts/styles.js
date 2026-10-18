@@ -539,7 +539,7 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
    before a tag (Logseq's own # icon, drawn at half opacity, at full strength), a small grey box before a journal
    day (in place of the generic file icon Logseq gives a journal page), the plain page rectangle in place of that
    icon before a page, a page's own icon alone (the generic one makes way, as in the left sidebar), its tags as grey monospace names at the right, the relative
-   days (Today, Last Wednesday …) in the quiet colour, and the "New page" row in a dashed box with the + outside. */
+   days (Today, Last Wednesday …) in the quiet colour, and the "New page" row pencilled in (italic, 0.4.116) with the + outside. */
 #ui__ac .menu-link[data-refinement-pick="tag"] .icon-cp-container { opacity: 1 !important; }
 #ui__ac .menu-link[data-refinement-pick="tag"] .ls-icon-hash { color: var(--rf-tag-color) !important; }
 #ui__ac .menu-link[data-refinement-pick="date"] { font-variant-numeric: tabular-nums; }
@@ -554,29 +554,29 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 [data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick-tags]::after { font-family: inherit !important; }
 #ui__ac .menu-link[data-refinement-pick-tags]::after { content: attr(data-refinement-pick-tags); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
 #ui__ac .menu-link[data-refinement-pick="relative"] { color: var(--ls-secondary-text-color) !important; }
-#ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
+#ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; font-style: italic; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start > .opacity-50 { position: absolute; left: -1.5em; top: 0; }
 /* The # picker (0.4.107): no icon slot, so the # is drawn before the words; the New tag row needs no room for a +. */
 [data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick="tag"] .flex-col > .items-start::before { content: '#'; margin-right: .2em; color: var(--rf-tag-color); font-weight: 500; }
 [data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { margin-left: 0; }
 `],
   ['valuePickerMarks', `/* The value picker on a pill says what each row is (marked by updateValuePicker in the links part): the page's mark
-   before the words, the kind in quiet monospace words at the right, a journal day above a block in the date box, the New row dashed. */
+   before the words, the kind in quiet monospace words at the right, a journal day above a block in the date box, the New row pencilled in. */
 .property-select #ui__ac .menu-link[data-refinement-value] { align-items: center; }
 .property-select #ui__ac .menu-link[data-refinement-value-kind]::after { content: attr(data-refinement-value-kind); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
 .property-select .refinement-value-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.1em; color: var(--ls-secondary-text-color); }
 .property-select .refinement-value-icon svg { width: 1em; height: 1em; }
 .property-select .refinement-value-dot { font-size: .72em; opacity: var(--rf-faint); line-height: 1; }
-.property-select #ui__ac .menu-link[data-refinement-value="new"] .justify-between > .items-center:first-child { padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
+.property-select #ui__ac .menu-link[data-refinement-value="new"] .justify-between > .items-center:first-child { font-style: italic; color: var(--ls-secondary-text-color); }
 .property-select .breadcrumb__label[data-refinement-value-day] { display: inline-block; padding: 0 .3em; border-radius: .22em; background: ${wash('--rf-wash-pct')}; font-variant-numeric: tabular-nums; }
 `],
   ['propertyPickerTypes', `/* The property picker says each type (marked by updatePropertyPicker in the links part): the type icon the line
    list draws in place of Logseq's letter T, the type in quiet monospace words at the right of the row, and Logseq's
-   own "+ New option" row in a dashed box. */
+   own "+ New option" row pencilled in. */
 .ls-property-dialog .menu-link[data-refinement-prop] .ls-icon-letter-t { display: none !important; }
 .ls-property-dialog .menu-link[data-refinement-prop] .refinement-prop-icon { display: inline-flex; align-items: center; color: var(--ls-secondary-text-color); }
 .ls-property-dialog .menu-link[data-refinement-prop] { align-items: center; }
-.ls-property-dialog .menu-link[data-refinement-prop="new"] .gap-1:not(.tip) { align-self: flex-start; padding: 0 .35em; border: 1px dashed ${wash('--rf-dash-pct')}; border-radius: .22em; color: var(--ls-secondary-text-color); }
+.ls-property-dialog .menu-link[data-refinement-prop="new"] .gap-1:not(.tip) { align-self: flex-start; font-style: italic; color: var(--ls-secondary-text-color); }
 .ls-property-dialog .menu-link[data-refinement-prop]::after { content: attr(data-refinement-prop-type); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: nowrap; }
 `],
   ['linkBoxList', `/* The link box's list (askPageTitle in the editor part): the line list's rows (.rip-row, drawn by the inline-props

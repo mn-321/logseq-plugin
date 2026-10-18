@@ -170,7 +170,7 @@ function askNext() {
 }
 /* The question lives where the answer goes. The proposed day is drawn as a ghost value in the record's
    own row: in its empty date pill when Logseq shows one, else right after its title. The ghost is a
-   dashed box, as the dashed circle means "not finished": proposed, not written. j, or a click on the
+   pencilled in, italic in the quiet colour (a dashed box until 0.4.116): proposed, not written. j, or a click on the
    day, writes it and a bar at the bottom offers Undo; k leaves the record alone for the session; Escape
    or the record leaving the screen leaves it for now. While the record is not on screen (written from
    somewhere else), the small note at the top right asks instead, as before. One record at a time.
@@ -295,7 +295,7 @@ const settingsSchema = [
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },
   { key: 'autoDateAsk', type: 'boolean', title: 'Ask before filling', default: true,
-    description: 'The proposed day is drawn in the record’s own row as a dashed ghost value: j (or a click on it) writes it and a bar at the bottom offers Undo, k leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours. A record that is not on screen is asked about in a small note at the top right instead. While Proposals in the pills is on, the question is drawn in the record’s own date pill by that part instead, with the same keys. Turn off to fill without asking.' },
+    description: 'The proposed day is pencilled in, italic, in the record’s own row as a ghost value: j (or a click on it) writes it and a bar at the bottom offers Undo, k leaves the record alone for good, Escape leaves it for now. While you are typing in a block, j, k and Escape stay yours. A record that is not on screen is asked about in a small note at the top right instead. While Proposals in the pills is on, the question is drawn in the record’s own date pill by that part instead, with the same keys. Turn off to fill without asking.' },
   { key: 'autoDateTags', type: 'string', title: 'Tags', default: '',
     description: 'Comma-separated tag names, without #. Tags that extend these are included. Nothing is filled while this is empty.' },
   { key: 'autoDateProperty', type: 'string', title: 'Date property', default: 'Date',
@@ -317,11 +317,12 @@ const promptCss = `
 .jdd-ask-keys button { padding: 3px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: .95em; cursor: pointer; }
 .jdd-ask-keys button:hover { background: var(--ls-tertiary-background-color); }
 .jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
-/* The ghost value in the record's own row: dashed means proposed, not written. */
+/* The ghost value in the record's own row: pencilled in means proposed, not written. */
 .jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; font-size: .95em; vertical-align: baseline; }
 .jdd-ghost-name { color: var(--ls-secondary-text-color, currentColor); }
-.jdd-ghost-value { border: 1px dashed color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); border-radius: .22em; padding: .02em .28em; background: transparent; color: var(--ls-secondary-text-color, currentColor); font: inherit; font-size: .95em; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
-.jdd-ghost-value:hover { color: var(--ls-primary-text-color, currentColor); border-style: solid; }
+/* Pencilled in (0.4.116): italic in the quiet colour, no box; the day stands upright in its box once written. */
+.jdd-ghost-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-size: .95em; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
+.jdd-ghost-value:hover { color: var(--ls-primary-text-color, currentColor); }
 .jdd-ghost-keys { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .jdd-ghost-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-jdd-ghost] { display: flex !important; opacity: 1 !important; }
