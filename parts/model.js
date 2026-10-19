@@ -11,6 +11,7 @@
    WHAT IT PROVIDES (core.provided):
    - titleOf(block), trailingTags, cleanTitle(raw), storedRef      the words of a block and how a link is stored
    - readableTitle(text, { pagesOnly, depth, asShown })             stored [[uuid]] and ((uuid)) as the titles people see
+   - kindOfPage(pageId)                                              a tag page, a property page, a plain page, aliases
    - propSchema(), propPages(), fieldsOf(uuid, schema)              your properties with their types, every page with its
                                                                     tags, the fields a record's tags give it (remembered
                                                                     for the session; read again when the graph changes)
@@ -211,9 +212,30 @@ async function journalTitleFor(year, month, day) {
   return formatJournalTitle(new Date(year, month - 1, day), journalFormat.value || 'MMM do, yyyy');
 }
 
+/* What kind of page a page is (0.4.170, moved from parts/pages.js): a tag page, a property page, an ordinary page with
+   no tag of its own (plain), and the pages it is an alias of, as [uuid, title] by title. Logseq records an alias only on
+   the original page, so it is looked up from the alias's side. Both asked together: right after a page change each
+   answer waits behind Logseq loading the page (0.4.150). */
+async function kindOfPage(pageId) {
+  if (!Number.isSafeInteger(pageId) || pageId <= 0) return { isTag: false, isProperty: false, plain: false, aliasOf: [] };
+  const [rows, originals] = await Promise.all([
+    dsQuery(`[:find ?ident
+      :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`),
+    dsQuery(`[:find ?uuid ?title
+      :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`),
+  ]);
+  const idents = new Set(rows.map(row => bare(row[0])));
+  return {
+    isTag: idents.has('logseq.class/Tag'),
+    isProperty: idents.has('logseq.class/Property'),
+    plain: idents.size === 1 && idents.has('logseq.class/Page'),
+    aliasOf: originals.filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])]).sort((a, b) => a[1].localeCompare(b[1])),
+  };
+}
+
 function provide(core) {
   core.provide({ titleOf, trailingTags, cleanTitle, storedRef, readableTitle, bare, pick, idOf,
-    propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS,
+    propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks });
 }
 function start() {

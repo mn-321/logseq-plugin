@@ -35,6 +35,7 @@ function smallGraph() {
   // Logseq's own classes.
   add(1, { title: 'Property', ident: 'logseq.class/Property', name: 'property' });
   add(2, { title: 'Tag', ident: 'logseq.class/Tag', name: 'tag' });
+  add(3, { title: 'Page', ident: 'logseq.class/Page' });
   // Tags (classes) of the owner: Person, Doctor extends Person, Meeting, Project.
   add(10, { title: 'Person', name: 'person', tags: [2], ident: 'user.class/Person' });
   add(11, { title: 'Doctor', name: 'doctor', tags: [2], ident: 'user.class/Doctor', extends: [10] });
@@ -64,6 +65,9 @@ function smallGraph() {
   add(43, { title: '$$$ hidden', name: '$$$ hidden' });
   add(44, { title: 'Oct 19th, 2026', name: 'oct 19th, 2026', journalDay: 20261019 });
   add(45, { title: 'Holds a link to [[' + U(40) + ']]', name: 'holds a link' });
+  add(46, { title: 'Plain', name: 'plain', tags: [3] });
+  add(48, { title: 'Mat', name: 'mat', tags: [3] });
+  e[40].alias = [48];
   // Blocks.
   add(50, { title: 'Budget review', page: 42 });
   add(51, { title: 'Kickoff call', tags: [12], page: 44 });
@@ -106,6 +110,8 @@ function fakeDb(graph, log) {
         ...(x.tags ? { tags: x.tags.map(t => ({ id: t, title: graph[t].title, ...(graph[t].ident ? { ident: ':' + graph[t].ident } : {}) })) } : {}) }])],
     [/:find \?t :where \[\?b :block\/uuid #uuid "([^"]+)"\] \[\?b :block\/tags \?t\]/, m => { const b = all().find(x => x.uuid === m[1]); return (b?.tags || []).map(t => [t]); }],
     [/:find \?t :where \[\?p :block\/journal-day (\d+)\] \[\?p :block\/title \?t\]/, m => all().filter(x => x.journalDay === Number(m[1])).map(x => [x.title])],
+    [/:find \?ident\s+:where \[\(identity (\d+)\) \?p\] \[\?p :block\/tags \?c\] \[\?c :db\/ident \?ident\]/, m => (graph[m[1]]?.tags || []).filter(t => graph[t]?.ident).map(t => [':' + graph[t].ident])],
+    [/:find \?uuid \?title\s+:where \[\(identity (\d+)\) \?p\] \[\?o :block\/alias \?p\] \[\?o :block\/uuid \?uuid\] \[\?o :block\/title \?title\]/, m => all().filter(x => (x.alias || []).includes(Number(m[1]))).map(x => [x.uuid, x.title])],
     [/:find \(pull \?p \[:db\/id\]\) :where \[\?p :block\/journal-day (\d+)\]\]/, m => all().filter(x => x.journalDay === Number(m[1])).map(x => [ref(x.id)])],
   ];
   return async query => {
@@ -241,7 +247,7 @@ async function main() {
 
   // The pages.
   const pages = await model.propPages();
-  same(pages.map(p => p.title), ['A', 'Atlas', 'B', 'Doctor', 'Dr. Joe', 'Holds a link to [[' + U(40) + ']]', 'Mateo Ruiz', 'Meeting', 'Person', 'Project', 'Property', 'Tag'], 'propPages: pages by name, no $$$ page, no journal, no property');
+  same(pages.map(p => p.title), ['A', 'Atlas', 'B', 'Doctor', 'Dr. Joe', 'Holds a link to [[' + U(40) + ']]', 'Mat', 'Mateo Ruiz', 'Meeting', 'Person', 'Plain', 'Project', 'Property', 'Tag'], 'propPages: pages by name, no $$$ page, no journal, no property');
   // Logseq's own class pages (Property, Tag) pass the query when they have a name and are not tagged Property; whether
   // the real graph lists them in a page-valued field is one of the things to look at in the app.
   const page = Object.fromEntries(pages.map(p => [p.title, p]));
@@ -253,6 +259,14 @@ async function main() {
   same((await model.fieldsOf(U(53), schema)).map(p => p.title), ['email', 'specialty'], 'fieldsOf survives tags that extend each other');
   same(await model.fieldsOf('not-a-uuid', schema), [], 'fieldsOf of a bad id');
   same(await model.fieldsOf(U(50), schema), [], 'fieldsOf of a block with no tags');
+
+  // What kind of page a page is.
+  same(await model.kindOfPage(11), { isTag: true, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of a tag page');
+  same(await model.kindOfPage(22), { isTag: false, isProperty: true, plain: false, aliasOf: [] }, 'kindOfPage of a property page');
+  same(await model.kindOfPage(46), { isTag: false, isProperty: false, plain: true, aliasOf: [] }, 'kindOfPage of a plain page');
+  same(await model.kindOfPage(41), { isTag: false, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of a page with a tag of its own');
+  same((await model.kindOfPage(48)).aliasOf, [[U(40), 'Mateo Ruiz']], 'kindOfPage finds the page an alias stands for');
+  same(await model.kindOfPage(0), { isTag: false, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of no page');
 
   // What a drawn page must hold, for the self-check.
   const { JSDOM } = (() => { try { return require('jsdom'); } catch { return {}; } })();

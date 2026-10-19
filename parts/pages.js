@@ -101,22 +101,9 @@ async function loadPageKind() {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
     pageUuid = String(page?.uuid || '');
-    if (isEntityId(pageId) && logseq.DB?.datascriptQuery) {
-      // Asked together (0.4.150): right after a page change each answer waits behind Logseq loading the page,
-      // so the eight questions this used to ask one after another cost eight waits (2.2 s, measured).
-      const [rows, originals] = await Promise.all([
-        logseq.DB.datascriptQuery(`[:find ?ident
-          :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`),
-        // Logseq records an alias only on the original page; look it up from the alias's side.
-        logseq.DB.datascriptQuery(`[:find ?uuid ?title
-          :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`),
-      ]);
-      const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
-      isTag = idents.has('logseq.class/Tag');
-      isProperty = idents.has('logseq.class/Property');
-      plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
-      aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
-        .sort((a, b) => a[1].localeCompare(b[1]));
+    if (isEntityId(pageId)) {
+      // What kind of page it is comes from the model (parts/model.js, 0.4.170).
+      ({ isTag, isProperty, plain, aliasOf } = await provided.kindOfPage(pageId));
       const shapeOf = () => (isTag ? tagShape(pageId) : propertyShape(pageId)).catch(error => { warnOnce('could not read what the page holds', error); return null; });
       if (isTag) [tagPath, shape] = await Promise.all([tagPathOf(pageId), shapeOf()]);
       else if (isProperty) shape = await shapeOf();
