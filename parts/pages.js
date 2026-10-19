@@ -101,22 +101,9 @@ async function loadPageKind() {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
     pageUuid = String(page?.uuid || '');
-    if (isEntityId(pageId) && logseq.DB?.datascriptQuery) {
-      // Asked together (0.4.150): right after a page change each answer waits behind Logseq loading the page,
-      // so the eight questions this used to ask one after another cost eight waits (2.2 s, measured).
-      const [rows, originals] = await Promise.all([
-        logseq.DB.datascriptQuery(`[:find ?ident
-          :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`),
-        // Logseq records an alias only on the original page; look it up from the alias's side.
-        logseq.DB.datascriptQuery(`[:find ?uuid ?title
-          :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`),
-      ]);
-      const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
-      isTag = idents.has('logseq.class/Tag');
-      isProperty = idents.has('logseq.class/Property');
-      plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
-      aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
-        .sort((a, b) => a[1].localeCompare(b[1]));
+    if (isEntityId(pageId)) {
+      // What kind of page it is comes from the model (parts/model.js, 0.4.170).
+      ({ isTag, isProperty, plain, aliasOf } = await provided.kindOfPage(pageId));
       const shapeOf = () => (isTag ? tagShape(pageId) : propertyShape(pageId)).catch(error => { warnOnce('could not read what the page holds', error); return null; });
       if (isTag) [tagPath, shape] = await Promise.all([tagPathOf(pageId), shapeOf()]);
       else if (isProperty) shape = await shapeOf();
@@ -522,25 +509,66 @@ function startPageKind() {
 // What is drawn around a page's title and the Journals list. Declared here since 0.4.163; every part reads them through the core's setting().
 const settingsSchema = [
   { key: 'pageHeading', type: 'heading', group: 'reading', rank: 1, title: 'Pages', default: null,
+    legend: 'Around the title: what the page is, its tags and path, how it is used',
+    zone: '<div class="m">Add icon · Set property &nbsp;<span class="mono">Project</span></div><div class="t">Echo</div><div class="m"># Entity › # Project</div>',
     description: 'Changes here apply right away unless a setting says otherwise.' },
   { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
+    preview: ['<div class="m">&nbsp;</div><div class="t">Echo</div>', '<div class="m">Add icon · Set property · <span class="tg">#Project</span></div><div class="t">Echo</div>'],
     description: 'Keeps buttons like “Add tag property” and the page’s tags visible next to the title, muted until you point at them. Turn off to show them only on hover, as Logseq does. Applies after you reload the plugin.' },
   { key: 'showPageKind', type: 'boolean', title: 'Show what a page is above its title', default: true,
+    preview: ['<div class="m">&nbsp;</div><div class="row"><span class="t">Echo</span><span class="tg">#Project</span></div>', '<div class="m"><span class="tg">#Project</span></div><div class="t">Echo</div>'],
     description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
   { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
+    preview: ['<div class="t">JS</div>', '<div class="t">JS</div><div class="m">Alias of <u>JavaScript</u></div>'],
     description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
   { key: 'showUsage', type: 'boolean', title: 'Show how a page is used', default: true,
     description: 'Beside the Linked references heading, the references counted by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references step back, and so do their counts; click it again to bring them all forward. Nothing is written. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
+    preview: ['<div class="m">Linked references</div><div><i class="b"></i>Call with <span class="ql">Mateo</span> about it</div>', '<div class="m">Linked references</div><div><i class="b"></i>Call with <span class="here">Mateo</span> about it</div>'],
     description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
   { key: 'showShape', type: 'boolean', title: 'Show what a tag or property holds', default: true,
+    preview: ['<div class="t"># Doctor</div>', '<div class="t"># Doctor</div><div class="m"><span class="tg">#Person</span> › #Doctor · 2 fields&nbsp; ▸</div>'],
     description: 'Under a tag page’s title, a small box that starts closed to one line: where the tag sits (“#Entity › #Person › #Doctor”), how many fields it has and how many records it tags. Click the line to open the box: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
   { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
+    preview: ['<div class="t"># Task</div><div class="row"><span><i class="b"></i>Renew certificate</span><span class="tg">#Task</span></div><div class="row"><span><i class="b"></i>Send invites</span><span class="tg">#Task</span></div>', '<div class="t"># Task</div><div class="row"><span><i class="b"></i>Renew certificate</span></div><div class="row"><span><i class="b"></i>Send invites</span></div>'],
     description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
   { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,
+    preview: ['<div class="h">Oct 15th</div><div>&nbsp;</div><div>&nbsp;</div><div class="h">Oct 14th</div><div><i class="b"></i>Call Mateo</div>', '<div class="h">Oct 15th</div><div class="h">Oct 14th</div><div><i class="b"></i>Call Mateo</div>'],
     description: 'On the Journals list, Logseq gives every day at least a screen’s worth of height, so an empty day is a long gap. Each day is now as tall as its blocks. Applies right away.' },
   { key: 'dayCues', type: 'boolean', title: 'A day says what it holds', default: true,
     description: 'On the Journals list, after each day’s title, in small quiet words: a small circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”), the way a folded block says what it holds. A day with nothing open has a shorter cue; nothing steps back. A journal opened on its own shows none. Applies right away.' },
+];
+// Troubleshooting: how Logseq builds the page title area, so the always-shown rule can be aimed.
+async function copyHeaderDiagnostics() {
+  try {
+    const doc = host();
+    const titles = [...pageTitles(doc)];
+    if (!titles.length) return notify('Open a page first', 'warning');
+    const lines = [await provided.versionLine(), `page titles found: ${titles.length}`];
+    const header = pageHeaderOf(titles[0]);
+    lines.push(`header parent chain: ${[header.parentElement, header.parentElement?.parentElement].filter(Boolean).map(el => el.tagName.toLowerCase() + (el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '')).join(' < ')}`);
+    const win = doc.defaultView;
+    for (const el of [header, ...header.querySelectorAll('*')].slice(0, 150)) {
+      let depth = 0;
+      for (let node = el; node && node !== header; node = node.parentElement) depth++;
+      const cs = win.getComputedStyle(el);
+      const cls = el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '';
+      const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue.trim()).filter(Boolean).join(' ').slice(0, 24);
+      const shown = el.hasAttribute('data-refinement-always-shown') ? ' [always shown]' : '';
+      lines.push(`${'  '.repeat(depth)}<${el.tagName.toLowerCase()}${cls}> opacity=${cs.opacity} vis=${cs.visibility} display=${cs.display}${shown}${own ? ` "${own}"` : ''}`);
+    }
+    provided.showReport(lines.join('\n'));
+  } catch (error) { console.error(error); notify(`Could not read the page title area: ${error.message}`, 'error'); }
+}
+
+// What this part looks for on screen, for "Check what the plugin finds on this page". [what, selector, what stops]
+const screenRows = () => [
+  ['page title', PAGE_TITLE, 'title tags, #Page, alias and inherited lines'],
+  ['title row', '.is-page-title-row', 'title tags, title triangle'],
+  ['title actions', '.ls-page-title-actions > div', 'always-visible actions, #Page, Add tags'],
+  ['title tags', '.is-page-title-row .ls-block-right .block-tags', 'tags beside the title actions'],
+  ['page properties', '.ls-page-properties', 'inherited line'],
+  ['fold arrows', 'a.block-control', 'always-visible title triangle'],
 ];
 function provide(core) {
   core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
@@ -557,6 +585,8 @@ function start() {
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'watchDom', 'watchDomEarly', 'PAGE_TITLE', 'escapeHtml', 'attribute', 'isJournalDate', 'updateOwnTags']));
 }
 function ready() {
+  provided.addTroubleshooting?.({ checks: screenRows(),
+    tools: [{ key: 'copy-header-details', label: 'Copy page title area details', run: () => copyHeaderDiagnostics() }] });
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();
 }

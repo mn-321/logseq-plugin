@@ -1,24 +1,24 @@
 /* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
 (() => {
 /* Troubleshooting tools of DB Refinements. Nothing here changes what is on screen; each tool shows a
-   report in a box (and copies it) or measures. The palette entries are registered by main.js, which
-   calls these tools by name through window.refinementDiagnostics:
-   - checkWhatIsFound     how many of each Logseq part the plugin looks for are on screen, and its own marks;
+   report in a box (and copies it) or measures. This part holds only the tools that know nothing about
+   any feature:
+   - checkWhatIsFound     how many of each Logseq part the running features look for are on screen, and
+                          the plugin's own marks;
    - copyDiagnostics      how Logseq built one block (for aiming a styling rule);
-   - copyHeaderDiagnostics  how Logseq built the page title area;
-   - checkLinkLabels      what the database says links to this page, and how it is drawn;
-   - copyFoldLog          what happened to each result after a fold-all command (startFoldLog records it);
    - togglePerf, copyPerfReport  measuring of the plugin's own work (perf), with logPerfReport for the
      hidden debugPerfEvery setting;
    - copyWarnings         every warnOnce message of this session.
-   The tools read the core's state (the fold-all lists, the page title selector, the look-ups) through
-   window.refinementCore, which main.js publishes before it starts any part. */
+   A feature brings its own tools and screen rows (0.4.172): in its start() it calls
+   core.provided.addTroubleshooting({ tools: [{ key, label, run }], checks: [[what, selector, neededFor]] }),
+   and its tools show their report with showReport(text), whose first line is versionLine(). A feature that
+   is not running (Foundation only) adds nothing, so the box lists only what is running. */
 const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
 // Warnings keep the plain "Refinements: " prefix these tools always had.
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
-// From the core (window.refinementCore), taken when the part starts.
-let CHECKED_WITH, PAGE_TITLE, REFERENCE_AREAS, referencedNodeIds, incomingPropertyLinks, pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName;
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements: ' });
+// From the model part, taken when the part starts.
+let CHECKED_WITH;
 
 /* copyDiagnostics: describe how Logseq built one block, so styling can target the real structure.
    Text is shortened to a few words; nothing is changed or sent anywhere. */
@@ -30,54 +30,30 @@ async function versionLine() {
   const note = logseqVersion !== '?' && logseqVersion !== CHECKED_WITH ? ` (the plugin was last checked against Logseq ${CHECKED_WITH})` : '';
   return `DB Refinements ${logseq.baseInfo?.version || '?'} · Logseq ${logseqVersion}${note}`;
 }
-/* Troubleshooting after a Logseq update: how many of each thing the plugin looks for are on screen.
-   A zero is normal when the page has none of that thing; a zero for something you can see on the
-   page means Logseq renamed it, and the features listed beside it have stopped. Nothing is changed. */
-const healthChecks = () => [
-  ['the page area', '#main-content-container', 'everything'],
-  ['blocks', '.ls-block[blockid]', 'cues, reference rows, list properties, fold all'],
-  ['block text', '.block-title-wrap', 'cues after a block, block-link dot, reference rows'],
-  ['block content', '.block-content', 'tags, file icons, links inside references'],
-  ['block row', '.block-main-container .block-content-wrapper', '“Doctor:” and “via …” labels'],
-  ['bullets', '.bullet-container', 'PDF quote bullet, list properties'],
-  ['fold arrows', 'a.block-control', 'fold all, always-visible title triangle'],
-  ['fold state', '.ls-block[data-collapsed]', 'fold all'],
-  ['nesting lines', '.block-children', 'faint nesting lines'],
-  ['page links', 'a.page-ref', 'quiet links, dates, tag-page icons'],
-  ['page links with an id', 'a.page-ref[data-uuid]', 'block links, tag pages, journal dates'],
-  ['link wrappers', '.page-reference', 'quiet links'],
-  ['tags', 'a.tag', 'tag background'],
-  ['PDF highlight labels', '.prefix-link .hl-page', 'compact PDF citations'],
-  ['date values', '.ls-datetime, .timestamp', 'date boxes'],
-  ['page title', PAGE_TITLE, 'title tags, #Page, alias and inherited lines'],
-  ['title row', '.is-page-title-row', 'title tags, title triangle'],
-  ['title actions', '.ls-page-title-actions > div', 'always-visible actions, #Page, Add tags'],
-  ['title tags', '.is-page-title-row .ls-block-right .block-tags', 'tags beside the title actions'],
-  ['page properties', '.ls-page-properties', 'inherited line'],
-  ['block properties', '.positioned-properties', 'plainer properties'],
-  ['property capsules', '.bottom-property-pill', 'plainer properties'],
-  ['property names', '.property-key, .page-property-key', 'list property picker'],
-  ['reference areas', REFERENCE_AREAS, 'reference headings, “Doctor:” labels, the wash on the link here'],
-  ['parent paths', '.breadcrumb.block-parents', 'tidy parent paths, hidden property path'],
-  ['path parts', '.breadcrumb__label', 'faded brackets in paths'],
-  ['group headings', '.ls-foldable-header', 'date headings of grouped queries'],
-  ['queries', '.custom-query', 'fold all, list properties per query'],
-  ['embedded blocks', '.embed-block', 'line beside embedded content'],
-  ['right sidebar', '#right-sidebar', 'sidebar tidy'],
-  ['right sidebar buttons', '.cp__right-sidebar-settings', 'hidden Page graph and (Dev) buttons'],
-  ['left sidebar', '#left-sidebar', 'quiet items, plain page icons, page labels'],
-  ['left sidebar links', '#left-sidebar a.link-item .page-icon', 'icons only where they mean something'],
-  ['page properties list', '.ls-page-properties.ls-properties-area', 'grey field, one column of dots, Add property on hover'],
-  ['journal days', '#journals .journal-item', 'days as tall as what they hold'],
-  ['toolbar', '#head', 'quiet items'],
-];
+/* Troubleshooting after a Logseq update: how many of each thing the running features look for are on
+   screen. A zero is normal when the page has none of that thing; a zero for something you can see on the
+   page means Logseq renamed it, and the features listed beside it have stopped. Nothing is changed.
+   Each feature adds its own rows (addTroubleshooting); rows naming the same thing are shown as one. */
+const checks = new Map([['the page area', { selector: '#main-content-container', neededFor: ['everything'] }]]);
+const TOOLS = [];
+let toolsRegistered = false; // after this part's ready(); a tool added later is registered as it comes
+// Each tool keeps its command key, registered without a palette entry (a shortcut the owner bound to one still
+// works); the troubleshooting box lists them by name.
+const registerTool = tool => logseq.App.registerCommand('global', { key: tool.key, label: 'Troubleshooting: ' + tool.label }, tool.run);
+function addTroubleshooting({ tools = [], checks: rows = [] } = {}) {
+  for (const tool of tools) if (!TOOLS.some(known => known.key === tool.key)) { TOOLS.push(tool); if (toolsRegistered) registerTool(tool); }
+  for (const [what, selector, neededFor] of rows) {
+    const row = checks.get(what) || checks.set(what, { selector, neededFor: [] }).get(what);
+    for (const need of neededFor.split(', ')) if (!row.neededFor.includes(need)) row.neededFor.push(need);
+  }
+}
 async function checkWhatIsFound() {
   try {
     const doc = host();
     const count = selector => { try { return doc.querySelectorAll(selector).length; } catch (error) { return 'bad selector'; } };
     const lines = [await versionLine(), 'What the plugin finds on screen now. A zero is normal when this page has none of that thing.', '',
       'LOGSEQ\'S OWN PARTS  found · what · needed for'];
-    for (const [what, selector, neededFor] of healthChecks()) lines.push(`  ${String(count(selector)).padStart(4)} · ${what} · ${neededFor}`);
+    for (const [what, { selector, neededFor }] of checks) lines.push(`  ${String(count(selector)).padStart(4)} · ${what} · ${neededFor.join(', ')}`);
     lines.push('', 'THE PLUGIN\'S OWN MARKS  found · mark');
     const marks = new Map();
     for (const el of doc.querySelectorAll('*')) {
@@ -89,8 +65,7 @@ async function checkWhatIsFound() {
     showDiagnostics(lines.join('\n'));
   } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
 }
-const innerPageUnderline = '.ls-block .block-content a.page-ref[data-uuid] a.page-ref[data-uuid]:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"])';
-function describeElement(el, depth, lines, nodeIds) {
+function describeElement(el, depth, lines, blockIds) {
   if (depth > 14 || lines.length > 150) return;
   const cs = el.ownerDocument.defaultView.getComputedStyle(el);
   const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
@@ -98,12 +73,11 @@ function describeElement(el, depth, lines, nodeIds) {
     .map(a => `${a}=${String(el.getAttribute(a)).slice(0, 36)}`);
   const uuid = el.getAttribute('data-uuid');
   const notes = [`deco=${cs.textDecorationLine}`];
-  if (uuid) notes.push(nodeIds.has(uuid) ? 'block' : 'page');
-  try { if (el.matches(innerPageUnderline)) notes.push('underline-rule'); } catch (error) { /* ignore */ }
+  if (uuid) notes.push(blockIds.has(uuid) ? 'block' : 'page');
   const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue.trim()).filter(Boolean).join(' ').slice(0, 24);
   lines.push(`${'  '.repeat(depth)}<${el.tagName.toLowerCase()}${cls}${attrs.length ? ' ' + attrs.join(' ') : ''}> ${notes.join(' ')}${own ? ` "${own}"` : ''}`);
   if (el.tagName.toLowerCase() === 'svg') return;
-  for (const child of el.children) describeElement(child, depth + 1, lines, nodeIds);
+  for (const child of el.children) describeElement(child, depth + 1, lines, blockIds);
 }
 function showDiagnostics(text) {
   modal(null, (box, finish, doc) => {
@@ -132,123 +106,18 @@ async function copyDiagnostics(event) {
     const row = doc.querySelector(`.ls-block[blockid="${block.uuid}"]`);
     if (!row) return notify('That block is not visible on screen', 'warning');
     const content = [...row.querySelectorAll('.block-content')].find(el => el.closest('.ls-block[blockid]') === row) || row;
-    const nodeIds = await referencedNodeIds();
+    // Which links inside point at a block rather than a page: asked of Logseq for each one (at most 40).
+    const blockIds = new Set();
+    for (const uuid of [...new Set([...content.querySelectorAll('[data-uuid]')].map(el => el.getAttribute('data-uuid')))].slice(0, 40)) {
+      try { const entity = await logseq.Editor.getBlock(uuid); if (entity && !entity.name && !entity.originalName) blockIds.add(uuid); } catch (error) { /* counted as a page */ }
+    }
     const lines = [await versionLine(),
       `row parent chain: ${[content.parentElement, content.parentElement?.parentElement].filter(Boolean).map(el => el.tagName.toLowerCase() + (typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : '')).join(' < ')}`];
-    describeElement(content, 0, lines, nodeIds);
+    describeElement(content, 0, lines, blockIds);
     showDiagnostics(lines.join('\n'));
   } catch (error) { console.error(error); notify(`Could not read the block: ${error.message}`, 'error'); }
 }
 
-/* Troubleshooting for the "via Diagnosis" labels: what the database says links to this page,
-   and how Logseq draws those records on screen. Nothing is changed. */
-async function checkLinkLabels() {
-  try {
-    const page = await logseq.Editor.getCurrentPage?.();
-    if (!page?.id) return notify('Open the page whose tabbed list you want to check', 'warning');
-    const lines = [await versionLine(),
-      `page id=${page.id} uuid=${page.uuid}`];
-    const run = async (label, query) => {
-      try {
-        const rows = await logseq.DB.datascriptQuery(query);
-        lines.push(`${label}: ${Array.isArray(rows) ? rows.length + ' rows' : typeof rows}`);
-        for (const row of (rows || []).slice(0, 12)) lines.push('  ' + JSON.stringify(row).slice(0, 160));
-        return rows || [];
-      } catch (error) { lines.push(`${label}: ERROR ${error?.message || error}`); return []; }
-    };
-    const pointing = await run('A. anything pointing at this page', `[:find ?uuid ?attr
-      :where [(identity ${page.id}) ?page] [?b ?attr ?page] [?b :block/uuid ?uuid]]`);
-    await run('B. property entities (count)', `[:find (count ?p)
-      :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property]]`);
-    await run('C. label query without filter', `[:find ?uuid ?name ?attr
-      :where [(identity ${page.id}) ?page]
-      [?prop :block/tags ?class] [?class :db/ident :logseq.class/Property]
-      [?prop :db/ident ?attr] [?b ?attr ?page] [?prop :block/title ?name] [?b :block/uuid ?uuid]]`);
-    const found = await incomingPropertyLinks();
-    lines.push(`D. labels the plugin would show: ${found.size}`);
-    for (const [uuid, names] of found) lines.push(`  ${uuid} → via ${[...names].join(', ')}`);
-    const doc = host();
-    const uuids = new Set([...pointing.map(row => String(row[0])), ...found.keys()]);
-    lines.push('E. on screen:');
-    for (const uuid of [...uuids].slice(0, 8)) {
-      const hits = doc.querySelectorAll(`[blockid="${uuid}"], [data-uuid="${uuid}"], [data-ref="${uuid}"], [data-id="${uuid}"]`);
-      lines.push(`  ${uuid}: ${hits.length} element(s)`);
-      for (const el of [...hits].slice(0, 4)) {
-        const chain = [];
-        for (let node = el, i = 0; node && node !== doc.body && i < 6; node = node.parentElement, i++) {
-          const cls = typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
-          chain.push(node.tagName.toLowerCase() + cls);
-        }
-        const inRefs = Boolean(el.closest(REFERENCE_AREAS));
-        lines.push(`    ${chain.join(' < ')}${inRefs ? '  [in linked references]' : ''}`);
-      }
-    }
-    showDiagnostics(lines.join('\n'));
-  } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
-}
-
-// Troubleshooting: how Logseq builds the page title area, so the always-shown rule can be aimed.
-async function copyHeaderDiagnostics() {
-  try {
-    const doc = host();
-    const titles = [...pageTitles(doc)];
-    if (!titles.length) return notify('Open a page first', 'warning');
-    const lines = [await versionLine(), `page titles found: ${titles.length}`];
-    const header = pageHeaderOf(titles[0]);
-    lines.push(`header parent chain: ${[header.parentElement, header.parentElement?.parentElement].filter(Boolean).map(el => el.tagName.toLowerCase() + (el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '')).join(' < ')}`);
-    const win = doc.defaultView;
-    for (const el of [header, ...header.querySelectorAll('*')].slice(0, 150)) {
-      let depth = 0;
-      for (let node = el; node && node !== header; node = node.parentElement) depth++;
-      const cs = win.getComputedStyle(el);
-      const cls = el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '';
-      const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue.trim()).filter(Boolean).join(' ').slice(0, 24);
-      const shown = el.hasAttribute('data-refinement-always-shown') ? ' [always shown]' : '';
-      lines.push(`${'  '.repeat(depth)}<${el.tagName.toLowerCase()}${cls}> opacity=${cs.opacity} vis=${cs.visibility} display=${cs.display}${shown}${own ? ` "${own}"` : ''}`);
-    }
-    showDiagnostics(lines.join('\n'));
-  } catch (error) { console.error(error); notify(`Could not read the page title area: ${error.message}`, 'error'); }
-}
-
-const resultRow = row => [...listFold.wanted.keys()].some(key => listRows(row.ownerDocument, key).includes(row));
-function startFoldLog() {
-  if (foldLog.observer) return;
-  const doc = host(), win = doc.defaultView;
-  foldLog.start = foldLog.start || Date.now();
-  foldLog.observer = new win.MutationObserver(records => {
-    let added = 0, removed = 0;
-    for (const record of records) {
-      if (record.type === 'attributes') {
-        const row = record.target;
-        if (!row.matches?.('.ls-block[blockid]') || !row.parentElement?.closest('.custom-query, .ls-view-body')) continue;
-        const pressed = Date.now() - (foldLog.pressedAt.get(row) || 0) < 1500;
-        logFold(`${rowName(row)} ${record.oldValue} -> ${row.getAttribute('data-collapsed')}${pressed ? ' (after plugin press)' : ''}${listFold.manual.has(row) ? ' (yours)' : ''}${resultRow(row) ? '' : ' (not in a fold-all list)'}`);
-      } else {
-        const count = nodes => [...nodes].filter(n => n.nodeType === 1 && n.matches('.ls-block[blockid], :has(.ls-block[blockid])') && n.closest?.('.custom-query, .ls-view-body')).length;
-        added += count(record.addedNodes);
-        removed += [...record.removedNodes].filter(n => n.nodeType === 1 && n.matches('.ls-block[blockid], :has(.ls-block[blockid])')).length;
-      }
-    }
-    if (added || removed) logFold(`results drawn: ${added} added, ${removed} removed`);
-  });
-  foldLog.observer.observe(doc.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-collapsed'] });
-  if (foldLog.listening) return;
-  foldLog.listening = true;
-  listen(win, ['scroll'], () => { if (Date.now() - foldLog.scrollAt > 1000) { foldLog.scrollAt = Date.now(); logFold('scrolling'); } });
-  listen(doc, ['focusin'], event => { if (event.target.matches?.('textarea')) logFold('started editing a block'); });
-  listen(doc, ['focusout'], event => { if (event.target.matches?.('textarea')) logFold('stopped editing a block'); });
-  onUnload(() => { foldLog.observer?.disconnect(); foldLog.observer = null; });
-}
-async function copyFoldLog() {
-  if (!foldLog.start) return notify('Run "Unfold all results" first, then wait until a result folds back, then run this', 'warning');
-  const doc = host();
-  const now = [...listFold.wanted].map(([key, { collapse }]) => {
-    const rows = listRows(doc, key);
-    const wrong = rows.filter(row => (row.getAttribute('data-collapsed') === 'true') !== collapse);
-    return `active: ${collapse ? 'fold' : 'unfold'} ${key.slice(0, 14)}… · ${rows.length} results drawn · ${wrong.length} not as chosen: ${wrong.slice(0, 5).map(row => `${rowName(row)}${listFold.manual.has(row) ? ' (yours)' : ''} misses=${listFold.pressed.get(row)?.misses || 0}`).join(', ')}`;
-  });
-  showDiagnostics([await versionLine(), ...(now.length ? now : ['active: none (cleared by a page change, or never set)']), '', ...foldLog.lines].join('\n'));
-}
 /* Measuring for troubleshooting; it changes nothing on screen. Off unless the hidden setting
    debugPerf is true ("Turn measuring on or off"). While off, every perf.* call in the other files
    returns at once (shared.perf forwards to this object only while it measures). */
@@ -417,17 +286,15 @@ async function copyWarnings() {
 }
 
 /* One palette entry, "Refinements: troubleshooting", opens this box; each tool keeps its command key
-   (registered by main.js without a palette entry), so a shortcut bound to one still works. */
-const TOOLS = [
-  ['check-link-labels', 'Check linked-record labels', () => checkLinkLabels()],
-  ['copy-header-details', 'Copy page title area details', () => copyHeaderDiagnostics()],
+   (registered without a palette entry), so a shortcut bound to one still works. The features' own tools
+   (addTroubleshooting) follow these. */
+TOOLS.push(...[
   ['check-what-is-found', 'Check what the plugin finds on this page', () => checkWhatIsFound()],
-  ['copy-fold-log', 'Copy fold log', () => copyFoldLog()],
   ['toggle-perf', 'Turn measuring on or off', () => togglePerf()],
   ['copy-perf-report', 'Copy performance report', () => copyPerfReport()],
   ['copy-styling-details', 'Copy styling details of this block', event => copyDiagnostics(event)],
   ['copy-warnings', 'Copy warnings', () => copyWarnings()],
-].map(([key, label, run]) => ({ key, label, run }));
+].map(([key, label, run]) => ({ key, label, run })));
 function openTroubleshooting() {
   return modal(null, (box, finish, doc) => {
     const heading = doc.createElement('label');
@@ -446,19 +313,18 @@ function openTroubleshooting() {
   }, 'min(460px, 92vw)');
 }
 
+function provide(core) {
+  core.provide({ addTroubleshooting, showReport: showDiagnostics, versionLine });
+}
 function start() {
-  const core = window.refinementCore;
-  ({ CHECKED_WITH, PAGE_TITLE } = core.provided); // from the model part
-  ({ pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName, referencedNodeIds, incomingPropertyLinks, REFERENCE_AREAS } = core.provided); // from the pages, properties, links and styles parts
-  core.onFoldAll(startFoldLog);
+  ({ CHECKED_WITH } = window.refinementCore.provided); // from the model part
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
 }
-window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, copyHeaderDiagnostics, checkLinkLabels, copyFoldLog, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS };
+window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS };
 function ready() {
-  // Each tool keeps its command key, registered without a palette entry (a shortcut the owner bound to one
-  // still works); the troubleshooting box lists them by name.
-  for (const tool of TOOLS) logseq.App.registerCommand('global', { key: tool.key, label: 'Troubleshooting: ' + tool.label }, tool.run);
+  for (const tool of TOOLS) registerTool(tool);
+  toolsRegistered = true;
 }
 // One palette entry opens the box that lists the tools.
 const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting', run: () => openTroubleshooting() }];
@@ -467,9 +333,11 @@ const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting
    built on it. The core reads the setting; the parts that stay mark themselves `foundation: true`. */
 const settingsSchema = [
   { key: 'troubleshootHeading', type: 'heading', group: 'tools', rank: 4, title: 'Troubleshooting', default: null,
+    legend: 'Run only the foundation, to measure it alone',
+    zone: '<div><span class="m">Foundation only</span> · nothing drawn, measured alone</div>',
     description: 'For finding out what the plugin does and what it costs. The tools themselves are in the command palette under “Refinements: troubleshooting”.' },
   { key: 'foundationOnly', type: 'boolean', title: 'Foundation only', default: false,
     description: 'Runs only the plugin’s foundation: the part that watches Logseq and the part that knows what pages, blocks, tags and days are. Nothing is drawn and no shortcut works; the settings window and the troubleshooting tools stay. For measuring the foundation alone (turn measuring on in the troubleshooting tools). Applies after you reload the plugin.' },
 ];
-(window.refinementParts ||= []).push({ name: 'diagnostics', foundation: true, schema: settingsSchema, start, ready, commands, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'diagnostics', foundation: true, schema: settingsSchema, provide, start, ready, commands, stop: runUnloadTasks });
 })();

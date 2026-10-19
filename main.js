@@ -232,7 +232,6 @@ function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
     UUID, isEntityId, idsIn, uuidsIn, dsQuery,
-    onFoldAll: fn => provided.onFoldAll?.(fn), // none when the part that folds is not running (Foundation only)
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
     onPageChange: fn => hooks.page.push(fn), onDatabaseChange: fn => hooks.database.push(fn), onSettingsChange: fn => hooks.settings.push(fn),

@@ -29,6 +29,8 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'proposalsHeading', type: 'heading', group: 'writing', rank: 2, title: 'Proposals in the pills', default: null,
+    legend: 'Values guessed from your words, pencilled in; Tab takes one',
+    zone: '<div><span class="m">attendees:</span> <span class="pencil">Priya Nair</span> <span class="m"><span class="cap">tab</span> takes · <span class="cap">⇧tab</span> passes</span></div> <div><span class="m">project:</span> <u>Atlas</u> <span class="m">undo <span class="cap">⌘z</span></span></div>',
     description: 'While you write a record, what the graph can already tell (the people named in your words, a day such as “next fri”, the parent’s project, the journal day) is pencilled in, italic, in the record’s own pills. Tab takes the one with the hint, Shift+Tab passes it, a click takes one. Nothing is written until then; a small undo sits beside a value just written.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },

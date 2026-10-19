@@ -1594,20 +1594,29 @@ const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
 // Links, references and the pickers (read by this part, the editor, the chrome part and the inline properties part). Declared here since 0.4.163; every part reads them through the core's setting().
 const settingsSchema = [
   { key: 'linksHeading', type: 'heading', group: 'reading', rank: 4, title: 'Links and references', default: null,
+    legend: 'Links: the mark before a link, references, the pickers',
+    zone: '<div><i class="b"></i>Ask <u>Mateo Ruiz</u> about <span class="m">•</span> the budget block</div><div class="m">Linked references &nbsp; attendees · 3 &nbsp; in text · 4</div>',
     description: 'Changes here apply right away.' },
   { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
+    preview: ['<div><i class="b"></i>Ask <span class="lk">Mateo Ruiz</span> about <span class="lk">Echo</span></div>', '<div><i class="b"></i>Ask <span class="ql">Mateo Ruiz</span> about <span class="ql">Echo</span></div>'],
     description: 'Page links in normal text colour with a faint underline instead of bright blue; page names heading Linked references read as headings; links inside highlights stay readable.' },
   { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
+    preview: ['<div class="m">Linked references</div><div class="h">Echo</div><div><i class="b"></i>Kickoff call</div>', '<div class="m">Linked references</div><div class="h">Echo <span class="m">3</span></div><div><i class="b"></i>Kickoff call</div>'],
     description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
   { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
+    preview: ['<div><i class="b"></i><span class="ql">the budget block</span></div><div><i class="b"></i><span class="ql">report</span></div>', '<div><i class="b"></i><span class="m">•</span> <span class="plain">the budget block</span></div><div><i class="b"></i><span class="m">▤</span> <span class="ql">report</span> <span class="m">PDF</span></div>'],
     description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures.' },
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
+    preview: ['<div class="m">Linked references</div><div><i class="b"></i><span class="ql">Mateo Ruiz</span></div>', '<div class="m">Linked references</div><div><i class="b"></i><span class="pn">Doctor:</span> <span class="ql">Mateo Ruiz</span></div>'],
     description: 'In Linked references, puts the property name before a value (“Doctor: …”). Under a page’s tag tabs, the value that points to the page on screen gets the same faint grey “points here” mark as in Linked references, and a folded record shows that property beside its title (“Diagnosis: page”).' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
+    preview: ['<div class="m">[[Project]] / [[Echo]] / Kic…</div><div><i class="b"></i>Found here</div>', '<div class="m">Project / Echo / Kickoff notes</div><div><i class="b"></i>Found here</div>'],
     description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade; a labelled link [words]([[page]]) fades all but its words.' },
   { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
+    preview: ['<div><i class="b"></i>[[</div><div class="menu">Today<br>Tomorrow</div>', '<div><i class="b"></i>[[</div><div class="menu"><span class="m">type to find a page</span></div>'],
     description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
   { key: 'hyperLinkTap', type: 'boolean', title: 'Tap the Hyper key to start a [[ link', default: true,
+    preview: ['<div><i class="b"></i>Call </div><div class="m">Hyper tapped: nothing</div>', '<div><i class="b"></i>Call [[<span class="m">▏</span>]]</div><div class="m">Hyper tapped: link started</div>'],
     description: 'If Caps Lock is your Hyper key (Cmd+Ctrl+Opt+Shift, set up with Karabiner or the Hyperkey app), tapping it on its own while you type does what typing [[ does: the brackets appear and the page menu opens. With words selected, they become the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored here, so the menu stays open.' },
   { key: 'pickerMarks', type: 'boolean', title: 'The [[ menu and the # picker say what each row is', default: true,
     description: 'In the list that opens when you type #, a # in the tag colour before each tag, what the tag sits under and the fields it brings at the right (“under Occurrence · + date”), and the New tag row pencilled in, italic. In the list that opens when you type [[, each row carries the mark its link would have: a # in the tag colour before a tag, a small grey box before a journal day, the plain page rectangle or the page’s own icon before a page, its tags as grey class names at the right rather than “#Person” in the words; the relative days (Today, Last Wednesday …) step back to the quiet colour, and the New page row pencilled in, italic in the quiet colour with no box, since that means “not yet there”. Matched by what Logseq draws and by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
@@ -1624,13 +1633,75 @@ const settingsSchema = [
   { key: 'pickerEscapeClears', type: 'boolean', title: 'Escape takes [[ and # out', default: true,
     description: 'In the [[ menu and the # tag picker, Escape closes the list and takes the [[ or # and the letters typed after it out of the text, so a key that meant “never mind” never makes a page or a tag when the block is saved; Cmd+Z brings the letters back. A new page or tag is made only through the list’s own New row. Off, Escape leaves the text as Logseq does. Applies right away.' },
   { key: 'dateLinkFormats', type: 'boolean', title: 'Year-first dates in [[ ]] link to journals', default: true,
+    preview: ['<div><i class="b"></i>[[2026 10 14</div><div class="menu"><span class="m">New page “2026 10 14”</span></div>', '<div><i class="b"></i>[[2026 10 14</div><div class="menu">Oct 14th, 2026</div>'],
     description: 'Inside [[ ]], a date typed year first (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014, month and day with two digits) turns into that day\'s journal name, so the menu offers the journal page.' },
   { key: 'pdfCitations', type: 'boolean', title: 'Compact PDF citations', default: true,
+    preview: ['<div><i class="b"></i><span class="hl">Talking felt faster</span></div>', '<div><span class="m">❝ p. 3 · Report</span> Talking felt faster</div>'],
     description: 'PDF highlights show as normal text with a quote-mark bullet and a small page and source label at the start; click the line to open the PDF there.' },
   { key: 'innerReferenceLinks', type: 'boolean', title: 'Links inside a reference open their own page', default: true,
     description: 'A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar). Off: clicking anywhere on the reference opens the block, as in Logseq.' },
   { key: 'pageLabels', type: 'boolean', title: 'Page links without trailing tags', default: true,
+    preview: ['<div><i class="b"></i>Call <span class="ql">Mateo Ruiz #doctor</span></div>', '<div><i class="b"></i>Call <span class="ql">Mateo Ruiz</span></div>'],
     description: 'A page link whose shown name ends in a tag (“Name #tag”) shows the page’s own title alone.' },
+];
+/* Troubleshooting for the "via Diagnosis" labels: what the database says links to this page,
+   and how Logseq draws those records on screen. Nothing is changed. */
+async function checkLinkLabels() {
+  try {
+    const page = await logseq.Editor.getCurrentPage?.();
+    if (!page?.id) return notify('Open the page whose tabbed list you want to check', 'warning');
+    const lines = [await provided.versionLine(),
+      `page id=${page.id} uuid=${page.uuid}`];
+    const run = async (label, query) => {
+      try {
+        const rows = await logseq.DB.datascriptQuery(query);
+        lines.push(`${label}: ${Array.isArray(rows) ? rows.length + ' rows' : typeof rows}`);
+        for (const row of (rows || []).slice(0, 12)) lines.push('  ' + JSON.stringify(row).slice(0, 160));
+        return rows || [];
+      } catch (error) { lines.push(`${label}: ERROR ${error?.message || error}`); return []; }
+    };
+    const pointing = await run('A. anything pointing at this page', `[:find ?uuid ?attr
+      :where [(identity ${page.id}) ?page] [?b ?attr ?page] [?b :block/uuid ?uuid]]`);
+    await run('B. property entities (count)', `[:find (count ?p)
+      :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property]]`);
+    await run('C. label query without filter', `[:find ?uuid ?name ?attr
+      :where [(identity ${page.id}) ?page]
+      [?prop :block/tags ?class] [?class :db/ident :logseq.class/Property]
+      [?prop :db/ident ?attr] [?b ?attr ?page] [?prop :block/title ?name] [?b :block/uuid ?uuid]]`);
+    const found = await incomingPropertyLinks();
+    lines.push(`D. labels the plugin would show: ${found.size}`);
+    for (const [uuid, names] of found) lines.push(`  ${uuid} → via ${[...names].join(', ')}`);
+    const doc = host();
+    const uuids = new Set([...pointing.map(row => String(row[0])), ...found.keys()]);
+    lines.push('E. on screen:');
+    for (const uuid of [...uuids].slice(0, 8)) {
+      const hits = doc.querySelectorAll(`[blockid="${uuid}"], [data-uuid="${uuid}"], [data-ref="${uuid}"], [data-id="${uuid}"]`);
+      lines.push(`  ${uuid}: ${hits.length} element(s)`);
+      for (const el of [...hits].slice(0, 4)) {
+        const chain = [];
+        for (let node = el, i = 0; node && node !== doc.body && i < 6; node = node.parentElement, i++) {
+          const cls = typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+          chain.push(node.tagName.toLowerCase() + cls);
+        }
+        const inRefs = Boolean(el.closest(REFERENCE_AREAS));
+        lines.push(`    ${chain.join(' < ')}${inRefs ? '  [in linked references]' : ''}`);
+      }
+    }
+    provided.showReport(lines.join('\n'));
+  } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
+}
+
+// What this part looks for on screen, for "Check what the plugin finds on this page" (0.4.172: here, not in the
+// troubleshooting part). [what, selector, what stops without it]
+const screenRows = () => [
+  ['blocks', '.ls-block[blockid]', 'cues, reference rows'],
+  ['block text', '.block-title-wrap', 'cues after a block, block-link dot, reference rows'],
+  ['block content', '.block-content', 'links inside references'],
+  ['block row', '.block-main-container .block-content-wrapper', '“Doctor:” and “via …” labels'],
+  ['page links', 'a.page-ref', 'dates, tag-page icons'],
+  ['page links with an id', 'a.page-ref[data-uuid]', 'block links, tag pages, journal dates'],
+  ['PDF highlight labels', '.prefix-link .hl-page', 'compact PDF citations'],
+  ['reference areas', REFERENCE_AREAS, 'reference headings, “Doctor:” labels, the wash on the link here'],
 ];
 function provide(core) {
   core.provide({ scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
@@ -1663,6 +1734,8 @@ function start() {
     take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'trailingTags', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'graphWide', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'PAGE_TITLE', 'REFERENCE_AREAS', 'referenceAreas', 'wash', 'applyTagPageStyle', 'blockLink', 'blockLinkPlain', 'viaLook', 'escapeHtml']));
 }
 function ready() {
+  provided.addTroubleshooting?.({ checks: screenRows(),
+    tools: [{ key: 'check-link-labels', label: 'Check linked-record labels', run: () => checkLinkLabels() }] });
   startDateLinks();
   startPdfCitations();
   startNestedReferenceLinks();

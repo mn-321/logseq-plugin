@@ -86,6 +86,11 @@ function onClick(event) {
 
 function start() {
   takeOverFromEarlierCopy();
+  // What this part looks for on screen, for "Check what the plugin finds on this page".
+  window.refinementCore.provided.addTroubleshooting?.({ checks: [
+    ['right sidebar', '#right-sidebar', 'sidebar tidy'],
+    ['right sidebar buttons', '.cp__right-sidebar-settings', 'hidden Page graph and (Dev) buttons'],
+  ] });
   applyStyles();
   const win = host().defaultView;
   win.addEventListener('click', onClick, true);
