@@ -1586,15 +1586,17 @@ function updateReferenceHere(doc) {
   for (const el of below) if (!referenceHere.below.has(el)) { el.setAttribute('data-refinement-below', ''); referenceHere.below.add(el); }
 }
 
-// The refresh timer and version are this part's own; main() cancels them where it always did.
+// The refresh timer and version are this part's own; the database round cancels a waiting refresh (before).
 const cancelRefresh = () => clearTimeout(refreshTimer);
 const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
 function provide(core) {
   core.provide({ startDateLinks, startPdfCitations, startNestedReferenceLinks, scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
     isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
-  core.onDbRound('refreshCues', refreshCues);
-  core.onDbRound('loadPageLabelTitles', loadPageLabelTitles);
-  core.onDbRound('refreshJournalDates', refreshJournalDates);
+  // The page's cues and details: after every round, a refresh still waiting from a page change cancelled first.
+  core.onDbRound('refreshCues', refreshCues, { before: cancelRefresh });
+  // Whole-graph lists: when they fall due.
+  core.onDbRound('loadPageLabelTitles', loadPageLabelTitles, { scope: 'graph' });
+  core.onDbRound('refreshJournalDates', refreshJournalDates, { scope: 'graph' });
 }
 function start() {
   const core = window.refinementCore;
