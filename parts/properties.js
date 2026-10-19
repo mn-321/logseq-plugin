@@ -858,6 +858,24 @@ function markValueLeads(doc) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onPageChange(function propertiesPageChange() {
+    stopFoldState(); // a fold-all choice lasts while its page is open
+    // What is known about the page just left must not be applied to the one arriving: its list
+    // choice would hide parts of the new page until the new page's own details have loaded.
+    listProps.pageBlocks = new Set();
+    loadHiddenProps(); // another graph has other blocks
+  });
+  core.onDatabaseChange(function propertiesDatabaseChange(blocks) {
+    if (foldLog.start) logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
+  });
+  core.onSettingsChange(function propertiesSettingsChange(now, before) {
+    try { updateListProps(host()); } catch (error) { /* list choices apply on the next change */ }
+    if (now?.hiddenPropsChevron !== before?.hiddenPropsChevron) {
+      sendStyle('personal-db-hidden-props', setting('hiddenPropsChevron') ? hiddenPropsCss : '');
+      try { updateHiddenProps(host()); } catch (error) { /* shown on the next change */ }
+      loadHiddenProps();
+    }
+  });
   ({ setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas, pdfCitations, dateLinks, attribute } =
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'REFERENCE_AREAS', 'referenceAreas', 'pdfCitations', 'dateLinks', 'attribute']));
   watchDomEarly(function valueLeadsEarly(doc) { markValueLeads(doc); });

@@ -123,8 +123,6 @@ const tokensCss = `:root, body {
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
 const orNoRules = style => style.trim() ? style : '/* no rules */';
-// Settings whose cues are drawn per record, from the database, when the page refreshes.
-const CUE_SETTINGS = ['childTypeCues', 'referenceIcons', 'linkLabels'];
 const titleOf = block => (block?.title || block?.content || '').trim();
 // Drops a leading bullet, every trailing tag (#work, #[[Long tag]]), and the brackets around links.
 const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
@@ -378,16 +376,22 @@ function runDbWork() {
    core.onDbRound(name, fn, { scope, before }): scope 'page' (the default) runs after every round, 'graph'
    only when the whole-graph lists fall due; before() is run at the start of every round to cancel a
    look-up of the job's own still waiting. runDbWork knows no job by name (one database round, GUIDE.md). */
+/* The hooks the parts register with the core (onPageChange, onDatabaseChange, onSettingsChange): the core
+   listens to Logseq once, does its own housekeeping first (its caches), then runs each part's function
+   in the order registered, one failing not stopping the next. */
+const hooks = { page: [], database: [], settings: [] };
+const runHooks = (list, what, ...args) => { for (const fn of list) { try { fn(...args); } catch (error) { warnOnce(`a part's ${what} step failed (${fn.name || 'unnamed'})`, error); } } };
 const provided = {}; // what the area parts give the core and each other, by name
 const dbJobs = [];   // database-round jobs, in the order the parts registered them (core.onDbRound)
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, tokensCss, watchDom, watchDomEarly, addsElements, ensureDomWatch,
-    RELOAD_SETTINGS, CUE_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
+    RELOAD_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
     CHECKED_WITH, PAGE_TITLE,
     onFoldAll: fn => provided.onFoldAll(fn),
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
+    onPageChange: fn => hooks.page.push(fn), onDatabaseChange: fn => hooks.database.push(fn), onSettingsChange: fn => hooks.settings.push(fn),
   };
 }
 // The troubleshooting tools live in parts/diagnostics.js; the palette entries below call them by name.
@@ -433,27 +437,17 @@ function main() {
   provided.scheduleRefresh();
   onUnload(provided.stopRefresh);
 
-  // Every hook returns an "off" function; each is called when the plugin unloads.
-  // A fold-all choice lasts while its page is open.
+  // Every hook returns an "off" function; each is called when the plugin unloads. The core listens
+  // once and runs what the parts registered (hooks) after its own housekeeping.
   onUnload(logseq.App.onRouteChanged(() => {
-    provided.stopFoldState();
-    // What is known about the page just left must not be applied to the one arriving: its list
-    // choice would hide parts of the new page until the new page's own details have loaded.
-    provided.pdfCitations.pageUuid = null;
-    provided.listProps.pageBlocks = new Set();
-    provided.cueMarks.incoming = new Map();
     if (graphCache.changed) { graphCache.clear(); graphCache.changed = false; } // a new page reads changed whole-graph lists fresh
-    provided.referenceHere.names.clear(); // and looks up the page's aliases again
-    // At once (0.4.150): Logseq is busy loading the new page for about half a second and the look-ups wait in
-    // line behind it anyway; a pause before asking only added to that.
-    provided.scheduleRefresh(0); provided.schedulePageKind(0);
-    provided.loadHiddenProps(); // another graph has other blocks
+    runHooks(hooks.page, 'page change');
   }));
-  // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
+  // Edits fire this constantly while typing, so the database round waits for a pause before re-querying.
   onUnload(logseq.DB.onChanged(({ blocks } = {}) => {
     perf.add('DB.onChanged (calls only)', 0);
     graphCache.changed = true;
-    if (provided.foldLog.start) provided.logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
+    runHooks(hooks.database, 'database change', blocks);
     scheduleDbWork();
   }));
   onUnload(logseq.App.onCurrentGraphChanged(() => graphCache.clear())); // another graph has other lists
@@ -461,19 +455,7 @@ function main() {
   provided.startEditor(); // the editor keys and the last text selection (parts/editor.js)
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (perf.ownSettingsOnly(now, before)) return;
-    try { provided.updateListProps(host()); } catch (error) { /* list choices apply on the next change */ }
-    provided.applyHierarchy();
-    sendStyle('personal-db-refinements', provided.mainCss());
-    provided.applyTagPageStyle();
-    if (CUE_SETTINGS.some(key => now?.[key] !== before?.[key])) provided.scheduleRefresh(0);
-    if (now?.pdfCitations !== before?.pdfCitations) provided.updatePdfCitations();
-    try { provided.updatePageKind(host()); provided.updateOwnTags(host()); } catch (error) { /* shown on the next change */ }
-    if (now?.hiddenPropsChevron !== before?.hiddenPropsChevron) {
-      sendStyle('personal-db-hidden-props', setting('hiddenPropsChevron') ? provided.hiddenPropsCss : '');
-      try { provided.updateHiddenProps(host()); } catch (error) { /* shown on the next change */ }
-      provided.loadHiddenProps();
-    }
-    provided.updateDateLinks();
+    runHooks(hooks.settings, 'settings change', now, before);
     // Logseq rewrites every setting when the plugin starts, so a setting with no earlier value is a
     // default being filled in (first install, or a new setting after an update), not a change.
     if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');

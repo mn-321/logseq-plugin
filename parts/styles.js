@@ -723,6 +723,11 @@ function provide(core) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onSettingsChange(function stylesSettingsChange() {
+    applyHierarchy();
+    sendStyle('personal-db-refinements', mainCss());
+    applyTagPageStyle();
+  });
   ({ setting, sendStyle, UUID } = take(core, ['setting', 'sendStyle', 'UUID']));
 }
 (window.refinementParts ||= []).push({ name: 'styles', schema: [], provide, start, stop: runUnloadTasks });
