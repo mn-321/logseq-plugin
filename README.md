@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.151.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.152.
 
 Besides the look of pages, it holds:
 
@@ -172,7 +172,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Property that holds where it stands | `expectationsStateProperty` | juncture | Expectations |
 | Expectations button in the toolbar | `expectationsToolbarButton` | on | Expectations |
 | Open Expectations | `expectationsShortcut` | mod+alt+e | Expectations |
-| Use the tag tree | `tagTreeEnabled` | off | Tag tree |
+| Use the tag tree | `tagTreeEnabled` | on | Tag tree |
 | Root tags | `tagTreeRoots` | Occurrence, Entity, Concept | Tag tree |
 | The button and shortcut open the tag tree as | `tagTreeOpensAs` | page | Tag tree |
 | Tag tree button in the toolbar | `tagTreeToolbarButton` | on | Tag tree |
