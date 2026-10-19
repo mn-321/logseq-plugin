@@ -12,7 +12,8 @@
    a count with the nearest date, which opens into the list (open to begin with, as asked: "the details …
    should by default be unfolded"). Only your own Node properties count; tags, aliases and mentions in
    sentences stay in Linked references. Drawn for the page in the main view only (sidebar and records inside
-   a page are open questions, see the "Two-Way Links" sketch). Nothing is written. */
+   a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
+   (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
 const { host, openEntity } = shared;
 const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way' } });
@@ -26,6 +27,8 @@ const settingsSchema = [
     description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record to open it (Shift-click: in the sidebar). The rows are read-only: change the link on the record that holds the field.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
+  { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
+    description: 'Fields whose link is not shown as a row on the page they point to, as “field; field”. Useful for a field that points at a busy page (a status, a city with hundreds of people). The link itself stays: it still shows in that page’s Linked references and in searches. Set from the tag tree as well.' },
   { key: 'twoWayHideTagLists', type: 'boolean', title: 'Leave out Logseq’s tag lists the rows repeat', default: true,
     description: 'Below a page’s own text, Logseq lists the records that link to the page under a heading named after their tag (“Appointment”, “Project”), for tags with two-way links turned on. The rows above already show those records, with the field that links them, so on a page that has the rows the list is left out. Off: Logseq’s list shows as well.' },
   { key: 'openPropertyRows', type: 'boolean', title: 'Property rows open', default: true,
@@ -64,6 +67,28 @@ const readBackwards = (name, names) => {
   const words = names.get(name.toLowerCase()) || (/\s+by$/i.test(name) ? name.replace(/\s+by$/i, '') : `${name} of`);
   return /^[A-Z][a-z]/.test(words) ? words[0].toLowerCase() + words.slice(1) : words;
 };
+
+// Fields shown from one end only (0.4.174): "status; city" -> Set of lower-case names.
+const oneEndNames = () => new Set(String(setting('twoWayOneEnd') || '').split(/[;\n]/).map(name => name.trim().toLowerCase()).filter(Boolean));
+// For the tag tree (parts/tags.js): how a field reads from the other end, and whether it shows there. Both
+// are written to the settings above, so a change in the tree shows in the settings window too.
+const backwardsLabel = name => readBackwards(name, backwardsNames());
+const shownAtOtherEnd = name => !oneEndNames().has(name.toLowerCase());
+function setBackwards(name, words) {
+  words = String(words || '').replace(/[;=\n]/g, ' ').replace(/\s+/g, ' ').trim();
+  const pairs = String(setting('twoWayNames') || '').split(/[;\n]/).map(pair => pair.split('=').map(part => part?.trim())).filter(([field, said]) => field && said && field.toLowerCase() !== name.toLowerCase());
+  const plain = /\s+by$/i.test(name) ? name.replace(/\s+by$/i, '') : `${name} of`;
+  const builtIn = BUILT_IN.find(([field]) => field === name.toLowerCase());
+  // Back to how it reads anyway: no pair needed (a built-in name keeps a pair so the plain reading wins over it).
+  if (words && (words.toLowerCase() !== plain.toLowerCase() || builtIn)) pairs.push([name, words]);
+  if (!words && builtIn) pairs.push([name, plain]);
+  logseq.updateSettings({ twoWayNames: pairs.map(([field, said]) => `${field} = ${said}`).join('; ') });
+}
+function setShownAtOtherEnd(name, shown) {
+  const names = String(setting('twoWayOneEnd') || '').split(/[;\n]/).map(n => n.trim()).filter(n => n && n.toLowerCase() !== name.toLowerCase());
+  if (!shown) names.push(name);
+  logseq.updateSettings({ twoWayOneEnd: names.join('; ') });
+}
 
 async function load() {
   const version = ++state.version;
@@ -139,9 +164,10 @@ async function groupsFor(id) {
       .replace(/\[\[([^\]]+)\]\]/g, '$1').trim() || 'Untitled';
     records.set(b, { uuid: String(uuid), title, tag: tags.get(b) || 'note', day: days.get(b)?.day || 0 });
   }));
-  const names = backwardsNames(), today = todayNumber();
+  const names = backwardsNames(), today = todayNumber(), oneEnd = oneEndNames();
   const groups = [];
   for (const [name, set] of byField) {
+    if (oneEnd.has(name.toLowerCase())) continue;
     const items = [...set].map(b => records.get(b)).filter(item => item && UUID.test(item.uuid));
     if (!items.length) continue;
     // Coming up first (nearest first), then the past (latest first), then records with no date.
@@ -298,5 +324,8 @@ function start() {
   onUnload(() => { clearTimeout(timer); state.box?.remove(); state.box = null; });
   later(0);
 }
-(window.refinementParts ||= []).push({ name: 'two-way', schema: settingsSchema, start, stop: runUnloadTasks });
+function provide(core) {
+  core.provide({ backwardsLabel, setBackwards, shownAtOtherEnd, setShownAtOtherEnd });
+}
+(window.refinementParts ||= []).push({ name: 'two-way', schema: settingsSchema, provide, start, stop: runUnloadTasks });
 })();
