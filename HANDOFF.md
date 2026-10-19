@@ -30,6 +30,7 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | Standing advice for plugin and CLI work | `GUIDE.md` |
 | History (audit, reviews, session diaries, the prompts of earlier rounds) | `docs/history/`; read for why, not as instructions |
 | What to do next, ranked, and the rules every change keeps | `docs/NEXT.md` |
+| How to shape tags and fields (tag, child tag, field or link; what is cheap to change later) | `docs/MODELLING.md`, agreed with the owner on 2026-10-19; the principle behind the tag tree and the shape box |
 | The drawn guide to every part | `docs/VISUAL-GUIDE.html`, published as "DB Refinements Field Guide" (claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ) |
 | The prompts of the last rounds (finished) | `docs/history/REFINE-PROMPT-2026-10-18.md` (the autocomplete round, built as 0.4.118 to 0.4.127) and `docs/history/REVIEW-PROMPT-2026-10-18.md` (the review round); their "Rules that hold" are carried in `docs/NEXT.md` |
 | Moved out | `VISUAL-GRAMMAR-2026-10-18.html` (an older drawn grammar at 0.4.117, never committed, superseded by the guide) is in `~/logseq-plugin-archive/`. The stray `CLEANUP-PROMPT.md` at the top was removed on 2026-10-18 (the kept copy is `docs/history/CLEANUP-PROMPT-2026-10-16.md`) |
