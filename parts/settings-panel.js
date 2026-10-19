@@ -251,15 +251,17 @@ const GROUPS = [
       <div class="rs-zone" data-section="appearanceHeading"><div class="m">Favorites</div><div>Echo</div><div class="m">Recent</div><div>Mateo Ruiz</div><div class="m">Oct 14th</div><div class="tb">⌂ ← → ···</div></div>
       <div class="rs-zone" data-section="searchHeading"><div class="box">echo</div><div class="h">Echo</div><div class="ind">${ART_B}Kickoff <span class="m">· today</span></div><div class="ind">${ART_B}Budget <span class="m">· Oct 9</span></div></div>
       <div class="rs-zone" data-section="searchSidebarHeading"><div class="h">Search</div><div class="box">echo</div><div>${ART_B}Kickoff</div></div></div>` },
-  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, the tag tree, and the plugin’s keys.',
+  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, the tag tree, the plugin’s keys, and troubleshooting.',
     legend: { richCopyHeading: 'Copy a page or a block as tidy formatted text',
       tagTreeHeading: 'All your tags as one tree',
-      shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks' },
+      shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks',
+      troubleshootHeading: 'Run only the foundation, to measure it alone' },
     art: () => `
       <div class="rs-zone" data-section="richCopyHeading"><div class="row"><span>${ART_B}Kickoff call</span><span class="m">Copy as rich text</span></div>
         <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div></div>
       <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>
-      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
+      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>
+      <div class="rs-zone" data-section="troubleshootHeading"><div><span class="m">Foundation only</span> · nothing drawn, measured alone</div></div>` },
   { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
     legend: { todosHeading: 'Every task in the graph in one list',
       expectationsHeading: 'What you are waiting on others for' },
@@ -708,5 +710,5 @@ function stop() {
 
 // The palette entry that opens the window (Logseq's own settings page for the plugin, should the window fail to open).
 const commands = [{ key: 'show-settings', label: 'Refinements settings', run: () => { try { open(); } catch (error) { logseq.showSettingsUI(); } } }];
-(window.refinementParts ||= []).push({ name: 'settings panel', schema: [], start, commands, stop });
+(window.refinementParts ||= []).push({ name: 'settings panel', foundation: true, schema: [], start, commands, stop });
 })();

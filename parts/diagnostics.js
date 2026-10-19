@@ -462,5 +462,14 @@ function ready() {
 }
 // One palette entry opens the box that lists the tools.
 const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting', run: () => openTroubleshooting() }];
-(window.refinementParts ||= []).push({ name: 'diagnostics', schema: [], start, ready, commands, stop: runUnloadTasks });
+/* Foundation only (0.4.167): the plugin runs just its foundation, the engine and the Logseq model (parts/model.js),
+   with these tools and the settings window, so the foundation can be measured alone before the layers above it are
+   built on it. The core reads the setting; the parts that stay mark themselves `foundation: true`. */
+const settingsSchema = [
+  { key: 'troubleshootHeading', type: 'heading', group: 'tools', rank: 4, title: 'Troubleshooting', default: null,
+    description: 'For finding out what the plugin does and what it costs. The tools themselves are in the command palette under “Refinements: troubleshooting”.' },
+  { key: 'foundationOnly', type: 'boolean', title: 'Foundation only', default: false,
+    description: 'Runs only the plugin’s foundation: the part that watches Logseq and the part that knows what pages, blocks, tags and days are. Nothing is drawn and no shortcut works; the settings window and the troubleshooting tools stay. For measuring the foundation alone (turn measuring on in the troubleshooting tools). Applies after you reload the plugin.' },
+];
+(window.refinementParts ||= []).push({ name: 'diagnostics', foundation: true, schema: settingsSchema, start, ready, commands, stop: runUnloadTasks });
 })();
