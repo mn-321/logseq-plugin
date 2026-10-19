@@ -84,42 +84,6 @@ const STOP_KEY = '__dbRefinementsStop';
 // Each part declares what it may leave on screen in its lifecycle (leaves); shared.js sweeps it all.
 const sweepEarlierCopy = doc => window.refinementShared.sweepLeftovers(doc);
 
-/* One small scale for everything the plugin draws, so cues added at different times look alike.
-   Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
-// On body as well as :root: Logseq defines its theme colours on body, and a value that refers to
-// them (--rf-tag-color) is worked out where it is declared, so on :root alone it found none of them.
-const tokensCss = `:root, body {
-  --rf-quiet: .7;        /* labels and other secondary words */
-  --rf-faint: .5;        /* icons, markup and separators */
-  --rf-line-pct: 26%;    /* underlines, the active nesting line, the line beside embeds */
-  --rf-hair-pct: 10%;    /* resting nesting lines */
-  --rf-wash-pct: 8%;     /* the box behind a date */
-  --rf-wash-strong-pct: 13%;
-  --rf-field-pct: 3%;    /* the field behind a property list */
-  --rf-divider-pct: 22%; /* the thick line between right-sidebar items */
-  --rf-name: .94em;      /* a property's name beside its value */
-  --rf-tiny: .72rem;     /* search headings and paths */
-  /* the link to the page on screen, under Linked references: a faint grey wash of the theme's own text
-     colour (the same wash as a date box; the hairline alone says "here") with a slightly firmer hairline beneath,
-     like a pencil mark (pale on light themes, soft on dark) */
-  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent);
-  --rf-here-line: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 38%, transparent);
-  --rf-small: .82em;     /* labels beside text */
-  --rf-back: .22;        /* a row (and its chip) stepped back while another is chosen */
-  --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
-  /* the # of a tag (before a link to a tag's page, a tag word in a sentence, a tag page's title, the pickers): the grey
-     of the tag chips (0.4.114, at the owner's word: no blue tag anywhere; it was the colour Logseq's theme gives tags) */
-  --rf-tag-color: var(--ls-secondary-text-color, currentColor);
-  /* One look for every popup (0.4.140), taken from Logseq's own [[ menu: a box beside the text has its corners,
-     its 6px of padding and its shadow; a row in it is 14px with 6px 8px of padding and 4px corners, the chosen row
-     on the wash. A box in the middle of the window (the link box, the copy card, the settings) and the dark Undo
-     bar are larger things and take the window's rounder corner and deeper shadow. */
-  --rf-popup-radius: 6px;
-  --rf-popup-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1);
-  --rf-window-radius: 8px;
-  --rf-window-shadow: 0 8px 28px rgba(0, 0, 0, .2);
-  --rf-row: .875rem;      /* the text of a row in a popup, Logseq's own size */
-}`;
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
 const orNoRules = style => style.trim() ? style : '/* no rules */';
@@ -385,7 +349,7 @@ const provided = {}; // what the area parts give the core and each other, by nam
 const dbJobs = [];   // database-round jobs, in the order the parts registered them (core.onDbRound)
 function publishCore() {
   window.refinementCore = {
-    host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, tokensCss, watchDom, watchDomEarly, addsElements, ensureDomWatch,
+    host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
     RELOAD_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
     CHECKED_WITH, PAGE_TITLE,
     onFoldAll: fn => provided.onFoldAll(fn),
@@ -428,7 +392,6 @@ function main() {
     try { part.start(); } catch (error) { warnOnce(`the ${part.name} part could not start`, error); }
     onUnload(part.stop);
   }
-  logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
   for (const part of plugInParts) {
     try { part.ready?.(); } catch (error) { warnOnce(`the ${part.name} part could not get ready`, error); }
   }
