@@ -11,8 +11,8 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | Thing | Location |
 | --- | --- |
 | Plugin (git repo, branch `main`) | `/Users/claude-agent/logseq-plugin/` |
-| Core (layer 1a, knows nothing about content) | `main.js` (the screen watcher, the database round, stylesheet sending, the hooks, the self-check, `main()`, the commands, the part loader); `tools/boot-test.js` checks it without Logseq |
-| The Logseq model (layer 1b) | `parts/model.js`: titles, the stored form of a link, the property schema, the pages, a record's fields, days, journal pages, `CHECKED_WITH`, what a drawn page must hold. Every part reads the graph through it (`core.provided`) |
+| Core (layer 1a, knows nothing about content) | `main.js` (the screen watcher, the database round, stylesheet sending, the hooks, the self-check, `main()`, the commands, the part loader); `tools/boot-test.js` checks it without Logseq, also with the setting Foundation only (0.4.167), which runs just layer 1 |
+| The Logseq model (layer 1b) | `parts/model.js`: titles, the stored form of a link, the property schema, the pages, a record's fields, days, journal pages, `CHECKED_WITH`, what a drawn page must hold. Every part reads the graph through it (`core.provided`); `tools/model-test.js` tests it on a pretend graph (0.4.168) |
 | Shared helpers and the contract between files | `parts/shared.js` (read its header) |
 | The areas, one file each | `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js`, `styles.js` (with the scale, `tokensCss`), `diagnostics.js`; each holds its own settings section with its `group` and `rank`; the README's "What is in the folder" says what each part holds |
 | The former plugins | `parts/sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js` (paused since 0.4.128), `tags.js` (the tag tree, paused at 0.4.128 and back on since 0.4.152), `settings-panel.js` |
