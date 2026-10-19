@@ -232,7 +232,7 @@ function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
     UUID, isEntityId, idsIn, uuidsIn, dsQuery,
-    onFoldAll: fn => provided.onFoldAll(fn),
+    onFoldAll: fn => provided.onFoldAll?.(fn), // none when the part that folds is not running (Foundation only)
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
     onPageChange: fn => hooks.page.push(fn), onDatabaseChange: fn => hooks.database.push(fn), onSettingsChange: fn => hooks.settings.push(fn),
@@ -246,8 +246,8 @@ function moveOldDefaults() {
 }
 // The palette commands the parts declare ({ key, label, run, shortcut, menu }): each gets its palette entry, with
 // the shortcut read from the setting it names (left empty, none is bound), and a bullet's right-click menu item when asked.
-function registerCommands() {
-  for (const part of plugInParts) for (const { key, label, run, shortcut, menu } of part.commands || []) {
+function registerCommands(parts) {
+  for (const part of parts) for (const { key, label, run, shortcut, menu } of part.commands || []) {
     let binding = shortcut && setting(shortcut).trim().toLowerCase();
     const moved = part.moved?.[shortcut];
     if (binding && moved?.[0] === binding) binding = moved[1]; // the saved setting may not show the move yet
@@ -264,15 +264,20 @@ function main() {
   // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
   // next: provide() gives the core the part's functions and state; start() takes the others' things and
   // registers with the core; ready() starts what draws on screen, once every part has started. The core
-  // starts no part by name.
-  for (const part of plugInParts) {
+  // starts no part by name. With the setting Foundation only (0.4.167), only the parts marked foundation run:
+  // the model, the troubleshooting tools and the settings window; the others stay loaded (their settings
+  // keep their place) but are never started.
+  const foundationOnly = setting('foundationOnly') === true;
+  const running = foundationOnly ? plugInParts.filter(part => part.foundation) : plugInParts;
+  if (foundationOnly) notify('DB Refinements is running only its foundation (Foundation only, under Troubleshooting in its settings). Turn it off and reload the plugin to get everything back.', 'warning');
+  for (const part of running) {
     try { part.provide?.(window.refinementCore); } catch (error) { warnOnce(`the ${part.name} part could not provide its functions`, error); }
   }
-  for (const part of plugInParts) {
+  for (const part of running) {
     try { part.start(); } catch (error) { warnOnce(`the ${part.name} part could not start`, error); }
     onUnload(part.stop);
   }
-  for (const part of plugInParts) {
+  for (const part of running) {
     try { part.ready?.(); } catch (error) { warnOnce(`the ${part.name} part could not get ready`, error); }
   }
   startSelfCheck();
@@ -300,7 +305,7 @@ function main() {
     if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');
   }));
 
-  registerCommands();
+  registerCommands(running);
 }
 /* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
    window.refinementParts; they are loaded here, in order, before the settings are given, because

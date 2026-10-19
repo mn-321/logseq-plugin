@@ -144,6 +144,9 @@ async function fieldsOf(uuid, schema) {
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const dayAfter = (date, n) => { const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()); d.setDate(d.getDate() + n); return d; };
+// A date only when the day exists: 30 February or 31 September is no day (0.4.168: they used to roll over into the
+// next month, so "31 sep" read as 1 October).
+const exactDay = (year, month, day) => { const d = new Date(year, month, day); return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day ? d : null; };
 const weekdayIndex = word => DAYS.findIndex(d => d.startsWith(word) && word.length >= 2);
 function parseDay(text, today) {
   const t = text.trim().toLowerCase();
@@ -159,14 +162,14 @@ function parseDay(text, today) {
     if (wd >= 0) { let n = (wd - today.getDay() + 7) % 7 || 7; if (m[1]) n += 7; return dayAfter(today, n); }
   }
   m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (m) return exactDay(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   m = t.match(/^(\d{1,2})\s+([a-z]{3,9})\.?(?:\s+(\d{4}))?$/) || t.match(/^([a-z]{3,9})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/);
   if (m) {
     const [a, b] = /^\d/.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]];
     const month = MONTHS.findIndex(name => name.startsWith(b));
     if (month < 0) return null;
-    let date = new Date(m[3] ? Number(m[3]) : today.getFullYear(), month, Number(a));
-    if (!m[3] && date < today) date = new Date(today.getFullYear() + 1, month, Number(a));
+    let date = exactDay(m[3] ? Number(m[3]) : today.getFullYear(), month, Number(a));
+    if (!m[3] && date && date < today) date = exactDay(today.getFullYear() + 1, month, Number(a));
     return date;
   }
   return null;
@@ -216,5 +219,5 @@ function provide(core) {
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));
 }
-(window.refinementParts ||= []).push({ name: 'model', schema: [], provide, start, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'model', foundation: true, schema: [], provide, start, stop: runUnloadTasks });
 })();
