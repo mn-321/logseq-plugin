@@ -876,6 +876,7 @@ const screenRows = () => [
   ['fold state', '.ls-block[data-collapsed]', 'fold all'],
   ['queries', '.custom-query', 'fold all, list properties per query'],
   ['parent paths', '.breadcrumb.block-parents', 'hidden property path'],
+  ['property names', '.property-key, .page-property-key', 'list property picker'],
 ];
 function provide(core) {
   core.provide({ foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,

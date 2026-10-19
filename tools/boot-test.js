@@ -160,7 +160,7 @@ async function main() {
   for (const row of ['the page area', 'reference areas', 'title row', 'fold state', 'nesting lines', 'right sidebar', 'toolbar'])
     if (!report.includes(` · ${row} · `)) problem(`the screen report misses the row “${row}”`);
   if (!/ · blocks · (?=.*cues)(?=.*fold all).*\n/.test(report)) problem('the screen report did not join the features needing blocks');
-  if (report.split('\n').filter(line => / · \D/.test(line) && /^ +\d+ · /.test(line) && !/data-refinement|\.refinement-/.test(line)).length !== 35) problem('the screen report should hold 35 rows of Logseq parts');
+  if (report.split('\n').filter(line => / · \D/.test(line) && /^ +\d+ · /.test(line) && !/data-refinement|\.refinement-/.test(line)).length !== 36) problem('the screen report should hold 36 rows of Logseq parts');
   const backdrop = doc.querySelector('.refinement-prompt-backdrop');
   backdrop?.dispatchEvent(Object.assign(new host.window.MouseEvent('mousedown', { bubbles: true })));
   await sleep(50);
