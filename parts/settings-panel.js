@@ -3,7 +3,7 @@
 /* Settings panel: a window listing every setting of the plugin, opened from “Refinements settings”
    in Logseq's three-dots menu (top right) or from the command palette. Sections are listed on the
    left under five umbrella groups (0.4.129: Reading a page, Writing a record, Around the page, Tools,
-   Paused), each with a numbered picture of where its sections work; the search box looks through every
+   Paused; the tag tree moved from Paused to Tools in 0.4.155), each with a numbered picture of where its sections work; the search box looks through every
    setting's name and explanation.
    Logseq 2.0.2 gives plugins no way to add to that menu, so the item is added when the menu opens:
    the plugin notices the click on the three-dots button and puts its item under “Plugins”.
@@ -253,25 +253,26 @@ const GROUPS = [
       <div class="rs-zone" data-section="appearanceHeading"><div class="m">Favorites</div><div>Echo</div><div class="m">Recent</div><div>Mateo Ruiz</div><div class="m">Oct 14th</div><div class="tb">⌂ ← → ···</div></div>
       <div class="rs-zone" data-section="searchHeading"><div class="box">echo</div><div class="h">Echo</div><div class="ind">${ART_B}Kickoff <span class="m">· today</span></div><div class="ind">${ART_B}Budget <span class="m">· Oct 9</span></div></div>
       <div class="rs-zone" data-section="searchSidebarHeading"><div class="h">Search</div><div class="box">echo</div><div>${ART_B}Kickoff</div></div></div>` },
-  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, and the plugin’s keys.',
-    headings: ['richCopyHeading', 'shortcutsHeading'],
+  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, the tag tree, and the plugin’s keys.',
+    headings: ['richCopyHeading', 'tagTreeHeading', 'shortcutsHeading'],
     legend: { richCopyHeading: 'Copy a page or a block as tidy formatted text',
+      tagTreeHeading: 'All your tags as one tree',
       shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks' },
     art: () => `
       <div class="rs-zone" data-section="richCopyHeading"><div class="row"><span>${ART_B}Kickoff call</span><span class="m">Copy as rich text</span></div>
         <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div></div>
+      <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>
       <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
   { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
-    headings: ['todosHeading', 'expectationsHeading', 'tagTreeHeading'],
+    headings: ['todosHeading', 'expectationsHeading'],
     legend: { todosHeading: 'Every task in the graph in one list',
-      expectationsHeading: 'What you are waiting on others for',
-      tagTreeHeading: 'All your tags as one tree' },
+      expectationsHeading: 'What you are waiting on others for' },
     art: () => `
       <div class="rs-zone" data-section="todosHeading"><div class="row"><span>◯ Renew certificate</span><span class="m">today</span></div><div class="row"><span>◯ Send invites</span><span class="m">Fri</span></div></div>
-      <div class="rs-zone" data-section="expectationsHeading"><div class="row"><span>⧗ Contract back from Kestrel</span><span class="m">waiting</span></div></div>
-      <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>` },
+      <div class="rs-zone" data-section="expectationsHeading"><div class="row"><span>⧗ Contract back from Kestrel</span><span class="m">waiting</span></div></div>` },
 ];
-// A paused part's sections, by the switch that turns it back on.
+// A paused part's sections, by the switch that turns it back on. The tag tree, on since 0.4.152, sits in Tools
+// and steps back the same way when its switch is turned off.
 const PAUSE_SWITCH = { todosHeading: 'todosEnabled', expectationsHeading: 'todosEnabled', tagTreeHeading: 'tagTreeEnabled' };
 function groupsOf(sections) {
   const groups = GROUPS.map(group => ({ ...group, sections: [] }));

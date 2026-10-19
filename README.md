@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.154.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.155.
 
 Besides the look of pages, it holds:
 
@@ -64,9 +64,9 @@ The files in `parts/`:
 
 Open the settings from **Refinements settings** in Logseq's three-dots menu (top right, under Plugins), or run **Refinements settings** from the command palette.
 
-- Sections are listed on the left under five groups: **Reading a page** (Pages, Visual hierarchy, Two-way links, Links and references), **Writing a record** (Properties in the line, Proposals in the pills, Journal day as date), **Around the page** (Sidebars and toolbar, Search, Search in the right sidebar), **Tools** (Copy as rich text, Shortcuts and actions) and **Paused** (Todos, Expectations, Tag tree). **Changed by you** lists everything you have changed.
+- Sections are listed on the left under five groups: **Reading a page** (Pages, Visual hierarchy, Two-way links, Links and references), **Writing a record** (Properties in the line, Proposals in the pills, Journal day as date), **Around the page** (Sidebars and toolbar, Search, Search in the right sidebar), **Tools** (Copy as rich text, Tag tree, Shortcuts and actions) and **Paused** (Todos, Expectations). **Changed by you** lists everything you have changed.
 - At the top of each group, a picture shows where on screen each of its sections works, numbered like the list beside it; a click on a part of the picture or on a name in the list opens that section. A click on a group's name shows all its sections at once.
-- In **Paused**, each part has its own first switch (**Use Todos and Expectations**, **Use the tag tree**); while it is off the rest of that part's settings are shown faint and do nothing.
+- In **Paused**, Todos and Expectations share a first switch (**Use Todos and Expectations**); while it is off the rest of their settings are shown faint and do nothing. The tag tree, in **Tools**, has the same kind of switch (**Use the tag tree**, on).
 - A search box (press `/` or `Cmd+F` in the window) looks through every setting's name and explanation.
 - Most look settings have a small picture of what they change; clicking the picture flips the switch.
 - A changed setting has a small dot and a **Reset** link. Each change is saved as you make it.
