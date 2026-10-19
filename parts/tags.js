@@ -352,7 +352,7 @@ const HUES = 4;
 
 const css = `
 .refinement-tags { --rtg-line: color-mix(in srgb, var(--ls-primary-text-color) 13%, transparent); --rtg-wash: color-mix(in srgb, var(--ls-primary-text-color) 6%, transparent);
-  --rtg-faint: color-mix(in srgb, var(--ls-primary-text-color) 52%, transparent);
+  --rtg-faint: color-mix(in srgb, var(--ls-primary-text-color) 52%, transparent); --rtg-mid: color-mix(in srgb, var(--ls-primary-text-color) 74%, transparent);
   --rtg-h0: #b07a2a; --rtg-h1: #4a76b4; --rtg-h2: #7c5fb3; --rtg-h3: #4e9a62; --rtg-plain: var(--rtg-faint); --rtg-warn: #b8641e;
   color: var(--ls-primary-text-color); font-size: 16px; }
 .dark .refinement-tags, html[data-theme=dark] .refinement-tags { --rtg-h0: #dcae5e; --rtg-h1: #86a6db; --rtg-h2: #a990dc; --rtg-h3: #7fbf8c; --rtg-warn: #e09a5a; }
@@ -383,7 +383,7 @@ const css = `
 .refinement-tags .rtg-name { cursor: pointer; overflow-wrap: anywhere; }
 .refinement-tags .rtg-name:hover { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; }
 .refinement-tags .rtg-name::before { content: '#'; margin-right: 1px; font-weight: 400; color: var(--rtg-hue, var(--rtg-plain)); }
-.refinement-tags .rtg-branch > .rtg-main .rtg-name { font-weight: 500; }
+.refinement-tags .rtg-row:not(.rtg-prow) > .rtg-main .rtg-name { font-weight: 600; }
 .refinement-tags .rtg-root { padding-top: 5px; padding-bottom: 5px; }
 .refinement-tags .rtg-root > .rtg-main .rtg-name { font-size: 19px; font-weight: 600; }
 .refinement-tags .rtg-root > .rtg-fold { height: 30px; }
@@ -426,18 +426,20 @@ const css = `
 .refinement-tags .rtg-prow { padding-top: 1px; padding-bottom: 1px; font-size: 14.5px; }
 .refinement-tags .rtg-prow > .rtg-fold { height: 22px; }
 .refinement-tags .rtg-prow .rtg-line { align-items: center; }
-.refinement-tags .rtg-pname { cursor: pointer; color: color-mix(in srgb, var(--ls-primary-text-color) 85%, transparent); overflow-wrap: anywhere; }
+.refinement-tags .rtg-pname { cursor: pointer; color: var(--ls-primary-text-color); font-weight: 500; overflow-wrap: anywhere; }
 .refinement-tags .rtg-pname:hover { text-decoration: underline; text-underline-offset: 2px; }
-.refinement-tags .rtg-inh .rtg-pname { color: var(--rtg-faint); }
-.refinement-tags .rtg-ptype { font-size: 13px; color: var(--rtg-faint); }
+.refinement-tags .rtg-inh .rtg-pname { color: var(--rtg-mid); font-weight: 400; }
+.refinement-tags .rtg-ptype { font-size: 13.5px; color: var(--rtg-mid); }
+.refinement-tags .rtg-inh .rtg-ptype, .refinement-tags .rtg-prow .rtg-small { color: var(--rtg-faint); font-size: 12.5px; }
 .refinement-tags .rtg-ptype b { font-weight: 500; color: var(--rtg-hue, var(--rtg-plain)); }
 .refinement-tags .rtg-i { flex: none; width: 17px; height: 17px; padding: 0; border: 1px solid var(--ls-border-color); border-radius: 50%; background: none; cursor: pointer;
   color: var(--rtg-faint) !important; font: italic 600 11px/15px Georgia, 'Times New Roman', serif !important; text-align: center; }
 .refinement-tags .rtg-i:hover, .refinement-tags .rtg-i[aria-pressed=true] { color: var(--ls-primary-text-color) !important; border-color: color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); }
 .refinement-tags .rtg-pinfo { display: flex; flex-direction: column; gap: 4px; margin: 0 0 4px 26px; padding: 3px 10px; border-left: 2px solid var(--rtg-line); font-size: 13.5px; line-height: 1.45; color: var(--rtg-faint); }
+.refinement-tags .rtg-pinfo .rtg-plbl { font-size: 12.5px; }
 .refinement-tags .rtg-pinfo > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .refinement-tags .rtg-plbl { min-width: 9.5em; }
-.refinement-tags .rtg-pinfo .rtg-val { color: color-mix(in srgb, var(--ls-primary-text-color) 82%, transparent); }
+.refinement-tags .rtg-pinfo .rtg-val { color: var(--ls-primary-text-color); font-weight: 500; }
 .refinement-tags .rtg-words { width: 13em; padding: 1px 7px; border: 1px solid var(--ls-border-color); border-radius: 5px; background: transparent; color: var(--ls-primary-text-color); font: inherit; }
 .refinement-tags .rtg-words:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-tags .rtg-pinfo .rtg-make { padding: 0 8px; font-size: 12.5px !important; }
@@ -449,7 +451,7 @@ const css = `
 .refinement-tags .rtg-guide li { margin: 2px 0; }
 .refinement-tags .rtg-guide .rtg-end { display: block; margin: 2px 0 2px 10px; }
 .refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 3px 8px 3px 26px; font-size: 13.5px; color: var(--rtg-faint); }
-.refinement-tags .rtg-pointrow .rtg-val { color: color-mix(in srgb, var(--ls-primary-text-color) 82%, transparent); }
+.refinement-tags .rtg-pointrow .rtg-val { color: var(--ls-primary-text-color); font-weight: 500; }
 .refinement-tags .rtg-off { font-style: italic; }
 .refinement-tags .rtg-newtag { display: flex; align-items: center; gap: 8px; padding: 12px 10px 0; font-size: 14px; color: var(--rtg-faint); }
 .refinement-tags .rtg-newtag + .rtg-guide { margin-left: 10px; }
@@ -964,13 +966,13 @@ function propDetails(view, tag, prop, from) {
   const line = (label, ...rest) => box.append(el(doc, 'div', {}, el(doc, 'span', { class: 'rtg-plbl' }, label), ...rest));
   const tagNames = list => list.map(t => '#' + t.title).join(', ');
   const givers = prop.givenBy?.length ? prop.givenBy : [from || tag];
-  line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? 'and the tags inside them' : null);
+  line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? el(doc, 'span', {}, 'and the tags inside them') : null);
   if (prop.choices.length) line('Choices', el(doc, 'span', { class: 'rtg-val' }, prop.choices.join(' · ')));
   if (prop.type !== 'node') return box;
   const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
   const inside = new Set(to.flatMap(t => [...below(t)]));
   line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? tagNames(to) : 'any node'),
-    to.length && inside.size ? `and the ${plural(inside.size, 'tag')} inside` : null, prop.many ? '· several at once' : '· one at a time');
+    to.length && inside.size ? el(doc, 'span', {}, `and the ${plural(inside.size, 'tag')} inside`) : null, el(doc, 'span', {}, prop.many ? '· several at once' : '· one at a time'));
   const tw = twoWay();
   if (!tw) return box;
   const input = el(doc, 'input', { class: 'rtg-words', type: 'text', spellcheck: 'false', value: tw.backwardsLabel(prop.title), 'aria-label': `How ${prop.title} reads on the other page`,
