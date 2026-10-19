@@ -35,7 +35,7 @@ const settingsSchema = [
   { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
     description: 'After a value is written into a record (Tab on a proposal, Enter in the line list), a small grey “undo ⌘z” sits beside it in the record’s own row for seven seconds; a click on it, or Cmd+Z while the caret is still in that block, takes the value back to pencilled. Off, the dark bar at the bottom offers Undo as before. Applies at once.' },
   { key: 'proposalHintTakes', type: 'number', title: 'Show the key hint until this many takes', default: 20,
-    description: 'The small “tab takes · ⇧tab passes” beside the value Tab will take is a teaching device: it stops showing once you have taken that many values (the count is kept in the plugin’s settings file as proposalTakesSoFar; set it back to 0 there, or raise this number, to see the hint again; 0 shows it always). Applies at once.' },
+    description: 'The small “tab takes · ⇧tab passes” beside the value Tab will take is a teaching device: its words stop showing once you have taken that many values, and the tab key alone stays beside the value Tab takes next (the count is kept in the plugin’s settings file as proposalTakesSoFar; set it back to 0 there, or raise this number, to see the hint again; 0 shows it always). Applies at once.' },
   { key: 'pillProposalsLive', type: 'boolean', title: 'While you type', default: true,
     description: 'The proposals are worked out from the words in the text box as you type them, so a name is pencilled in the moment its word is finished, and a value whose word you delete goes away; the record you are writing gets them whatever its age. Off, they come only after the plugin’s check that follows a save, a second or two later. Applies at once.' },
 ];
@@ -237,7 +237,7 @@ function ghostEl(doc, item, withName) {
   g.className = 'rfp-ghost';
   g.setAttribute('contenteditable', 'false');
   g.dataset.rfpIdent = item.ident;
-  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>tab</kbd> takes · <kbd>⇧tab</kbd> passes</span>`;
+  g.innerHTML = `${withName ? `<span class="rfp-name">${escapeHtml(item.prop.title)}:</span>` : ''}<button type="button" class="rfp-value" title="Fill it">${escapeHtml(item.shown)}</button><span class="rfp-keys"><kbd>tab</kbd><span class="rfp-keys-words"> takes · <kbd>⇧tab</kbd> passes</span></span>`;
   g.addEventListener('mousedown', event => event.stopPropagation());
   g.addEventListener('click', event => {
     if (!event.target.closest('.rfp-value')) return;
@@ -373,10 +373,19 @@ function countTake() {
   const limit = Number(own('proposalHintTakes'));
   if (limit > 0 && takesSoFar() <= limit) logseq.updateSettings({ proposalTakesSoFar: takesSoFar() + 1 });
 }
+// The hint never hides a value (0.4.138): where its words would push the row past its edge (the right sidebar),
+// the hint is the tab key alone. Once the hint has left, the tab key alone stays as the cursor (0.4.138): without it
+// nothing said which pencilled value Tab takes next.
+const clipped = el => !!el && el.scrollWidth > el.clientWidth + 1;
 function markFirst(doc) {
-  const first = hintWanted() ? firstOnScreen(doc) : null;
-  for (const g of doc.querySelectorAll('.rfp-ghost[data-rfp-first]')) if (g !== first) g.removeAttribute('data-rfp-first');
-  first?.setAttribute('data-rfp-first', '');
+  const first = firstOnScreen(doc);
+  for (const g of doc.querySelectorAll('.rfp-ghost[data-rfp-first]')) if (g !== first) { g.removeAttribute('data-rfp-first'); g.removeAttribute('data-rfp-short'); }
+  if (!first) return;
+  first.setAttribute('data-rfp-first', '');
+  if (!hintWanted()) { first.setAttribute('data-rfp-short', ''); return; }
+  first.removeAttribute('data-rfp-short');
+  const rows = [first.closest('.bottom-properties-row'), first.closest('.positioned-properties'), first.closest('.block-title-wrap')];
+  if (rows.some(clipped)) first.setAttribute('data-rfp-short', '');
 }
 
 /* Writing: Tab fills the ghost under the cursor of the record being written, a click fills one; one bar with one
@@ -453,6 +462,7 @@ const css = `
 .rfp-keys { display: none; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .rfp-ghost[data-rfp-first] .rfp-keys { display: inline; }
 .rfp-keys kbd { text-transform: lowercase; }
+.rfp-ghost[data-rfp-short] .rfp-keys-words { display: none; }
 .rfp-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
