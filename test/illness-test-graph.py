@@ -196,9 +196,9 @@ def page(key, title, tag=None, fields=None, blocks=(), alias=None, kind='1a'):
     return u
 
 def B(title, tag=None, fields=None, children=(), uuid=None, collapsed=False):
-    parts = [f':block/title {s(title)}']
-    if uuid:
-        parts += [f':block/uuid #uuid "{uuid}"', ':build/keep-uuid? true']
+    # Every block gets a fixed uuid, so importing the seed twice changes nothing instead of doubling the blocks.
+    uuid = uuid or new_id('8a')
+    parts = [f':block/title {s(title)}', f':block/uuid #uuid "{uuid}"', ':build/keep-uuid? true']
     if tag:
         parts.append(f':build/tags {tag if tag.startswith("[") else tags(tag)}')
     if fields:
