@@ -10,7 +10,7 @@ const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ', leaves: { elements: '.refinement-link-list' } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
-let setting, dsQuery, storedRef, titleOf, cleanTitle, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID, provided;
+let setting, dsQuery, storedRef, titleOf, trailingTags, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -18,6 +18,10 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 const copyTree = children => (children || []).filter(child => child && !Array.isArray(child))
   .map(child => ({ content: titleOf(child) || 'Untitled', children: copyTree(child.children) }));
 
+// A page name made from a block or a selection: no bullet, no trailing tags, links as plain words, 180 letters at most.
+// This part's own rule (0.4.171), not the model's: what makes a good page name is a choice of this feature.
+const cleanTitle = raw => raw.replace(/^[-*]\s*/, '').replace(trailingTags, '')
+  .replace(/\[\[([^\]]+)\]\]/g, '$1').trim().slice(0, 180);
 async function blockToPage(event) {
   // The right-click menu passes the clicked block's id; the command palette passes none.
   const clickedId = typeof event?.uuid === 'string' ? event.uuid : null;
@@ -575,7 +579,7 @@ const moved = { linkShortcut: ['mod+shift+l', 'mod+alt+l'] };
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
-  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'readableTitle', 'journalTitleFor', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
+  ({ setting, dsQuery, storedRef, titleOf, trailingTags, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'trailingTags', 'readableTitle', 'journalTitleFor', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
 (window.refinementParts ||= []).push({ name: 'editor', schema: settingsSchema, provide, start, ready, commands, moved, stop: runUnloadTasks });
 })();

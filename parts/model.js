@@ -9,7 +9,7 @@
    through Logseq's own Editor.createPage, on behalf of a part that is writing).
 
    WHAT IT PROVIDES (core.provided):
-   - titleOf(block), trailingTags, cleanTitle(raw), storedRef      the words of a block and how a link is stored
+   - titleOf(block), trailingTags, storedRef                       the words of a block, where its tags sit, how a link is stored
    - readableTitle(text, { pagesOnly, depth, asShown })             stored [[uuid]] and ((uuid)) as the titles people see
    - kindOfPage(pageId)                                              a tag page, a property page, a plain page, aliases
    - propSchema(), propPages(), fieldsOf(uuid, schema)              your properties with their types, every page with its
@@ -46,8 +46,6 @@ const screenChecks = () => [
 const titleOf = block => (block?.title || block?.content || '').trim();
 // Drops a leading bullet, every trailing tag (#work, #[[Long tag]]), and the brackets around links.
 const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
-const cleanTitle = raw => raw.replace(/^[-*]\s*/, '').replace(trailingTags, '')
-  .replace(/\[\[([^\]]+)\]\]/g, '$1').trim().slice(0, 180);
 // DB graphs store links as [[uuid]] and block references as ((uuid)). Swap in the titles people see.
 // pagesOnly leaves ((uuid)) alone, matching what the block editor shows; asShown also leaves a [[uuid]]
 // that points at a block (not a page) alone, because the editor shows such a link as its id.
@@ -234,7 +232,7 @@ async function kindOfPage(pageId) {
 }
 
 function provide(core) {
-  core.provide({ titleOf, trailingTags, cleanTitle, storedRef, readableTitle, bare, pick, idOf,
+  core.provide({ titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks });
 }
