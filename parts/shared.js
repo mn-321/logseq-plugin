@@ -51,6 +51,9 @@
      has started), and stop() at unload; it registers each command ({ key, label, run, shortcut, menu }:
      the setting that holds the shortcut, and whether it is also in a bullet's right-click menu) and moves
      a saved setting named in moved ({ key: [old default, new default] }). The core starts no part by name.
+   - bring its own troubleshooting: what it looks for on screen and any tool of its own, through
+     core.provided.addTroubleshooting({ checks, tools }) from parts/diagnostics.js (0.4.172), never by
+     the troubleshooting part reaching into it.
 
    LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → parts/model.js → the other parts → main().
    loader.js loads main.js with a fresh timestamp (Logseq caches a plugin's script between reloads);

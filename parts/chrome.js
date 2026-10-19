@@ -202,6 +202,11 @@ const settingsSchema = [
 ];
 function start() {
   const core = window.refinementCore;
+  // What this part looks for on screen, for "Check what the plugin finds on this page".
+  core.provided.addTroubleshooting?.({ checks: [
+    ['left sidebar', '#left-sidebar', 'quiet items, plain page icons, page labels'],
+    ['toolbar', '#head', 'quiet items'],
+  ] });
   ({ setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle } = take(core, ['setting', 'watchDom', 'watchDomEarly', 'ensureDomWatch', 'sendStyle']));
 }
 function ready() {

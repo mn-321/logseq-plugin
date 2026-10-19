@@ -5,8 +5,8 @@
    this list, the one-line layout with inline values), Fold all / Unfold all results in a query with
    their fold state and fold log, the hidden-properties arrow on every block, and the property crumbs
    (the "via …" labels on records that reach the page through a property).
-   It provides its commands, its start functions, its state (listProps, listFold, foldLog, the property
-   crumbs) and the fold-all hook (onFoldAll) to the core and the other parts; it takes pdfCitations,
+   It provides its commands, its start functions, its state (listProps, the property crumbs) to the core
+   and the other parts, and its own troubleshooting (the fold log, its screen rows); it takes pdfCitations,
    dateLinks and attribute from the links area. */
 const shared = window.refinementShared;
 const { host, notify, modal, modalButtons, modalHint } = shared;
@@ -320,7 +320,6 @@ function updateListProps(doc) {
 /* Troubleshooting for fold-all: once a fold command runs, note every fold change on a query result
    and what happened around it, so "Copy fold log" can show why a result folded back. */
 const foldLog = { lines: [], last: '', start: 0, observer: null, scrollAt: 0, pressedAt: new WeakMap() };
-const foldAllListeners = []; // run when a fold-all command starts (the diagnostics part's fold log)
 function logFold(text) {
   if (!foldLog.start || text === foldLog.last) return; // repeats (like waiting while you type) once
   foldLog.last = text;
@@ -425,7 +424,7 @@ async function foldQueryResults(event, collapse) {
   try {
     const target = await foldTarget(event);
     if (!target) return notify('No query found on this page. Click in a query or one of its results first', 'warning');
-    for (const fn of foldAllListeners) fn();
+    startFoldLog();
     logFold(`command: ${collapse ? 'fold' : 'unfold'} all in ${target.key.slice(0, 14)}… (${listRows(host(), target.key).length} results drawn)`);
     listFold.wanted.set(target.key, { collapse, round: ++listFold.round });
     // A new command applies to every result again, including ones you changed by hand before.
@@ -829,9 +828,58 @@ function startHiddenProps() {
 }
 
 
+// The fold log (0.4.172: here, not in the troubleshooting part): what happened to each result after a fold-all command.
+const resultRow = row => [...listFold.wanted.keys()].some(key => listRows(row.ownerDocument, key).includes(row));
+function startFoldLog() {
+  if (foldLog.observer) return;
+  const doc = host(), win = doc.defaultView;
+  foldLog.start = foldLog.start || Date.now();
+  foldLog.observer = new win.MutationObserver(records => {
+    let added = 0, removed = 0;
+    for (const record of records) {
+      if (record.type === 'attributes') {
+        const row = record.target;
+        if (!row.matches?.('.ls-block[blockid]') || !row.parentElement?.closest('.custom-query, .ls-view-body')) continue;
+        const pressed = Date.now() - (foldLog.pressedAt.get(row) || 0) < 1500;
+        logFold(`${rowName(row)} ${record.oldValue} -> ${row.getAttribute('data-collapsed')}${pressed ? ' (after plugin press)' : ''}${listFold.manual.has(row) ? ' (yours)' : ''}${resultRow(row) ? '' : ' (not in a fold-all list)'}`);
+      } else {
+        const count = nodes => [...nodes].filter(n => n.nodeType === 1 && n.matches('.ls-block[blockid], :has(.ls-block[blockid])') && n.closest?.('.custom-query, .ls-view-body')).length;
+        added += count(record.addedNodes);
+        removed += [...record.removedNodes].filter(n => n.nodeType === 1 && n.matches('.ls-block[blockid], :has(.ls-block[blockid])')).length;
+      }
+    }
+    if (added || removed) logFold(`results drawn: ${added} added, ${removed} removed`);
+  });
+  foldLog.observer.observe(doc.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-collapsed'] });
+  if (foldLog.listening) return;
+  foldLog.listening = true;
+  listen(win, ['scroll'], () => { if (Date.now() - foldLog.scrollAt > 1000) { foldLog.scrollAt = Date.now(); logFold('scrolling'); } });
+  listen(doc, ['focusin'], event => { if (event.target.matches?.('textarea')) logFold('started editing a block'); });
+  listen(doc, ['focusout'], event => { if (event.target.matches?.('textarea')) logFold('stopped editing a block'); });
+  onUnload(() => { foldLog.observer?.disconnect(); foldLog.observer = null; });
+}
+async function copyFoldLog() {
+  if (!foldLog.start) return notify('Run "Unfold all results" first, then wait until a result folds back, then run this', 'warning');
+  const doc = host();
+  const now = [...listFold.wanted].map(([key, { collapse }]) => {
+    const rows = listRows(doc, key);
+    const wrong = rows.filter(row => (row.getAttribute('data-collapsed') === 'true') !== collapse);
+    return `active: ${collapse ? 'fold' : 'unfold'} ${key.slice(0, 14)}… · ${rows.length} results drawn · ${wrong.length} not as chosen: ${wrong.slice(0, 5).map(row => `${rowName(row)}${listFold.manual.has(row) ? ' (yours)' : ''} misses=${listFold.pressed.get(row)?.misses || 0}`).join(', ')}`;
+  });
+  provided.showReport([await provided.versionLine(), ...(now.length ? now : ['active: none (cleared by a page change, or never set)']), '', ...foldLog.lines].join('\n'));
+}
+// What this part looks for on screen, for "Check what the plugin finds on this page". [what, selector, what stops]
+const screenRows = () => [
+  ['blocks', '.ls-block[blockid]', 'list properties, fold all'],
+  ['bullets', '.bullet-container', 'list properties'],
+  ['fold arrows', 'a.block-control', 'fold all'],
+  ['fold state', '.ls-block[data-collapsed]', 'fold all'],
+  ['queries', '.custom-query', 'fold all, list properties per query'],
+  ['parent paths', '.breadcrumb.block-parents', 'hidden property path'],
+];
 function provide(core) {
   core.provide({ foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,
-    listProps, listFold, listRows, foldLog, logFold, rowName, onFoldAll: fn => foldAllListeners.push(fn),
+    listProps,
     propertyCrumbs, updatePropertyCrumbs, unmarkPropertyCrumb, escapeHtml });
   core.onDbRound('refreshInlineValues', refreshInlineValues);
   core.onDbRound('loadHiddenProps', loadHiddenProps);
@@ -886,6 +934,8 @@ function start() {
   onUnload(() => { for (const box of valueLeads) box.removeAttribute('data-refinement-value-lead'); valueLeads.clear(); });
 }
 function ready() {
+  provided.addTroubleshooting?.({ checks: screenRows(),
+    tools: [{ key: 'copy-fold-log', label: 'Copy fold log', run: () => copyFoldLog() }] });
   startListProps();
   startHiddenProps();
 }
