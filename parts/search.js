@@ -22,9 +22,7 @@ const tokensCss = '/* the tokens are declared in parts/styles.js */';
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
 
-const titleOf = block => (block?.title || block?.content || '').trim();
-// Every trailing tag (#work, #[[Long tag]]).
-const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
+let titleOf, trailingTags; // from the model part (0.4.171; this part kept its own copies before)
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -1809,26 +1807,36 @@ const searchExtrasCss = `
 
 const settingsSchema = [
   { key: 'searchSidebarHeading', type: 'heading', group: 'around', rank: 3, title: 'Search in the right sidebar', default: null,
+    legend: 'Search kept open in the right sidebar',
+    zone: '<div class="h">Search</div><div class="box">echo</div><div><i class="b"></i>Kickoff</div>',
     description: 'Also in the command palette: search for “Search in right sidebar”. Changes here apply after you reload the plugin.' },
   { key: 'searchShortcut', type: 'string', title: 'Search in the right sidebar', default: 'mod+alt+f',
     description: 'Opens Logseq search in the right sidebar, where it stays while you open results. Shift-click a result to open it in the sidebar too.' },
   { key: 'sidebarSearchButton', type: 'boolean', title: 'Search button in the right sidebar', default: true,
     description: 'A Search button at the start of the right sidebar’s top row, next to Contents and Help.' },
   { key: 'searchHeading', type: 'heading', group: 'around', rank: 2, title: 'Search', default: null,
+    legend: 'The search window: grouping, details, a preview',
+    zone: '<div class="box">echo</div><div class="h">Echo</div><div class="ind"><i class="b"></i>Kickoff <span class="m">· today</span></div><div class="ind"><i class="b"></i>Budget <span class="m">· Oct 9</span></div>',
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
+    preview: ['<div><i class="b"></i>Kickoff for <span class="hl">Echo</span></div><div><i class="b"></i><span class="hl">Echo</span> budget</div>', '<div><i class="b"></i>Kickoff for <span class="wash">Echo</span></div><div><i class="b"></i><span class="wash">Echo</span> budget</div>'],
     description: 'Compact result rows, quieter group headings, a soft grey wash on matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
   { key: 'roomySearch', type: 'boolean', title: 'Roomier search window', default: true,
+    preview: ['<div style="font-size:10px;line-height:1.2"><i class="b"></i>Echo kickoff<br><i class="b"></i>Echo budget<br><i class="b"></i>Echo notes</div>', '<div style="font-size:12px"><i class="b"></i>Echo kickoff</div><div style="font-size:12px;margin-top:3px"><i class="b"></i>Echo budget</div>'],
     description: 'A larger search window with bigger text, more space between results and groups, and up to three lines of each block. The page and parent blocks above a result are named in full, with a small bullet before each parent block. Results fade in as you type, “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. Turn off to get Logseq’s normal size.' },
   { key: 'searchDetails', type: 'boolean', title: 'Say more about each search result', default: true,
+    preview: ['<div class="row"><span><i class="b"></i>Echo</span></div>', '<div class="row"><span><i class="b"></i>Echo</span><span class="m">#Project · today</span></div>'],
     description: 'At the right of each result: what it is (its tags, or Page) and when it was last edited. Under a result that is only a heading, such as “Timeline”, the first line beneath it and how many more there are. When the searched words are not in the text shown, where they were found (a property, a tag, further into the text).' },
   { key: 'groupSearch', type: 'boolean', title: 'Put search results page by page', default: true,
+    preview: ['<div><i class="b"></i>Kickoff <span class="m">Echo</span></div><div><i class="b"></i>Budget <span class="m">Echo</span></div>', '<div class="h">Echo</div><div class="ind"><i class="b"></i>Kickoff · <i class="b"></i>Budget</div>'],
     description: 'Results from the same page sit together, under the page if it is among the results, with the page name shown once. The arrow keys follow this order.' },
   { key: 'searchPreview', type: 'boolean', title: 'Preview the selected result', default: true,
+    preview: ['<div class="row"><span><i class="b"></i>Echo</span></div>', '<div class="row"><span><i class="b"></i>Echo</span><span class="side">Echo<br>· Kickoff</span></div>'],
     description: 'A panel at the right of the search window shows the selected result with its blocks. Click a line to edit it; changes are saved as you type. “Open” and “Open in sidebar” are at the top of the panel.' },
   { key: 'searchPreviewEditor', type: 'boolean', title: 'Preview: edit with Logseq\'s own editor (trial)', default: false,
     description: 'The preview panel shows the result through Logseq\'s own page editor (an experimental part of Logseq\'s plugin kit): the real page, with its properties and references, and you can click a line and type. Logseq turns off its keyboard shortcuts while the search window is open, so Enter, Tab and the other editing keys act as in a plain text box there. Off: the panel\'s simpler line editor.' },
   { key: 'searchFilters', type: 'boolean', title: 'Filter search with codes', default: true,
+    preview: ['<div class="menu" style="margin-left:0">#Task todo</div><div class="m">pages mentioning “Task todo”</div>', '<div class="menu" style="margin-left:0"><span class="pill">#Task</span> todo</div><div class="m">3 open tasks tagged Task</div>'],
     description: 'Type codes in the search box to narrow what is found: #tag, in:page, p:name or p:name=value (for a property; property: works too), is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text. A bar along the bottom of the search window names the codes (click one to add it); type ? or click “? More tips” for a short guide. Shift+Enter or Shift-click opens a result in the right sidebar.' },
 ];
 const setting = shared.settingReader(settingsSchema);
@@ -1836,6 +1844,7 @@ const setting = shared.settingReader(settingsSchema);
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
   ({ watchDom, watchDomEarly } = window.refinementCore);
+  ({ titleOf, trailingTags } = window.refinementCore.provided);
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'calmer-search-tokens', style: tokensCss });
   if (setting('tidySearch')) {

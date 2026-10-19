@@ -19,6 +19,9 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 
 const settingsSchema = [
   { key: 'tagTreeHeading', type: 'heading', group: 'tools', rank: 2, title: 'Tag tree', default: null,
+    pauseSwitch: 'tagTreeEnabled',
+    legend: 'All your tags as one tree',
+    zone: '<div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div>',
     description: 'All your tags as one tree under a few root tags, where you can see what is inside each tag, make new tags in the right place and move tags under other tags. Open it from the tree button in the toolbar, from the command palette (Tag tree) or with its shortcut.' },
   { key: 'tagTreeEnabled', type: 'boolean', title: 'Use the tag tree', default: true,
     description: 'Off, the tag tree adds no toolbar button, no page, no sidebar panel, no command and no shortcut, and the settings below do nothing. Applies after you reload the plugin.' },
