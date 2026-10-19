@@ -972,7 +972,10 @@ async function fillPreview(pane, uuid, generation) {
     const walk = (blocks, depth) => {
       for (const block of blocks || []) {
         if (!block || Array.isArray(block) || lines.length >= 80) continue;
-        lines.push({ uuid: String(block.uuid), text: titleOf(block), depth });
+        const text = titleOf(block);
+        // An empty bullet is left out; what is under it moves up into its place.
+        if (!String(text || '').trim()) { walk(block.children, depth); continue; }
+        lines.push({ uuid: String(block.uuid), text, depth });
         if (depth < 4) walk(block.children, depth + 1);
       }
     };
@@ -998,7 +1001,7 @@ async function fillPreview(pane, uuid, generation) {
       <div class="rf-pv-meta">${escapeHtml([kind, edited].filter(Boolean).join(' · '))}</div>
       ${props.length ? `<div class="rf-pv-props">${props.map(([name, value]) => `<span class="rf-pv-pname">${escapeHtml(name)}</span><span>${markHtml(escapeHtml(value), words)}</span>`).join('')}</div>` : ''}
       <div class="rf-pv-actions"><button data-rf-act="open">Open</button><button data-rf-act="side">Open in sidebar</button></div>
-      <div class="rf-pv-body">${lines.map(line => `<div class="rf-pv-block" data-uuid="${escapeHtml(line.uuid)}" style="--rf-depth:${line.depth}"><div class="rf-pv-text">${markHtml(previewHtml(line.text, names), words) || '<span class="rf-pv-blank">Empty</span>'}</div></div>`).join('')}
+      <div class="rf-pv-body">${lines.map(line => `<div class="rf-pv-block" data-uuid="${escapeHtml(line.uuid)}" style="--rf-depth:${line.depth}"><div class="rf-pv-text">${markHtml(previewHtml(line.text, names), words)}</div></div>`).join('')}
         ${lines.length ? '' : '<div class="rf-pv-empty">Nothing written here yet.</div>'}
         ${lines.length >= 80 ? '<div class="rf-pv-empty">Open it to see the rest.</div>' : ''}</div>`;
     pane.rfNames = names;
