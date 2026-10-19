@@ -118,6 +118,15 @@ const tokensCss = `:root, body {
   /* the # of a tag (before a link to a tag's page, a tag word in a sentence, a tag page's title, the pickers): the grey
      of the tag chips (0.4.114, at the owner's word: no blue tag anywhere; it was the colour Logseq's theme gives tags) */
   --rf-tag-color: var(--ls-secondary-text-color, currentColor);
+  /* One look for every popup (0.4.140), taken from Logseq's own [[ menu: a box beside the text has its corners,
+     its 6px of padding and its shadow; a row in it is 14px with 6px 8px of padding and 4px corners, the chosen row
+     on the wash. A box in the middle of the window (the link box, the copy card, the settings) and the dark Undo
+     bar are larger things and take the window's rounder corner and deeper shadow. */
+  --rf-popup-radius: 6px;
+  --rf-popup-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1);
+  --rf-window-radius: 8px;
+  --rf-window-shadow: 0 8px 28px rgba(0, 0, 0, .2);
+  --rf-row: .875rem;      /* the text of a row in a popup, Logseq's own size */
 }`;
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
@@ -498,7 +507,7 @@ function main() {
    Logseq can keep an older loader.js cached that only loads this file. */
 // shared.js first: the other parts read window.refinementShared as they load. sidebar.js next: its
 // settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
-const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/two-way.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {

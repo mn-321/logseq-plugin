@@ -575,8 +575,9 @@ const CHOOSER_CSS = `
   .rc-head { padding: 14px 16px 6px; font-size: .95em; font-weight: 600; }
   .rc-sub { padding: 0 16px 8px; color: var(--ls-secondary-text-color, #777); font-size: .85em; }
   .rc-list { overflow: auto; padding: 4px 8px; border-top: 1px solid var(--ls-border-color, #eee); border-bottom: 1px solid var(--ls-border-color, #eee); }
-  .rc-list label { display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
-  .rc-list label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
+  /* Rows as in every popup (0.4.140): 6px 8px, 4px corners, the 8% wash under the pointer (the tokens do not reach this frame). */
+  .rc-list label { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
+  .rc-list label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 8%, transparent); }
   .rc-count { margin-left: auto; color: var(--ls-secondary-text-color, #999); font-size: .85em; }
   .rc-all { padding: 0 16px 6px; font-size: .85em; }
   .rc-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 8px; font-size: .92em; }
@@ -585,7 +586,7 @@ const CHOOSER_CSS = `
   .rc-sort label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   .rc-layout { padding: 4px 8px 10px; font-size: .92em; }
   .rc-layout label { display: flex; align-items: flex-start; gap: 9px; padding: 5px 8px; border-radius: 4px; cursor: pointer; line-height: 1.35; }
-  .rc-layout label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
+  .rc-layout label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 8%, transparent); }
   .rc-layout input { margin-top: 3px; }
   .rc-field { display: flex; align-items: center; gap: 8px; padding: 3px 16px; font-size: .92em; }
   .rc-field span { width: 92px; color: var(--ls-secondary-text-color, #555); }

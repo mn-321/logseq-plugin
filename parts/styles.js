@@ -538,7 +538,7 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 
 `],
   [null, `/* The bar after a write, with Undo (shared.showUndoBar). */
-.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px; background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: var(--rf-row, .875rem); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
 .refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
@@ -581,8 +581,8 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .property-select .breadcrumb__label[data-refinement-value-day] { display: inline-block; padding: 0 .3em; border-radius: .22em; background: ${wash('--rf-wash-pct')}; font-variant-numeric: tabular-nums; }
 `],
   ['propertyPickerTypes', `/* The property picker says each type (marked by updatePropertyPicker in the links part): the type icon the line
-   list draws in place of Logseq's letter T, the type in quiet monospace words at the right of the row, and Logseq's
-   own "+ New option" row pencilled in. */
+   list draws in place of Logseq's letter T, the type in quiet plain words at the right of the row (monospace is for tag
+   names only, 0.4.113), and Logseq's own "+ New option" row pencilled in. */
 .ls-property-dialog .menu-link[data-refinement-prop] .ls-icon-letter-t { display: none !important; }
 .ls-property-dialog .menu-link[data-refinement-prop] .refinement-prop-icon { display: inline-flex; align-items: center; color: var(--ls-secondary-text-color); }
 .ls-property-dialog .menu-link[data-refinement-prop] { align-items: center; }
@@ -591,22 +591,22 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 `],
   ['linkBoxList', `/* The link box's list (askPageTitle in the editor part): the line list's rows (.rip-row, drawn by the inline-props
    stylesheet) inside the small box, and the grey box of a journal day in the glyph slot. */
-.refinement-prompt .refinement-link-list { margin: 8px -8px 0; max-height: 260px; overflow-y: auto; }
+.refinement-prompt .refinement-link-list { margin: 8px -8px 0; max-height: 260px; overflow-y: auto; font-size: var(--rf-row, .875rem); }
 .refinement-prompt .refinement-link-list[hidden] { display: none; }
-.refinement-prompt .refinement-link-list .rip-row { padding: 3px 8px; border-radius: 4px; }
 .refinement-prompt .rf-datebox { display: inline-block; width: .6em; height: .75em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); }
 .refinement-prompt .rf-blockdot { display: inline-block; width: .38em; height: .38em; border-radius: 50%; background: currentColor; opacity: var(--rf-quiet); }
 `],
   ['linkBoxBeside', `/* The link box beside the words (askPageTitle, 0.4.137): no dimmed backdrop and nothing over the page to catch a
-   press, the box held under the selected words where the editor part puts it, about the size of Logseq's [[ menu. */
+   press, the box held under the selected words where the editor part puts it, in the popup look of Logseq's [[ menu
+   and the line list (0.4.140): its corner, shadow and row size. */
 .refinement-prompt-backdrop.refinement-beside { display: block; padding: 0; background: transparent; pointer-events: none; }
-.refinement-beside-box { position: fixed; pointer-events: auto; padding: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.refinement-beside-box { position: fixed; pointer-events: auto; padding: 6px; border-radius: var(--rf-popup-radius, 6px); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
 .refinement-beside-box input { padding: 4px 6px; }
-.refinement-beside-box .refinement-link-list { margin: 6px -2px 0; }
+.refinement-beside-box .refinement-link-list { margin: 4px 0 0; }
 `],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
-.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
+.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
 .refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small); opacity: var(--rf-quiet); }

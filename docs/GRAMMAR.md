@@ -33,6 +33,9 @@ A reader looks at a row and asks a few questions. Each question has one place on
 | Here | `--rf-here` (7%) over `--rf-here-line` (38%) | the link to the page on screen under Linked references: a wash with a hairline beneath, like a pencil mark |
 | Small | `--rf-small` (.82em) | labels beside text |
 | Accent | `--rf-accent` | the optional tag chip; the only colour of the plugin's own |
+| Popup | `--rf-popup-radius` (6px), `--rf-popup-shadow`, `--rf-row` (.875rem) | a box beside the text (the line list, the link box beside the words, the journal note), in the look of Logseq's own `[[` menu since 0.4.140: a hairline border, 6px of padding, its corner and shadow; a row in it 14px with 6px 8px of padding and 4px corners, the chosen row and the row under the pointer on the wash; the search window's rows and the copy card's list take the row look too |
+| Window | `--rf-window-radius` (8px), `--rf-window-shadow` | a box in the middle of the window (the link box there, the copy card, the settings) and the dark Undo bar |
+| Keycap | 1px border, 3px corners, .9 of small | `tab`, `⇧tab`, `⌘z`, `j`, `k` beside a value or in the note |
 | Tag colour | `--rf-tag-color` | the icon or `#` before a link to a tag's own page, the `#` of a tag word in a sentence and in the pickers; since 0.4.114 the theme's secondary text colour, the grey of the tag chips (before, the colour Logseq's theme gives tags) |
 
 Two more places hold cues that are not about one row:

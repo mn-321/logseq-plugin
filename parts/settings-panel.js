@@ -22,8 +22,8 @@ const css = `
 .${ITEM_CLASS}[data-highlighted] { background: var(--lx-gray-04, var(--ls-tertiary-background-color)); }
 .${PANEL_CLASS} { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 7vh; background: rgba(0, 0, 0, .25); }
 .refinement-settings { --rs-line: color-mix(in srgb, var(--ls-border-color) 70%, transparent); --rs-wash: color-mix(in srgb, var(--ls-primary-text-color) 7%, transparent);
-  display: flex; flex-direction: column; width: min(840px, 94vw); height: min(660px, 86vh); border: 1px solid var(--ls-border-color); border-radius: 10px; overflow: hidden;
-  background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 10px 32px rgba(0, 0, 0, .2); font-size: 14px; }
+  display: flex; flex-direction: column; width: min(840px, 94vw); height: min(660px, 86vh); border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); overflow: hidden;
+  background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); font-size: 14px; }
 .refinement-settings header { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 20px; border-bottom: 1px solid var(--ls-border-color); }
 .refinement-settings header h2 { margin: 0; width: 170px; flex: none; font-size: 15px; font-weight: 600; }
 .refinement-settings .rs-find { flex: 1; position: relative; }

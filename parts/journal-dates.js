@@ -309,21 +309,22 @@ const setting = shared.settingReader(settingsSchema);
 
 const promptCss = `
 .jdd-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
-.jdd-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
+.jdd-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
 .jdd-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .jdd-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .jdd-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .82em); opacity: var(--rf-quiet, .7); }
-.jdd-ask { position: fixed; top: 48px; right: 16px; z-index: 10000; display: flex; align-items: center; gap: 12px; max-width: min(460px, 80vw); padding: 8px 12px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 4px 16px rgba(0, 0, 0, .12); font-size: .9em; }
+/* The note is a popup beside the page (0.4.140): the popup corner, shadow and row size of the line list and Logseq's [[ menu. */
+.jdd-ask { position: fixed; top: 48px; right: 16px; z-index: 10000; display: flex; align-items: center; gap: 12px; max-width: min(460px, 80vw); padding: 8px 12px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-popup-radius, 6px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
 .jdd-ask-what { color: var(--ls-secondary-text-color); }
 .jdd-ask-keys { display: flex; gap: 6px; flex: none; }
 .jdd-ask-keys button { padding: 3px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: .95em; cursor: pointer; }
 .jdd-ask-keys button:hover { background: var(--ls-tertiary-background-color); }
-.jdd-ask-keys kbd { margin-left: 4px; padding: 0 4px; border: 1px solid var(--ls-border-color); border-radius: 4px; font: inherit; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
+.jdd-ask-keys kbd { margin-left: 4px; padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
 /* The ghost value in the record's own row: pencilled in means proposed, not written. */
 .jdd-ghost { display: inline-flex; align-items: center; gap: .45em; margin-left: .35em; vertical-align: baseline; } /* the pill's own size since 0.4.124 */
 .jdd-ghost-name { color: var(--ls-secondary-text-color, currentColor); }
 /* Pencilled in (0.4.116): italic in the quiet colour, no box; the day stands upright in its box once written. */
-.jdd-ghost-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; }
+.jdd-ghost-value { border: 0; border-radius: 0; background: transparent; color: var(--ls-secondary-text-color, currentColor); padding: .02em .1em; font: inherit; font-style: italic; font-variant-numeric: tabular-nums; cursor: pointer; line-height: inherit; } /* no weight of its own (0.4.140): pencilled is one look, the proposals' ghost has none */
 .jdd-ghost-value:hover { color: var(--ls-primary-text-color, currentColor); }
 .jdd-ghost-keys { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet, .7); white-space: nowrap; }
 .jdd-ghost-keys kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; }

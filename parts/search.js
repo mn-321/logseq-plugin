@@ -93,7 +93,8 @@ const searchCss = `
 .cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) > .font-bold { font-weight: 500 !important; }
 
 /* Rows: compact, one weight of text, quiet icon and path. */
-.cp__cmdk [data-cmdk-item] { padding: 5px 10px !important; gap: 1px !important; border-radius: 6px !important; }
+/* The rows in the popup look (0.4.140): Logseq's own [[ menu's padding and corner, the chosen row and the row under the pointer on the wash. */
+.cp__cmdk [data-cmdk-item] { padding: 6px 8px !important; gap: 1px !important; border-radius: 4px !important; }
 .cp__cmdk [data-cmdk-item] > .flex.items-start { gap: 8px !important; }
 .cp__cmdk [data-cmdk-item] > .flex.items-start > div:first-child {
   width: 16px !important; height: 20px !important; background: none !important; box-shadow: none !important;
@@ -118,9 +119,9 @@ const searchCss = `
 .cp__cmdk [data-cmdk-item][data-highlighted],
 .cp__cmdk [data-cmdk-item][data-kb-highlighted],
 .cp__cmdk [data-cmdk-item][data-hoverable][data-highlighted]:hover {
-  background-color: rgba(128, 128, 128, .14) !important; box-shadow: none !important;
+  background-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent) !important; box-shadow: none !important;
 }
-.cp__cmdk [data-cmdk-item][data-hoverable]:not([data-highlighted]):hover { background-color: rgba(128, 128, 128, .08) !important; box-shadow: none !important; }
+.cp__cmdk [data-cmdk-item][data-hoverable]:not([data-highlighted]):hover { background-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent) !important; box-shadow: none !important; }
 
 /* Page results use the plugin's plain page rectangle. */
 .cp__cmdk [data-cmdk-item] :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description) {
