@@ -1,13 +1,13 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.173.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.174.
 
 Besides the look of pages, it holds:
 
 - **Search**: a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
 - **Right sidebar**: titles that open their page in the main view, and a clear line between items.
 - **Todos** (paused for now; switch on under **Paused** in the settings): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
-- **Tag tree** (on; switch off with **Use the tag tree** under **Tools** in the settings): all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
+- **Tag tree** (on; switch off with **Use the tag tree** under **Tools** in the settings): all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags. In the full view it is also the map of your properties: each open tag lists its properties (inherited ones faded) and what each holds, a link property opens into what it accepts and how it reads on the other page (changed there, or turned off), and an i beside a property explains it.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
 - **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
 - **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`); `;;` in place of `::` also keeps the value in your words (`deadline;;today`). Only in the graphs you name.
@@ -123,6 +123,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The link box lists blocks too | `linkBoxNodes` | on | Links and references |
 | Links read the same from both ends (a row “← doctor of …” on the page a field points to, grey names, read-only) | `twoWayRows` | on | Two-way links |
 | Fields read backwards (names for those rows) | `twoWayNames` | a few pairs | Two-way links |
+| Fields shown from one end only (no row on the page they point to; set from the tag tree too) | `twoWayOneEnd` | empty | Two-way links |
 | Leave out Logseq's tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
 | Property rows open (a record's fields wrap onto more lines) | `openPropertyRows` | on | Two-way links |
 | Escape takes [[ and # out | `pickerEscapeClears` | on | Links and references |
