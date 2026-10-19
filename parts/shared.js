@@ -50,10 +50,14 @@
      the setting that holds the shortcut, and whether it is also in a bullet's right-click menu) and moves
      a saved setting named in moved ({ key: [old default, new default] }). The core starts no part by name.
 
-   LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → the other parts → main().
+   LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → parts/model.js → the other parts → main().
    loader.js loads main.js with a fresh timestamp (Logseq caches a plugin's script between reloads);
    main.js loads the parts the same way, this file first, because the others read
-   window.refinementShared as they load. main.js itself takes its helpers from here once the parts
+   window.refinementShared as they load, and parts/model.js second: the one part that knows what a page,
+   block, tag, property, journal day and link are in a DB graph (titles, the stored form of a link, the
+   property schema, the pages, days, journal titles, the Logseq version checked with). It provides them
+   through core.provided, so every other part reads the graph through it with take(); the core itself knows
+   nothing of content. main.js itself takes its helpers from here once the parts
    have loaded (useShared), before it gives Logseq the settings and before main() runs, and main()
    publishes window.refinementCore before it starts any part. */
 

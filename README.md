@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.163.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.164.
 
 Besides the look of pages, it holds:
 
@@ -21,7 +21,7 @@ The first group is the plugin itself and is all the release zip holds. The rest 
 | --- | --- |
 | `package.json` | Tells Logseq the plugin's name, version and starting file. |
 | `loader.js` | The starting file. It loads `main.js` fresh each time, so a reload picks up changes. |
-| `main.js` | The core: the screen watcher, the database round, the settings list, the self-check after a Logseq update, the commands, and the loader of the parts. |
+| `main.js` | The core: the screen watcher, the database round, the hooks, the self-check after a Logseq update, the commands, and the loader of the parts. It knows nothing about pages or blocks. |
 | `parts/` | The rest of the plugin, one file per area, loaded by `main.js` in a fixed order (see below). |
 | `README.md` | This guide. |
 | `CHANGELOG.md` | What changed in each version, and what was seen on screen before it was kept. |
@@ -37,6 +37,7 @@ The files in `parts/`:
 | File | What it holds |
 | --- | --- |
 | `shared.js` | The helpers every file uses (boxes, the Undo bar, settings, clean-up). Loaded first. |
+| `model.js` | What a page, block, tag, property, journal day and link are in a DB graph: the one place that reads them. Loaded second. |
 | `diagnostics.js` | The troubleshooting tools (Check what the plugin finds, Copy warnings and the rest). |
 | `editor.js` | The shortcuts and commands that write to a block, and the link box. |
 | `pages.js` | What is drawn around a page's title: the page's kind, Alias of, and the shape box (what a tag or property holds, and where a tag sits). |

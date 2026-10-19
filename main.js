@@ -86,11 +86,6 @@ const sweepEarlierCopy = doc => window.refinementShared.sweepLeftovers(doc);
 // Logseq ignores an empty stylesheet, which would leave the previous rules in place. A comment
 // counts as content, so sending one is how a stylesheet is cleared.
 const orNoRules = style => style.trim() ? style : '/* no rules */';
-const titleOf = block => (block?.title || block?.content || '').trim();
-// Drops a leading bullet, every trailing tag (#work, #[[Long tag]]), and the brackets around links.
-const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
-const cleanTitle = raw => raw.replace(/^[-*]\s*/, '').replace(trailingTags, '')
-  .replace(/\[\[([^\]]+)\]\]/g, '$1').trim().slice(0, 180);
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -105,26 +100,12 @@ const dsQuery = async query => {
   return Array.isArray(rows) ? rows : [];
 };
 
-// DB graphs store links as [[uuid]] and block references as ((uuid)). Swap in the titles people see.
-// pagesOnly leaves ((uuid)) alone, matching what the block editor shows; asShown also leaves a [[uuid]]
-// that points at a block (not a page) alone, because the editor shows such a link as its id.
-const storedRef = /(\(\(|\[\[)([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(\)\)|\]\])/gi;
-// The Logseq version whose page structure the plugin was last checked against. Most of what the
-// plugin draws depends on names Logseq uses inside its own pages, which can change in any release.
-const CHECKED_WITH = '2.0.2';
-/* Self-check after a Logseq update. Once a page has settled, a few pairs are compared: when the page
-   plainly has a thing (blocks, a title, references) but the part the plugin finds inside it is missing,
-   Logseq has most likely renamed that part, and the features listed beside it have quietly stopped.
-   One note in the app per problem per session. Nothing is switched off: a feature that cannot find its
-   part already draws nothing. A Logseq version other than CHECKED_WITH gets one note per version. */
-// [what is missing, the page has this (at least min), but none of this, what stops, min]
-const selfChecks = () => [
-  ['the page area', '#head', '#main-content-container', 'almost everything the plugin draws', 1],
-  ['block text', '#main-content-container .ls-block[blockid]', '#main-content-container .block-title-wrap', 'cues after blocks, block-link dots, reference rows', 2],
-  ['the title row', `#main-content-container :is(${PAGE_TITLE})`, '#main-content-container .is-page-title-row', 'tags beside the title, #Page, Add tags', 1],
-  ['reference headings', '#main-content-container .references', '#main-content-container .references .ls-foldable-title', 'the Linked references layout, counts and labels', 1],
-  ['the sidebar buttons', '#right-sidebar .sidebar-item', '#right-sidebar .cp__right-sidebar-settings', 'sidebar tidy', 1],
-];
+/* Self-check after a Logseq update. Once a page has settled, a few pairs are compared (screenChecks, from
+   parts/model.js: what a drawn page must hold): when the page plainly has a thing (blocks, a title,
+   references) but the part the plugin finds inside it is missing, Logseq has most likely renamed that
+   part, and the features listed beside it have quietly stopped. One note in the app per problem per
+   session. Nothing is switched off: a feature that cannot find its part already draws nothing. A Logseq
+   version other than the one the model was checked with (CHECKED_WITH) gets one note per version. */
 const selfCheck = { timer: 0, noted: new Set() };
 // Looks twice, a few seconds apart, so a page caught half-drawn does not count.
 function scheduleSelfCheck() {
@@ -134,7 +115,7 @@ function scheduleSelfCheck() {
 function runSelfCheck(first) {
   const doc = host();
   const count = selector => { try { return doc.querySelectorAll(selector).length; } catch (error) { return 0; } };
-  const missing = selfChecks().filter(([what, has, needs, , min]) => !selfCheck.noted.has(what) && count(has) >= min && count(needs) === 0);
+  const missing = provided.screenChecks().filter(([what, has, needs, , min]) => !selfCheck.noted.has(what) && count(has) >= min && count(needs) === 0);
   if (!missing.length) return;
   if (first) { selfCheck.timer = setTimeout(() => runSelfCheck(false), 3000); return; }
   for (const [what, has, needs] of missing) {
@@ -146,9 +127,9 @@ function runSelfCheck(first) {
 async function versionNotice() {
   let version = '';
   try { version = (await logseq.App.getInfo('version')) || ''; } catch (error) { return; }
-  if (!version || version === CHECKED_WITH || logseq.settings?.selfCheckSeenVersion === version) return;
+  if (!version || version === provided.CHECKED_WITH || logseq.settings?.selfCheckSeenVersion === version) return;
   logseq.updateSettings({ selfCheckSeenVersion: version });
-  notify(`You are on Logseq ${version}; DB Refinements was last checked with ${CHECKED_WITH}. If something looks off, run “Check what the plugin finds on this page”.`, 'warning');
+  notify(`You are on Logseq ${version}; DB Refinements was last checked with ${provided.CHECKED_WITH}. If something looks off, run “Check what the plugin finds on this page”.`, 'warning');
 }
 function startSelfCheck() {
   versionNotice();
@@ -183,7 +164,6 @@ function reloadOnly(schema) {
 }
 let RELOAD_SETTINGS = [];
 
-const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
 /* After the database changes, everything the plugin knows from it is looked up again in one round:
    as soon as the changes pause, or every few seconds while they keep coming (typing). Seven
    separate timers used to do this, finishing at three different moments after each edit. */
@@ -251,8 +231,7 @@ const dbJobs = [];   // database-round jobs, in the order the parts registered t
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
-    UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
-    CHECKED_WITH, PAGE_TITLE,
+    UUID, isEntityId, idsIn, uuidsIn, dsQuery,
     onFoldAll: fn => provided.onFoldAll(fn),
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
@@ -326,9 +305,10 @@ function main() {
 /* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
    window.refinementParts; they are loaded here, in order, before the settings are given, because
    Logseq can keep an older loader.js cached that only loads this file. */
-// shared.js first: the other parts read window.refinementShared as they load. sidebar.js right after
+// shared.js first: the other parts read window.refinementShared as they load. model.js second: the Logseq
+// model, which every part reads the graph through (core.provided). sidebar.js right after
 // chrome.js: its settings have no heading of their own, so they join chrome's "Sidebars and toolbar".
-const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/two-way.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/two-way.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {

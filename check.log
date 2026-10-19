@@ -1,0 +1,26 @@
+OK loader.js
+OK main.js
+OK parts/chrome.js
+OK parts/diagnostics.js
+OK parts/editor.js
+OK parts/inline-props.js
+OK parts/journal-dates.js
+OK parts/links.js
+OK parts/model.js
+OK parts/pages.js
+OK parts/properties.js
+OK parts/proposals.js
+OK parts/rich-copy.js
+OK parts/search.js
+OK parts/settings-panel.js
+OK parts/shared.js
+OK parts/sidebar.js
+OK parts/styles.js
+OK parts/tags.js
+OK parts/todos.js
+OK parts/two-way.js
+settings keys (grep "key: '"): 177; window.* publications: 11
+loaded 18 parts, 115 settings
+18 palette commands, 7 with a shortcut, 2 bullet-menu items
+boot-test: OK
+check.sh: OK (version 0.4.164)
