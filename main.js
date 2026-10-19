@@ -81,16 +81,8 @@ function stopWatchingDom() {
    one can find it (takeOverFromEarlierCopy, from shared.js), and a new copy runs it and removes
    anything still left on screen (sweepEarlierCopy). */
 const STOP_KEY = '__dbRefinementsStop';
-// Search marks (data-rf-*, .rf-search-*) belong to the search part (parts/search.js), which clears its own.
-const STRAY_ELEMENTS = '.refinement-child-assets, .refinement-hidden-toggle, .refinement-inline-values, .refinement-title-tags, .refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage, .refinement-undo-bar, .refinement-prompt-backdrop, .refinement-prop-icon, .refinement-link-list, .rfp-ghost, .refinement-value-icon';
-// Every mark the plugin sets on Logseq's own elements (grep "data-refinement-" when adding one).
-const STRAY_ATTRIBUTES = [...['ref-row', 'date', 'date-heading', 'tag-page', 'property-crumb', 'pdf', 'pdf-line', 'pdf-citation-block',
-  'citation', 'quiet', 'sidebar-hidden', 'always-shown', 'prop-hidden', 'block-link', 'prop-label', 'via', 'via-value', 'crumb-box', 'ref-count', 'here', 'below', 'quiet-menu', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type', 'proposal', 'value', 'value-kind', 'value-day', 'proposed', 'value-lead'].map(name => 'data-refinement-' + name)];
-function sweepEarlierCopy(doc) {
-  for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
-  for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
-  for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = '';
-}
+// Each part declares what it may leave on screen in its lifecycle (leaves); shared.js sweeps it all.
+const sweepEarlierCopy = doc => window.refinementShared.sweepLeftovers(doc);
 
 /* One small scale for everything the plugin draws, so cues added at different times look alike.
    Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
@@ -390,7 +382,7 @@ const dbJobs = {};   // database-round jobs by name (core.onDbRound)
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, tokensCss, watchDom, watchDomEarly, addsElements, ensureDomWatch,
-    STRAY_ELEMENTS, STRAY_ATTRIBUTES, RELOAD_SETTINGS, CUE_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
+    RELOAD_SETTINGS, CUE_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
     CHECKED_WITH, PAGE_TITLE,
     onFoldAll: fn => provided.onFoldAll(fn),
     provided, provide: things => Object.assign(provided, things), onDbRound: (name, fn) => { dbJobs[name] = fn; },

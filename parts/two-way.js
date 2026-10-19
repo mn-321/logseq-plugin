@@ -15,7 +15,7 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written. */
 const shared = window.refinementShared;
 const { host, openEntity } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ' });
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', title: 'Two-way links', default: null,

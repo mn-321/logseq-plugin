@@ -24,7 +24,7 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (inline properties): ', stopKey: '__refinementInlinePropsStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.rip-menu, .rip-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-rip-ghost]')) el.removeAttribute('data-rip-ghost'); } catch (error) { /* nothing left over */ } } });
+  leaves: { elements: '.rip-menu, .rip-ghost', attributes: ['data-rip-ghost'] } });
 const { graphNamedIn } = shared;
 let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor, undoBeside;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };

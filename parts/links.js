@@ -11,7 +11,10 @@
    cue selectors and wash from the core (the styles area). */
 const shared = window.refinementShared;
 const { host, notify, openEntity, perf } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { elements: '.refinement-child-assets, .refinement-usage, .refinement-prop-icon, .refinement-value-icon',
+    attributes: ['ref-row', 'date', 'date-heading', 'tag-page', 'pdf', 'pdf-line', 'pdf-citation-block', 'citation', 'block-link', 'prop-label', 'via', 'via-value', 'ref-count', 'here', 'below',
+      'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type', 'value', 'value-kind', 'value-day', 'proposed'].map(name => 'data-refinement-' + name) } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, storedRef, titleOf, trailingTags, UUID, isEntityId, idsIn, uuidsIn, graphWide, watchDom, watchDomEarly, addsElements, sendStyle, PAGE_TITLE, REFERENCE_AREAS, referenceAreas, wash, applyTagPageStyle, blockLink, blockLinkPlain, viaLook;
 let provided, escapeHtml;
