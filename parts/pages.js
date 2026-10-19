@@ -526,6 +526,10 @@ function provide(core) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onPageChange(function pagesPageChange() { schedulePageKind(0); }); // at once (0.4.150)
+  core.onSettingsChange(function pagesSettingsChange() {
+    try { updatePageKind(host()); } catch (error) { /* shown on the next change */ }
+  });
   ({ setting, dsQuery, UUID, isEntityId, idsIn, watchDom, watchDomEarly, PAGE_TITLE, escapeHtml, attribute, isJournalDate, updateOwnTags } =
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'watchDom', 'watchDomEarly', 'PAGE_TITLE', 'escapeHtml', 'attribute', 'isJournalDate', 'updateOwnTags']));
 }

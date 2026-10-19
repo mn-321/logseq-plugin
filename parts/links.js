@@ -1586,6 +1586,8 @@ function updateReferenceHere(doc) {
   for (const el of below) if (!referenceHere.below.has(el)) { el.setAttribute('data-refinement-below', ''); referenceHere.below.add(el); }
 }
 
+// Settings whose cues are drawn per record, from the database, when the page refreshes.
+const CUE_SETTINGS = ['childTypeCues', 'referenceIcons', 'linkLabels'];
 // The refresh timer and version are this part's own; the database round cancels a waiting refresh (before).
 const cancelRefresh = () => clearTimeout(refreshTimer);
 const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
@@ -1601,6 +1603,21 @@ function provide(core) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onPageChange(function linksPageChange() {
+    // What is known about the page just left must not be applied to the one arriving.
+    pdfCitations.pageUuid = null;
+    cueMarks.incoming = new Map();
+    referenceHere.names.clear(); // the page's aliases are looked up again
+    // At once (0.4.150): Logseq is busy loading the new page for about half a second and the look-ups wait in
+    // line behind it anyway; a pause before asking only added to that.
+    scheduleRefresh(0);
+  });
+  core.onSettingsChange(function linksSettingsChange(now, before) {
+    if (CUE_SETTINGS.some(key => now?.[key] !== before?.[key])) scheduleRefresh(0);
+    if (now?.pdfCitations !== before?.pdfCitations) updatePdfCitations();
+    try { updateOwnTags(host()); } catch (error) { /* shown on the next change */ }
+    updateDateLinks();
+  });
   ({ setting, dsQuery, storedRef, titleOf, trailingTags, UUID, isEntityId, idsIn, uuidsIn, graphWide, watchDom, watchDomEarly, addsElements, sendStyle, PAGE_TITLE, REFERENCE_AREAS, referenceAreas, wash, applyTagPageStyle, blockLink, blockLinkPlain, viaLook, escapeHtml } =
     take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'trailingTags', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'graphWide', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'PAGE_TITLE', 'REFERENCE_AREAS', 'referenceAreas', 'wash', 'applyTagPageStyle', 'blockLink', 'blockLinkPlain', 'viaLook', 'escapeHtml']));
 }
