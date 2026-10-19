@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.146.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.147.
 
 Besides the look of pages, it holds:
 
@@ -158,6 +158,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The list opens on the proposal | `inlinePropsProposedFirst` | on | Properties in the line |
 | Proposals in the pills | `pillProposals` | on | Proposals in the pills |
 | What is proposed | `pillProposalRules` | journal day, people named, the parent’s fields | Proposals in the pills |
+| A link fills its field (a page linked in the words is pencilled into the empty field that takes its tag) | `proposeLinkedPages` | on | Proposals in the pills |
 | A day in the words | `proposeDayInWords` | on | Proposals in the pills |
 | Undo beside the value | `undoBesideValue` | on | Proposals in the pills |
 | Show the key hint until this many takes | `proposalHintTakes` | 20 | Proposals in the pills |

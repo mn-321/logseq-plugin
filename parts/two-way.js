@@ -123,7 +123,9 @@ async function groupsFor(id) {
     if (!isEntityId(b)) continue;
     let title = raw || '';
     try { title = await provided.readableTitle(title); } catch { /* the stored words, then */ }
-    title = String(title).replace(/\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+)/g, '').trim() || 'Untitled';
+    // Links read as the words they show (0.4.147): "saw [[Dr. Joe]]" as "saw Dr. Joe", "[the scan]([[CT]])" as "the scan".
+    title = String(title).replace(/\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+)/g, '').replace(/\[([^\[\]]+)\]\(\[\[[^\]]*\]\]\)/g, '$1')
+      .replace(/\[\[([^\]]+)\]\]/g, '$1').trim() || 'Untitled';
     records.set(b, { uuid: String(uuid), title, tag: tags.get(b) || 'note', day: days.get(b)?.day || 0 });
   }
   const names = backwardsNames(), today = todayNumber();

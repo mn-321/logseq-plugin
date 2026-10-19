@@ -5,6 +5,8 @@
    answer pencilled in (italic, the quiet colour) in the record's own pill, with the line list's ghost (parts/inline-props.js, 0.4.96):
    - the journal day, in an empty Date field of a record the Journal day as date settings name (its
      graphs, tags and property; this part takes over that part's asking while it is on);
+   - a page linked in the record's text ([[Joe]], or words linked with the link box), in an empty field that
+     takes one of its classes (or a class it extends), so a link and the field are made in one go (0.4.147);
    - a Person (or a page of any class a field takes) whose first name, or whole name, is a word of the
      record's text, in an empty field that takes that class, only when exactly one such page matches;
    - the parent's value, in a child's empty field of the same name (a Decision under a Meeting gets its
@@ -30,6 +32,8 @@ const settingsSchema = [
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
   { key: 'pillProposalRules', type: 'string', title: 'What is proposed', default: 'journal day, people named, the parent’s fields',
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
+  { key: 'proposeLinkedPages', type: 'boolean', title: 'A link fills its field', default: true,
+    description: 'A page you link in a record’s text ([[Dr. Joe]], or words linked with the link box) is pencilled into the record’s empty field that takes its tag (doctor takes Doctor), so Tab makes the link a fact as well as a mention. One field per link, the first that fits; nothing when a single-value field would get two. Runs in the graphs named under Properties in the line. Applies at once.' },
   { key: 'proposeDayInWords', type: 'boolean', title: 'A day in the words', default: true,
     description: 'The last words of the record read as a day (tomorrow, friday, next fri, 23 oct, +3; a bare weekday needs four letters or more) are pencilled into the record’s empty Deadline, else due date, else date, and nowhere else. Runs in the graphs named under Properties in the line. Applies at once.' },
   { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
@@ -95,10 +99,34 @@ function peopleNamed(prop, wordSet, title, pages) {
   if (!found.length || (!prop.many && found.length > 1)) return null;
   return found;
 }
+// The pages linked in the record's text (0.4.147): [[uuid]] in the saved title, [[Name]] in the text box, either
+// also inside a link box link, [words]([[...]]). In the order they are written, each once.
+function pagesLinked(title, pages) {
+  const byKey = new Map();
+  for (const page of pages) { byKey.set(page.lower, page); if (page.uuid) byKey.set(page.uuid.toLowerCase(), page); }
+  const found = [];
+  for (const [, key] of String(title || '').matchAll(/\[\[([^\[\]]+)\]\]/g)) {
+    const page = byKey.get(key.trim().toLowerCase());
+    if (page && !found.includes(page)) found.push(page);
+  }
+  return found;
+}
+// A page fits a field when one of its tags, or a tag that tag extends, is a class the field takes (Doctor extends Person).
+function fits(page, classIds, schema) {
+  const seen = new Set(), queue = page.tags.map(t => t.id);
+  while (queue.length) {
+    const c = queue.shift();
+    if (seen.has(c)) continue;
+    seen.add(c);
+    if (classIds.has(c)) return true;
+    queue.push(...(schema.parentsOf.get(c) || []));
+  }
+  return false;
+}
 // What the rules may run on: the graphs named for the line list (people, parent) and for the journal day.
 async function allowed() {
   if (!own('pillProposals')) return null;
-  const inline = (rule('people named') || rule("the parent's fields") || own('proposeDayInWords')) && await graphNamedIn(inlinePropsSetting('inlinePropsGraphs'));
+  const inline = (rule('people named') || rule("the parent's fields") || own('proposeDayInWords') || own('proposeLinkedPages')) && await graphNamedIn(inlinePropsSetting('inlinePropsGraphs'));
   const days = ownsDates() && journalDates.setting('autoDate') && journalDates.setting('autoDateAsk') && await journalDates.allowedHere();
   if (!inline && !days) return null;
   const [schema, pages, setup] = await Promise.all([propSchema(), propPages(), days ? journalDates.setup() : null]);
@@ -129,11 +157,15 @@ async function itemsFor(b, title, ctx, recent) {
   const fields = fieldsOfTags(tags, schema), parent = pick(b, 'block/parent'), page = pick(b, 'block/page'), items = [];
   const parentIsBlock = parent && pick(parent, 'block/page');
   const pageTags = new Set((pick(page, 'block/tags') || []).map(idOf));
+  // A linked page goes to the first empty field it fits, and only there; the record's own values are not linked again.
+  const linked = inline && own('proposeLinkedPages') ? pagesLinked(title, pages) : [], linkUsed = new Set();
   for (const prop of fields) {
     if (prop.type !== 'node' || !prop.classes.length || valuesOf(b, prop.ident).length) continue;
     const classIds = new Set(prop.classes.map(c => c.id));
     let found = null, how = '';
-    if (inline && rule('people named')) { found = peopleNamed(prop, wordSet, title, pages); how = 'named'; }
+    const fitting = linked.filter(p => !linkUsed.has(p) && fits(p, classIds, schema));
+    if (fitting.length && (prop.many || fitting.length === 1)) { found = fitting; how = 'linked'; for (const p of fitting) linkUsed.add(p); }
+    if (!found && inline && rule('people named')) { found = peopleNamed(prop, wordSet, title, pages); how = 'named'; }
     if (!found && inline && rule("the parent's fields") && parentIsBlock) {
       const theirs = valuesOf(parent, prop.ident).map(id => pageById.get(id)).filter(p => p && p.tags.some(t => classIds.has(t.id)));
       if (theirs.length && (prop.many || theirs.length === 1)) { found = theirs; how = 'parent'; }
@@ -476,7 +508,7 @@ const css = `
 .rfp-undo kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; text-transform: lowercase; }`;
 
 // Why a value is proposed, in the words the line list shows beside it (0.4.118).
-const WHY = { named: 'in your words', words: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
+const WHY = { linked: 'linked in your words', named: 'in your words', words: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
 // The record's proposals for one field (or all of them), for the line list, which opens on them (0.4.118).
 function proposalsFor(uuid, ident) {
   const rec = recFor(uuid);
