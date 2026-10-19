@@ -23,4 +23,4 @@ settings keys (grep "key: '"): 177; window.* publications: 11
 loaded 18 parts, 115 settings
 18 palette commands, 7 with a shortcut, 2 bullet-menu items
 boot-test: OK
-check.sh: OK (version 0.4.165)
+check.sh: OK (version 0.4.166)

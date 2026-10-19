@@ -16,9 +16,9 @@ const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.l
 
 const settingsSchema = [
   { key: 'sidebarTitleOpens', type: 'boolean', title: 'Sidebar titles open their page', default: true,
-    description: 'Clicking the title of a page or block in the right sidebar opens it in the main view. The small arrow before the title, and the empty part of the title bar, still fold and unfold it. Shift-click and other clicks with a key held work as in Logseq. Off: the whole title bar folds and unfolds, as in Logseq.' },
+    description: 'Clicking the title of a page or block in the right sidebar opens it in the main view. The small arrow before the title, and the empty part of the title bar, still fold and unfold it. Shift-click and other clicks with a key held work as in Logseq. Off: the whole title bar folds and unfolds, as in Logseq. Applies at once.' },
   { key: 'sidebarThickDividers', type: 'boolean', title: 'Thick line between sidebar items', default: true,
-    description: 'A thick line separates the items in the right sidebar, so each page or block stands apart from the next.' },
+    description: 'A thick line separates the items in the right sidebar, so each page or block stands apart from the next. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
