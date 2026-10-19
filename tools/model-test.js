@@ -167,10 +167,9 @@ async function main() {
   same(model.titleOf({ title: '  Kickoff  ' }), 'Kickoff', 'titleOf trims');
   same(model.titleOf({ content: 'old style' }), 'old style', 'titleOf falls back to content');
   same(model.titleOf(null), '', 'titleOf of nothing');
-  same(model.cleanTitle('- Kickoff call #meeting #[[Long tag]]'), 'Kickoff call', 'cleanTitle drops the bullet and trailing tags');
-  same(model.cleanTitle('Call with [[Mateo Ruiz]] #meeting'), 'Call with Mateo Ruiz', 'cleanTitle unwraps links');
-  same(model.cleanTitle('#work is the topic'), '#work is the topic', 'cleanTitle keeps a tag that is not trailing');
-  same(model.cleanTitle('x'.repeat(300)).length, 180, 'cleanTitle cuts at 180');
+  same('Kickoff call #meeting #[[Long tag]]'.replace(model.trailingTags, ''), 'Kickoff call', 'trailingTags finds every tag at the end');
+  same('#work is the topic'.replace(model.trailingTags, ''), '#work is the topic', 'trailingTags leaves a tag that is not at the end');
+  same(model.cleanTitle, undefined, 'the page-name rule is the editor part\'s, not the model\'s');
   same(await model.readableTitle(`Met [[${U(40)}]] about ((${U(50)}))`), 'Met [[Mateo Ruiz]] about Budget review', 'readableTitle swaps pages and blocks');
   same(await model.readableTitle(`Met [[${U(40)}]] about ((${U(50)}))`, { pagesOnly: true }), `Met [[Mateo Ruiz]] about ((${U(50)}))`, 'readableTitle pagesOnly leaves block references');
   same(await model.readableTitle(`See [[${U(50)}]]`, { asShown: true }), `See [[${U(50)}]]`, 'readableTitle asShown leaves a [[link]] to a block');

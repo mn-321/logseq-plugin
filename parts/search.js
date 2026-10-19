@@ -22,9 +22,7 @@ const tokensCss = '/* the tokens are declared in parts/styles.js */';
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
 
-const titleOf = block => (block?.title || block?.content || '').trim();
-// Every trailing tag (#work, #[[Long tag]]).
-const trailingTags = /(?:\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+))+\s*$/;
+let titleOf, trailingTags; // from the model part (0.4.171; this part kept its own copies before)
 
 /* Database queries. Datascript with Logseq's own idents (:logseq.class/Tag, :block/title...), as
    the plugin SDK's DB guides do. Lists of ids are written into the query text, so only whole
@@ -1836,6 +1834,7 @@ const setting = shared.settingReader(settingsSchema);
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
   ({ watchDom, watchDomEarly } = window.refinementCore);
+  ({ titleOf, trailingTags } = window.refinementCore.provided);
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'calmer-search-tokens', style: tokensCss });
   if (setting('tidySearch')) {
