@@ -620,3 +620,5 @@ Version 0.4.61 (2026-10-16, cleanup) makes the documents agree. README.md descri
 0.4.154: in the settings window, **Two-way links** sits in the **Reading a page** group, between the rows and the links, instead of under Other: it only changes how a page reads and writes nothing. The group's picture gains a zone for it, "← doctor of  9 Appointments · next Nov 12", numbered like the list beside it. Read in the code, not seen on screen.
 
 0.4.155: in the settings window, **Tag tree** moves from the **Paused** group to **Tools**, between Copy as rich text and the shortcuts, since it has been on again since 0.4.152. The Tools picture gains its zone (the tree with # Entity and # Person), and the Paused group now holds only Todos and Expectations. Turned off with **Use the tag tree**, its section still steps back and reads "paused", as before. Read in the code, not seen on screen.
+
+0.4.156: the README no longer calls the tag tree paused. Its line in the list of parts, the `tags.js` row and the Tag tree section now say it is on since 0.4.152 and how to switch it off. Words only; the plugin is unchanged.
