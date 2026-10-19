@@ -314,15 +314,18 @@ function updateCueMarks(doc) {
       }
     }
     // A row in the right sidebar is judged against the page that sidebar item shows (0.4.135), the rest against the main view's.
-    const incomingOf = row => { const item = row.closest('#right-sidebar .sidebar-item'); return item ? sidebarCues.pages.get(item) : cueMarks.incoming; };
-    if (cueMarks.incoming.size || sidebarCues.pages.size) {
+    // The main view's rows against the page it shows, from memory while that page's look-up is still out (0.4.150).
+    const titles = [...provided.pageTitles(doc)].filter(el => !el.parentElement?.closest(PAGE_TITLE));
+    const shownUuid = titles.length === 1 ? titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') : '';
+    const mainIncoming = (shownUuid && incomingFor(shownUuid)) || (shownUuid ? new Map() : cueMarks.incoming);
+    const incomingOf = row => { const item = row.closest('#right-sidebar .sidebar-item'); return item ? sidebarCues.pages.get(item) : mainIncoming; };
+    if (mainIncoming.size || sidebarCues.pages.size) {
       for (const row of doc.querySelectorAll('.ls-block[blockid]')) {
         const incoming = incomingOf(row);
         if (!incoming?.size) continue;
         const uuid = row.getAttribute('blockid'), names = incoming.get(uuid);
-        const own = incoming === cueMarks.incoming ? provided.listProps.pageBlocks : incoming.own;
         // The page's own blocks say so in their properties, and Linked references already show the property.
-        if (!names || own?.has(uuid) || row.closest(REFERENCE_AREAS)) continue;
+        if (!names || incoming.own?.has(uuid) || row.closest(REFERENCE_AREAS)) continue;
         const wrapper = wrapperOf(row);
         if (!wrapper) continue;
         const label = [...names].join(', ') + ':', page = incoming.pageTitle || '';
@@ -603,7 +606,7 @@ function usageScopes(doc) {
   const title = titles.length === 1 ? titles[0] : null;
   const uuid = title?.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '';
   const main = doc.querySelector('#main-content-container');
-  if (main) scopes.push({ scope: main, title, uuid, incoming: title && uuid && cueMarks.incoming.pageUuid === uuid ? cueMarks.incoming : null });
+  if (main) scopes.push({ scope: main, title, uuid, incoming: title ? incomingFor(uuid) : null });
   for (const [item, incoming] of sidebarCues.pages) if (item.isConnected) scopes.push({ scope: item, title: null, uuid: incoming.pageUuid, incoming });
   return scopes;
 }
@@ -679,12 +682,7 @@ async function sidebarIncoming(doc) {
     }
     if (!isEntityId(page?.id)) continue;
     const key = String(page.uuid);
-    if (!byPage.has(key)) byPage.set(key, (async () => {
-      const incoming = await incomingPropertyLinks(page);
-      // The page's own blocks say so in their properties, as in the main view (listProps.pageBlocks).
-      incoming.own = new Set(collectNodes(await logseq.Editor.getPageBlocksTree(key) || []).map(node => String(node.uuid)));
-      return incoming;
-    })());
+    if (!byPage.has(key)) byPage.set(key, incomingPropertyLinks(page));
     found.set(item, await byPage.get(key));
   }
   return found;
@@ -1197,6 +1195,7 @@ function restorePdfCitations() {
 }
 
 const childAssetCues = new Map();
+const keepNewest = (map, most) => { while (map.size > most) map.delete(map.keys().next().value); };
 // What sits below a block, written after its text: ↳, then a dashed circle and a count for
 // unfinished tasks at any depth, then an icon for each kind of file directly below.
 function updateChildAssetCues(doc) {
@@ -1302,7 +1301,9 @@ async function referencedNodeIds() {
     return new Set((rows || []).map(([uuid]) => String(uuid)).filter(uuid => UUID.test(uuid)));
   } catch (error) {
     warnOnce('could not identify linked nodes', error);
-    return new Set();
+    // Not kept as an empty list for the next half minute (graphWide drops a failed look-up): asked while Logseq
+    // is still opening the graph, it fails, and the refresh asks again (0.4.150).
+    throw error;
   }
 }
 // Property values that are blocks (text-type properties) show up in Linked references looking like
@@ -1319,7 +1320,7 @@ async function propertyValueBlocks() {
     return result;
   } catch (error) {
     warnOnce('could not identify property values', error);
-    return new Map();
+    throw error; // not kept as an empty list; the refresh asks again (0.4.150)
   }
 }
 // Records that point at the open page through one of your own Node properties (for example a test
@@ -1333,15 +1334,29 @@ async function incomingPropertyLinks(given) {
     const id = page?.id;
     if (!isEntityId(id) || !logseq.DB?.datascriptQuery) return result;
     result.pageTitle = String(page.title || page.originalName || page.name || '');
-    const rows = await logseq.DB.datascriptQuery(`[:find ?uuid ?name ?attr
-      :where [(identity ${id}) ?page]
-      [?prop :block/tags ?class]
-      [?class :db/ident :logseq.class/Property]
-      [?prop :db/ident ?attr]
-      [?b ?attr ?page]
-      [?prop :block/title ?name]
-      [?b :block/uuid ?uuid]
-      ${LIVE}]`);
+    result.pageUuid = String(page.uuid || '');
+    // Blocks in the recycle bin keep their refs; Logseq lists none of them, so neither does the line (0.4.132:
+    // a recycled stress page made Atlas read in text · 1503 over ten references).
+    const uuidsOf = rows => new Set((rows || []).map(row => String(row[0])).filter(uuid => UUID.test(uuid)));
+    // Asked together (0.4.150): right after a page change each answer waits behind Logseq loading the page, so
+    // four questions one after another cost four waits.
+    const [rows, tagged, refs, own] = await Promise.all([
+      logseq.DB.datascriptQuery(`[:find ?uuid ?name ?attr
+        :where [(identity ${id}) ?page]
+        [?prop :block/tags ?class]
+        [?class :db/ident :logseq.class/Property]
+        [?prop :db/ident ?attr]
+        [?b ?attr ?page]
+        [?prop :block/title ?name]
+        [?b :block/uuid ?uuid]
+        ${LIVE}]`),
+      // For the usage line: the blocks tagged with the page (a tag page), and the blocks that only mention
+      // it in their words (a reference that is neither a property value nor a tag, and not on the page itself).
+      logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/tags ?page] [?b :block/uuid ?uuid] ${LIVE}]`),
+      logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/refs ?page] [?b :block/uuid ?uuid] (not [?b :block/page ?page]) ${LIVE}]`),
+      // The page's own blocks say so in their properties, and get no via label.
+      logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/page ?page] [?b :block/uuid ?uuid]]`),
+    ]);
     for (const [uuid, name, attr] of rows || []) {
       // Only properties you made; built-in links such as tags, aliases and parents are left out.
       if (!UUID.test(String(uuid)) || !name || !/^:?user\.property\//.test(String(attr))) continue;
@@ -1349,19 +1364,13 @@ async function incomingPropertyLinks(given) {
       if (!result.has(key)) result.set(key, new Set());
       result.get(key).add(String(name));
     }
-    // For the usage line: the blocks tagged with the page (a tag page), and the blocks that only mention
-    // it in their words (a reference that is neither a property value nor a tag, and not on the page itself).
-    result.pageUuid = String(page.uuid || '');
-    // Blocks in the recycle bin keep their refs; Logseq lists none of them, so neither does the line (0.4.132:
-    // a recycled stress page made Atlas read in text · 1503 over ten references).
-    const uuidsOf = rows => new Set((rows || []).map(row => String(row[0])).filter(uuid => UUID.test(uuid)));
-    result.tagged = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/tags ?page] [?b :block/uuid ?uuid] ${LIVE}]`));
-    const refs = uuidsOf(await logseq.DB.datascriptQuery(`[:find ?uuid :where [(identity ${id}) ?page] [?b :block/refs ?page] [?b :block/uuid ?uuid] (not [?b :block/page ?page]) ${LIVE}]`));
-    result.inText = new Set([...refs].filter(uuid => !result.has(uuid) && !result.tagged.has(uuid)));
+    result.tagged = uuidsOf(tagged);
+    result.inText = new Set([...uuidsOf(refs)].filter(uuid => !result.has(uuid) && !result.tagged.has(uuid)));
+    result.own = uuidsOf(own);
   } catch (error) { warnOnce('could not find records linking to this page', error); }
   return result;
 }
-let refreshTimer;
+let refreshTimer, refreshRetried = '', refreshRetriedAfterFailure = false;
 let refreshVersion = 0;
 // The Journals list shows several pages at once and Logseq names none of them as the current page,
 // so the blocks of every page whose title is on screen are read instead.
@@ -1370,8 +1379,12 @@ async function shownPagesTree() {
   const doc = dateLinks.document;
   dayOf.clear();
   if (!doc) return [];
+  // Started the moment the page changes (0.4.150), the refresh can be ahead of Logseq drawing the days.
+  if (!provided.pageTitles(doc).length) await shared.waitFor(() => provided.pageTitles(doc).length || null, 1500);
   const uuids = [...new Set([...provided.pageTitles(doc)].map(title => title.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '')
     .filter(uuid => UUID.test(uuid)))].slice(0, 12);
+  daysRead = new Set(uuids);
+  daysPending = false;
   const trees = await Promise.all(uuids.map(async uuid => {
     try {
       let tree = await logseq.Editor.getPageBlocksTree(uuid);
@@ -1398,7 +1411,19 @@ function addDayKinds(days, uuid, kinds) {
   if (kinds.due && (!day.due || kinds.due < day.due)) day.due = kinds.due;
   days.set(uuid, day);
 }
+// The Journals list draws its days a few at a time (on opening, and as you scroll), so a refresh that started before
+// a day was drawn missed it: when the days on screen change, the cues are read again (0.4.150).
+let shownDaysKey = '', daysRead = new Set(), daysPending = false;
+function checkShownDays(doc) {
+  const titles = [...provided.pageTitles(doc)].filter(el => el.closest('.journal-item'));
+  const key = titles.length > 1 ? titles.map(el => el.querySelector('.ls-block[blockid]')?.getAttribute('blockid') || '').join('|') : '';
+  if (key === shownDaysKey) return;
+  shownDaysKey = key;
+  // A refresh that has not read the days yet will read these too; restarting it would only lose its work.
+  if (key && setting('dayCues') && !daysPending && key.split('|').some(uuid => uuid && !daysRead.has(uuid))) scheduleRefresh(150);
+}
 function updateDayCues(doc) {
+  checkShownDays(doc);
   for (const cue of doc.querySelectorAll('.refinement-day-cue')) {
     const uuid = cue.closest('.ls-block[blockid]')?.getAttribute('blockid');
     if (!dayCues.has(uuid)) cue.remove();
@@ -1429,49 +1454,118 @@ function updateDayCues(doc) {
     wrap.appendChild(cue);
   }
 }
+/* Each part of the refresh is drawn as soon as its own answers are back (0.4.150). Right after a page change
+   Logseq is busy loading the page for about half a second and every look-up waits behind it; when all of them
+   were awaited together, the usage line waited for the page's blocks (0.7 s) and the block cues for the
+   graph-wide lists, and everything arrived at once, about a second late. */
 async function refreshCues(version = ++refreshVersion) {
   const started = performance.now();
-  try {
-    let tree = await logseq.Editor.getCurrentPageBlocksTree();
-    if (!tree?.length) tree = await shownPagesTree();
-    const [metadata, pdfSources, nodeIds, assetTypes, propertyValues, incoming, inside] = await Promise.all([descendantMetadata(tree), pdfAnnotationSources(tree), graphWide('referenced', referencedNodeIds), directAssetTypes(tree), graphWide('propertyValues', propertyValueBlocks), incomingPropertyLinks(), descendantKinds(tree)]);
-    const sidebarPages = dateLinks.document ? await sidebarIncoming(dateLinks.document) : new Map();
-    if (version !== refreshVersion) return;
-    pdfCitations.sources = pdfSources.sources;
-    pdfCitations.pageUuid = pdfSources.pageUuid;
+  const current = () => version === refreshVersion;
+  const doc = dateLinks.document;
+  let failures = 0;
+  const failed = (what, undo) => error => {
+    if (!current()) return;
+    failures++;
+    undo();
+    warnOnce(`could not refresh ${what}`, error);
+  };
+  // What points at the page: the usage line and the via labels. Needs no blocks of the page.
+  const incomingDone = incomingPropertyLinks().then(incoming => {
+    if (!current()) return;
+    cueMarks.incoming = incoming;
+    rememberIncoming(incoming);
+    if (doc) { updateCueMarks(doc); updateUsageLine(doc); }
+    // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
+    const shown = doc && usageScopes(doc)[0]?.uuid;
+    if (shown && incoming.pageUuid && shown !== incoming.pageUuid && refreshRetried !== shown) { refreshRetried = shown; scheduleRefresh(0); }
+  }).catch(failed('what points at this page', () => {
+    cueMarks.incoming = new Map();
+    if (doc) { updateCueMarks(doc); updateUsageLine(doc); }
+  }));
+  // The whole-graph lists: block links and the property names under Linked references. Asked after what
+  // points at the page, which is drawn larger: the database answers in the order it is asked.
+  const linksDone = incomingDone.then(() => graphWide('referenced', referencedNodeIds)).then(nodeIds => {
+    if (!current()) return;
+    // UUID syntax alone also identifies pages. Only database-confirmed blocks count as block links.
+    cueMarks.blockUuids = setting('referenceIcons') ? nodeIds : new Set();
+    if (doc) updateCueMarks(doc);
+  }).catch(failed('block links', () => { cueMarks.blockUuids = new Set(); if (doc) updateCueMarks(doc); }));
+  const valuesDone = incomingDone.then(() => graphWide('propertyValues', propertyValueBlocks)).then(propertyValues => {
+    if (!current()) return;
+    provided.propertyCrumbs.values = propertyValues;
+    if (doc) { provided.updatePropertyCrumbs(doc); updateCueMarks(doc); }
+  }).catch(failed('property names under Linked references', () => {}));
+  const sidebarDone = incomingDone.then(() => doc ? sidebarIncoming(doc) : new Map()).then(sidebarPages => {
+    if (!current()) return;
+    sidebarCues.pages = sidebarPages;
+    if (doc) { updateCueMarks(doc); updateUsageLine(doc); }
+  }).catch(failed('the sidebar pages', () => { sidebarCues.pages = new Map(); if (doc) { updateCueMarks(doc); updateUsageLine(doc); } }));
+  // The page's blocks: the folded-block and day cues, list properties, PDF citations.
+  daysPending = true;
+  const treeDone = (async () => {
+    let tree, daysShown = [];
+    try {
+      tree = await logseq.Editor.getCurrentPageBlocksTree();
+      if (!tree?.length) { tree = await shownPagesTree(); daysShown = [...daysRead]; }
+    } finally { daysPending = false; }
+    if (!current()) return;
     provided.listProps.pageBlocks = new Set(collectNodes(tree).map(node => String(node.uuid)));
-    if (dateLinks.document) provided.updateListProps(dateLinks.document);
-    updatePdfCitations();
+    if (doc) provided.updateListProps(doc);
+    const pdfDone = pdfAnnotationSources(tree).then(pdfSources => {
+      if (!current()) return;
+      pdfCitations.sources = pdfSources.sources;
+      pdfCitations.pageUuid = pdfSources.pageUuid;
+      updatePdfCitations();
+    });
+    const [metadata, assetTypes, inside] = await Promise.all([descendantMetadata(tree), directAssetTypes(tree), descendantKinds(tree)]);
+    if (!current()) return;
     const badges = new Map(), days = new Map();
     for (const block of tree || []) {
       const kinds = summarize(block, badges, metadata, assetTypes, inside);
       const day = dayOf.get(String(block?.uuid));
       if (day) addDayKinds(days, day, kinds);
     }
-    childAssetCues.clear();
-    if (setting('childTypeCues')) for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
-    if (dateLinks.document) updateChildAssetCues(dateLinks.document);
-    dayCues.clear();
-    if (setting('dayCues')) for (const [uuid, kinds] of days) if (kinds.task || kinds.tags.size || kinds.due) dayCues.set(uuid, kinds);
-    if (dateLinks.document) updateDayCues(dateLinks.document);
-    // UUID syntax alone also identifies pages. Only database-confirmed blocks count as block links.
-    cueMarks.blockUuids = setting('referenceIcons') ? nodeIds : new Set();
-    provided.propertyCrumbs.values = propertyValues;
-    if (dateLinks.document) provided.updatePropertyCrumbs(dateLinks.document);
-    cueMarks.incoming = incoming;
-    sidebarCues.pages = sidebarPages;
-    if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
-    perf.add('refreshCues (start to finish)', performance.now() - started);
-  } catch (error) {
-    if (version !== refreshVersion) return;
+    // Kept for the blocks and days of other pages (0.4.150): back on a page its cues are drawn at once from
+    // what was read last time; only this page's own entries are replaced here.
+    if (!setting('childTypeCues')) childAssetCues.clear();
+    else {
+      for (const uuid of provided.listProps.pageBlocks) childAssetCues.delete(uuid);
+      for (const [uuid, kinds] of badges) childAssetCues.set(uuid, kinds);
+      keepNewest(childAssetCues, 3000);
+    }
+    if (doc) updateChildAssetCues(doc);
+    if (!setting('dayCues')) dayCues.clear();
+    else {
+      for (const uuid of new Set([...daysShown, ...(tree || []).map(block => dayOf.get(String(block?.uuid)))])) dayCues.delete(uuid);
+      for (const [uuid, kinds] of days) if (kinds.task || kinds.tags.size || kinds.due) dayCues.set(uuid, kinds);
+      keepNewest(dayCues, 500);
+    }
+    if (doc) updateDayCues(doc);
+    await pdfDone;
+  })().catch(failed('current-page cues', () => {
     childAssetCues.clear(); dayCues.clear();
-    if (dateLinks.document) { updateChildAssetCues(dateLinks.document); updateDayCues(dateLinks.document); }
-    cueMarks.blockUuids = new Set();
-    cueMarks.incoming = new Map();
-    sidebarCues.pages = new Map();
-    if (dateLinks.document) { updateCueMarks(dateLinks.document); updateUsageLine(dateLinks.document); }
-    warnOnce('could not refresh current-page cues', error);
-  }
+    if (doc) { updateChildAssetCues(doc); updateDayCues(doc); }
+  }));
+  await Promise.all([incomingDone, linksDone, valuesDone, sidebarDone, treeDone]);
+  if (!current()) return;
+  perf.add('refreshCues (start to finish)', performance.now() - started);
+  // Asked while Logseq is still opening the graph, look-ups fail; ask once more a second later.
+  if (failures && !refreshRetriedAfterFailure) { refreshRetriedAfterFailure = true; scheduleRefresh(1000); }
+  else if (!failures) refreshRetriedAfterFailure = false;
+}
+/* What points at each page seen this session, so going back to a page draws its usage line and via labels at once
+   from memory while the look-up checks them again (0.4.150). */
+const incomingByPage = cueMarks.byPage = new Map();
+function rememberIncoming(incoming) {
+  if (!incoming?.pageUuid) return;
+  incomingByPage.delete(incoming.pageUuid);
+  incomingByPage.set(incoming.pageUuid, incoming);
+  if (incomingByPage.size > 60) incomingByPage.delete(incomingByPage.keys().next().value);
+}
+// The answer for the page in the main view: the latest look-up when it is about that page, else the page's last one.
+function incomingFor(uuid) {
+  if (!uuid) return null;
+  return cueMarks.incoming.pageUuid === uuid ? cueMarks.incoming : incomingByPage.get(uuid) || null;
 }
 function scheduleRefresh(delay = 300) {
   clearTimeout(refreshTimer);

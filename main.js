@@ -341,7 +341,8 @@ const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
 const dbWork = { timer: 0, since: 0, slowTimer: 0, slowAt: 0 };
 // Lists that cover the whole graph (every linked block, every property value,
 // page titles, journals, property names) change rarely; while you edit, they are read again at most
-// this often, plus once more after you stop. Looking at a new page reads them fresh.
+// this often, plus once more after you stop. Looking at a new page reads them fresh only when something
+// changed since they were read (0.4.150): read on every page change they held up the page's own extras.
 const GRAPH_WIDE_EVERY = 30000;
 const graphCache = new Map();
 function graphWide(name, load) {
@@ -375,6 +376,7 @@ function runDbWork() {
     dbWork.slowTimer = 0;
     dbWork.slowAt = Date.now();
     graphCache.clear();
+    graphCache.changed = false;
     run([dbJobs.loadPageLabelTitles, dbJobs.refreshJournalDates, dbJobs.loadPropertyNames, ...pageJobs]);
   };
   const wait = dbWork.slowAt + GRAPH_WIDE_EVERY - Date.now();
@@ -452,17 +454,21 @@ function main() {
     provided.pdfCitations.pageUuid = null;
     provided.listProps.pageBlocks = new Set();
     provided.cueMarks.incoming = new Map();
-    graphCache.clear(); // a new page (or a new graph) reads the whole-graph lists fresh
+    if (graphCache.changed) { graphCache.clear(); graphCache.changed = false; } // a new page reads changed whole-graph lists fresh
     provided.referenceHere.names.clear(); // and looks up the page's aliases again
-    provided.scheduleRefresh(); provided.schedulePageKind();
+    // At once (0.4.150): Logseq is busy loading the new page for about half a second and the look-ups wait in
+    // line behind it anyway; a pause before asking only added to that.
+    provided.scheduleRefresh(0); provided.schedulePageKind(0);
     provided.loadHiddenProps(); // another graph has other blocks
   }));
   // Edits fire this constantly while typing, so each part waits for a pause before re-querying.
   onUnload(logseq.DB.onChanged(({ blocks } = {}) => {
     perf.add('DB.onChanged (calls only)', 0);
+    graphCache.changed = true;
     if (provided.foldLog.start) provided.logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
     scheduleDbWork();
   }));
+  onUnload(logseq.App.onCurrentGraphChanged(() => graphCache.clear())); // another graph has other lists
   onUnload(() => { clearTimeout(dbWork.timer); clearTimeout(dbWork.slowTimer); });
   provided.startEditor(); // the editor keys and the last text selection (parts/editor.js)
   onUnload(logseq.onSettingsChanged((now, before) => {

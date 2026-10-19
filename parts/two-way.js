@@ -35,7 +35,8 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 // What is known about the page on screen: its uuid and one group per field that points at it.
-const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], open: new Map(), all: new Set(), box: null, html: '' };
+// byPage: each page's rows as last read this session, drawn at once when you come back to it (0.4.150).
+const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), open: new Map(), all: new Set(), box: null, html: '' };
 const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
@@ -79,19 +80,36 @@ async function load() {
   state.pageUuid = pageUuid;
   state.groups = groups;
   state.html = '';
+  if (pageUuid) {
+    state.byPage.delete(pageUuid);
+    state.byPage.set(pageUuid, groups);
+    if (state.byPage.size > 60) state.byPage.delete(state.byPage.keys().next().value);
+  }
   draw(host());
+  // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
+  const shown = shownPage(host());
+  if (shown && shown !== pageUuid && state.retried !== shown) { state.retried = shown; later(0); }
 }
+const shownPage = doc => {
+  const shown = doc ? [...doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title) .ls-block[blockid]')].map(el => el.getAttribute('blockid')) : [];
+  return shown.length === 1 ? shown[0] : '';
+};
 async function groupsFor(id) {
-  const links = await logseq.DB.datascriptQuery(`[:find ?b ?attr ?name
-    :where [(identity ${id}) ?page]
-    [?b ?attr ?page]
-    [?prop :db/ident ?attr]
-    [?prop :block/title ?name]
-    [(not= ?b ?page)]
-    (not [?b :block/page ?page])
-    ${LIVE}]`) || [];
+  // One round of questions (0.4.150): each is asked about the blocks that point here through a field of
+  // yours, rather than waiting for that list first, since every wait right after a page change is long.
+  const these = `[(identity ${id}) ?page] [?b ?attr ?page] [?prop :db/ident ?attr] [(namespace ?attr) ?pns] [(= ?pns "user.property")]
+    [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
+  // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
+  const [links, titled, tagged, dated, written] = await Promise.all([
+    logseq.DB.datascriptQuery(`[:find ?b ?attr ?name :where ${these} [?prop :block/title ?name]]`),
+    logseq.DB.datascriptQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
+    logseq.DB.datascriptQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
+    // A record's own date: a date field of yours (the one named "date" first), else the journal day it is written on.
+    logseq.DB.datascriptQuery(`[:find ?b ?dattr ?day :where ${these} [?dprop :logseq.property/type :date] [?dprop :db/ident ?dattr] [?b ?dattr ?d] [?d :block/journal-day ?day]]`),
+    logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
+  ]);
   const byField = new Map(), ids = new Set();
-  for (const [b, attr, name] of links) {
+  for (const [b, attr, name] of links || []) {
     // Only properties you made; built-in links such as tags, aliases and parents are left out.
     if (!isEntityId(b) || !name || !/^:?user\.property\//.test(String(attr))) continue;
     if (!byField.has(name)) byField.set(name, new Set());
@@ -99,15 +117,6 @@ async function groupsFor(id) {
     ids.add(b);
   }
   if (!ids.size) return [];
-  const list = [...ids].join(' '), these = `[(identity [${list}]) [?b ...]]`;
-  // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
-  const [titled, tagged, dated, written] = await Promise.all([
-    logseq.DB.datascriptQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
-    logseq.DB.datascriptQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
-    // A record's own date: a date field of yours (the one named "date" first), else the journal day it is written on.
-    logseq.DB.datascriptQuery(`[:find ?b ?attr ?day :where ${these} [?prop :logseq.property/type :date] [?prop :db/ident ?attr] [?b ?attr ?d] [?d :block/journal-day ?day]]`),
-    logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
-  ]);
   const days = new Map();
   for (const [b, attr, day] of dated || []) {
     const ident = String(attr).replace(/^:/, '');
@@ -119,15 +128,15 @@ async function groupsFor(id) {
   const tags = new Map();
   for (const [b, tag] of tagged || []) if (!tags.has(b) || tag < tags.get(b)) tags.set(b, tag);
   const records = new Map();
-  for (const [b, uuid, raw] of titled || []) {
-    if (!isEntityId(b)) continue;
+  // The titles are made readable together (0.4.150): each one with a link in it asks the database for that link's name.
+  await Promise.all((titled || []).filter(([b]) => isEntityId(b)).map(async ([b, uuid, raw]) => {
     let title = raw || '';
     try { title = await provided.readableTitle(title); } catch { /* the stored words, then */ }
     // Links read as the words they show (0.4.147): "saw [[Dr. Joe]]" as "saw Dr. Joe", "[the scan]([[CT]])" as "the scan".
     title = String(title).replace(/\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+)/g, '').replace(/\[([^\[\]]+)\]\(\[\[[^\]]*\]\]\)/g, '$1')
       .replace(/\[\[([^\]]+)\]\]/g, '$1').trim() || 'Untitled';
     records.set(b, { uuid: String(uuid), title, tag: tags.get(b) || 'note', day: days.get(b)?.day || 0 });
-  }
+  }));
   const names = backwardsNames(), today = todayNumber();
   const groups = [];
   for (const [name, set] of byField) {
@@ -184,8 +193,12 @@ function anchorFor(doc) {
 function draw(doc) {
   if (!doc) return;
   const anchor = state.groups.length && setting('twoWayRows') ? anchorFor(doc) : null;
-  // The rows belong to the page they were read for; a page drawn before its look-up finishes gets none yet.
+  // The rows belong to the page they were read for; a page drawn before its look-up finishes gets the rows it had
+  // when last seen, if any, until the look-up has checked them.
   const shown = [...doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title) .ls-block[blockid]')].map(el => el.getAttribute('blockid'));
+  if (shown.length === 1 && shown[0] !== state.pageUuid && state.byPage.has(shown[0])) {
+    state.pageUuid = shown[0]; state.groups = state.byPage.get(shown[0]); state.html = '';
+  }
   if (!anchor || (shown.length && !shown.includes(state.pageUuid))) { state.box?.remove(); return; }
   let box = state.box;
   if (!box || box.ownerDocument !== doc) {
@@ -274,7 +287,8 @@ function start() {
   ({ UUID, isEntityId, watchDom, sendStyle, titleOf, provided } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDom', 'sendStyle', 'titleOf', 'provided']));
   applyStyles();
   watchDom(draw);
-  onUnload(logseq.App.onRouteChanged(() => { state.box?.remove(); later(150); }));
+  // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway.
+  onUnload(logseq.App.onRouteChanged(() => { state.box?.remove(); later(0); }));
   onUnload(logseq.DB.onChanged(() => later(900)));
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); }

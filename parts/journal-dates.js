@@ -350,8 +350,10 @@ function main() {
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'journal-day-dates-prompt', style: promptCss });
   // Edits fire this constantly while typing, so the check waits for a pause.
-  onUnload(logseq.DB.onChanged(scheduleDbWork));
-  onUnload(logseq.App.onRouteChanged(() => graphCache.clear()));
+  onUnload(logseq.DB.onChanged(() => { graphCache.changed = true; scheduleDbWork(); }));
+  // A new page reads the lists fresh only when something changed since they were read (0.4.150).
+  onUnload(logseq.App.onRouteChanged(() => { if (graphCache.changed) { graphCache.clear(); graphCache.changed = false; } }));
+  onUnload(logseq.App.onCurrentGraphChanged(() => graphCache.clear()));
   onUnload(logseq.onSettingsChanged(() => graphCache.clear()));
   onUnload(() => clearTimeout(dbWork.timer));
   logseq.App.registerCommandPalette({ key: 'fill-missing-dates', label: 'Fill missing dates from journal days' }, fillMissingDates);

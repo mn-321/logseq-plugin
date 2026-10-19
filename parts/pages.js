@@ -89,7 +89,7 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { shape: null, shapeBox: null, isProperty: false, timer: 0, aliasOf: [], aliasLine: null, tagPath: null, pathLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { byPage: new Map(), shape: null, shapeBox: null, isProperty: false, timer: 0, aliasOf: [], aliasLine: null, tagPath: null, pathLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
   const version = pageKind.version = (pageKind.version || 0) + 1;
@@ -99,33 +99,46 @@ async function loadPageKind() {
     pageId = page?.id;
     pageUuid = String(page?.uuid || '');
     if (isEntityId(pageId) && logseq.DB?.datascriptQuery) {
-      const rows = await logseq.DB.datascriptQuery(`[:find ?ident
-        :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`);
+      // Asked together (0.4.150): right after a page change each answer waits behind Logseq loading the page,
+      // so the eight questions this used to ask one after another cost eight waits (2.2 s, measured).
+      const [rows, originals] = await Promise.all([
+        logseq.DB.datascriptQuery(`[:find ?ident
+          :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`),
+        // Logseq records an alias only on the original page; look it up from the alias's side.
+        logseq.DB.datascriptQuery(`[:find ?uuid ?title
+          :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`),
+      ]);
       const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
       isTag = idents.has('logseq.class/Tag');
       isProperty = idents.has('logseq.class/Property');
       plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
-      // Logseq records an alias only on the original page; look it up from the alias's side.
-      const originals = await logseq.DB.datascriptQuery(`[:find ?uuid ?title
-        :where [(identity ${pageId}) ?p] [?o :block/alias ?p] [?o :block/uuid ?uuid] [?o :block/title ?title]]`);
       aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
         .sort((a, b) => a[1].localeCompare(b[1]));
-      if (isTag) { inherited = await inheritedTagProperties(pageId); tagPath = await tagPathOf(pageId); }
-      if (isTag || isProperty) {
-        try { shape = isTag ? await tagShape(pageId) : await propertyShape(pageId); } catch (error) { warnOnce('could not read what the page holds', error); }
-      }
+      const shapeOf = () => (isTag ? tagShape(pageId) : propertyShape(pageId)).catch(error => { warnOnce('could not read what the page holds', error); return null; });
+      if (isTag) [inherited, tagPath, shape] = await Promise.all([inheritedTagProperties(pageId), tagPathOf(pageId), shapeOf()]);
+      else if (isProperty) shape = await shapeOf();
     }
   } catch (error) { warnOnce('could not tell the page type', error); }
   if (version !== pageKind.version) return;
-  pageKind.aliasOf = aliasOf;
-  pageKind.tagPath = tagPath;
-  if (pageUuid) pageKind.inheritedBy.set(pageUuid, inherited);
-  pageKind.plain = plain;
-  pageKind.isTag = isTag;
-  pageKind.isProperty = isProperty;
-  pageKind.shape = shape;
-  pageKind.pageUuid = pageUuid;
+  const known = { aliasOf, tagPath, plain, isTag, isProperty, shape, pageUuid };
+  if (pageUuid) {
+    pageKind.inheritedBy.set(pageUuid, inherited);
+    pageKind.byPage.delete(pageUuid);
+    pageKind.byPage.set(pageUuid, known);
+    if (pageKind.byPage.size > 60) pageKind.byPage.delete(pageKind.byPage.keys().next().value);
+  }
+  Object.assign(pageKind, known);
   try { updatePageKind(host()); updateOwnTags(host()); } catch (error) { /* shown on the next change */ }
+  // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
+  const titles = [...pageTitles(host())].filter(el => !el.parentElement?.closest(':is(.ls-page-title, .page-title, h1.title)'));
+  const shown = titles.length === 1 ? titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid') : '';
+  if (shown && shown !== pageUuid && pageKind.retried !== shown) { pageKind.retried = shown; schedulePageKind(0); }
+}
+// Back on a page seen this session: its lines and box are drawn at once from what was found last time, while
+// the look-up the page change started checks them again (0.4.150).
+function recallPageKind(uuid) {
+  const known = uuid && uuid !== pageKind.pageUuid && pageKind.byPage.get(uuid);
+  if (known) Object.assign(pageKind, known);
 }
 function schedulePageKind(delay = 300) {
   clearTimeout(pageKind.timer);
@@ -134,6 +147,7 @@ function schedulePageKind(delay = 300) {
 function updatePageKind(doc) {
   const on = setting('showPageKind');
   const titles = [...pageTitles(doc)].filter(el => !el.parentElement?.closest(':is(.ls-page-title, .page-title, h1.title)'));
+  if (titles.length === 1) recallPageKind(titles[0].querySelector('.ls-block[blockid]')?.getAttribute('blockid'));
   // Only a single page view (journals list several titles).
   updateTitleTags(doc, on && titles.length === 1 ? titles[0] : null);
   // What was loaded may still describe the page just left; its lines wait until it is this page's.
@@ -399,9 +413,13 @@ async function tagShape(tagId) {
     for (const parent of schema.parentsOf.get(c) || []) queue.push([parent, parent]);
   }
   const fromIds = [...new Set(fields.map(f => f.from).filter(Boolean))];
-  const names = new Map(fromIds.length ? (await dsQuery(`[:find ?t ?title :where ${idsIn('?t', fromIds)} [?t :block/title ?title]]`)).map(([t, title]) => [t, String(title)]) : []);
-  const [[count] = [0]] = await dsQuery(`[:find (count ?b) :where [?b :block/tags ${tagId}]]`);
-  const [[name] = ['']] = await dsQuery(`[:find ?title :where [(identity ${tagId}) ?t] [?t :block/title ?title]]`);
+  // Asked together (0.4.150).
+  const [fromRows, [[count] = [0]], [[name] = ['']]] = await Promise.all([
+    fromIds.length ? dsQuery(`[:find ?t ?title :where ${idsIn('?t', fromIds)} [?t :block/title ?title]]`) : [],
+    dsQuery(`[:find (count ?b) :where [?b :block/tags ${tagId}]]`),
+    dsQuery(`[:find ?title :where [(identity ${tagId}) ?t] [?t :block/title ?title]]`),
+  ]);
+  const names = new Map(fromRows.map(([t, title]) => [t, String(title)]));
   const ownParents = (schema.parentsOf.get(tagId) || []).length > 0;
   return { kind: 'tag', name: String(name), count: Number(count) || 0, adds: fields.some(f => !f.from), hasParent: ownParents,
     fields: fields.map(({ prop, from }) => ({ uuid: prop.uuid, title: prop.title, takes: takesWords(prop), from: from ? names.get(from) || '' : '' })) };
