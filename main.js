@@ -240,12 +240,8 @@ const settingsSchema = [
     description: 'Beside the Linked references heading, the references counted by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references step back, and so do their counts; click it again to bring them all forward. Nothing is written. Applies right away.' },
   { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
     description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
-  { key: 'showInherited', type: 'boolean', title: 'Show inherited properties on tag pages', default: true,
-    description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
-  { key: 'showTagPath', type: 'boolean', title: 'Show where a tag sits', default: true,
-    description: 'Under a tag page’s title, the tags it extends, from the top down (“#Entity › #Person › #Doctor”), and any other tag it also sits under; each name opens that tag. Applies right away.' },
   { key: 'showShape', type: 'boolean', title: 'Show what a tag or property holds', default: true,
-    description: 'Under a tag page’s title, a small box with the record the tag defines: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
+    description: 'Under a tag page’s title, a small box that starts closed to one line: where the tag sits (“#Entity › #Person › #Doctor”), how many fields it has and how many records it tags. Click the line to open the box: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
   { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
     description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
   { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,
@@ -291,9 +287,7 @@ const settingsSchema = [
   { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
     description: 'In Linked references, puts the property name before a value (“Doctor: …”). Under a page’s tag tabs, the value that points to the page on screen gets the same faint grey “points here” mark as in Linked references, and a folded record shows that property beside its title (“Diagnosis: page”).' },
   { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
-    description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade.' },
-  { key: 'plainPathLinks', type: 'boolean', title: 'Plain links in grey paths', default: true,
-    description: 'In the grey path above a reference or query result, a link shows as its words with a faint underline instead of [[ ]], and a labelled link [words]([[page]]) shows just its words.' },
+    description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade; a labelled link [words]([[page]]) fades all but its words.' },
   { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
     description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
   { key: 'hyperLinkTap', type: 'boolean', title: 'Tap the Hyper key to start a [[ link', default: true,
@@ -369,7 +363,7 @@ function runDbWork() {
   const failed = error => warnOnce('a look-up after a change failed', error);
   const run = jobs => { for (const job of jobs) { try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); } } };
   // About the page on screen: after every round.
-  const pageJobs = [dbJobs.refreshCues, dbJobs.loadPageKind, dbJobs.refreshInlineValues, dbJobs.refreshCrumbLinks, dbJobs.loadHiddenProps, dbJobs.proposals].filter(Boolean);
+  const pageJobs = [dbJobs.refreshCues, dbJobs.loadPageKind, dbJobs.refreshInlineValues, dbJobs.loadHiddenProps, dbJobs.proposals].filter(Boolean);
   // Whole-graph lists: now if they are due; otherwise one full round when they fall due.
   const fullRound = () => {
     clearTimeout(dbWork.slowTimer);

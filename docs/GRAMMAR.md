@@ -42,7 +42,7 @@ Two more places hold cues that are not about one row:
 
 6. **Where content sits.** Lines. A faint line beside nested blocks, firmer beside the branch you point at or type in. A faint line down the left of embedded content. A gap, never a line, between source pages under Linked references.
 
-7. **How things are connected.** Small quiet words. Above or under a title: `#Page`, Alias of, Inherited from. Before a reference row: the property's name. After a folded record under a tag tab: `via owner: page`. Under a block: `name: value · name: value`.
+7. **How things are connected.** Small quiet words. Above or under a title: `#Page`, Alias of; a tag page's shape box (where it sits, its fields). Before a reference row: the property's name. After a folded record under a tag tab: `via owner: page`. Under a block: `name: value · name: value`.
 
 The three rules the owner set, which the axes come from: the bullet says what a row is; a mark before a link says what it points to; anything after the text says what the block holds. The arrow symbol is not used.
 
@@ -69,8 +69,7 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Around the words | pencilled in: italic in the quiet colour, no box, at the pill's own size, in the record's own pill (one made when the record has none), with `tab takes · ⇧tab passes` on the one Tab will take until twenty takes, then the `tab` key alone (also alone where the words would not fit) (a dashed box until 0.4.116, j and k until 0.4.115, `esc no` until 0.4.120); after a write a small `undo ⌘z` beside the value for seven seconds | a proposed value, not yet written (0.4.77, 0.4.105, 0.4.118 to 0.4.126, 0.4.138) | Proposals in the pills (`pillProposals`), Properties typed in the line (`inlineProps`), Ask before filling (`autoDateAsk`) | proposals.js, inline-props.js, journal-dates.js |
 | Around the words | a faint wash with a hairline beneath, square corners | the link to the page on screen, under Linked references and in the records under its tag tabs; on a journal, a date that points to that day | Mark the link to this page in Linked references (`markReferenceHere`) | links.js |
 | Around the words | the shown name without its trailing tag | a page link written as "Name #tag" | Page links without trailing tags (`pageLabels`) | links.js |
-| Around the words | plain words with a 2px underline in the grey path, instead of `[[Name]]` | a link in a parent path | Plain links in grey paths (`plainPathLinks`) | styles.js, links.js |
-| Around the words | brackets faded in the grey path; the path uses its room before cutting | markup in a parent path | Tidy parent paths (`tidyPaths`) | styles.js, links.js |
+| Around the words | brackets faded in the grey path, and all of a labelled link but its words; the path uses its room before cutting | markup in a parent path | Tidy parent paths (`tidyPaths`) | styles.js, links.js |
 | Around the words | a faint violet chip | a tag (off by default) | Soft background behind tags (`tintTags`) | styles.js |
 | Around the words | a muted steel blue | a page link on a highlight, so it stays readable | Quiet page links (`quietLinks`) | styles.js |
 | After the text | `↳`, a small open circle and a number | unfinished tasks below, at any depth | Show what a block holds (`childTypeCues`) | styles.js, links.js |
@@ -91,7 +90,6 @@ The three rules the owner set, which the axes come from: the bullet says what a 
 | Small words | the page's tags and actions above the title, muted until pointed at | what can be done with the page | Always show page title actions and tags (`showTitleChrome`) | pages.js |
 | Small words | `#Page` above the title of an untagged page; the tags beside the actions on a tagged one | what the page is | Show what a page is above its title (`showPageKind`) | pages.js |
 | Small words | "Alias of …" under the title | the page is another page's alias | Show which page an alias belongs to (`showAliasOf`) | pages.js |
-| Small words | "Inherited from #Media: keywords, rating" closing the Tag Properties list | where a tag's properties come from | Show inherited properties on tag pages (`showInherited`) | pages.js |
 | Small words | a property's name in grey before a reference row | the row is a property's value | Show how records are linked (`linkLabels`) | styles.js, links.js |
 | Small words | `← doctor of  4 Meetings · next Oct 25`, a row under a page's own properties on the same light field: the far end of a field another record holds, the name in the grey of every property name after a ←, the days as plain grey words (0.4.141) | other records point here through a field | Links read the same from both ends (`twoWayRows`) | two-way.js |
 | Small words | `name: value · name: value`, grey names, no capsules; a list on a very light field with the names in one column and every value lined up in a second, a value without a bullet moved in to the bulleted values' words (0.4.130); the field ending above Add property, which shows only on hover, as plain words with the + (0.4.103, 0.4.104) | properties under a block and under a title | Plainer properties (`plainProperties`) | styles.js |

@@ -347,108 +347,8 @@ function updateCueMarks(doc) {
   }
 }
 /* Grey parent paths are drawn from a block's raw text, so links keep their [[ ]] and a labelled link
-   ([words]([[page]])) comes out half-cut ("[words"). The text is taken from the database instead, links
-   become their plain words, and those words get the faint page-link underline (a highlight, so nothing
-   is added to Logseq's own elements). A part is only changed when its words match what Logseq drew. */
-const crumbLinks = { originals: new Map(), ancestors: new Map(), loading: new Set(), generation: 0 };
-const crumbSquash = text => String(text || '').replace(/[\s\[\]()*_~=^`…]+/g, '');
-// Plain words of a stored title, with where each link sits in them.
-function crumbWords(raw) {
-  let text = '';
-  const links = [];
-  const source = String(raw || '').replace(/^#{1,6}\s+/, '');
-  const token = /#\[\[([^\]]+)\]\]|\[([^\]\[]+)\]\((\[\[[^\]]+\]\]|\(\([^)]+\)\)|[^)\s]+)\)|\[\[([^\]]+)\]\]/g;
-  let last = 0;
-  for (const m of source.matchAll(token)) {
-    text += source.slice(last, m.index);
-    if (m[1] !== undefined) text += '#' + m[1]; // a tag keeps its #, as tags do elsewhere
-    else {
-      const words = m[2] ?? m[4];
-      links.push([text.length, text.length + words.length]);
-      text += words;
-    }
-    last = m.index + m[0].length;
-  }
-  return { text: text + source.slice(last), links };
-}
-// Titles of a block's parents, nearest first, each as crumbWords gives them.
-async function loadCrumbAncestors(uuid, generation) {
-  const titles = [];
-  try {
-    let block = await logseq.Editor.getBlock(uuid);
-    for (let i = 0; block && i < 30; i++) {
-      const parentId = block.parent?.id, pageId = block.page?.id;
-      if (!parentId || parentId === pageId) break;
-      block = await logseq.Editor.getBlock(parentId);
-      if (!block || block.name) break;
-      titles.push(crumbWords(await provided.readableTitle(titleOf(block))));
-    }
-  } catch (error) { warnOnce('could not read parent paths', error); }
-  crumbLinks.loading.delete(uuid);
-  if (generation !== crumbLinks.generation) return;
-  if (crumbLinks.ancestors.size > 500) crumbLinks.ancestors.clear();
-  crumbLinks.ancestors.set(uuid, titles);
-  if (dateLinks.document) updateCrumbLinks(dateLinks.document);
-}
-// After a change in the graph, parent titles are read again as their paths are next drawn.
-function refreshCrumbLinks() {
-  ++crumbLinks.generation;
-  crumbLinks.ancestors.clear();
-  crumbLinks.loading.clear();
-  if (dateLinks.document) updateCrumbLinks(dateLinks.document);
-}
-function restoreCrumbLinks(doc) {
-  for (const [node, record] of crumbLinks.originals) if (node.nodeValue === record.shown) node.nodeValue = record.original;
-  crumbLinks.originals.clear();
-  try { doc?.defaultView?.CSS?.highlights?.delete('refinement-crumb-link'); } catch {}
-}
-function updateCrumbLinks(doc) {
-  if (!setting('plainPathLinks')) { if (crumbLinks.originals.size) restoreCrumbLinks(doc); return; }
-  for (const [node] of crumbLinks.originals) if (!node.isConnected) crumbLinks.originals.delete(node);
-  for (const crumb of doc.querySelectorAll('.breadcrumb.block-parents')) {
-    // In a query result the path sits inside the row it belongs to; in references, above the group of rows.
-    // In the right sidebar an item's title is the path of the block it shows; the block is its content.
-    const item = crumb.closest('#right-sidebar .sidebar-item');
-    const row = item ? item.querySelector('.ls-block[blockid]')
-      : crumb.parentElement?.closest('.ls-block[blockid]') === crumb.parentElement ? crumb.parentElement
-      : crumb.parentElement?.parentElement?.querySelector('.ls-block[blockid]');
-    const uuid = row?.getAttribute('blockid');
-    if (!uuid) continue;
-    const labels = [...crumb.querySelectorAll('.breadcrumb__label')];
-    const ancestors = crumbLinks.ancestors.get(uuid);
-    if (!ancestors) {
-      if (!crumbLinks.loading.has(uuid) && labels.some(label => /[\[\]]/.test(label.textContent))) {
-        crumbLinks.loading.add(uuid);
-        loadCrumbAncestors(uuid, crumbLinks.generation);
-      }
-      continue;
-    }
-    labels.forEach((label, index) => {
-      const node = label.firstChild;
-      if (!node || node.nodeType !== 3 || node !== label.lastChild) return;
-      const record = crumbLinks.originals.get(node);
-      if (record && node.nodeValue === record.shown) return;
-      const words = ancestors[labels.length - 1 - index];
-      const value = node.nodeValue;
-      if (!words || !words.links.length || !crumbSquash(words.text).startsWith(crumbSquash(value)) || !crumbSquash(value)) return;
-      crumbLinks.originals.set(node, { original: value, shown: words.text, links: words.links });
-      node.nodeValue = words.text;
-    });
-  }
-  const win = doc.defaultView;
-  if (!win.CSS?.highlights || !win.Highlight) return;
-  const ranges = [];
-  for (const [node, record] of crumbLinks.originals) {
-    for (const [start, end] of record.links) {
-      if (end > node.nodeValue.length) continue;
-      const range = doc.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, end);
-      ranges.push(range);
-    }
-  }
-  win.CSS.highlights.set('refinement-crumb-link', new win.Highlight(...ranges));
-}
+   shows as [words]([[page]]). The markup fades where it stands, from the text on screen; the words are
+   never changed (0.4.151: they used to be rewritten from the database a moment later, changing as you read). */
 function fadeCrumbBrackets(doc) {
   const win = doc.defaultView;
   if (!win.CSS?.highlights || !win.Highlight) return;
@@ -456,11 +356,18 @@ function fadeCrumbBrackets(doc) {
   for (const label of doc.querySelectorAll('.breadcrumb .breadcrumb__label')) {
     const walker = doc.createTreeWalker(label, win.NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      for (const match of node.nodeValue.matchAll(/\[\[|\]\]/g)) {
+      const fade = (start, end) => {
         const range = doc.createRange();
-        range.setStart(node, match.index);
-        range.setEnd(node, match.index + 2);
+        range.setStart(node, start);
+        range.setEnd(node, end);
         ranges.push(range);
+      };
+      // Every bracket: Logseq cuts links in a path unevenly ("called [Mateo Ruiz]] about [the plan").
+      for (const match of node.nodeValue.matchAll(/\[+|\]+/g)) fade(match.index, match.index + match[0].length);
+      // [words]([[page]]): all but the words.
+      for (const match of node.nodeValue.matchAll(/\[([^\[\]]+)\]\((?:\[\[[^\]]+\]\]|\(\([^)]+\)\)|[^)\s]+)\)/g)) {
+        fade(match.index, match.index + 1);
+        fade(match.index + 1 + match[1].length, match.index + match[0].length);
       }
     }
   }
@@ -913,7 +820,7 @@ function updateMentions(doc) {
 function updateDateLinks() {
   const doc = dateLinks.document;
   if (!doc) return;
-  for (const part of [updateReferenceRows, updateChildAssetCues, updateDayCues, provided.updatePropertyCrumbs, updateCrumbLinks, fadeCrumbBrackets, updateReferenceHere,
+  for (const part of [updateReferenceRows, updateChildAssetCues, updateDayCues, provided.updatePropertyCrumbs, fadeCrumbBrackets, updateReferenceHere,
     updatePageLabels, updateDateHeadings, updateReferenceCounts, updateCueMarks, updateOwnTags, updateSidebarJournals, updateMentions, updateUsageLine, updatePickerMarks, updatePropertyPicker, updateValuePicker]) perf.time(part.name, () => part(doc));
   for (const [link] of dateLinks.originals) if (!link.isConnected) dateLinks.originals.delete(link);
   for (const link of doc.querySelectorAll('a.page-ref[data-ref], a.page-ref[data-uuid]')) {
@@ -969,8 +876,6 @@ function startDateLinks() {
   loadPageLabelTitles();
 }
 function stopDateLinks() {
-  ++crumbLinks.generation;
-  restoreCrumbLinks(dateLinks.document);
   try { dateLinks.document?.defaultView?.CSS?.highlights?.delete('refinement-crumb-markup'); } catch {}
   for (const row of refRows) row.removeAttribute('data-refinement-ref-row');
   refRows.clear();
@@ -1685,7 +1590,6 @@ function provide(core) {
   core.provide({ startDateLinks, startPdfCitations, startNestedReferenceLinks, scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
     isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
   core.onDbRound('refreshCues', refreshCues);
-  core.onDbRound('refreshCrumbLinks', refreshCrumbLinks);
   core.onDbRound('loadPageLabelTitles', loadPageLabelTitles);
   core.onDbRound('refreshJournalDates', refreshJournalDates);
 }

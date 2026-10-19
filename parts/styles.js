@@ -368,12 +368,6 @@ ${blockDot('.ls-block a.page-ref:not(.tag):not(:has(.prefix-link, img)):has(> .i
   ['tidyPaths', `/* Brackets around dates and pages in grey paths fade, as in search. */
 ::highlight(refinement-crumb-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); opacity: var(--rf-faint); }
 `],
-  ['plainPathLinks', `/* Links in grey parent paths: their plain words with the faint page-link underline. */
-::highlight(refinement-crumb-link) {
-  text-decoration-line: underline; text-decoration-style: solid; text-decoration-thickness: 2px;
-  text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent);
-}
-`],
   ['linkLabels', `/* A lone property name above a group of references; the value's own label replaces it. */
 [data-refinement-crumb-box] { display: none !important; }
 `],
