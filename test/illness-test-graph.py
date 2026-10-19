@@ -609,3 +609,18 @@ out = [';; Seed data for the Illness Test Graph (a fictional patient, Daniel Oko
        ' :pages-and-blocks', ' [' + '\n  '.join([p for _, p in PAGES] + [home] + journal_entries) + ']}']
 OUT.write_text('\n'.join(out) + '\n')
 print(f'{OUT.name}: {OUT.stat().st_size // 1024} KB, {len(PAGES)} pages, {len(J)} journal days, {len(APPT)} appointments')
+
+# The same seed in three smaller parts, for an import that times out on the whole file (GUIDE.md, "Chunk EDN imports"):
+# part 1 the tags, fields and pages; parts 2 and 3 the journals, which only point back at part 1 or within themselves.
+# Each part declares the tags and fields again, as the importer requires; a second declaration changes nothing.
+split = TODAY.replace(month=9, day=1)
+early = [e for d, e in zip(sorted(J), journal_entries) if d < split]
+late = [e for d, e in zip(sorted(J), journal_entries) if d >= split]
+parts = [out[:4] + [' :classes', ' {' + '\n  '.join(f':user.class/{k} {v}' for k, v in C.items()) + '}',
+                    ' :pages-and-blocks', ' [' + '\n  '.join([p for _, p in PAGES] + [home]) + ']}'],
+         out[:6] + [' :pages-and-blocks', ' [' + '\n  '.join(early) + ']}'],
+         out[:6] + [' :pages-and-blocks', ' [' + '\n  '.join(late) + ']}']]
+for i, lines in enumerate(parts, 1):
+    path = OUT.with_name(f'illness-test-graph-{i}.edn')
+    path.write_text('\n'.join(lines) + '\n')
+    print(f'{path.name}: {path.stat().st_size // 1024} KB')
