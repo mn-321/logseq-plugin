@@ -7,7 +7,8 @@
    always did. */
 const shared = window.refinementShared;
 const { host } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { attributes: ['data-refinement-quiet', 'data-refinement-sidebar-hidden', 'data-refinement-quiet-menu'] } });
 // From the core, taken when the part starts.
 let setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.

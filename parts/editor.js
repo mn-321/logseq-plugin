@@ -8,7 +8,7 @@
    always did) and readableTitle to the links part; it takes openTagPicker from the pages part. */
 const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ', leaves: { elements: '.refinement-link-list' } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.

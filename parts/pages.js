@@ -9,7 +9,10 @@
    updateOwnTags and attribute from the links area (still in main.js until that area moves). */
 const shared = window.refinementShared;
 const { host, notify } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { elements: '.refinement-title-tags, .refinement-alias-of, .refinement-shape, .refinement-inherited, .refinement-tag-path', attributes: ['data-refinement-always-shown'],
+    // The tags beside a title are placed by a transform (updatePageKind).
+    reset: doc => { for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = ''; } } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, UUID, isEntityId, idsIn, watchDom, watchDomEarly, PAGE_TITLE, escapeHtml, attribute;
 let provided, isJournalDate, updateOwnTags;

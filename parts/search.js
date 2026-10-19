@@ -6,18 +6,14 @@
 const shared = window.refinementShared;
 const { host, notify, openEntity, waitFor } = shared;
 // This part's own clean-up list and stop key; a new copy sweeps what an earlier one left on screen.
-const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop', sweep: sweepEarlierCopy });
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop',
+  leaves: { elements: '.rf-search-meta, .rf-search-peek, .rf-search-where, .rf-search-preview, .rf-search-guide, .rf-filter-results, .rf-filter-suggest',
+    attributes: ['uuid', 'sig', 'same-page', 'group-end', 'grouped', 'moved', 'filtering', 'loose', 'with-preview'].map(name => 'data-rf-' + name),
+    // Search results grouped by page carry an order; it is reset before the mark is removed.
+    reset: doc => { for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = ''; } } });
 // The core's screen watcher (window.refinementCore, taken in main()): this part's updaters run on it,
 // so the plugin has one MutationObserver (GUIDE.md), and they run before the core's own.
 let watchDom, watchDomEarly;
-
-// What an earlier copy may have left on screen (run by takeOverFromEarlierCopy, from shared.js).
-function sweepEarlierCopy(doc) {
-  for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
-  // Search results grouped by page carry an order; read the mark before it is removed.
-  for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
-  for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
-}
 
 // The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in main.js's tokensCss; this part
 // used to carry a copy. The key stays, since a provideStyle key is part of the contract with the settings file.

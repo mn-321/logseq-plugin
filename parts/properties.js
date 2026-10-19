@@ -10,7 +10,9 @@
    dateLinks and attribute from the links area. */
 const shared = window.refinementShared;
 const { host, notify, modal, modalButtons, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { elements: '.refinement-hidden-toggle, .refinement-inline-values',
+    attributes: ['property-crumb', 'prop-hidden', 'crumb-box', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'value-lead'].map(name => 'data-refinement-' + name) } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas;
 let provided, pdfCitations, dateLinks, attribute;

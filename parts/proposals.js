@@ -23,7 +23,7 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', stopKey: '__refinementProposalsStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost, .rfp-undo, .rfp-made')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
+  leaves: { elements: '.rfp-ghost, .rfp-undo, .rfp-made', attributes: ['data-refinement-proposal'] } });
 let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
