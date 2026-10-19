@@ -24,6 +24,7 @@ Updated 2026-10-19 at 0.4.165 (layer 1 consolidated, 0.4.157 to 0.4.164: the boo
 
 ## After 1.0, or only if the owner asks
 
+- **The tag tree's two reshaping actions** (proposed 2026-10-19, not decided): make a "kind" choice its own child tag in one step, and turn a text field into page links. The principle behind them, and when a child tag is right, is `docs/MODELLING.md`; read it before any change to the tag tree or the shape box's hints. Ask before building.
 - **Todos** is paused (0.4.128) and off limits. The tag tree is back on since 0.4.152 at the owner's word; change it only when they ask. The open grammar items of the two wait until then: change 9 (one write path with an inverse), housekeeping 10, 17, 21, 24 to 26 in `docs/GRAMMAR.md`.
 - **Code health, invisible to the owner:** functions still over 80 lines (`open` in settings-panel.js, `buildDocument` and `chooseProperties` in rich-copy.js, `updatePdfCitations` in links.js); code comments in `parts/links.js` (lines near `'↳'` and the day cue) still say "dashed circle" where the circle has been solid since 0.4.112. Fix a comment when you are in that file anyway.
 - **The settings window by the vocabulary's families** (review follow-up): 0.4.129 put the sections under five umbrella groups, which may be enough. Ask before doing more.
