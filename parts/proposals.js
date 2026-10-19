@@ -28,7 +28,7 @@ let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates,
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
-  { key: 'proposalsHeading', type: 'heading', title: 'Proposals in the pills', default: null,
+  { key: 'proposalsHeading', type: 'heading', group: 'writing', rank: 2, title: 'Proposals in the pills', default: null,
     description: 'While you write a record, what the graph can already tell (the people named in your words, a day such as “next fri”, the parent’s project, the journal day) is pencilled in, italic, in the record’s own pills. Tab takes the one with the hint, Shift+Tab passes it, a click takes one. Nothing is written until then; a small undo sits beside a value just written.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },

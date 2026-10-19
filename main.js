@@ -13,7 +13,6 @@ function useShared() {
   // The clean-up stops the screen watcher first, so nothing re-applies while the steps undo their
   // changes; a new copy runs the earlier copy's clean-up and sweeps what it left on screen.
   ({ warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen } = shared.lifecycle({ prefix: 'Refinements: ', stopKey: STOP_KEY, before: stopWatchingDom, sweep: sweepEarlierCopy }));
-  setting = shared.settingReader(settingsSchema);
 }
 
 /* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
@@ -167,120 +166,22 @@ function sendStyle(key, style) {
   sentStyles.set(key, style);
   logseq.provideStyle({ key, style: orNoRules(style) });
 }
-const settingsSchema = [
-  { key: 'shortcutsHeading', type: 'heading', title: 'Shortcuts and actions', default: null,
-    description: 'Every action is also in the command palette, under the names below. Changes to shortcuts apply after you reload the plugin. Leave a shortcut empty to remove it. Examples: mod+alt+l, mod+alt+p (mod is Cmd on Mac, Ctrl elsewhere).' },
-  { key: 'linkShortcut', type: 'string', title: 'Link selected text to a page', default: 'mod+alt+l',
-    description: 'Select words in a block, press this, then pick a page or block. The words become [words]([[page]]), a link that counts as a reference to the page, as [[page]] does.' },
-  { key: 'openShortcut', type: 'string', title: 'Open selected text as page', default: 'mod+alt+p',
-    description: 'Turns the text you selected into a [[link]] and opens (or creates) that page.' },
-  { key: 'copyShortcut', type: 'string', title: 'Make a page from this block', default: '',
-    description: 'Makes a new page titled with the current block’s text, holding a reference back to the block and copies of its children. The block itself stays where it is. Also in the right-click menu on a bullet.' },
-  { key: 'tagShortcut', type: 'string', title: 'Add tags to this page', default: 'mod+t',
-    description: 'Opens Logseq’s Set Tags list for the page you are on, the same list that clicking #Page opens.' },
-  { key: 'deleteBlockShortcut', type: 'string', title: 'Delete this block', default: 'mod+backspace',
-    description: 'With some of the block’s text selected, only that text is deleted. Deletes the block you are typing in, with the blocks nested under it, and puts the cursor at the end of the block above. If no block is being edited, deletes the selected blocks. mod+backspace is Cmd+Delete on a Mac.' },
-  { key: 'outermostBlockShortcut', type: 'string', title: 'New block at the outermost level', default: 'alt+enter',
-    description: 'At the outermost level of the page, just after the top-level block you are in (after all of its nested blocks), adds an empty block as a spacer and then a new empty block with the cursor in it. alt+enter is Option+Return on a Mac.' },
-  { key: 'pageHeading', type: 'heading', title: 'Pages', default: null,
-    description: 'Changes here apply after you reload the plugin.' },
-  { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
-    description: 'Keeps buttons like “Add tag property” and the page’s tags visible next to the title, muted until you point at them. Turn off to show them only on hover, as Logseq does.' },
-  { key: 'showPageKind', type: 'boolean', title: 'Show what a page is above its title', default: true,
-    description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
-  { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
-    description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
-  { key: 'showUsage', type: 'boolean', title: 'Show how a page is used', default: true,
-    description: 'Beside the Linked references heading, the references counted by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references step back, and so do their counts; click it again to bring them all forward. Nothing is written. Applies right away.' },
-  { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
-    description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
-  { key: 'showShape', type: 'boolean', title: 'Show what a tag or property holds', default: true,
-    description: 'Under a tag page’s title, a small box that starts closed to one line: where the tag sits (“#Entity › #Person › #Doctor”), how many fields it has and how many records it tags. Click the line to open the box: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
-  { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
-    description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
-  { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,
-    description: 'On the Journals list, Logseq gives every day at least a screen’s worth of height, so an empty day is a long gap. Each day is now as tall as its blocks. Applies right away.' },
-  { key: 'dayCues', type: 'boolean', title: 'A day says what it holds', default: true,
-    description: 'On the Journals list, after each day’s title, in small quiet words: a small circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”), the way a folded block says what it holds. A day with nothing open has a shorter cue; nothing steps back. A journal opened on its own shows none. Applies right away.' },
-  { key: 'hierarchyHeading', type: 'heading', title: 'Visual hierarchy', default: null,
-    description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
-  { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
-    description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
-  { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
-    description: 'The page’s own properties under its title sit on the same light grey field as a property list under a block, with one dot per property (the value’s own bullet is gone) and “Add property” shown only while you point at them. Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules; when a row is too long to fit, a small triangle at its start opens it. Property names are grey so the values stand out. A property list under a block sits on a very light grey field, and the tag tabs below a page’s properties start with #.' },
-  { key: 'quietEmptyProps', type: 'boolean', title: 'Empty properties faint', default: true,
-    description: 'A property with no value yet (Logseq shows it as a dashed line) is drawn faint under a block and in a block’s property list, so a record’s filled values stand out. Nothing is hidden and nothing moves. The page’s own list under its title is not touched. Applies right away.' },
-  { key: 'emptySlotsInRow', type: 'boolean', title: 'Empty slots read as the row', default: true,
-    description: 'An empty slot Logseq lists under a block (after its own “Show hidden properties”, or a property added with nothing in it) reads like the row of filled properties: “Scheduled: ···”, faint, with no type icon, no bullet and no grey field. The page’s own list under its title is not touched. Applies right away.' },
-  { key: 'hiddenPropsChevron', type: 'boolean', title: 'Hidden properties arrow on every block', default: true,
-    description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow. Hidden means a value Logseq hides: an empty slot, such as a task’s unset Scheduled, gets no arrow.' },
-  { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
-    description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
-  { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
-    description: 'On a folded block only, after its text: ↳, a small circle with the number of unfinished tasks hidden below it, small image or PDF icons when its children are files, what kinds of record are inside (“3 #Decision”) and the nearest due day (“due Fri”). An open block shows nothing: its children are on screen. Point at the cue for details.' },
-  { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
-    description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
-  { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
-    description: 'Dates in your notes, a record’s own dates in the pill row under it, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and the capsules at the side of a block keep plain dates.' },
-  { key: 'dateTense', type: 'boolean', title: 'Dates carry their tense', default: true,
-    description: 'A date in the past is quieter, today is a little firmer, a date to come stays as it is; an overdue Scheduled or Deadline keeps Logseq’s yellow. Applies right away.' },
-  { key: 'plainPageIcons', type: 'boolean', title: 'Simpler page icons', default: true,
-    description: 'Replaces Logseq’s generic page icon with a plain outline in titles and sidebars. Custom page icons are never changed.' },
-  { key: 'tintTags', type: 'boolean', title: 'Soft background behind tags', default: false,
-    description: 'Puts a faint violet chip behind tags, both in the text and at the end of a block.' },
-  { key: 'tagMark', type: 'boolean', title: 'Tags as grey class names', default: true,
-    description: 'A tag acts like a class, so the tag at the right of a block, the tag label above a title and the tag tabs are drawn as grey monospace names without the #. A tag word left in a sentence keeps its # in the tag colour, and so does the # before a tag page’s own title. Applies right away.' },
-  { key: 'linksHeading', type: 'heading', title: 'Links and references', default: null,
-    description: 'Changes here apply right away.' },
-  { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
-    description: 'Page links in normal text colour with a faint underline instead of bright blue; page names heading Linked references read as headings; links inside highlights stay readable.' },
-  { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
-    description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
-  { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
-    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures.' },
-  { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
-    description: 'In Linked references, puts the property name before a value (“Doctor: …”). Under a page’s tag tabs, the value that points to the page on screen gets the same faint grey “points here” mark as in Linked references, and a folded record shows that property beside its title (“Diagnosis: page”).' },
-  { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
-    description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade; a labelled link [words]([[page]]) fades all but its words.' },
-  { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
-    description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
-  { key: 'hyperLinkTap', type: 'boolean', title: 'Tap the Hyper key to start a [[ link', default: true,
-    description: 'If Caps Lock is your Hyper key (Cmd+Ctrl+Opt+Shift, set up with Karabiner or the Hyperkey app), tapping it on its own while you type does what typing [[ does: the brackets appear and the page menu opens. With words selected, they become the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored here, so the menu stays open.' },
-  { key: 'pickerMarks', type: 'boolean', title: 'The [[ menu and the # picker say what each row is', default: true,
-    description: 'In the list that opens when you type #, a # in the tag colour before each tag, what the tag sits under and the fields it brings at the right (“under Occurrence · + date”), and the New tag row pencilled in, italic. In the list that opens when you type [[, each row carries the mark its link would have: a # in the tag colour before a tag, a small grey box before a journal day, the plain page rectangle or the page’s own icon before a page, its tags as grey class names at the right rather than “#Person” in the words; the relative days (Today, Last Wednesday …) step back to the quiet colour, and the New page row pencilled in, italic in the quiet colour with no box, since that means “not yet there”. Matched by what Logseq draws and by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
-  { key: 'propertyPickerTypes', type: 'boolean', title: 'The property picker says each type', default: true,
-    description: 'In Logseq’s Add property list, each name is followed by its type in quiet words (Date, Person · many, yes/no) and the T before every name becomes the type’s icon, the one Properties in the line draws. A property the plugin does not know (one of Logseq’s own) keeps its T. Applies right away.' },
-  { key: 'valuePickerMarks', type: 'boolean', title: 'The value picker says what each row is', default: true,
-    description: 'In the list that opens on a property’s value (Set owner …), the plain page rectangle or the page’s own icon before a page, a # in the tag colour before a tag, a small dot before a block, the kind in quiet words at the right (Person, tag, page, block), a journal day above a block in the grey date box, and the New row pencilled in. Marked by name, as the [[ menu is. Applies right away.' },
-  { key: 'linkBoxList', type: 'boolean', title: 'The link box lists your pages', default: true,
-    description: 'Under the field of Link selected text to a page, a list of your pages, tags and journal days drawn with the marks the page uses, filtered as you type; Up and Down move, Enter links the highlighted row. A italic “Make page …” row appears only when no title matches exactly, and never above a match, so a typo cannot make a page. Off, the field is bare and Enter links what you typed. Applies right away.' },
-  { key: 'linkBoxBeside', type: 'boolean', title: 'The link box opens beside the words', default: true,
-    description: 'Link selected text to a page opens its field just under the selected words, as Logseq’s own [[ menu does, with nothing dimmed and nothing covering the page; a press elsewhere or Escape closes it. Off, the box opens in the middle of the window over a dimmed page. Applies right away.' },
-  { key: 'linkBoxNodes', type: 'boolean', title: 'The link box lists blocks too', default: true,
-    description: 'Under the pages in the link box, up to five blocks whose words match: tagged blocks (a Task, a Meeting) with their tags at the right, then any block Logseq’s own search finds once three letters are typed. The link points at the block, as a [[ ]] link to it would, and the block shows it in its references. Off, only pages, tags and journal days are listed. Applies right away.' },
-  { key: 'pickerEscapeClears', type: 'boolean', title: 'Escape takes [[ and # out', default: true,
-    description: 'In the [[ menu and the # tag picker, Escape closes the list and takes the [[ or # and the letters typed after it out of the text, so a key that meant “never mind” never makes a page or a tag when the block is saved; Cmd+Z brings the letters back. A new page or tag is made only through the list’s own New row. Off, Escape leaves the text as Logseq does. Applies right away.' },
-  { key: 'dateLinkFormats', type: 'boolean', title: 'Year-first dates in [[ ]] link to journals', default: true,
-    description: 'Inside [[ ]], a date typed year first (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014, month and day with two digits) turns into that day\'s journal name, so the menu offers the journal page.' },
-  { key: 'pdfCitations', type: 'boolean', title: 'Compact PDF citations', default: true,
-    description: 'PDF highlights show as normal text with a quote-mark bullet and a small page and source label at the start; click the line to open the PDF there.' },
-  { key: 'innerReferenceLinks', type: 'boolean', title: 'Links inside a reference open their own page', default: true,
-    description: 'A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar). Off: clicking anywhere on the reference opens the block, as in Logseq.' },
-  { key: 'pageLabels', type: 'boolean', title: 'Page links without trailing tags', default: true,
-    description: 'A page link whose shown name ends in a tag (“Name #tag”) shows the page’s own title alone.' },
-  { key: 'appearanceHeading', type: 'heading', title: 'Sidebars and toolbar', default: null,
-    description: 'Changes here apply after you reload the plugin.' },
-  { key: 'quietItems', type: 'string', title: 'Quiet these sidebar and toolbar items', default: 'Flashcards, Graph view',
-    description: 'Comma-separated names (as shown, or as in the button tooltip). These stay visible but are smaller and lighter. Applies after you reload the plugin.' },
-  { key: 'quietSidebarIcons', type: 'boolean', title: 'Left sidebar icons only where they mean something', default: true,
-    description: 'In Favorites and Recent, Logseq’s generic page icon is left out (names stay lined up). A tag’s #, an icon you gave a page and an icon that comes from its tag all stay. Journal days are in grey. Applies right away.' },
-  { key: 'tidySidebar', type: 'boolean', title: 'Tidy the right sidebar', default: true,
-    description: 'Expand page properties automatically and hide the Page graph, (Dev) RTC, Undo/Redo and Profiler buttons.' },
-];
-// setting(key), from shared.js (useShared): a setting's current value, or its default from the list
-// above when unset or of the wrong type.
-// Settings that only take effect when the plugin starts.
-const RELOAD_SETTINGS = ['linkShortcut', 'openShortcut', 'copyShortcut', 'tagShortcut', 'deleteBlockShortcut', 'outermostBlockShortcut', 'tidySidebar', 'quietItems', 'showTitleChrome'];
+/* The settings are the parts': each declares its own (schema), with the heading of its section saying which
+   group of the settings window it sits in (group, rank). setting(key), from shared.js, reads the joined list:
+   a setting's current value, or its default when unset or of the wrong type. A setting that only takes effect
+   when the plugin starts says so in its description, or its heading does for the whole section; the core
+   finds them there (reloadOnly) to say "reload" when one changes. */
+const RELOAD_RE = /after you reload/i, AT_ONCE_RE = /right away|at once/i;
+function reloadOnly(schema) {
+  const keys = []; let sectionReload = false;
+  for (const item of schema) {
+    if (item.type === 'heading') { sectionReload = RELOAD_RE.test(item.description || ''); continue; }
+    const text = item.description || '';
+    if (RELOAD_RE.test(text) || (sectionReload && !AT_ONCE_RE.test(text))) keys.push(item.key);
+  }
+  return keys;
+}
+let RELOAD_SETTINGS = [];
 
 const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
 /* After the database changes, everything the plugin knows from it is looked up again in one round:
@@ -350,7 +251,7 @@ const dbJobs = [];   // database-round jobs, in the order the parts registered t
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
-    RELOAD_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
+    UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
     CHECKED_WITH, PAGE_TITLE,
     onFoldAll: fn => provided.onFoldAll(fn),
     provided, provide: things => Object.assign(provided, things),
@@ -425,9 +326,9 @@ function main() {
 /* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
    window.refinementParts; they are loaded here, in order, before the settings are given, because
    Logseq can keep an older loader.js cached that only loads this file. */
-// shared.js first: the other parts read window.refinementShared as they load. sidebar.js next: its
-// settings have no heading of their own, so they join "Sidebars and toolbar", the last section above.
-const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/two-way.js', 'parts/chrome.js', 'parts/styles.js', 'parts/sidebar.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
+// shared.js first: the other parts read window.refinementShared as they load. sidebar.js right after
+// chrome.js: its settings have no heading of their own, so they join chrome's "Sidebars and toolbar".
+const PART_FILES = ['parts/shared.js', 'parts/diagnostics.js', 'parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/two-way.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js', 'parts/tags.js', 'parts/settings-panel.js'];
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {
@@ -442,12 +343,15 @@ function loadParts() {
     document.body.appendChild(script);
   })));
 }
-// Given before ready, so the settings already hold their defaults when main runs. The parts' settings
-// follow the plugin's own, each under its heading.
+// Given before ready, so the settings already hold their defaults when main runs: the parts' settings,
+// in the order of PART_FILES, each under its heading.
 loadParts().then(() => {
   useShared();
   plugInParts = window.refinementParts || [];
-  logseq.useSettingsSchema([...settingsSchema, ...plugInParts.flatMap(part => part.schema)]);
+  const schema = plugInParts.flatMap(part => part.schema);
+  setting = window.refinementShared.settingReader(schema);
+  RELOAD_SETTINGS = reloadOnly(schema);
+  logseq.useSettingsSchema(schema);
   return logseq.ready(main);
 }).catch(console.error);
 

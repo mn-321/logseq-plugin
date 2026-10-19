@@ -580,6 +580,23 @@ function startEditor() {
     if (text && block) recentSelection = { text, blockId: block.uuid, start, end, content, at: Date.now() };
   }));
 }
+// The shortcuts (the commands below read them when the plugin starts). Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'shortcutsHeading', type: 'heading', group: 'tools', rank: 3, title: 'Shortcuts and actions', default: null,
+    description: 'Every action is also in the command palette, under the names below. Changes to shortcuts apply after you reload the plugin. Leave a shortcut empty to remove it. Examples: mod+alt+l, mod+alt+p (mod is Cmd on Mac, Ctrl elsewhere).' },
+  { key: 'linkShortcut', type: 'string', title: 'Link selected text to a page', default: 'mod+alt+l',
+    description: 'Select words in a block, press this, then pick a page or block. The words become [words]([[page]]), a link that counts as a reference to the page, as [[page]] does.' },
+  { key: 'openShortcut', type: 'string', title: 'Open selected text as page', default: 'mod+alt+p',
+    description: 'Turns the text you selected into a [[link]] and opens (or creates) that page.' },
+  { key: 'copyShortcut', type: 'string', title: 'Make a page from this block', default: '',
+    description: 'Makes a new page titled with the current block’s text, holding a reference back to the block and copies of its children. The block itself stays where it is. Also in the right-click menu on a bullet.' },
+  { key: 'tagShortcut', type: 'string', title: 'Add tags to this page', default: 'mod+t',
+    description: 'Opens Logseq’s Set Tags list for the page you are on, the same list that clicking #Page opens.' },
+  { key: 'deleteBlockShortcut', type: 'string', title: 'Delete this block', default: 'mod+backspace',
+    description: 'With some of the block’s text selected, only that text is deleted. Deletes the block you are typing in, with the blocks nested under it, and puts the cursor at the end of the block above. If no block is being edited, deletes the selected blocks. mod+backspace is Cmd+Delete on a Mac.' },
+  { key: 'outermostBlockShortcut', type: 'string', title: 'New block at the outermost level', default: 'alt+enter',
+    description: 'At the outermost level of the page, just after the top-level block you are in (after all of its nested blocks), adds an empty block as a spacer and then a new empty block with the cursor in it. alt+enter is Option+Return on a Mac.' },
+];
 function provide(core) {
   core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, journalTitleFor });
 }
@@ -605,5 +622,5 @@ function start() {
   provided = core.provided;
   ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
-(window.refinementParts ||= []).push({ name: 'editor', schema: [], provide, start, ready, commands, moved, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'editor', schema: settingsSchema, provide, start, ready, commands, moved, stop: runUnloadTasks });
 })();

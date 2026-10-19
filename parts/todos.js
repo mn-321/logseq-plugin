@@ -25,7 +25,7 @@ const PANEL_CLASS = 'refinement-todos-backdrop';
 const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (todos): ' });
 
 const settingsSchema = [
-  { key: 'todosHeading', type: 'heading', title: 'Todos', default: null,
+  { key: 'todosHeading', type: 'heading', group: 'paused', rank: 1, title: 'Todos', default: null,
     description: 'A window with every task in the graph, grouped by when it needs you, by status or by page. Open it from the checklist button in the toolbar, from the command palette (Todos) or with its shortcut.' },
   { key: 'todosEnabled', type: 'boolean', title: 'Use Todos and Expectations', default: false,
     description: 'Paused for now: off, Todos and Expectations add no toolbar button, no command and no shortcut, and the settings below do nothing. Turn on to use them again. Applies after you reload the plugin.' },
@@ -37,7 +37,7 @@ const settingsSchema = [
     description: 'Opens Todos the way chosen above. mod+alt+t is Cmd+Option+T on a Mac. Leave empty for no shortcut. Applies after you reload the plugin.' },
   { key: 'todosDoneDays', type: 'number', title: 'Days shown under “Done”', default: 14,
     description: 'The Done chip lists tasks finished or canceled in this many past days, newest first. Expectations use it too.' },
-  { key: 'expectationsHeading', type: 'heading', title: 'Expectations', default: null,
+  { key: 'expectationsHeading', type: 'heading', group: 'paused', rank: 2, title: 'Expectations', default: null,
     description: 'Things you are waiting on someone else for, which are not tasks of your own. A list like Todos, made from the blocks with the tag below. These blocks are left out of Todos.' },
   { key: 'expectationsTag', type: 'string', title: 'Tag of an expectation', default: 'Expectation',
     description: 'Blocks with this tag (or a tag that extends it) are expectations. Write the tag name without #.' },

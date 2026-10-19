@@ -30,7 +30,7 @@ let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor, undoBeside;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
-  { key: 'inlinePropsHeading', type: 'heading', title: 'Properties in the line', default: null,
+  { key: 'inlinePropsHeading', type: 'heading', group: 'writing', rank: 1, title: 'Properties in the line', default: null,
     description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). With ;; in place of :: the value stays in your words as well (deadline;;today). The value is pencilled in, italic, before you press Enter; after it a small undo sits beside the value.' },
   { key: 'inlineProps', type: 'boolean', title: 'Properties typed in the line', default: true,
     description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from an italic “Make …” row (a new property still comes from Logseq’s own Add property).' },
