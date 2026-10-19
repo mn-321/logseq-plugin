@@ -203,6 +203,7 @@ const PREVIEWS = {
   tidyPaths: on => `<div class="m">${on ? 'Project / Echo / Kickoff notes' : '[[Project]] / [[Echo]] / Kic…'}</div><div>${B}Found here</div>`,
   plainPathLinks: on => `<div class="m">${on ? 'Call with <u>Mateo</u>' : 'Call with [Mateo]([[Mateo Ruiz]])'}</div><div>${B}Found here</div>`,
   quietLinkMenu: on => `<div>${B}[[</div><div class="menu">${on ? '<span class="m">type to find a page</span>' : 'Today<br>Tomorrow'}</div>`,
+  hyperLinkTap: on => `<div>${B}Call ${on ? '[[<span class="m">▏</span>]]' : ''}</div><div class="m">${on ? 'Hyper tapped: link started' : 'Hyper tapped: nothing'}</div>`,
   dateLinkFormats: on => `<div>${B}[[2026 10 14</div><div class="menu">${on ? 'Oct 14th, 2026' : '<span class="m">New page “2026 10 14”</span>'}</div>`,
   pdfCitations: on => on ? `<div><span class="m">❝ p. 3 · Report</span> Talking felt faster</div>` : `<div>${B}<span class="hl">Talking felt faster</span></div>`,
   pageLabels: on => `<div>${B}Call <span class="ql">Mateo Ruiz${on ? '' : ' #doctor'}</span></div>`,

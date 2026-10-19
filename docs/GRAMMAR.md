@@ -205,7 +205,7 @@ Shortcuts are the settings in the Shortcuts section; each applies after a reload
 | Expectations (paused) and its three (`expectationsShortcut`, `expectationsTag`, `expectationsStateProperty`, `expectationsToolbarButton`) | see the view below | | | | todos.js |
 | Tag tree (paused), Tag tree as a page, Tag tree in the right sidebar (`tagTreeShortcut`, `tagTreeOpensAs`, `tagTreeToolbarButton`, `tagTreeRoots`) | see the view below | | | | tags.js |
 
-Typed, not a command: a year-first date inside `[[ ]]` becomes the journal's name (`dateLinkFormats`); the `[[` menu stays empty until you type (`quietLinkMenu`); a link inside a reference opens its own page on click (`innerReferenceLinks`). Copy as rich text's one setting, Layout (`layout`), is remembered from its card.
+Typed, not a command: a year-first date inside `[[ ]]` becomes the journal's name (`dateLinkFormats`); the `[[` menu stays empty until you type (`quietLinkMenu`); a lone tap of the Hyper key (Caps Lock as Cmd+Ctrl+Opt+Shift) types `[[` for you (`hyperLinkTap`); a link inside a reference opens its own page on click (`innerReferenceLinks`). Copy as rich text's one setting, Layout (`layout`), is remembered from its card.
 
 ### The three writing parts
 

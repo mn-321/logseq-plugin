@@ -296,6 +296,8 @@ const settingsSchema = [
     description: 'In the grey path above a reference or query result, a link shows as its words with a faint underline instead of [[ ]], and a labelled link [words]([[page]]) shows just its words.' },
   { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
     description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
+  { key: 'hyperLinkTap', type: 'boolean', title: 'Tap the Hyper key to start a [[ link', default: true,
+    description: 'If Caps Lock is your Hyper key (Cmd+Ctrl+Opt+Shift, set up with Karabiner or the Hyperkey app), tapping it on its own while you type does what typing [[ does: the brackets appear and the page menu opens. With words selected, they become the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored here, so the menu stays open.' },
   { key: 'pickerMarks', type: 'boolean', title: 'The [[ menu and the # picker say what each row is', default: true,
     description: 'In the list that opens when you type #, a # in the tag colour before each tag, what the tag sits under and the fields it brings at the right (“under Occurrence · + date”), and the New tag row pencilled in, italic. In the list that opens when you type [[, each row carries the mark its link would have: a # in the tag colour before a tag, a small grey box before a journal day, the plain page rectangle or the page’s own icon before a page, its tags as grey class names at the right rather than “#Person” in the words; the relative days (Today, Last Wednesday …) step back to the quiet colour, and the New page row pencilled in, italic in the quiet colour with no box, since that means “not yet there”. Matched by what Logseq draws and by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
   { key: 'propertyPickerTypes', type: 'boolean', title: 'The property picker says each type', default: true,
@@ -429,6 +431,7 @@ function main() {
   if (setting('tidySidebar')) provided.startSidebarPresentation();
   provided.startQuietUi();
   provided.startQuietLinkMenu();
+  provided.startHyperLinkTap();
   provided.startDateLinkSwap();
   if (setting('showTitleChrome')) provided.startTitleChrome();
   provided.startPageKind();

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.147.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.148.
 
 Besides the look of pages, it holds:
 
@@ -116,6 +116,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Tidy parent paths | `tidyPaths` | on | Links and references |
 | Plain links in grey paths | `plainPathLinks` | on | Links and references |
 | Empty [[ ]] menu until you type | `quietLinkMenu` | on | Links and references |
+| Tap the Hyper key to start a [[ link | `hyperLinkTap` | on | Links and references |
 | The [[ menu and the # picker say what each row is | `pickerMarks` | on | Links and references |
 | The property picker says each type | `propertyPickerTypes` | on | Links and references |
 | The value picker says what each row is | `valuePickerMarks` | on | Links and references |

@@ -138,9 +138,58 @@ function startQuietLinkMenu() {
   } catch (error) { warnOnce('the quiet [[ menu is unavailable', error); }
 }
 
+/* A lone tap of the Hyper key starts a [[ link where you are typing. Hyper is Caps Lock remapped (Karabiner,
+   the Hyperkey app) to hold Cmd+Ctrl+Opt (+Shift); a tap sends those keys down and up with nothing between.
+   The tap is answered as two typed [ keys, so Logseq pairs them and opens its page menu as usual; selected
+   words become the link's text. Setups that also send Escape on a tap would end the editing right after,
+   so an Escape that arrives within 0.3 seconds of the tap is swallowed (no hand presses Escape that fast). */
+const MODIFIER_KEYS = new Set(['Meta', 'Control', 'Alt', 'Shift', 'Hyper', 'CapsLock']);
+const hyperTap = { armedAt: 0, firedAt: 0 };
+function editingBox(doc) {
+  const box = doc.activeElement;
+  return box?.tagName === 'TEXTAREA' && box.closest('.ls-block, .block-editor') ? box : null;
+}
+function startLinkFromHyper(doc, box) {
+  const win = doc.defaultView, before = box.value;
+  const type = () => box.dispatchEvent(new win.KeyboardEvent('keydown', { key: '[', code: 'BracketLeft', keyCode: 219, which: 219, bubbles: true, cancelable: true }));
+  type(); type();
+  if (box.value !== before || !box.isConnected) return;
+  // Logseq ignored the typed brackets: write them, the cursor between.
+  const { selectionStart: start, selectionEnd: end } = box;
+  const words = before.slice(start, end);
+  if (!doc.execCommand('insertText', false, `[[${words}]]`)) { box.setRangeText(`[[${words}]]`, start, end, 'end'); box.dispatchEvent(new win.Event('input', { bubbles: true })); }
+  const caret = start + 2 + words.length;
+  box.setSelectionRange(caret, caret);
+}
+function startHyperLinkTap() {
+  try {
+    const doc = host(), win = doc.defaultView;
+    // Both halves of that Escape, so neither Logseq nor the [[ picker sees it and takes the brackets out.
+    listen(win, ['keydown', 'keyup'], event => {
+      if (event.key !== 'Escape' || Date.now() - hyperTap.firedAt > 300) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    });
+    listen(win, ['keydown'], event => {
+      if (!event.isTrusted || event.key === 'Escape' && Date.now() - hyperTap.firedAt <= 300) return;
+      if (!MODIFIER_KEYS.has(event.key)) { hyperTap.armedAt = 0; return; }
+      if (event.metaKey && event.ctrlKey && event.altKey && !hyperTap.armedAt) hyperTap.armedAt = Date.now();
+    });
+    listen(win, ['keyup'], event => {
+      if (!event.isTrusted || !MODIFIER_KEYS.has(event.key) || !hyperTap.armedAt) return;
+      const quick = Date.now() - hyperTap.armedAt < 600;
+      hyperTap.armedAt = 0;
+      const box = quick && setting('hyperLinkTap') && editingBox(doc);
+      if (!box) return;
+      hyperTap.firedAt = Date.now();
+      startLinkFromHyper(doc, box);
+    });
+    listen(win, ['blur'], () => { hyperTap.armedAt = 0; });
+  } catch (error) { warnOnce('the Hyper key tap is unavailable', error); }
+}
 
 function provide(core) {
-  core.provide({ startSidebarPresentation, startQuietUi, startQuietLinkMenu });
+  core.provide({ startSidebarPresentation, startQuietUi, startQuietLinkMenu, startHyperLinkTap });
 }
 function start() {
   const core = window.refinementCore;
