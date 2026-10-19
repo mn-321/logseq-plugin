@@ -59,7 +59,7 @@ function fakeLogseq(log) {
     'Editor.getPageBlocksTree': async () => [],
     'Editor.getCurrentPageBlocksTree': async () => [],
     'UI.showMsg': message => { log.push('showMsg: ' + message); },
-    'provideStyle': () => {},
+    'provideStyle': style => { api.calls.push({ name: 'provideStyle', args: [style] }); },
     'provideModel': () => {},
     'updateSettings': patch => { Object.assign(api.settings, patch); },
     'useSettingsSchema': schema => { api._settingsSchema = schema; },
@@ -194,6 +194,7 @@ async function main() {
   if (drawn.length) problem('drawn with Foundation only on: ' + [...new Set(drawn)].join(', '));
   const keys4 = logseq4.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0].key).sort();
   if (keys4.join() !== 'show-settings,troubleshooting') problem('palette commands with Foundation only on: ' + keys4.join(', '));
+  if (!logseq4.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinements-dialog')) problem('the dialogs’ look was not sent with Foundation only on');
   console.log(`foundation only: ${keys4.length} palette commands (${keys4.join(', ')}), nothing drawn`);
   await logseq4._unload();
   await sleep(100);
