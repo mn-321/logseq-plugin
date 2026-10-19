@@ -394,22 +394,33 @@ function publishCore() {
     onPageChange: fn => hooks.page.push(fn), onDatabaseChange: fn => hooks.database.push(fn), onSettingsChange: fn => hooks.settings.push(fn),
   };
 }
-// The troubleshooting tools live in parts/diagnostics.js; the palette entries below call them by name.
-const diag = name => (...args) => window.refinementDiagnostics?.[name]?.(...args);
-// A command of an area part (parts/editor.js, properties.js), by the name it provided to the core.
-const act = name => (...args) => provided[name](...args);
-// Old default shortcuts that clash with the system, moved to the new default where the saved value is still the old one
-// (Logseq saves every default, so a changed default alone would not reach an existing install). Cmd+Shift+L is the
-// Mac's own "Search With Safari" service, which opened Safari over Logseq.
-const MOVED_SHORTCUTS = { linkShortcut: ['mod+shift+l', 'mod+alt+l'] };
+// A saved setting whose old default clashed with something (a part declares it in `moved`) is moved to the new
+// default where the saved value is still the old one: Logseq saves every default, so a changed default alone would
+// not reach an existing install.
+function moveOldDefaults() {
+  for (const part of plugInParts) for (const [key, [old, now]] of Object.entries(part.moved || {})) if (logseq.settings?.[key] === old) logseq.updateSettings({ [key]: now });
+}
+// The palette commands the parts declare ({ key, label, run, shortcut, menu }): each gets its palette entry, with
+// the shortcut read from the setting it names (left empty, none is bound), and a bullet's right-click menu item when asked.
+function registerCommands() {
+  for (const part of plugInParts) for (const { key, label, run, shortcut, menu } of part.commands || []) {
+    let binding = shortcut && setting(shortcut).trim().toLowerCase();
+    const moved = part.moved?.[shortcut];
+    if (binding && moved?.[0] === binding) binding = moved[1]; // the saved setting may not show the move yet
+    logseq.App.registerCommandPalette({ key, label, ...(binding ? { keybinding: { binding } } : {}) }, run);
+    if (menu) logseq.Editor.registerBlockContextMenuItem(label, run);
+  }
+}
 function main() {
   logseq.beforeunload(runUnloadTasks);
-  for (const [key, [old, now]] of Object.entries(MOVED_SHORTCUTS)) if (logseq.settings?.[key] === old) logseq.updateSettings({ [key]: now });
+  moveOldDefaults();
   takeOverFromEarlierCopy();
   publishCore();
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
-  // that fails to start leaves the rest of the plugin working. A part that has a provide() step gives
-  // the core its functions and state first, so that every part's start() can take the others' things.
+  // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
+  // next: provide() gives the core the part's functions and state; start() takes the others' things and
+  // registers with the core; ready() starts what draws on screen, once every part has started. The core
+  // starts no part by name.
   for (const part of plugInParts) {
     try { part.provide?.(window.refinementCore); } catch (error) { warnOnce(`the ${part.name} part could not provide its functions`, error); }
   }
@@ -418,24 +429,10 @@ function main() {
     onUnload(part.stop);
   }
   logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
-  sendStyle('personal-db-refinements', provided.mainCss());
-  provided.applyHierarchy();
-  provided.startDateLinks();
-  provided.startPdfCitations();
-  if (setting('tidySidebar')) provided.startSidebarPresentation();
-  provided.startQuietUi();
-  provided.startQuietLinkMenu();
-  provided.startHyperLinkTap();
-  provided.startDateLinkSwap();
-  if (setting('showTitleChrome')) provided.startTitleChrome();
-  provided.startPageKind();
-  provided.startListProps();
-  provided.startHiddenProps();
+  for (const part of plugInParts) {
+    try { part.ready?.(); } catch (error) { warnOnce(`the ${part.name} part could not get ready`, error); }
+  }
   startSelfCheck();
-  provided.startNestedReferenceLinks();
-  logseq.provideStyle({ key: 'personal-db-context-cues', style: provided.cueCss });
-  provided.scheduleRefresh();
-  onUnload(provided.stopRefresh);
 
   // Every hook returns an "off" function; each is called when the plugin unloads. The core listens
   // once and runs what the parts registered (hooks) after its own housekeeping.
@@ -452,7 +449,6 @@ function main() {
   }));
   onUnload(logseq.App.onCurrentGraphChanged(() => graphCache.clear())); // another graph has other lists
   onUnload(() => { clearTimeout(dbWork.timer); clearTimeout(dbWork.slowTimer); });
-  provided.startEditor(); // the editor keys and the last text selection (parts/editor.js)
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (perf.ownSettingsOnly(now, before)) return;
     runHooks(hooks.settings, 'settings change', now, before);
@@ -461,33 +457,7 @@ function main() {
     if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');
   }));
 
-  // Command palette entries: [key, label, action, shortcut setting]. A shortcut left empty in the settings is not bound.
-  const commands = [
-    ['copy-block-children-to-page', 'Make a page from this block', act('blockToPage'), 'copyShortcut'],
-    ['labeled-page-link', 'Link selected text to a page', act('labeledPageLink'), 'linkShortcut'],
-    ['selected-text-to-page', 'Open selected text as page', act('selectionToPage'), 'openShortcut'],
-    ['add-page-tags', 'Add tags to this page', act('addTagsToPage'), 'tagShortcut'],
-    ['delete-current-block', 'Delete this block', act('deleteCurrentBlock'), 'deleteBlockShortcut'],
-    ['new-outermost-block', 'New block at the outermost level', act('newOutermostBlock'), 'outermostBlockShortcut'],
-    // The plugin's own settings panel (parts/settings-panel.js), or Logseq's settings page if that part did not load.
-    ['show-settings', 'Refinements settings', () => window.refinementSettingsPanel ? window.refinementSettingsPanel.open() : logseq.showSettingsUI()],
-    // The troubleshooting tools (parts/diagnostics.js) sit behind one entry that opens a box listing them.
-    ['troubleshooting', 'Refinements: troubleshooting', diag('openTroubleshooting')],
-    ['fold-query-results', 'Fold all results in this query', () => provided.foldQueryResults(null, true)],
-    ['unfold-query-results', 'Unfold all results in this query', () => provided.foldQueryResults(null, false)],
-    ['choose-list-properties', 'Choose properties shown in this list', act('chooseListProperties')],
-  ];
-  for (const [key, label, action, shortcut] of commands) {
-    let binding = shortcut && setting(shortcut).trim().toLowerCase();
-    if (binding && MOVED_SHORTCUTS[shortcut]?.[0] === binding) binding = MOVED_SHORTCUTS[shortcut][1]; // the saved setting may not show the move yet
-    logseq.App.registerCommandPalette({ key, label, ...(binding ? { keybinding: { binding } } : {}) }, action);
-  }
-  // Each troubleshooting tool keeps its command key, registered without a palette entry (a shortcut
-  // the owner bound to one of them still works); the box above lists them by name.
-  for (const tool of window.refinementDiagnostics?.tools || []) logseq.App.registerCommand('global', { key: tool.key, label: 'Troubleshooting: ' + tool.label }, tool.run);
-  // Right-click menu on a bullet: only what applies to any block. The list, fold and troubleshooting
-  // commands are in the command palette, where they act on the block or query you last clicked in.
-  logseq.Editor.registerBlockContextMenuItem('Make a page from this block', act('blockToPage'));
+  registerCommands();
 }
 /* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
    window.refinementParts; they are loaded here, in order, before the settings are given, because

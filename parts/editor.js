@@ -570,7 +570,7 @@ function startDateLinkSwap() {
 }
 
 
-// The editor's own hooks, started by main() where they always were: the key watcher, and the last
+// The editor's own hooks, started once every part has started (ready): the key watcher, and the last
 // text selection, kept for Link selected text and Open selected text as page.
 function startEditor() {
   watchEditorKeys();
@@ -581,12 +581,29 @@ function startEditor() {
   }));
 }
 function provide(core) {
-  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, startEditor, startDateLinkSwap, journalTitleFor });
+  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, journalTitleFor });
 }
+function ready() {
+  startDateLinkSwap();
+  startEditor();
+}
+// The palette entries, each with the setting that holds its shortcut (left empty, none is bound). Make a page from
+// this block is also in a bullet's right-click menu: the one command that applies to any block.
+const commands = [
+  { key: 'copy-block-children-to-page', label: 'Make a page from this block', run: (...args) => blockToPage(...args), shortcut: 'copyShortcut', menu: true },
+  { key: 'labeled-page-link', label: 'Link selected text to a page', run: (...args) => labeledPageLink(...args), shortcut: 'linkShortcut' },
+  { key: 'selected-text-to-page', label: 'Open selected text as page', run: (...args) => selectionToPage(...args), shortcut: 'openShortcut' },
+  { key: 'add-page-tags', label: 'Add tags to this page', run: (...args) => addTagsToPage(...args), shortcut: 'tagShortcut' },
+  { key: 'delete-current-block', label: 'Delete this block', run: (...args) => deleteCurrentBlock(...args), shortcut: 'deleteBlockShortcut' },
+  { key: 'new-outermost-block', label: 'New block at the outermost level', run: (...args) => newOutermostBlock(...args), shortcut: 'outermostBlockShortcut' },
+];
+// An old default that clashed with the system, moved where the saved value is still the old one. Cmd+Shift+L is the
+// Mac's own "Search With Safari" service, which opened Safari over Logseq (0.4.142).
+const moved = { linkShortcut: ['mod+shift+l', 'mod+alt+l'] };
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
   ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
-(window.refinementParts ||= []).push({ name: 'editor', schema: [], provide, start, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'editor', schema: [], provide, start, ready, commands, moved, stop: runUnloadTasks });
 })();

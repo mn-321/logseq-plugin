@@ -709,5 +709,7 @@ function stop() {
   for (const item of doc.querySelectorAll('.' + ITEM_CLASS)) item.remove();
 }
 
-(window.refinementParts ||= []).push({ name: 'settings panel', schema: [], start, stop });
+// The palette entry that opens the window (Logseq's own settings page for the plugin, should the window fail to open).
+const commands = [{ key: 'show-settings', label: 'Refinements settings', run: () => { try { open(); } catch (error) { logseq.showSettingsUI(); } } }];
+(window.refinementParts ||= []).push({ name: 'settings panel', schema: [], start, commands, stop });
 })();

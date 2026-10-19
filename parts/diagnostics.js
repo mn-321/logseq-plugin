@@ -455,5 +455,12 @@ function start() {
   onUnload(perf.stop);
 }
 window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, copyHeaderDiagnostics, checkLinkLabels, copyFoldLog, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS };
-(window.refinementParts ||= []).push({ name: 'diagnostics', schema: [], start, stop: runUnloadTasks });
+function ready() {
+  // Each tool keeps its command key, registered without a palette entry (a shortcut the owner bound to one
+  // still works); the troubleshooting box lists them by name.
+  for (const tool of TOOLS) logseq.App.registerCommand('global', { key: tool.key, label: 'Troubleshooting: ' + tool.label }, tool.run);
+}
+// One palette entry opens the box that lists the tools.
+const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting', run: () => openTroubleshooting() }];
+(window.refinementParts ||= []).push({ name: 'diagnostics', schema: [], start, ready, commands, stop: runUnloadTasks });
 })();

@@ -730,5 +730,11 @@ function start() {
   });
   ({ setting, sendStyle, UUID } = take(core, ['setting', 'sendStyle', 'UUID']));
 }
-(window.refinementParts ||= []).push({ name: 'styles', schema: [], provide, start, stop: runUnloadTasks });
+// The stylesheets go out once every part has started, so the first screen pass draws from them.
+function ready() {
+  sendStyle('personal-db-refinements', mainCss());
+  applyHierarchy();
+  logseq.provideStyle({ key: 'personal-db-context-cues', style: cueCss });
+}
+(window.refinementParts ||= []).push({ name: 'styles', schema: [], provide, start, ready, stop: runUnloadTasks });
 })();

@@ -189,12 +189,15 @@ function startHyperLinkTap() {
   } catch (error) { warnOnce('the Hyper key tap is unavailable', error); }
 }
 
-function provide(core) {
-  core.provide({ startSidebarPresentation, startQuietUi, startQuietLinkMenu, startHyperLinkTap });
-}
 function start() {
   const core = window.refinementCore;
   ({ setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle } = take(core, ['setting', 'watchDom', 'watchDomEarly', 'ensureDomWatch', 'sendStyle']));
 }
-(window.refinementParts ||= []).push({ name: 'chrome', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  if (setting('tidySidebar')) startSidebarPresentation();
+  startQuietUi();
+  startQuietLinkMenu();
+  startHyperLinkTap();
+}
+(window.refinementParts ||= []).push({ name: 'chrome', schema: [], start, ready, stop: runUnloadTasks });
 })();

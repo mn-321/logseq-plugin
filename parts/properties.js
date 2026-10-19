@@ -830,7 +830,7 @@ function startHiddenProps() {
 
 
 function provide(core) {
-  core.provide({ startListProps, startHiddenProps, foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,
+  core.provide({ foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,
     listProps, listFold, listRows, foldLog, logFold, rowName, onFoldAll: fn => foldAllListeners.push(fn),
     propertyCrumbs, updatePropertyCrumbs, unmarkPropertyCrumb, escapeHtml });
   core.onDbRound('refreshInlineValues', refreshInlineValues);
@@ -885,5 +885,15 @@ function start() {
   onUnload(() => clearTimeout(leadTimer));
   onUnload(() => { for (const box of valueLeads) box.removeAttribute('data-refinement-value-lead'); valueLeads.clear(); });
 }
-(window.refinementParts ||= []).push({ name: 'properties', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  startListProps();
+  startHiddenProps();
+}
+// The fold and list commands act on the block or query you last clicked in, so they are in the palette only.
+const commands = [
+  { key: 'fold-query-results', label: 'Fold all results in this query', run: () => foldQueryResults(null, true) },
+  { key: 'unfold-query-results', label: 'Unfold all results in this query', run: () => foldQueryResults(null, false) },
+  { key: 'choose-list-properties', label: 'Choose properties shown in this list', run: (...args) => chooseListProperties(...args) },
+];
+(window.refinementParts ||= []).push({ name: 'properties', schema: [], provide, start, ready, commands, stop: runUnloadTasks });
 })();

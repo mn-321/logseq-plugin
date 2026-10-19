@@ -74,9 +74,10 @@ function fakeLogseq(log) {
   };
   const leaf = full => new Proxy(function () {}, {
     get: (target, name) => typeof name === 'string' ? member(name, full) : undefined,
-    apply: () => undefined,
+    apply: (target, self, args) => { api.calls.push({ name: full, args }); return undefined; },
   });
   const api = {
+    calls: [],
     settings: {},
     _settingsSchema: [],
     baseInfo: { id: 'logseq-db-refinements', version: '0.0.0' },
@@ -131,6 +132,13 @@ async function main() {
   try { logseq._main(); } catch (error) { problem('main() threw: ' + (error && error.stack || error)); }
   if (!logseq._unload) problem('no beforeunload callback registered');
   await sleep(100);
+  const palette = logseq.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0]);
+  const menu = logseq.calls.filter(call => call.name === 'Editor.registerBlockContextMenuItem').map(call => call.args[0]);
+  console.log(`${palette.length} palette commands, ${palette.filter(c => c.keybinding).length} with a shortcut, ${menu.length} bullet-menu items`);
+  for (const key of ['labeled-page-link', 'show-settings', 'troubleshooting', 'fold-query-results', 'search-in-sidebar']) if (!palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
+  if (menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
+  const keys = palette.map(c => c.key);
+  if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
 
   // 2. The screen changes, the hooks fire, time passes for the database round and the self-check.
   const block = doc.createElement('div');
