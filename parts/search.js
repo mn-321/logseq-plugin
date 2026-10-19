@@ -15,9 +15,9 @@ const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.l
 // so the plugin has one MutationObserver (GUIDE.md), and they run before the core's own.
 let watchDom, watchDomEarly;
 
-// The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in main.js's tokensCss; this part
+// The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in parts/styles.js's tokensCss; this part
 // used to carry a copy. The key stays, since a provideStyle key is part of the contract with the settings file.
-const tokensCss = '/* the tokens are declared in main.js */';
+const tokensCss = '/* the tokens are declared in parts/styles.js */';
 // The plain page outline DB Refinements uses for page icons, so search results match.
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
