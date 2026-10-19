@@ -76,6 +76,7 @@ section.part { margin-top: 64px; display: grid; gap: 20px; }
 .spec .sheet { padding: 18px 18px 16px; border-bottom: 1px dashed var(--rule); font: 15px/1.6 var(--f-ls); color: var(--ls-text); overflow-x: auto; }
 .spec .cap { padding: 12px 18px 15px; display: grid; gap: 7px; align-content: start; font-size: .95rem; }
 .spec .cap h3 { font-size: .98rem; }
+.spec.full { grid-column: 1 / -1; }
 .meta { display: flex; flex-wrap: wrap; gap: 6px; font: .74rem/1.3 var(--f-mono); color: var(--ink-2); }
 .meta span { border: 1px solid var(--rule); border-radius: 4px; padding: 2px 6px; }
 .meta .set { color: var(--anno); border-color: color-mix(in srgb, var(--anno) 35%, transparent); }
@@ -121,7 +122,7 @@ section.part { margin-top: 64px; display: grid; gap: 20px; }
 .props .empty { opacity: .5; }
 .pencil { font-style: italic; color: color-mix(in srgb, var(--ls-text) 70%, transparent); }
 .hint { font: .78em var(--f-tag); color: var(--ls-sec); margin-left: 6px; }
-.cap-k { display: inline-block; font: .74em/1.4 var(--f-tag); border: 1px solid var(--ls-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--ls-sec); }
+.cap-k { display: inline-block; font: .74em/1.4 var(--f-tag); border: 1px solid var(--ls-border); border-radius: 3px; padding: 0 4px; color: var(--ls-sec); }
 .cue { font-size: .82em; color: color-mix(in srgb, var(--ls-text) 70%, transparent); }
 .solid { display: inline-block; width: .62em; height: .62em; border-radius: 50%; background: color-mix(in srgb, var(--ls-text) 55%, transparent); margin: 0 2px; }
 .here { background: color-mix(in srgb, var(--ls-text) 7%, transparent); box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ls-text) 38%, transparent); padding: 0 2px; }
@@ -133,6 +134,11 @@ section.part { margin-top: 64px; display: grid; gap: 20px; }
 .field .n { color: var(--ls-sec); }
 .vb::before { content: "•"; color: var(--bullet); display: inline-block; width: 16px; margin-left: 2px; }
 .vt { padding-left: 18px; }
+.tw-n { color: var(--ls-sec); }
+.tw-list { border-left: 1px solid var(--ls-border); margin: 3px 0 2px 2px; padding-left: 12px; display: grid; gap: 3px; }
+.tw-list .row { display: grid; grid-template-columns: 3.4em minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.tw-list .row > .pl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-list .d { color: var(--ls-sec); font-size: .9em; }
 .heading { font-weight: 600; }
 .path { font-size: .82em; color: var(--ls-sec); }
 .path u { text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--ls-sec) 40%, transparent); }
@@ -140,9 +146,11 @@ section.part { margin-top: 64px; display: grid; gap: 20px; }
 .usage .back { color: color-mix(in srgb, var(--ls-text) 22%, transparent); }
 .gap { height: 12px; }
 .embed { border-left: 2px solid color-mix(in srgb, var(--ls-text) 26%, transparent); padding-left: 10px; }
-.menu { border: 1px solid var(--ls-border); border-radius: 7px; box-shadow: 0 6px 20px rgb(0 0 0 / .08); padding: 4px; max-width: 360px; font-size: .92em; background: var(--sheet); }
-.mrow { display: flex; gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 4px; }
-.mrow.sel { background: color-mix(in srgb, var(--ls-text) 7%, transparent); }
+.menu { border: 1px solid var(--ls-border); border-radius: 6px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1); padding: 6px; max-width: 360px; font-size: .875rem; background: var(--sheet); }
+.mrow { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 4px; }
+.mrow.sel { background: color-mix(in srgb, var(--ls-text) 8%, transparent); }
+.mrow .r.w { font-family: var(--f-ls); }
+.mrow .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .mrow .r { margin-left: auto; font: .82em var(--f-tag); color: var(--ls-sec); white-space: nowrap; }
 .mrow .why { margin-left: auto; font-size: .82em; color: var(--ls-sec); }
 .slot { width: 1.1em; text-align: center; flex: none; color: var(--ls-sec); }
@@ -214,7 +222,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   <span class="eyebrow">Logseq DB · personal plugin</span>
   <h1>DB Refinements, every part on one page</h1>
   <p class="lede">The plugin changes how Logseq draws a page so that pages, blocks, links, tags, properties and dates are easy to tell apart, and it helps while you write a record. Each picture below is drawn the way the plugin looks today, with what it means, the setting that turns it off, and the file that holds it.</p>
-  <div class="stamp"><span>version <b>0.4.136</b></span><span>refreshed <b>2026-10-19</b></span><span>Logseq <b>2.0.2</b> (DB graphs)</span><span>next steps: <b>docs/NEXT.md</b></span></div>
+  <div class="stamp"><span>version <b>0.4.142</b></span><span>refreshed <b>2026-10-19</b></span><span>Logseq <b>2.0.2</b> (DB graphs)</span><span>next steps: <b>docs/NEXT.md</b></span></div>
   <nav class="toc" aria-label="Sections">
     <a href="#rules">The three rules</a><a href="#map">Map</a><a href="#reading">Reading a page</a><a href="#writing">Writing a record</a><a href="#pickers">Pickers</a><a href="#around">Around the page</a><a href="#tools">Tools</a><a href="#paused">Paused</a><a href="#writes">When it writes</a><a href="#code">Inside the code</a>
   </nav>
@@ -248,7 +256,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   <div class="part-head"><span class="eyebrow">Map</span><h2>The five groups of the settings window</h2>
   <p class="lede">The guide follows the same five groups you see in the plugin's settings window, so a picture here and a switch there are always in the same place.</p></div>
   <div class="map">
-    <a class="grp-card" href="#reading"><h3>Reading a page</h3><p>How pages, rows and links look. Nothing here writes to notes.</p><ul><li>Pages</li><li>Visual hierarchy</li><li>Links and references</li></ul></a>
+    <a class="grp-card" href="#reading"><h3>Reading a page</h3><p>How pages, rows and links look. Nothing here writes to notes.</p><ul><li>Pages</li><li>Visual hierarchy</li><li>Links and references</li><li>Two-way links <span class="f">(for now listed under Other, at the end of the settings window)</span></li></ul></a>
     <a class="grp-card" href="#writing"><h3>Writing a record</h3><p>Help while you write. Nothing is written until you press a key.</p><ul><li>Properties in the line</li><li>Proposals in the pills</li><li>Journal day as date</li></ul></a>
     <a class="grp-card" href="#around"><h3>Around the page</h3><p>The sidebars, the toolbar and search.</p><ul><li>Sidebars and toolbar</li><li>Search</li><li>Search in the right sidebar</li></ul></a>
     <a class="grp-card" href="#tools"><h3>Tools</h3><p>Commands you run on purpose.</p><ul><li>Copy as rich text</li><li>Shortcuts and actions</li></ul></a>
@@ -332,6 +340,21 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
         <span class="n">date</span><span class="vt"><span class="date">Sep 21st, 2026</span></span>
       </div>
     </div><div class="cap"><h3>A page's property list in one column</h3><p>On a very light field, names in one column and every value starting at the same edge, whether or not Logseq gave it a bullet. Add property shows only on hover.</p><div class="meta"><span class="set">Plainer properties</span><span>properties.js · styles.js</span></div></div></article>
+
+    <article class="spec full"><div class="sheet">
+      <div class="title" style="font-size:1.3em">Mateo Ruiz</div>
+      <div class="field">
+        <span class="n">role</span><span class="vb"><span class="pl">Designer</span></span>
+        <span class="n tw-n">← attended</span><div class="vt">4 Meetings · next Oct 25 <span class="f sm">▾</span>
+          <div class="tw-list">
+            <div class="row"><span class="d">Oct 25</span><span class="pl">Spoke to Mateo</span><span class="chip">Meeting</span></div>
+            <div class="row"><span class="d">Oct 15</span><span class="pl">Compass design review</span><span class="chip">Meeting</span></div>
+            <div class="row"><span class="d">Oct 11</span><span class="pl">Standup</span><span class="chip">Meeting</span></div>
+            <div class="row"><span class="d">Oct 1</span><span class="pl">Monthly planning</span><span class="chip">Meeting</span></div>
+          </div></div>
+        <span class="n tw-n">← owner of</span><span class="vt"><span class="pl">Echo</span> 🚀 <span class="chip" style="margin-left:4px">Project</span></span>
+      </div>
+    </div><div class="cap"><h3>Links read the same from both ends</h3><p>New in 0.4.141. When a record's field points at a page (a meeting's attendees, a visit's doctor), that page now says so in its own property list: a row with an arrow, “← attended” or “← doctor of”, listing those records. Up to three show by name; more show as a count with the next date, which opens into a dated list. Names and days are plain grey, like every property name. The rows only read: to change a link, change the record that holds the field. A record's own row of properties now wraps onto more lines instead of being cut off.</p><div class="meta"><span class="set">Links read the same from both ends</span><span class="set">Fields read backwards</span><span class="set">Property rows open</span><span>two-way.js</span></div></div></article>
   </div>
 
   <h3>What a block holds, nesting and space</h3>
@@ -411,7 +434,8 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
     <article class="spec"><div class="sheet">
       <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Talked with Mateo about the scan next fri<span class="caret"></span></span><span class="chip">Meeting</span></span></div>
       <div class="ind props"><span class="n">attendees:</span> <span class="pencil">Mateo Ruiz</span><span class="hint"><span class="cap-k">tab</span> takes · <span class="cap-k">⇧tab</span> passes</span><span class="sep">·</span><span class="n">date:</span> <span class="pencil">Oct 23rd, 2026</span><span class="sep">·</span><span class="n">project:</span> <span class="pl">Atlas</span><span class="hint">undo <span class="cap-k">⌘z</span></span></div>
-    </div><div class="cap"><h3>Proposals in the pills</h3><p>While you type, the plugin pencils in what it can see: a person named in your words, a day such as “next fri”, the parent block's or page's project, the journal day. Tab takes the one with the hint and moves on; Shift+Tab passes it. After a write, a quiet <code>undo ⌘z</code> sits beside the value for seven seconds. The hint leaves after twenty takes.</p><div class="meta"><span class="set">Proposals in the pills</span><span class="set">While you type</span><span class="set">A day in the words</span><span class="set">Undo beside the value</span><span>proposals.js</span></div></div></article>
+      <div class="ind props" style="margin-top:8px"><span class="f sm">after twenty takes:</span> <span class="n">date:</span> <span class="pencil">Oct 23rd, 2026</span><span class="hint"><span class="cap-k">tab</span></span></div>
+    </div><div class="cap"><h3>Proposals in the pills</h3><p>While you type, the plugin pencils in what it can see: a person named in your words, a day such as “next fri”, the parent block's or page's project, the journal day. Tab takes the one with the hint and moves on; Shift+Tab passes it. After a write, a quiet <code>undo ⌘z</code> sits beside the value for seven seconds. After twenty takes the hint’s words go, but its <code>tab</code> key stays beside the value Tab takes next (0.4.138), so you can always see which one that is.</p><div class="meta"><span class="set">Proposals in the pills</span><span class="set">While you type</span><span class="set">A day in the words</span><span class="set">Undo beside the value</span><span>proposals.js</span></div></div></article>
 
     <article class="spec"><div class="sheet">
       <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Blood test results back</span><span class="chip">Occurrence</span></span></div>
@@ -434,7 +458,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 <!-- ============ PICKERS ============ -->
 <section class="part" id="pickers">
   <div class="part-head"><span class="eyebrow">Group 1, links section</span><h2>Logseq's pickers, marked like the page</h2>
-  <p class="lede">Logseq's own lists keep their order, but every row now wears the mark its link would have on the page, and anything that would make something new is pencilled in.</p></div>
+  <p class="lede">Logseq's own lists keep their order, but every row now wears the mark its link would have on the page, and anything that would make something new is pencilled in. Since 0.4.140 every list and box the plugin draws itself (the line list, the link box, the journal note, the search rows, the copy card) has the same look as Logseq's own <code>[[</code> menu: the same corners, padding, shadow and row size, and the chosen row on the same light grey.</p></div>
   <div class="grid">
     <article class="spec"><div class="sheet">
       <div><span class="mono">[[at</span><span class="caret"></span></div>
@@ -457,27 +481,31 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 
     <article class="spec"><div class="sheet">
       <div class="menu">
-        <div class="mrow sel"><span class="slot">▦</span><span>deadline</span><span class="r">Date</span></div>
-        <div class="mrow"><span class="slot">☺</span><span>attendees</span><span class="r">Person · many</span></div>
-        <div class="mrow"><span class="slot">☐</span><span>urgent</span><span class="r">yes/no</span></div>
+        <div class="mrow sel"><span class="slot">▦</span><span>deadline</span><span class="r w">Date</span></div>
+        <div class="mrow"><span class="slot">☺</span><span>attendees</span><span class="r w">Person · many</span></div>
+        <div class="mrow"><span class="slot">☐</span><span>urgent</span><span class="r w">yes/no</span></div>
       </div>
     </div><div class="cap"><h3>Add property</h3><p>Each property's type in quiet words at the right, and its type icon in place of Logseq's <code>T</code>.</p><div class="meta"><span class="set">The property picker says each type</span><span>links.js · inline-props.js</span></div></div></article>
 
     <article class="spec"><div class="sheet">
       <div class="menu">
-        <div class="mrow"><span class="slot">☐</span><span class="slot rect"></span><span>Mateo Ruiz <span class="q sm">proposed</span></span><span class="r">Person</span></div>
-        <div class="mrow"><span class="slot">☐</span><span class="slot dot" style="width:auto"></span><span>Kickoff call</span><span class="r">block</span></div>
+        <div class="mrow"><span class="slot">☐</span><span class="slot rect"></span><span>Mateo Ruiz</span><span class="r">Person</span></div>
+        <div class="mrow"><span class="slot">☐</span><span class="slot dot" style="width:auto"></span><span>Kickoff call</span><span class="r w">block</span></div>
         <div class="mrow"><span class="slot">+</span><span class="pencil">New value</span></div>
       </div>
-    </div><div class="cap"><h3>The value picker on a property</h3><p>After Logseq's checkbox: the page's mark, the kind at the right, “proposed” on a pencilled value.</p><div class="meta"><span class="set">The value picker says what each row is</span><span>links.js</span></div></div></article>
+    </div><div class="cap"><h3>The value picker on a property</h3><p>After Logseq's checkbox: the page's mark and the kind at the right. The “proposed” label was taken off here in 0.4.137, since it could never show in this list; the <code>[[</code> menu keeps it.</p><div class="meta"><span class="set">The value picker says what each row is</span><span>links.js</span></div></div></article>
 
     <article class="spec"><div class="sheet">
-      <div style="border:1px solid var(--ls-border);border-radius:6px;padding:6px 10px">Link “the scan” to <span class="mono">ada</span><span class="caret"></span></div>
-      <div class="menu" style="margin-top:6px">
-        <div class="mrow sel"><span class="slot rect"></span><span>Ada Okafor</span><span class="r">Person</span></div>
-        <div class="mrow"><span class="slot">+</span><span class="pencil">Make page “ada”</span></div>
+      <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Ask about <span class="here">the scan</span> on Friday</span></span></div>
+      <div class="menu" style="margin:4px 0 0 64px">
+        <div style="border:1.5px solid #4a7dff;border-radius:6px;padding:4px 8px;margin-bottom:4px"><span>kes</span><span class="caret"></span></div>
+        <div class="mrow sel"><span class="slot rect"></span><span class="t">Kestrel Press</span><span class="r">Company</span></div>
+        <div class="mrow"><span class="slot dot" style="width:auto"></span><span class="t">Reply to Kestrel Press about the books</span><span class="r">Task</span></div>
+        <div class="mrow"><span class="slot dot" style="width:auto"></span><span class="t">i went Kestrel and Priya Nair about it</span><span class="r">Meeting</span></div>
+        <div class="mrow"><span class="slot dot" style="width:auto"></span><span class="t">keywords</span><span class="r w">block</span></div>
+        <div class="mrow"><span class="slot">+</span><span class="pencil">Make page “kes”</span></div>
       </div>
-    </div><div class="cap"><h3>The link box</h3><p>Link selected text to a page (<span class="kbd">⌘⇧L</span>) lists your pages as you type. Make page shows only when nothing matches exactly, and never above a match.</p><div class="meta"><span class="set">The link box lists your pages</span><span>editor.js</span></div></div></article>
+    </div><div class="cap"><h3>The link box</h3><p>Select words and press <span class="kbd">⌘⌥L</span> (Link selected text to a page). Since 0.4.139 the box opens right under the words, not in the middle of the window, and the page stays usable; a click elsewhere or Escape closes it. Under your pages it lists up to five blocks: tagged blocks first, with their tag at the right, then any block once you type three letters, marked <code>block</code>. Make page shows only when nothing matches exactly, and never above a match. The key moved from ⌘⇧L in 0.4.142, because on a Mac that key also opened Safari.</p><div class="meta"><span class="set">The link box lists your pages</span><span class="set">The link box opens beside the words</span><span class="set">The link box lists blocks too</span><span>editor.js</span></div></div></article>
   </div>
 </section>
 
@@ -526,7 +554,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   <div class="tw"><table class="t">
     <thead><tr><th>Command</th><th>Key</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td>Link selected text to a page</td><td><span class="kbd">⌘⇧L</span></td><td>Asks for a page in the link box, then writes <code>[words]([[page]])</code></td></tr>
+      <tr><td>Link selected text to a page</td><td><span class="kbd">⌘⌥L</span></td><td>Opens the link box under the words, then links them to the page or block you pick (was ⌘⇧L before 0.4.142)</td></tr>
       <tr><td>Open selected text as page</td><td><span class="kbd">⌘⌥P</span></td><td>Turns the selection into <code>[[name]]</code> and opens the page</td></tr>
       <tr><td>Make a page from this block</td><td>bullet menu</td><td>A new page with a link back and copies of the children</td></tr>
       <tr><td>Add tags to this page</td><td><span class="kbd">⌘T</span></td><td>Opens the Tags list under the title</td></tr>
@@ -620,6 +648,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
       <rect class="box" x="20" y="212" width="150" height="46" rx="8"/><text class="m" x="32" y="232">pages.js</text><text class="s" x="32" y="249">around the title</text>
       <rect class="box" x="180" y="212" width="150" height="46" rx="8"/><text class="m" x="192" y="232">links.js</text><text class="s" x="192" y="249">links, dates, refs, pickers</text>
       <rect class="box" x="340" y="212" width="150" height="46" rx="8"/><text class="m" x="352" y="232">properties.js</text><text class="s" x="352" y="249">property lists, fold all</text>
+      <rect class="box" x="340" y="264" width="150" height="24" rx="6"/><text class="m" x="352" y="280">two-way.js</text><text class="s" x="430" y="280">← rows</text>
 
       <text x="520" y="200" font-weight="700">Writing a record</text>
       <rect class="box" x="520" y="212" width="150" height="46" rx="8"/><text class="m" x="532" y="232">inline-props.js</text><text class="s" x="532" y="249">the line list, schema</text>
