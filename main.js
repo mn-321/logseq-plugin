@@ -315,11 +315,12 @@ function main() {
 // chrome.js: its settings have no heading of their own, so they join chrome's "Sidebars and toolbar".
 // Resting (0.4.175, at the owner's word: "just running the foundations and tag tree ... for the sake of understanding
 // what is important"): the plugin loads only the foundation, the tag and property map, and the two-way links that the
-// map writes the wording of. The other parts stay in parts/ unchanged and come back one layer at a time, each by
-// putting its file back in this list at its old place: editor.js, pages.js, properties.js, links.js (after
-// diagnostics.js); chrome.js, sidebar.js, styles.js, search.js, journal-dates.js, inline-props.js, proposals.js,
-// rich-copy.js, todos.js (after two-way.js).
+// map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
+// check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
+// PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
 const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tags.js', 'parts/settings-panel.js'];
+const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/journal-dates.js', 'parts/inline-props.js', 'parts/proposals.js', 'parts/rich-copy.js', 'parts/todos.js'];
+void RESTING_FILES;
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
 function loadParts() {
