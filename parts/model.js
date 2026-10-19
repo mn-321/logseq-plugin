@@ -216,5 +216,5 @@ function provide(core) {
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));
 }
-(window.refinementParts ||= []).push({ name: 'model', schema: [], provide, start, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'model', foundation: true, schema: [], provide, start, stop: runUnloadTasks });
 })();

@@ -19,8 +19,10 @@ OK parts/styles.js
 OK parts/tags.js
 OK parts/todos.js
 OK parts/two-way.js
-settings keys (grep "key: '"): 177; window.* publications: 11
-loaded 18 parts, 115 settings
+settings keys (grep "key: '"): 179; window.* publications: 11
+loaded 18 parts, 117 settings
 18 palette commands, 7 with a shortcut, 2 bullet-menu items
+foundation only: 2 palette commands (show-settings, troubleshooting), nothing drawn
+  showMsg: DB Refinements is running only its foundation (Foundation only, under Troubleshooting in its settings). Turn it off and reload the plugin to get everything back.
 boot-test: OK
-check.sh: OK (version 0.4.166)
+check.sh: OK (version 0.4.167)
