@@ -172,6 +172,16 @@ function modal(cancelValue, build, width, classes = {}) {
     build(box, finish, doc);
   });
 }
+/* The dialog's own look (0.4.169, moved from parts/styles.js): the foundation's dialogs (the troubleshooting box,
+   the settings window's questions) must be drawn right when the look parts are not running (Foundation only), so it
+   goes out with the core at start (main.js), before any part. The look parts may refine it, never be needed for it. */
+const dialogCss = `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
+.refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
+.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
+.refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
+.refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .85em); opacity: var(--rf-quiet, .6); }
+`;
 function modalButtons(doc, buttons) {
   const row = doc.createElement('div');
   row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
@@ -269,5 +279,5 @@ function settingReader(schema) {
 // This file's own boxes: the dialog backdrop and the Undo bar.
 leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
 
-window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, dialogCss, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();
