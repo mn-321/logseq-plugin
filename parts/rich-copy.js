@@ -759,7 +759,7 @@ function main() {
 }
 
 const settingsSchema = [{
-  key: 'richCopyHeading', type: 'heading', title: 'Copy as rich text', default: null,
+  key: 'richCopyHeading', type: 'heading', group: 'tools', rank: 1, title: 'Copy as rich text', default: null,
   description: 'Bullet right-click menu, page “…” menu or command palette. Title block, footer, page numbers and query sort order are chosen in the copy window and remembered.'
 }, {
   key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline'], default: 'document', title: 'Layout',

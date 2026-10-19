@@ -6,7 +6,7 @@
    WHAT THIS FILE PROVIDES, on window.refinementShared (and nothing else):
    - host()                      the Logseq document (the plugin runs in a frame inside Logseq's window).
    - notify(message, level)      an in-app message through logseq.UI.showMsg.
-   - lifecycle({ prefix, stopKey, before, sweep })   one per part; returns
+   - lifecycle({ prefix, stopKey, before, sweep, leaves })   one per part; returns
        warnOnce(message, ...details)   a console warning written once per session per message, with the
                                        part's prefix ('Refinements: ', 'Refinements (search): ', …);
        onUnload(task)                  adds a clean-up step (also takes the "off" function of a Logseq hook);
@@ -14,6 +14,11 @@
                                        returns a promise that waits for any step that finishes later;
        takeOverFromEarlierCopy()       runs the earlier copy's clean-up left under window[stopKey] in
                                        Logseq's window, leaves this one there, then calls sweep(doc);
+       leaves: { elements, attributes, reset }   what the part may leave on screen if a copy is cut short:
+                                       a selector list of its own elements, the names of the attributes it
+                                       sets on Logseq's elements, and a reset(doc) for anything else. The
+                                       core sweeps every part's leaves before it starts (sweepLeftovers).
+   - sweepLeftovers(doc)          removes what every part declared in its leaves, part by part.
        updaterFailed(fn, error, list)  retires a screen updater that threw five times;
        listen(win, types, handler)     a capture-phase listener on Logseq's window, removed on unload.
    - modal(cancelValue, build, width, classes)   a small dialog box in Logseq's window; build(box, finish, doc)
@@ -38,13 +43,21 @@
    - take what it needs from window.refinementShared (`const shared = window.refinementShared;`), and
      make its own lifecycle with its own prefix and, when it cleans up Logseq's window, its own stopKey,
      so that a reload still stops each part's earlier copy on its own;
-   - push { name, schema, start, stop } onto window.refinementParts; main.js joins the schemas, in
-     the order of PART_FILES, after its own, and calls start() and stop() from main().
+   - push { name, schema, provide?, start, ready?, commands?, moved?, stop } onto window.refinementParts;
+     main.js joins the schemas, in the order of PART_FILES, after its own, and from main() calls every
+     part's provide(core), then every start(), then every ready() (what draws on screen, once every part
+     has started), and stop() at unload; it registers each command ({ key, label, run, shortcut, menu }:
+     the setting that holds the shortcut, and whether it is also in a bullet's right-click menu) and moves
+     a saved setting named in moved ({ key: [old default, new default] }). The core starts no part by name.
 
-   LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → the other parts → main().
+   LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → parts/model.js → the other parts → main().
    loader.js loads main.js with a fresh timestamp (Logseq caches a plugin's script between reloads);
    main.js loads the parts the same way, this file first, because the others read
-   window.refinementShared as they load. main.js itself takes its helpers from here once the parts
+   window.refinementShared as they load, and parts/model.js second: the one part that knows what a page,
+   block, tag, property, journal day and link are in a DB graph (titles, the stored form of a link, the
+   property schema, the pages, days, journal titles, the Logseq version checked with). It provides them
+   through core.provided, so every other part reads the graph through it with take(); the core itself knows
+   nothing of content. main.js itself takes its helpers from here once the parts
    have loaded (useShared), before it gives Logseq the settings and before main() runs, and main()
    publishes window.refinementCore before it starts any part. */
 
@@ -75,8 +88,23 @@ function warner(prefix) {
    keep running beside this copy. Each copy therefore leaves its clean-up where the next one can find it
    (window[stopKey]), and a new copy runs it and sweeps anything still left on screen. */
 const UPDATER_TRIES = 5;
-function lifecycle({ prefix, stopKey, before, sweep }) {
+/* What each part may leave on screen, declared by the part in its lifecycle (leaves). A new copy of the
+   plugin sweeps all of it before it starts, so an earlier copy cut short (an error, Logseq's ten-second
+   limit) leaves no mark behind. The core used to keep one list of every part's marks; each part now
+   names its own, beside the code that writes them. */
+const leftovers = [];
+function sweepLeftovers(doc) {
+  for (const { prefix, elements, attributes, reset } of leftovers) {
+    try {
+      if (reset) reset(doc);
+      if (elements) for (const el of doc.querySelectorAll(elements)) el.remove();
+      for (const name of attributes || []) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
+    } catch (error) { console.warn(prefix + 'leftovers could not be cleared', error); }
+  }
+}
+function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
   const warnOnce = warner(prefix);
+  if (leaves) leftovers.push({ prefix, ...leaves });
   const unloadTasks = [];
   // Also takes the "off" function every logseq.*.onXxx hook returns.
   const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
@@ -236,5 +264,8 @@ function settingReader(schema) {
   };
 }
 
-window.refinementShared = { host, notify, lifecycle, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+// This file's own boxes: the dialog backdrop and the Undo bar.
+leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
+
+window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();

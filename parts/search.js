@@ -6,22 +6,18 @@
 const shared = window.refinementShared;
 const { host, notify, openEntity, waitFor } = shared;
 // This part's own clean-up list and stop key; a new copy sweeps what an earlier one left on screen.
-const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop', sweep: sweepEarlierCopy });
+const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (search): ', stopKey: '__calmerSearchStop',
+  leaves: { elements: '.rf-search-meta, .rf-search-peek, .rf-search-where, .rf-search-preview, .rf-search-guide, .rf-filter-results, .rf-filter-suggest',
+    attributes: ['uuid', 'sig', 'same-page', 'group-end', 'grouped', 'moved', 'filtering', 'loose', 'with-preview'].map(name => 'data-rf-' + name),
+    // Search results grouped by page carry an order; it is reset before the mark is removed.
+    reset: doc => { for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = ''; } } });
 // The core's screen watcher (window.refinementCore, taken in main()): this part's updaters run on it,
 // so the plugin has one MutationObserver (GUIDE.md), and they run before the core's own.
 let watchDom, watchDomEarly;
 
-// What an earlier copy may have left on screen (run by takeOverFromEarlierCopy, from shared.js).
-function sweepEarlierCopy(doc) {
-  for (const el of doc.querySelectorAll(STRAY_ELEMENTS)) el.remove();
-  // Search results grouped by page carry an order; read the mark before it is removed.
-  for (const el of doc.querySelectorAll('.search-results[data-rf-grouped]')) for (const child of el.children) child.style.order = '';
-  for (const name of STRAY_ATTRIBUTES) for (const el of doc.querySelectorAll(`[${name}]`)) el.removeAttribute(name);
-}
-
-// The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in main.js's tokensCss; this part
+// The scale (--rf-quiet, --rf-faint, --rf-line-pct, --rf-tiny …) is declared once, in parts/styles.js's tokensCss; this part
 // used to carry a copy. The key stays, since a provideStyle key is part of the contract with the settings file.
-const tokensCss = '/* the tokens are declared in main.js */';
+const tokensCss = '/* the tokens are declared in parts/styles.js */';
 // The plain page outline DB Refinements uses for page icons, so search results match.
 const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
@@ -1812,13 +1808,13 @@ const searchExtrasCss = `
 `;
 
 const settingsSchema = [
-  { key: 'searchSidebarHeading', type: 'heading', title: 'Search in the right sidebar', default: null,
+  { key: 'searchSidebarHeading', type: 'heading', group: 'around', rank: 3, title: 'Search in the right sidebar', default: null,
     description: 'Also in the command palette: search for “Search in right sidebar”. Changes here apply after you reload the plugin.' },
   { key: 'searchShortcut', type: 'string', title: 'Search in the right sidebar', default: 'mod+alt+f',
     description: 'Opens Logseq search in the right sidebar, where it stays while you open results. Shift-click a result to open it in the sidebar too.' },
   { key: 'sidebarSearchButton', type: 'boolean', title: 'Search button in the right sidebar', default: true,
     description: 'A Search button at the start of the right sidebar’s top row, next to Contents and Help.' },
-  { key: 'searchHeading', type: 'heading', title: 'Search', default: null,
+  { key: 'searchHeading', type: 'heading', group: 'around', rank: 2, title: 'Search', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
     description: 'Compact result rows, quieter group headings, a soft grey wash on matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
@@ -1836,8 +1832,6 @@ const settingsSchema = [
     description: 'Type codes in the search box to narrow what is found: #tag, in:page, p:name or p:name=value (for a property; property: works too), is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text. A bar along the bottom of the search window names the codes (click one to add it); type ? or click “? More tips” for a short guide. Shift+Enter or Shift-click opens a result in the right sidebar.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-// Settings that only take effect when the plugin starts: all of them.
-const RELOAD_SETTINGS = settingsSchema.filter(item => item.type !== 'heading').map(item => item.key);
 
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
@@ -1854,11 +1848,6 @@ function main() {
   // Registered early: Logseq draws the piece that hosts its editor the next time it redraws the app.
   if (setting('searchPreviewEditor')) registerPreviewHost();
   if (setting('sidebarSearchButton')) startSidebarSearchButton();
-  onUnload(logseq.onSettingsChanged((now, before) => {
-    // Logseq rewrites every setting when the plugin starts, so a setting with no earlier value is a
-    // default being filled in, not a change.
-    if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');
-  }));
   const binding = setting('searchShortcut').trim().toLowerCase();
   logseq.App.registerCommandPalette({ key: 'search-in-sidebar', label: 'Search in right sidebar', ...(binding ? { keybinding: { binding } } : {}) }, searchInSidebar);
 }

@@ -10,7 +10,9 @@
    dateLinks and attribute from the links area. */
 const shared = window.refinementShared;
 const { host, notify, modal, modalButtons, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { elements: '.refinement-hidden-toggle, .refinement-inline-values',
+    attributes: ['property-crumb', 'prop-hidden', 'crumb-box', 'hidden-toggle', 'hidden-open', 'hidden-extra', 'hidden-hover', 'value-lead'].map(name => 'data-refinement-' + name) } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas;
 let provided, pdfCitations, dateLinks, attribute;
@@ -828,12 +830,12 @@ function startHiddenProps() {
 
 
 function provide(core) {
-  core.provide({ startListProps, startHiddenProps, foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,
+  core.provide({ foldQueryResults, chooseListProperties, stopFoldState, updateListProps, updateHiddenProps, loadHiddenProps, hiddenPropsCss,
     listProps, listFold, listRows, foldLog, logFold, rowName, onFoldAll: fn => foldAllListeners.push(fn),
     propertyCrumbs, updatePropertyCrumbs, unmarkPropertyCrumb, escapeHtml });
   core.onDbRound('refreshInlineValues', refreshInlineValues);
   core.onDbRound('loadHiddenProps', loadHiddenProps);
-  core.onDbRound('loadPropertyNames', loadPropertyNames);
+  core.onDbRound('loadPropertyNames', loadPropertyNames, { scope: 'graph' });
 }
 /* A page property value that starts with a page's icon (0.4.130): a text value whose first thing is a link to a page
    with an icon of its own (Hospital: City of Hope). It is marked so the stylesheet can put the icon where the other
@@ -856,6 +858,24 @@ function markValueLeads(doc) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onPageChange(function propertiesPageChange() {
+    stopFoldState(); // a fold-all choice lasts while its page is open
+    // What is known about the page just left must not be applied to the one arriving: its list
+    // choice would hide parts of the new page until the new page's own details have loaded.
+    listProps.pageBlocks = new Set();
+    loadHiddenProps(); // another graph has other blocks
+  });
+  core.onDatabaseChange(function propertiesDatabaseChange(blocks) {
+    if (foldLog.start) logFold(`database changed (${blocks?.length ?? '?'} block${blocks?.length === 1 ? '' : 's'})`);
+  });
+  core.onSettingsChange(function propertiesSettingsChange(now, before) {
+    try { updateListProps(host()); } catch (error) { /* list choices apply on the next change */ }
+    if (now?.hiddenPropsChevron !== before?.hiddenPropsChevron) {
+      sendStyle('personal-db-hidden-props', setting('hiddenPropsChevron') ? hiddenPropsCss : '');
+      try { updateHiddenProps(host()); } catch (error) { /* shown on the next change */ }
+      loadHiddenProps();
+    }
+  });
   ({ setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas, pdfCitations, dateLinks, attribute } =
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'REFERENCE_AREAS', 'referenceAreas', 'pdfCitations', 'dateLinks', 'attribute']));
   watchDomEarly(function valueLeadsEarly(doc) { markValueLeads(doc); });
@@ -865,5 +885,15 @@ function start() {
   onUnload(() => clearTimeout(leadTimer));
   onUnload(() => { for (const box of valueLeads) box.removeAttribute('data-refinement-value-lead'); valueLeads.clear(); });
 }
-(window.refinementParts ||= []).push({ name: 'properties', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  startListProps();
+  startHiddenProps();
+}
+// The fold and list commands act on the block or query you last clicked in, so they are in the palette only.
+const commands = [
+  { key: 'fold-query-results', label: 'Fold all results in this query', run: () => foldQueryResults(null, true) },
+  { key: 'unfold-query-results', label: 'Unfold all results in this query', run: () => foldQueryResults(null, false) },
+  { key: 'choose-list-properties', label: 'Choose properties shown in this list', run: (...args) => chooseListProperties(...args) },
+];
+(window.refinementParts ||= []).push({ name: 'properties', schema: [], provide, start, ready, commands, stop: runUnloadTasks });
 })();

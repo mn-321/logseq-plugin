@@ -5,7 +5,8 @@
    mainCss by the settings that are on), the cue stylesheet (cueCss, drawn from the marks the links part
    sets), the hierarchy rules (hierarchyParts, applyHierarchy), the tag-page link rule (applyTagPageStyle),
    the icon masks and the small helpers the rules are written with (wash, dateStyles, referenceIcon,
-   blockDot). Logseq takes stylesheets only through provideStyle, so they stay JavaScript strings.
+   blockDot), and the scale every rule is written in (tokensCss: the greys, washes, sizes and the popup
+   look, moved here from main.js in 0.4.162). Logseq takes stylesheets only through provideStyle, so they stay JavaScript strings.
    It provides mainCss, cueCss, applyHierarchy, applyTagPageStyle, wash and the cue selectors to the core
    and the other parts, with the Linked references selectors (REFERENCE_AREAS) the rules are written
    with; it takes tagPages from the links part. */
@@ -15,6 +16,43 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 let setting, sendStyle, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+
+/* One small scale for everything the plugin draws, so cues added at different times look alike.
+   Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */
+// On body as well as :root: Logseq defines its theme colours on body, and a value that refers to
+// them (--rf-tag-color) is worked out where it is declared, so on :root alone it found none of them.
+const tokensCss = `:root, body {
+  --rf-quiet: .7;        /* labels and other secondary words */
+  --rf-faint: .5;        /* icons, markup and separators */
+  --rf-line-pct: 26%;    /* underlines, the active nesting line, the line beside embeds */
+  --rf-hair-pct: 10%;    /* resting nesting lines */
+  --rf-wash-pct: 8%;     /* the box behind a date */
+  --rf-wash-strong-pct: 13%;
+  --rf-field-pct: 3%;    /* the field behind a property list */
+  --rf-divider-pct: 22%; /* the thick line between right-sidebar items */
+  --rf-name: .94em;      /* a property's name beside its value */
+  --rf-tiny: .72rem;     /* search headings and paths */
+  /* the link to the page on screen, under Linked references: a faint grey wash of the theme's own text
+     colour (the same wash as a date box; the hairline alone says "here") with a slightly firmer hairline beneath,
+     like a pencil mark (pale on light themes, soft on dark) */
+  --rf-here: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent);
+  --rf-here-line: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 38%, transparent);
+  --rf-small: .82em;     /* labels beside text */
+  --rf-back: .22;        /* a row (and its chip) stepped back while another is chosen */
+  --rf-accent: #8b7fc7;  /* the optional tag chip; the only colour of the plugin's own */
+  /* the # of a tag (before a link to a tag's page, a tag word in a sentence, a tag page's title, the pickers): the grey
+     of the tag chips (0.4.114, at the owner's word: no blue tag anywhere; it was the colour Logseq's theme gives tags) */
+  --rf-tag-color: var(--ls-secondary-text-color, currentColor);
+  /* One look for every popup (0.4.140), taken from Logseq's own [[ menu: a box beside the text has its corners,
+     its 6px of padding and its shadow; a row in it is 14px with 6px 8px of padding and 4px corners, the chosen row
+     on the wash. A box in the middle of the window (the link box, the copy card, the settings) and the dark Undo
+     bar are larger things and take the window's rounder corner and deeper shadow. */
+  --rf-popup-radius: 6px;
+  --rf-popup-shadow: 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1);
+  --rf-window-radius: 8px;
+  --rf-window-shadow: 0 8px 28px rgba(0, 0, 0, .2);
+  --rf-row: .875rem;      /* the text of a row in a popup, Logseq's own size */
+}`;
 
 // Tables already provide structure, so several rules leave anything inside one alone.
 const notInTable = ':not(:is(table, [role="table"], [role="grid"], .table-view, .ls-table) *)';
@@ -717,13 +755,56 @@ function applyHierarchy() {
 }
 
 
+// The visual hierarchy: the look of rows, properties, dates and tags (read by this part, the properties part and the links part). Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'hierarchyHeading', type: 'heading', group: 'reading', rank: 2, title: 'Visual hierarchy', default: null,
+    description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
+  { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
+    description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
+  { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
+    description: 'The page’s own properties under its title sit on the same light grey field as a property list under a block, with one dot per property (the value’s own bullet is gone) and “Add property” shown only while you point at them. Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules; when a row is too long to fit, a small triangle at its start opens it. Property names are grey so the values stand out. A property list under a block sits on a very light grey field, and the tag tabs below a page’s properties start with #.' },
+  { key: 'quietEmptyProps', type: 'boolean', title: 'Empty properties faint', default: true,
+    description: 'A property with no value yet (Logseq shows it as a dashed line) is drawn faint under a block and in a block’s property list, so a record’s filled values stand out. Nothing is hidden and nothing moves. The page’s own list under its title is not touched. Applies right away.' },
+  { key: 'emptySlotsInRow', type: 'boolean', title: 'Empty slots read as the row', default: true,
+    description: 'An empty slot Logseq lists under a block (after its own “Show hidden properties”, or a property added with nothing in it) reads like the row of filled properties: “Scheduled: ···”, faint, with no type icon, no bullet and no grey field. The page’s own list under its title is not touched. Applies right away.' },
+  { key: 'hiddenPropsChevron', type: 'boolean', title: 'Hidden properties arrow on every block', default: true,
+    description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow. Hidden means a value Logseq hides: an empty slot, such as a task’s unset Scheduled, gets no arrow.' },
+  { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
+    description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
+  { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
+    description: 'On a folded block only, after its text: ↳, a small circle with the number of unfinished tasks hidden below it, small image or PDF icons when its children are files, what kinds of record are inside (“3 #Decision”) and the nearest due day (“due Fri”). An open block shows nothing: its children are on screen. Point at the cue for details.' },
+  { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
+    description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
+  { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
+    description: 'Dates in your notes, a record’s own dates in the pill row under it, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and the capsules at the side of a block keep plain dates.' },
+  { key: 'dateTense', type: 'boolean', title: 'Dates carry their tense', default: true,
+    description: 'A date in the past is quieter, today is a little firmer, a date to come stays as it is; an overdue Scheduled or Deadline keeps Logseq’s yellow. Applies right away.' },
+  { key: 'plainPageIcons', type: 'boolean', title: 'Simpler page icons', default: true,
+    description: 'Replaces Logseq’s generic page icon with a plain outline in titles and sidebars. Custom page icons are never changed.' },
+  { key: 'tintTags', type: 'boolean', title: 'Soft background behind tags', default: false,
+    description: 'Puts a faint violet chip behind tags, both in the text and at the end of a block.' },
+  { key: 'tagMark', type: 'boolean', title: 'Tags as grey class names', default: true,
+    description: 'A tag acts like a class, so the tag at the right of a block, the tag label above a title and the tag tabs are drawn as grey monospace names without the #. A tag word left in a sentence keeps its # in the tag colour, and so does the # before a tag page’s own title. Applies right away.' },
+];
 function provide(core) {
   core.provide({ mainCss, cueCss, applyHierarchy, applyTagPageStyle, wash, blockLink, blockLinkPlain, viaLook, REFERENCE_AREAS, referenceAreas });
 }
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  core.onSettingsChange(function stylesSettingsChange() {
+    applyHierarchy();
+    sendStyle('personal-db-refinements', mainCss());
+    applyTagPageStyle();
+  });
   ({ setting, sendStyle, UUID } = take(core, ['setting', 'sendStyle', 'UUID']));
 }
-(window.refinementParts ||= []).push({ name: 'styles', schema: [], provide, start, stop: runUnloadTasks });
+// The stylesheets go out once every part has started, so the first screen pass draws from them.
+function ready() {
+  logseq.provideStyle({ key: 'personal-db-tokens', style: tokensCss });
+  sendStyle('personal-db-refinements', mainCss());
+  applyHierarchy();
+  logseq.provideStyle({ key: 'personal-db-context-cues', style: cueCss });
+}
+(window.refinementParts ||= []).push({ name: 'styles', schema: settingsSchema, provide, start, ready, stop: runUnloadTasks });
 })();

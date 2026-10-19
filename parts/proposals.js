@@ -23,12 +23,12 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', stopKey: '__refinementProposalsStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.rfp-ghost, .rfp-undo, .rfp-made')) el.remove(); for (const el of doc.querySelectorAll('[data-refinement-proposal]')) el.removeAttribute('data-refinement-proposal'); } catch (error) { /* nothing left over */ } } });
-let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor;
+  leaves: { elements: '.rfp-ghost, .rfp-undo, .rfp-made', attributes: ['data-refinement-proposal'] } });
+let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor, bare, pick, idOf;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
-  { key: 'proposalsHeading', type: 'heading', title: 'Proposals in the pills', default: null,
+  { key: 'proposalsHeading', type: 'heading', group: 'writing', rank: 2, title: 'Proposals in the pills', default: null,
     description: 'While you write a record, what the graph can already tell (the people named in your words, a day such as “next fri”, the parent’s project, the journal day) is pencilled in, italic, in the record’s own pills. Tab takes the one with the hint, Shift+Tab passes it, a click takes one. Nothing is written until then; a small undo sits beside a value just written.' },
   { key: 'pillProposals', type: 'boolean', title: 'Proposals in the pills', default: true,
     description: 'The pencilled values in a record’s pills while it is written: Tab takes the one with the hint and moves to the next, Shift+Tab passes one, Escape only closes or leaves and never refuses. While it is on, Journal day as date asks here instead of after the record’s title; its graphs, tags and property still decide which records get a day. Applies at once.' },
@@ -52,9 +52,6 @@ const rulesOn = () => new Set(String(own('pillProposalRules') || '').toLowerCase
 const rule = name => rulesOn().has(name);
 const ownsDates = () => own('pillProposals') && rule('journal day');
 
-const bare = value => String(value ?? '').replace(/^:/, '');
-const pick = (node, name) => node?.[name] ?? node?.[':' + name] ?? node?.[name.slice(name.indexOf('/') + 1)];
-const idOf = value => typeof value === 'number' ? value : pick(value, 'db/id');
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shorten = (text, max = 48) => (text.length > max ? text.slice(0, max - 1) + '…' : text);
 // A pulled map's value under a property, by its ident, whatever the key's spelling; [] when the field is empty.
@@ -559,7 +556,7 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements', 'parseDay', 'dayNumber', 'journalIdFor', 'journalTitleFor']));
+  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor, bare, pick, idOf } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements', 'parseDay', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'bare', 'pick', 'idOf']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);

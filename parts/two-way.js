@@ -15,10 +15,10 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written. */
 const shared = window.refinementShared;
 const { host, openEntity } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ' });
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way' } });
 
 const settingsSchema = [
-  { key: 'twoWayHeading', type: 'heading', title: 'Two-way links', default: null,
+  { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
     description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record to open it (Shift-click: in the sidebar). The rows are read-only: change the link on the record that holds the field.' },
