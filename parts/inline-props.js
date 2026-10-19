@@ -7,6 +7,9 @@
                   each with its type. Letters filter it; Enter picks a name and the list turns into its values.
    name::value    skips to the values of a field you know (date::fri, owner::ad, stage::pl); the first letters do
                   when they start one field only (pro::at, a::mat), and several open the name list filtered (0.4.97).
+   name;;value    the same, but the value stays in the words as well (0.4.136): deadline;;today sets Deadline and
+                  leaves [[Oct 19th, 2026]] where the token was; a page as its link, a day as its journal link,
+                  free text, a choice, a number as typed. p;; works too.
    The values are predicted by the property's type: days for a Date (today, tomorrow, the weekdays, "next fri",
    2026-10-23, 23 oct, +3), pages of the right class for a page-valued field, the choices for a closed set,
    the values already used for free text, yes/no for a checkbox, the number or url as typed. While a row is
@@ -28,7 +31,7 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'inlinePropsHeading', type: 'heading', title: 'Properties in the line', default: null,
-    description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). The value is pencilled in, italic, before you press Enter; after it a small undo sits beside the value.' },
+    description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). With ;; in place of :: the value stays in your words as well (deadline;;today). The value is pencilled in, italic, before you press Enter; after it a small undo sits beside the value.' },
   { key: 'inlineProps', type: 'boolean', title: 'Properties typed in the line', default: true,
     description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from an italic “Make …” row (a new property still comes from Logseq’s own Add property).' },
   { key: 'inlinePropsGraphs', type: 'string', title: 'Only in these graphs', default: '',
@@ -39,6 +42,8 @@ const settingsSchema = [
     description: 'After Enter writes a page into a field that takes several (attendees), the list stays open with the letters cleared and no row chosen; more letters and Enter add the next, Enter with nothing typed (or Escape) finishes and takes the token out of the text. Applies at once.' },
   { key: 'inlinePropsEscapeClears', type: 'boolean', title: 'Escape takes the token out', default: true,
     description: 'Escape closes the list and takes p:: or name:: out of the text (Cmd+Z brings it back); leaving the block with the list open, by Tab or a click elsewhere, does the same, so a block is never saved with the token in it. Off, Escape keeps the words as typed. Applies at once.' },
+  { key: 'inlinePropsKeep', type: 'boolean', title: 'Two semicolons keep the value in the words', default: true,
+    description: 'name;;value works as name::value and also leaves the value in your words where the token was: deadline;;today sets Deadline and leaves a link to the day, attendees;;joe a link to Joe, room;;Blue room the words Blue room. A page or a day stays as its link, anything else as typed. Off, ;; is plain text. Applies at once.' },
   { key: 'inlinePropsProposedFirst', type: 'boolean', title: 'The list opens on the proposal', default: true,
     description: 'When Proposals in the pills has pencilled a value into the field you name (c:: on a record whose words name Lumen Labs), the list opens on that value, first and highlighted, with why beside it, so Enter takes it with no more letters; the pill shows one pencilled value at a time. Applies at once.' },
 ];
@@ -218,7 +223,7 @@ async function dayRows(filter, withTime) {
 }
 
 /* The rows of each stage. A row is { kind, label, right?, icon? (html), day?, dashed?, prop?, value? }. */
-const state = { box: null, uuid: '', stage: null, prop: null, name: '', prefix: '', filter: '', start: 0, rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null, gather: false };
+const state = { box: null, uuid: '', stage: null, prop: null, name: '', prefix: '', filter: '', start: 0, sep: '::', kept: [], rows: [], sel: 0, menu: null, version: 0, allowed: null, dismissed: null, gather: false };
 // The block's property pills as Logseq draws them. A pill's first child reads "attendees:", with the colon, in edit
 // as out of it (seen 2026-10-17; the name was never matched before 0.4.96).
 const pillName = p => (p.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
@@ -317,22 +322,24 @@ async function valueRows(prop, filter) {
 const unknownRows = name => [{ kind: 'info', label: `no property named “${name}”` }, { kind: 'info', label: 'a new one is made with Logseq’s Add property (/)' }];
 
 /* The token at the caret: "p::filter" (stage name), "title::filter" for a property the graph has (stage value),
-   or "word::filter" for one it does not (stage new). Only at the end of the block, with nothing after the caret. */
+   or "word::filter" for one it does not (stage new). Only at the end of the block, with nothing after the caret.
+   ";;" in place of "::" reads the same and keeps the value in the words (sep, 0.4.136). */
 async function tokenAt(box) {
   const caret = box.selectionStart;
   if (caret !== box.selectionEnd) return null;
   const value = box.value;
   if (value.slice(caret).trim()) return null;
   const before = value.slice(0, caret);
-  const m = before.match(/(?:^|\s)(\S[^\n:]{0,60}?)::([^\n:]*)$/);
+  const m = before.match(/(?:^|\s)(\S[^\n:;]{0,60}?)(::|;;)([^\n:;]*)$/);
   if (!m) return null;
-  const phrase = m[1], filter = m[2], lowerPhrase = phrase.toLowerCase();
+  const phrase = m[1], sep = m[2], filter = m[3], lowerPhrase = phrase.toLowerCase();
+  if (sep === ';;' && !setting('inlinePropsKeep')) return null;
   const schema = await graphWide('inlinePropsSchema', loadSchema);
   let best = null;
   for (const prop of schema.props) if (lowerPhrase === prop.lower || lowerPhrase.endsWith(' ' + prop.lower)) if (!best || prop.lower.length > best.lower.length) best = prop;
   const tail = name => before.length - (name.length + 2 + filter.length);
-  if (best) return { stage: 'value', prop: best, name: best.title, filter, start: tail(best.title) };
-  if (/(?:^|\s)p$/.test(lowerPhrase)) return { stage: 'name', prop: null, name: 'p', filter, start: tail('p') };
+  if (best) return { sep, stage: 'value', prop: best, name: best.title, filter, start: tail(best.title) };
+  if (/(?:^|\s)p$/.test(lowerPhrase)) return { sep, stage: 'name', prop: null, name: 'p', filter, start: tail('p') };
   const word = phrase.trim().match(/(\S+)$/)?.[1] || phrase.trim();
   // The first letters of a name (0.4.97): one of the record's own fields starting so, else one of all properties,
   // goes straight to its values; several open the name list filtered by them; none is a name the graph lacks.
@@ -341,8 +348,8 @@ async function tokenAt(box) {
     const starting = list => list.filter(prop => prop.lower.startsWith(w));
     let hits = starting(await fieldsOf(uuid, schema));
     if (!hits.length) hits = starting(schema.props);
-    if (hits.length === 1) return { stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(word) };
-    if (hits.length > 1) return { stage: 'name', prop: null, name: word, prefix: w, filter, start: tail(word) };
+    if (hits.length === 1) return { sep, stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(word) };
+    if (hits.length > 1) return { sep, stage: 'name', prop: null, name: word, prefix: w, filter, start: tail(word) };
     // The token forgives a missing space (0.4.106): "Mateoa::pri" names no field, but its tail "a" starts one;
     // the shortest tail that starts exactly one of the record's own fields (else of all) is read, and the word before it stays.
     const fields = await fieldsOf(uuid, schema);
@@ -350,10 +357,10 @@ async function tokenAt(box) {
       const t = w.slice(w.length - n);
       let hits = fields.filter(prop => prop.lower.startsWith(t));
       if (!hits.length) hits = schema.props.filter(prop => prop.lower.startsWith(t));
-      if (hits.length === 1) return { stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(t) };
+      if (hits.length === 1) return { sep, stage: 'value', prop: hits[0], name: hits[0].title, filter, start: tail(t) };
     }
   }
-  return { stage: 'new', prop: null, name: word, filter, start: tail(word) };
+  return { sep, stage: 'new', prop: null, name: word, filter, start: tail(word) };
 }
 
 /* The list under the caret. */
@@ -411,7 +418,7 @@ function renderMenu() {
 }
 function closeMenu() {
   state.menu?.remove(); state.menu = null;
-  state.stage = null; state.prop = null; state.rows = []; state.sel = 0; state.gather = false;
+  state.stage = null; state.prop = null; state.rows = []; state.sel = 0; state.gather = false; state.kept = [];
   removeGhost();
 }
 /* The ghost: the highlighted value pencilled in where it will go, in the record's empty pill for that property when
@@ -448,8 +455,8 @@ async function check(box) {
   if (!token || !box.isConnected) return closeMenu();
   const uuid = box.closest('.ls-block[blockid]').getAttribute('blockid');
   // The schema is read again every 30 s, so a property is the same by its ident, not its object.
-  const changed = state.stage !== token.stage || state.prop?.ident !== token.prop?.ident || state.uuid !== uuid || state.name !== token.name;
-  Object.assign(state, { box, uuid, stage: token.stage, prop: token.prop, name: token.name, prefix: token.prefix || '', filter: token.filter, start: token.start });
+  const changed = state.stage !== token.stage || state.prop?.ident !== token.prop?.ident || state.uuid !== uuid || state.name !== token.name || state.sep !== token.sep;
+  Object.assign(state, { box, uuid, stage: token.stage, prop: token.prop, name: token.name, prefix: token.prefix || '', filter: token.filter, start: token.start, sep: token.sep });
   let rows;
   try {
     rows = token.stage === 'name' ? await nameRows(token.filter, state.prefix)
@@ -458,7 +465,7 @@ async function check(box) {
   } catch (error) { warnOnce('the rows could not be built', error); return closeMenu(); }
   if (version !== state.version) return;
   if (!box.isConnected && !ownBox(host().activeElement)) return closeMenu();
-  if (changed) { state.sel = 0; state.gather = false; }
+  if (changed) { state.sel = 0; state.gather = false; state.kept = []; }
   if (state.gather) { if (!token.filter.trim()) state.sel = -1; rows.push({ kind: 'info', label: 'Enter with nothing typed finishes' }); }
   else if (token.stage === 'value' && !rows.some(selectable)) rows.push({ kind: 'info', label: `nothing matches “${token.filter.trim()}” · Esc takes the token out` });
   state.rows = rows;
@@ -475,10 +482,29 @@ function replaceRange(box, start, end, text) {
   if (!ok) { box.setRangeText(text, start, end, 'end'); box.dispatchEvent(new doc.defaultView.Event('input', { bubbles: true })); }
 }
 function removeToken() {
-  const box = state.box, value = box.value;
+  const box = liveBox(), value = box.value;
   let start = state.start;
   while (start > 0 && /\s/.test(value[start - 1])) start--;
   replaceRange(box, start, box.selectionStart, '');
+}
+// Logseq may swap the text box while a value is written; the one still editing this block is taken.
+function liveBox() {
+  const active = host().activeElement;
+  return state.box?.isConnected || !ownBox(active) ? state.box : (state.box = active);
+}
+// What stays in the words for a value written with ;; (0.4.136): a page or a day as its link (a time after the
+// day stays as typed), anything else, free text, a choice, a number, as its words.
+function keptText(prop, value) {
+  if (prop.type === 'date') return `[[${value.title}]]`;
+  if (prop.type === 'datetime') return `[[${value.title}]]${String(value.shown || '').startsWith(value.title) ? value.shown.slice(value.title.length) : ''}`;
+  if (prop.type === 'node') return `[[${value.title}]]`;
+  return String(value.text ?? value.title ?? '');
+}
+// The token leaves the text; after ;; the values written stay in its place, several joined by commas (0.4.136).
+function leaveToken() {
+  if (state.sep === ';;' && state.kept.length) { const box = liveBox(); replaceRange(box, state.start, box.selectionStart, state.kept.join(', ')); }
+  else removeToken();
+  state.kept = [];
 }
 async function journalIdFor(day, title) {
   const [[p] = []] = await dsQuery(`[:find (pull ?p [:db/id]) :where [?p :block/journal-day ${day}]]`);
@@ -531,18 +557,22 @@ async function pickSelected() {
   const box = state.box;
   if (row.kind === 'prop') {
     // "p::fi" becomes "title::" and the list turns into values; letters that named no field carry over as the value (0.4.120).
-    replaceRange(box, state.start, box.selectionStart, `${row.prop.title}::${row.carry || ''}`);
+    replaceRange(box, state.start, box.selectionStart, `${row.prop.title}${state.sep}${row.carry || ''}`);
     return;
   }
   const prop = state.prop, uuid = state.uuid;
   let value = row.value;
   // A field that takes several pages keeps its list open (0.4.98): only the letters leave the text, the token stays.
   const gather = setting('inlinePropsGather') && prop.type === 'node' && prop.many && row.kind !== 'make-page';
+  // After ;; the value takes the token's place once it is written, so a day's journal page or a new page exists
+  // before its link is in the words (0.4.136); after :: the token leaves first, as before.
+  const keep = state.sep === ';;';
   try {
     if (gather) { state.gather = true; state.sel = -1; replaceRange(box, box.selectionStart - state.filter.length, box.selectionStart, ''); }
-    else removeToken();
+    else if (!keep) removeToken();
     if (row.kind === 'make-page') value = await makePage(prop, value.title, value.cls);
     const undoValue = await writeValue(prop, value, uuid);
+    if (keep) { state.kept.push(keptText(prop, value)); if (!gather) leaveToken(); }
     const made = row.kind === 'make-page' ? value : null;
     // The text box already lacks the token; the saved block may still carry it for a moment.
     const words = shorten((gather ? box.value.slice(0, state.start) : box.value).trim().split('\n')[0] || await blockWords(uuid));
@@ -579,16 +609,16 @@ function onKey(event) {
   const finishing = state.gather && (event.key === 'Escape' || (event.key === 'Enter' && state.sel < 0));
   if (event.key === 'ArrowDown') { stop(); move(1); }
   else if (event.key === 'ArrowUp') { stop(); move(-1); }
-  else if (finishing) { stop(); removeToken(); closeMenu(); }
+  else if (finishing) { stop(); leaveToken(); closeMenu(); }
   else if (event.key === 'Enter' && rows.some(selectable)) { stop(); pickSelected(); }
   // Enter with nothing to pick does nothing (0.4.106): it used to reach Logseq, which split the block and saved the token.
   else if (event.key === 'Enter') { stop(); }
   // Escape closes the list and keeps you in the block. With the token taken out (0.4.99), Cmd+Z brings it back;
   // without, it stays as typed and is not asked about again until the text changes.
-  else if (event.key === 'Escape') { stop(); if (clearsOnLeave()) removeToken(); else state.dismissed = state.box.value; closeMenu(); }
+  else if (event.key === 'Escape') { stop(); if (clearsOnLeave()) leaveToken(); else state.dismissed = state.box.value; closeMenu(); }
   // Tab closes the list and takes the token out, and does nothing else (0.4.120): before, Logseq indented the block
   // or the proposals part wrote its values in the same press.
-  else if (event.key === 'Tab') { stop(); if (clearsOnLeave()) removeToken(); closeMenu(); }
+  else if (event.key === 'Tab') { stop(); if (clearsOnLeave()) leaveToken(); closeMenu(); }
 }
 const clearsOnLeave = () => setting('inlinePropsEscapeClears');
 /* Escape takes [[ or # out of Logseq's own pickers (0.4.106; setting pickerEscapeClears in main.js): the key meant
@@ -614,7 +644,7 @@ function onPickerEscape(event) {
 function onPointerDown(event) {
   if (!state.menu?.isConnected || !clearsOnLeave()) return;
   if (state.menu.contains(event.target) || event.target === state.box) return;
-  removeToken(); closeMenu();
+  leaveToken(); closeMenu();
 }
 let checkTimer = 0;
 function onEditorChange(event) {
@@ -622,6 +652,32 @@ function onEditorChange(event) {
   if (!box?.matches?.('textarea')) return;
   clearTimeout(checkTimer);
   checkTimer = setTimeout(() => check(box), 40);
+}
+/* Logseq opens its own Add property dialog (.ls-property-dialog) on ";;" and takes the caret into it (seen
+   2026-10-18), so the letters after ;; would land in its search field. While ;; keeps the value in the words
+   (0.4.136) that dialog is closed again by its own Escape, as pages.js closes a popover, and the caret goes back
+   to the end of the block. Where the line list does not run, Logseq's ;; is left as it is. */
+async function onSemicolons(event) {
+  const box = event.target;
+  if (!box?.matches?.('textarea') || !box.closest('.ls-block[blockid]')) return;
+  const caret = box.selectionStart;
+  if (caret !== box.selectionEnd || !box.value.slice(0, caret).endsWith(';;')) return;
+  if (!setting('inlineProps') || !setting('inlinePropsKeep') || state.allowed === false) return;
+  if (state.allowed === null && !(state.allowed = await graphNamedIn(setting('inlinePropsGraphs')))) return;
+  const doc = host(), uuid = box.closest('.ls-block[blockid]').getAttribute('blockid');
+  let tries = 0;
+  const look = () => {
+    const dialog = doc.querySelector('.ls-property-dialog');
+    if (!dialog) { if (++tries < 12) setTimeout(look, 25); return; }
+    const target = dialog.contains(doc.activeElement) ? doc.activeElement : dialog;
+    target.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true }));
+    setTimeout(() => {
+      const live = box.isConnected ? box : doc.querySelector(`.ls-block[blockid="${uuid}"] textarea`);
+      if (live && doc.activeElement !== live) { live.focus(); const end = live.value.length; live.setSelectionRange(end, end); }
+      if (live) check(live);
+    }, 40);
+  };
+  look();
 }
 function onFocusOut(event) {
   if (!state.menu?.isConnected || !ownBox(event.target)) return;
@@ -677,6 +733,7 @@ function start() {
   listen(win, ['keydown'], onKey);
   listen(win, ['keydown'], onPickerEscape);
   listen(win, ['input', 'keyup', 'click'], onEditorChange);
+  listen(win, ['input'], onSemicolons);
   listen(win, ['focusout'], onFocusOut);
   listen(win, ['pointerdown'], onPointerDown); // pointerdown: Logseq takes the editor away before mousedown fires (seen 2026-10-17)
   onUnload(logseq.App.onRouteChanged(() => { state.allowed = null; closeMenu(); }));

@@ -214,7 +214,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
   <span class="eyebrow">Logseq DB · personal plugin</span>
   <h1>DB Refinements, every part on one page</h1>
   <p class="lede">The plugin changes how Logseq draws a page so that pages, blocks, links, tags, properties and dates are easy to tell apart, and it helps while you write a record. Each picture below is drawn the way the plugin looks today, with what it means, the setting that turns it off, and the file that holds it.</p>
-  <div class="stamp"><span>version <b>0.4.135</b></span><span>refreshed <b>2026-10-18</b></span><span>Logseq <b>2.0.2</b> (DB graphs)</span><span>next steps: <b>docs/NEXT.md</b></span></div>
+  <div class="stamp"><span>version <b>0.4.136</b></span><span>refreshed <b>2026-10-19</b></span><span>Logseq <b>2.0.2</b> (DB graphs)</span><span>next steps: <b>docs/NEXT.md</b></span></div>
   <nav class="toc" aria-label="Sections">
     <a href="#rules">The three rules</a><a href="#map">Map</a><a href="#reading">Reading a page</a><a href="#writing">Writing a record</a><a href="#pickers">Pickers</a><a href="#around">Around the page</a><a href="#tools">Tools</a><a href="#paused">Paused</a><a href="#writes">When it writes</a><a href="#code">Inside the code</a>
   </nav>
@@ -406,7 +406,7 @@ footer.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
         <div class="mrow"><span class="slot rect"></span><span>Priyanka Das</span><span class="r">Person</span></div>
         <div class="mrow"><span class="slot">+</span><span class="pencil">Make Person “pri”</span></div>
       </div></div>
-    </div><div class="cap"><h3>Properties typed in the line</h3><p>Type a field's first letters and <code>::</code> at the end of the block (<code>p::</code> lists every field, <code>a::pri</code> goes straight to attendees). A list opens under the property row, on the proposed value, with the reason beside it. Enter writes. Escape or leaving the block takes the typed letters back out. A field that takes several pages stays open.</p><div class="meta"><span class="set">Properties typed in the line</span><span class="set">First letters name the field</span><span class="set">A field that takes several stays open</span><span>inline-props.js</span></div></div></article>
+    </div><div class="cap"><h3>Properties typed in the line</h3><p>Type a field's first letters and <code>::</code> at the end of the block (<code>p::</code> lists every field, <code>a::pri</code> goes straight to attendees). A list opens under the property row, on the proposed value, with the reason beside it. Enter writes. Escape or leaving the block takes the typed letters back out. A field that takes several pages stays open. Since 0.4.136, <code>;;</code> in place of <code>::</code> also keeps the value in your sentence: <code>deadline;;today</code> leaves a link to the day, a person leaves a link to their page, free text stays as typed.</p><div class="meta"><span class="set">Properties typed in the line</span><span class="set">First letters name the field</span><span class="set">A field that takes several stays open</span><span class="set">Two semicolons keep the value in the words</span><span>inline-props.js</span></div></div></article>
 
     <article class="spec"><div class="sheet">
       <div class="blk"><span class="bul"></span><span class="body"><span class="txt">Talked with Mateo about the scan next fri<span class="caret"></span></span><span class="chip">Meeting</span></span></div>

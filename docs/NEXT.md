@@ -1,6 +1,6 @@
 # Next steps for DB Refinements
 
-Updated 2026-10-18 at 0.4.135 (the right sidebar done: 0.4.134 tag chips stay on the row in narrow columns, 0.4.135 a page in the right sidebar has its own via labels and usage line). Read `HANDOFF.md` first (where things stand, the owner's rulings, Tried and rejected), then this file before picking up work. The drawn guide to every part of the plugin is the private artifact "DB Refinements Field Guide" (claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ); its source is `docs/VISUAL-GUIDE.html`.
+Updated 2026-10-19 at 0.4.136 (`name;;value` keeps the value in the words as well as the field). Before that, 0.4.135 (the right sidebar done: 0.4.134 tag chips stay on the row in narrow columns, 0.4.135 a page in the right sidebar has its own via labels and usage line). Read `HANDOFF.md` first (where things stand, the owner's rulings, Tried and rejected), then this file before picking up work. The drawn guide to every part of the plugin is the private artifact "DB Refinements Field Guide" (claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ); its source is `docs/VISUAL-GUIDE.html`.
 
 **When you ship a version, refresh this file and the guide in the same pass:** strike or remove what the version finished, add what it left open, move the version line above, and change the guide's picture, caption and version stamp for anything that looks or behaves differently (then republish it to the same link with the Artifact tool's `url`).
 
