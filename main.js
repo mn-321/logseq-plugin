@@ -215,8 +215,8 @@ function sendStyle(key, style) {
 }
 const settingsSchema = [
   { key: 'shortcutsHeading', type: 'heading', title: 'Shortcuts and actions', default: null,
-    description: 'Every action is also in the command palette, under the names below. Changes to shortcuts apply after you reload the plugin. Leave a shortcut empty to remove it. Examples: mod+shift+l, mod+alt+p (mod is Cmd on Mac, Ctrl elsewhere).' },
-  { key: 'linkShortcut', type: 'string', title: 'Link selected text to a page', default: 'mod+shift+l',
+    description: 'Every action is also in the command palette, under the names below. Changes to shortcuts apply after you reload the plugin. Leave a shortcut empty to remove it. Examples: mod+alt+l, mod+alt+p (mod is Cmd on Mac, Ctrl elsewhere).' },
+  { key: 'linkShortcut', type: 'string', title: 'Link selected text to a page', default: 'mod+alt+l',
     description: 'Select words in a block, press this, then pick a page or block. The words become [words]([[page]]), a link that counts as a reference to the page, as [[page]] does.' },
   { key: 'openShortcut', type: 'string', title: 'Open selected text as page', default: 'mod+alt+p',
     description: 'Turns the text you selected into a [[link]] and opens (or creates) that page.' },
@@ -400,8 +400,13 @@ function publishCore() {
 const diag = name => (...args) => window.refinementDiagnostics?.[name]?.(...args);
 // A command of an area part (parts/editor.js, properties.js), by the name it provided to the core.
 const act = name => (...args) => provided[name](...args);
+// Old default shortcuts that clash with the system, moved to the new default where the saved value is still the old one
+// (Logseq saves every default, so a changed default alone would not reach an existing install). Cmd+Shift+L is the
+// Mac's own "Search With Safari" service, which opened Safari over Logseq.
+const MOVED_SHORTCUTS = { linkShortcut: ['mod+shift+l', 'mod+alt+l'] };
 function main() {
   logseq.beforeunload(runUnloadTasks);
+  for (const [key, [old, now]] of Object.entries(MOVED_SHORTCUTS)) if (logseq.settings?.[key] === old) logseq.updateSettings({ [key]: now });
   takeOverFromEarlierCopy();
   publishCore();
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
@@ -492,7 +497,8 @@ function main() {
     ['choose-list-properties', 'Choose properties shown in this list', act('chooseListProperties')],
   ];
   for (const [key, label, action, shortcut] of commands) {
-    const binding = shortcut && setting(shortcut).trim().toLowerCase();
+    let binding = shortcut && setting(shortcut).trim().toLowerCase();
+    if (binding && MOVED_SHORTCUTS[shortcut]?.[0] === binding) binding = MOVED_SHORTCUTS[shortcut][1]; // the saved setting may not show the move yet
     logseq.App.registerCommandPalette({ key, label, ...(binding ? { keybinding: { binding } } : {}) }, action);
   }
   // Each troubleshooting tool keeps its command key, registered without a palette entry (a shortcut
