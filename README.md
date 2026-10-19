@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.138.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.139.
 
 Besides the look of pages, it holds:
 
@@ -119,6 +119,8 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The property picker says each type | `propertyPickerTypes` | on | Links and references |
 | The value picker says what each row is | `valuePickerMarks` | on | Links and references |
 | The link box lists your pages | `linkBoxList` | on | Links and references |
+| The link box opens beside the words | `linkBoxBeside` | on | Links and references |
+| The link box lists blocks too | `linkBoxNodes` | on | Links and references |
 | Escape takes [[ and # out | `pickerEscapeClears` | on | Links and references |
 | Year-first dates in [[ ]] link to journals | `dateLinkFormats` | on | Links and references |
 | Compact PDF citations | `pdfCitations` | on | Links and references |
@@ -438,9 +440,9 @@ window. Click **PDF** at the bottom left, then **Save as PDF**; the page title b
 
 1. Select the words you want readers to see, such as `rename`.
 2. Press `Cmd+Shift+L` (`Ctrl+Shift+L` outside a Mac).
-3. Type a few letters of the page's title. A list of your pages, tags and journal days opens under the field, drawn with the marks the page uses (a page's own icon or the plain rectangle, a `#` in the tag colour, a small grey box for a journal day, the kind in grey monospace words at the right), filtered as you type. `Up` and `Down` move, `Enter` links the highlighted row, a click picks one. The selection becomes `[rename]([[real name of link]])`.
+3. Type a few letters of the page's title. The field opens just under the selected words, as Logseq's own `[[` menu does, with nothing dimmed or covered. A list of your pages, tags and journal days opens under the field, drawn with the marks the page uses (a page's own icon or the plain rectangle, a `#` in the tag colour, a small grey box for a journal day, the kind in grey monospace words at the right), filtered as you type; under them, up to five blocks whose words match (a small dot before each; a tagged block such as a Task first, with its tags at the right; any other block once three letters are typed, found by Logseq's own search). `Up` and `Down` move, `Enter` links the highlighted row, a click picks one. The selection becomes `[rename]([[real name of link]])`.
 
-An italic **Make page “…”** row is offered only when no title matches the letters exactly, and never above a match, so a typo cannot make a page; `Enter` on it links to the new name and Logseq makes that page when you follow the link. Cancel (`Esc`) leaves the block unchanged. The command accepts a single-line label and page title; it checks the saved block again before replacing text. Blocks are not listed. With **The link box lists your pages** off, the field is bare and `Enter` links what you typed.
+The link is written by the page's or block's id, the form Logseq stores every link in, so it is a real reference: the words show in the target's Linked references and count wherever a `[[page]]` link would. An italic **Make page “…”** row is offered only when no title matches the letters exactly, and never above a match, so a typo cannot make a page; `Enter` on it makes the page and links to it. Cancel (`Esc`, or a press anywhere else) leaves the block unchanged. The command accepts a single-line label; it checks the saved block again before replacing text. With **The link box lists your pages** off, the field is bare and `Enter` links what you typed; with **The link box lists blocks too** off, only pages, tags and days are listed; with **The link box opens beside the words** off, the box opens in the middle of the window as before.
 
 
 **Make a page from this block**

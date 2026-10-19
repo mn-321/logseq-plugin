@@ -10,7 +10,7 @@ const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
-let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, provided;
+let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -181,45 +181,135 @@ async function newOutermostBlock() {
 /* The link box (Link selected text to a page). With linkBoxList (0.4.102) a list under the field, drawn from the
    graph with the marks the page uses (the line list's rows: a page's own icon or the plain rectangle, the # in
    the tag colour for a tag's page, the small grey box for a journal day, the kind in quiet monospace words at the
-   right), filtered as you type; Up and Down move, Enter links the highlighted row, a click picks one. A dashed
+   right), filtered as you type; Up and Down move, Enter links the highlighted row, a click picks one. An italic
    "Make page …" row is offered only when no title matches the letters exactly, and never above a match, so a
-   typo cannot make a page. Pages, tags and journal days; blocks are not listed (a text search over every block
-   is a different thing). Off, the field is bare and Enter links what was typed, as before. */
-const linkBox = { pages: null, journals: null, at: 0 };
+   typo cannot make a page. With linkBoxNodes (0.4.137) blocks are listed too, as the [[ menu lists them: tagged
+   blocks (a Task, a Meeting) by their words from one cached query, and any other block through Logseq's own
+   search once three letters are typed. A chosen row is written by its id, [words]([[uuid]]), the form Logseq
+   itself stores, so the link counts as a reference exactly as [[page]] does (checked in the test graph: a
+   labelled link's target is in the block's refs and its linked references). With linkBoxBeside (0.4.137) the box
+   opens under the selected words, as Logseq's own [[ menu does, with no dimmed backdrop; a press elsewhere or
+   Escape closes it. Off, the field is bare and Enter links what was typed, as before. */
+const linkBox = { pages: null, journals: null, nodes: null, at: 0, found: new Map() };
+// A block's words on one line, its links by the titles the link box knows, without the search's highlight marks.
+const blockWords = text => String(text || '').replace(/\$pfts_2lqh>\$|\$<pfts_2lqh\$/g, '')
+  .replace(/\[\[([0-9a-f-]{36})\]\]/gi, (m, id) => linkBox.titles?.get(id.toLowerCase()) ?? '…')
+  .replace(/\[\[([^\]]+)\]\]/g, '$1').replace(/\s+/g, ' ').trim().slice(0, 120);
 async function linkBoxCandidates() {
   if (linkBox.pages && Date.now() - linkBox.at < 30000) return linkBox;
-  const [pages, days] = await Promise.all([provided.propPages(), graphWide('linkBoxJournals', () =>
-    dsQuery('[:find ?t ?d :where [?p :block/journal-day ?d] [?p :block/title ?t]]'))]);
+  const [pages, days, nodes] = await Promise.all([provided.propPages(), graphWide('linkBoxJournals', () =>
+    dsQuery('[:find ?t ?d ?u :where [?p :block/journal-day ?d] [?p :block/title ?t] [?p :block/uuid ?u]]')),
+    setting('linkBoxNodes') ? graphWide('linkBoxNodes', () => dsQuery(`[:find ?u ?t ?tt :where [?b :block/tags ?tag] [?tag :block/title ?tt]
+      [?b :block/title ?t] [(missing? $ ?b :block/name)] [?b :block/uuid ?u]]`)) : []]);
   linkBox.pages = pages;
-  linkBox.journals = days.map(([t, d]) => ({ title: String(t), lower: String(t).toLowerCase(), day: d })).sort((a, b) => b.day - a.day);
+  linkBox.journals = days.map(([t, d, u]) => ({ title: String(t), lower: String(t).toLowerCase(), day: d, uuid: String(u) })).sort((a, b) => b.day - a.day);
+  // A block's words keep their links as ids; they are shown by the titles the lists above know.
+  const titles = linkBox.titles = new Map([...pages, ...linkBox.journals].map(p => [p.uuid, p.title]));
+  const byUuid = new Map();
+  for (const [u, t, tt] of nodes) {
+    const uuid = String(u), node = byUuid.get(uuid);
+    if (node) { node.tags.push(String(tt)); continue; }
+    const title = blockWords(t);
+    if (title) byUuid.set(uuid, { uuid, title, lower: title.toLowerCase(), tags: [String(tt)] });
+  }
+  linkBox.nodes = [...byUuid.values()];
   linkBox.at = Date.now();
   return linkBox;
 }
+// Blocks Logseq's own search finds for the letters (three or more), as { uuid, title, lower }; cached per query.
+async function linkBoxFound(filter, skip) {
+  const q = filter.trim();
+  if (!setting('linkBoxNodes') || q.length < 3 || typeof logseq.App.search !== 'function') return [];
+  if (!linkBox.found.has(q)) {
+    linkBox.found.set(q, Promise.resolve(logseq.App.search(q, { limit: 20 })).then(found => {
+      const blocks = Array.isArray(found?.blocks) ? found.blocks : Array.isArray(found) ? found : [];
+      return blocks.map(b => {
+        const uuid = String(b?.uuid ?? b?.['block/uuid'] ?? b?.id ?? '').toLowerCase();
+        const title = blockWords(b?.title ?? b?.content ?? b?.['block/title'] ?? b?.['block/content']);
+        return { uuid, title, lower: title.toLowerCase() };
+      }).filter(b => UUID.test(b.uuid) && b.title && !linkBox.titles?.has(b.uuid)); // pages are listed above
+    }).catch(error => { warnOnce('the link box could not search blocks', error); return []; }));
+    if (linkBox.found.size > 30) linkBox.found.delete(linkBox.found.keys().next().value);
+  }
+  return (await linkBox.found.get(q)).filter(b => !skip.has(b.uuid));
+}
 const dateBox = () => '<span class="rf-datebox"></span>';
-function linkBoxRows(filter) {
+const blockDot = () => '<span class="rf-blockdot"></span>';
+function linkBoxRows(filter, found = [], self = '') {
   const f = filter.trim().toLowerCase();
   if (!f) return [];
   const rank = (lower) => (lower === f ? 0 : lower.startsWith(f) ? 1 : 2);
   const kindOf = p => p.isTag ? 'tag' : (p.tags.find(t => t.title !== 'Page')?.title || 'page');
-  const hits = [
-    ...linkBox.pages.filter(p => p.lower.includes(f)).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: provided.propPageIcon(p), lower: p.lower, value: p.title })),
-    ...linkBox.journals.filter(j => j.lower.includes(f)).map(j => ({ kind: 'value', label: j.title, right: 'journal', icon: dateBox(), lower: j.lower, value: j.title })),
+  const named = [
+    ...linkBox.pages.filter(p => p.lower.includes(f)).map(p => ({ kind: 'value', label: p.title, right: kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: provided.propPageIcon(p), lower: p.lower, value: p.title, uuid: p.uuid })),
+    ...linkBox.journals.filter(j => j.lower.includes(f)).map(j => ({ kind: 'value', label: j.title, right: 'journal', icon: dateBox(), lower: j.lower, value: j.title, uuid: j.uuid })),
   ].sort((a, b) => rank(a.lower) - rank(b.lower) || a.lower.localeCompare(b.lower)).slice(0, 9);
-  if (!hits.some(h => h.lower === f)) hits.push({ kind: 'value', label: `Make page “${filter.trim()}”`, dashed: true, icon: provided.ripSvg('plus'), value: filter.trim() });
+  // Blocks after the pages, a tagged block first, never the block being linked from; five at most.
+  const seen = new Set([self, ...named.map(r => r.uuid)]);
+  const blocks = [];
+  for (const n of [...(linkBox.nodes || []).filter(n => n.lower.includes(f)), ...found]) {
+    if (blocks.length >= 5 || seen.has(n.uuid)) continue;
+    seen.add(n.uuid);
+    blocks.push({ kind: 'value', label: n.title, right: n.tags ? n.tags.join(' ') : 'block', mono: !!n.tags, icon: blockDot(), lower: n.lower, value: n.title, uuid: n.uuid });
+  }
+  const hits = [...named, ...blocks];
+  if (!named.some(h => h.lower === f)) hits.push({ kind: 'value', label: `Make page “${filter.trim()}”`, dashed: true, icon: provided.ripSvg('plus'), value: filter.trim() });
   return hits;
 }
-function askPageTitle(label) {
+// Where the selected words sit on screen: the box of their last line, measured with a hidden copy of the text box
+// (a text box cannot say where a letter is). Null when the text box is not on screen.
+function wordsRect(box, start, end) {
+  const doc = box?.ownerDocument;
+  if (!doc || !box.isConnected || !Number.isInteger(start)) return null;
+  const outer = box.getBoundingClientRect();
+  if (!outer.width && !outer.height) return null;
+  const style = doc.defaultView.getComputedStyle(box), copy = doc.createElement('div');
+  for (const p of ['boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth',
+    'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight',
+    'textTransform', 'wordSpacing', 'textIndent', 'tabSize']) copy.style[p] = style[p];
+  Object.assign(copy.style, { position: 'fixed', left: '0', top: '0', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', pointerEvents: 'none' });
+  copy.textContent = box.value.slice(0, start);
+  const words = doc.createElement('span');
+  words.textContent = box.value.slice(start, end) || '​';
+  copy.append(words);
+  doc.body.append(copy);
+  const base = copy.getBoundingClientRect(), lines = words.getClientRects();
+  const first = lines[0], last = lines[lines.length - 1] || first;
+  copy.remove();
+  if (!first) return null;
+  const dx = outer.left - base.left - box.scrollLeft, dy = outer.top - base.top - box.scrollTop;
+  return { left: (lines.length > 1 ? last.left : first.left) + dx, top: first.top + dy, bottom: last.bottom + dy };
+}
+// The text box the words were selected in: the one the shortcut was pressed in, else the open editor of the block.
+function selectionBox(blockId) {
+  const noted = Date.now() - editorKey.at < 3000 && editorKey.box?.isConnected ? editorKey.box : null;
+  const active = host().activeElement;
+  return noted || (active?.matches?.('textarea') && active.closest('.ls-block') ? active : null)
+    || host().querySelector(`.ls-block[blockid="${blockId}"] textarea`);
+}
+// Puts the box under the words (above them when there is no room below), kept inside the window.
+function placeBeside(box, at) {
+  const win = box.ownerDocument.defaultView, width = Math.min(360, win.innerWidth - 16);
+  box.style.width = `${width}px`;
+  box.style.left = `${Math.max(8, Math.min(at.left - 8, win.innerWidth - width - 8))}px`;
+  if (win.innerHeight - at.bottom < 320 && at.top > win.innerHeight - at.bottom) { box.style.top = ''; box.style.bottom = `${win.innerHeight - at.top + 4}px`; }
+  else { box.style.bottom = ''; box.style.top = `${at.bottom + 4}px`; }
+}
+// Resolves with the page or block to link to ({ uuid } for a row the graph has, { name } for a new page), or null.
+function askPageTitle(label, at, self) {
   try {
+    const beside = !!at && setting('linkBoxBeside');
     return modal(null, (box, finish, doc) => {
       const heading = doc.createElement('label');
       heading.textContent = `Link “${label}” to which page?`;
       const input = doc.createElement('input');
       input.type = 'text';
-      input.placeholder = 'Page title';
+      input.placeholder = beside ? `Link “${label.length > 24 ? label.slice(0, 23) + '…' : label}” to …` : 'Page title';
       const withList = setting('linkBoxList') && provided.propPages && provided.ripRowHtml;
       const list = doc.createElement('div');
       list.className = 'refinement-link-list';
       let rows = [], sel = 0, version = 0;
+      const pick = row => finish(row.uuid ? { uuid: row.uuid } : { name: row.value });
       const render = () => {
         if (!rows.length) { list.innerHTML = ''; list.hidden = true; return; }
         if (sel < 0 || sel >= rows.length) sel = 0;
@@ -228,28 +318,43 @@ function askPageTitle(label) {
         list.querySelector('.rip-sel')?.scrollIntoView?.({ block: 'nearest' });
       };
       const refresh = async () => {
-        const my = ++version;
+        const my = ++version, filter = input.value;
         try { await linkBoxCandidates(); } catch (error) { warnOnce('the link box could not read the graph', error); return; }
         if (my !== version || !box.isConnected) return;
-        rows = linkBoxRows(input.value); sel = 0; render();
+        rows = linkBoxRows(filter, [], self); sel = 0; render();
+        // Logseq's search answers a moment later; its blocks join the list without moving the highlight.
+        const found = await linkBoxFound(filter, new Set(rows.map(r => r.uuid)));
+        if (my !== version || !box.isConnected || !found.length) return;
+        const chosen = rows[sel];
+        rows = linkBoxRows(filter, found, self); sel = Math.max(0, rows.indexOf(rows.find(r => r.value === chosen?.value && r.uuid === chosen?.uuid))); render();
       };
       input.addEventListener('keydown', event => {
         if (event.isComposing) return;
-        if (event.key === 'Enter') { event.preventDefault(); finish(rows[sel] ? rows[sel].value : input.value); }
+        if (event.key === 'Enter') { event.preventDefault(); rows[sel] ? pick(rows[sel]) : finish(input.value.trim() ? { name: input.value } : null); }
         else if (withList && event.key === 'ArrowDown' && rows.length) { event.preventDefault(); sel = (sel + 1) % rows.length; render(); }
         else if (withList && event.key === 'ArrowUp' && rows.length) { event.preventDefault(); sel = (sel - 1 + rows.length) % rows.length; render(); }
       });
       if (withList) {
         input.addEventListener('input', refresh);
         list.addEventListener('mousedown', event => event.preventDefault()); // the caret stays in the field
-        list.addEventListener('click', event => { const row = event.target.closest('.rip-row[data-index]'); if (row) finish(rows[Number(row.dataset.index)].value); });
+        list.addEventListener('click', event => { const row = event.target.closest('.rip-row[data-index]'); if (row) pick(rows[Number(row.dataset.index)]); });
         list.hidden = true;
         linkBoxCandidates().catch(() => {});
       }
-      box.append(heading, input, ...(withList ? [list] : []), modalHint(doc, withList ? 'Enter links the highlighted row · Esc to cancel' : 'Enter to link · Esc to cancel'));
+      if (beside) {
+        // No backdrop to catch the press: the page stays usable, and leaving the field closes the box. Logseq may
+        // take the focus back just after the command, so for a moment the field takes it back.
+        const opened = Date.now();
+        input.addEventListener('blur', () => setTimeout(() => {
+          if (!box.isConnected || doc.activeElement === input) return;
+          if (Date.now() - opened < 400) input.focus(); else finish(null);
+        }, 0));
+        placeBeside(box, at);
+        box.append(input, ...(withList ? [list] : []));
+      } else box.append(heading, input, ...(withList ? [list] : []), modalHint(doc, withList ? 'Enter links the highlighted row · Esc to cancel' : 'Enter to link · Esc to cancel'));
       input.focus();
-    });
-  } catch (error) { return Promise.resolve(window.prompt('Page title:', '')); }
+    }, null, beside ? { backdrop: 'refinement-prompt-backdrop refinement-beside', box: 'refinement-prompt refinement-beside-box' } : undefined);
+  } catch (error) { const name = window.prompt('Page title:', ''); return Promise.resolve(name === null ? null : { name }); }
 }
 
 // The editor shows links by name; the saved block stores them as ids. Finds where a stretch of
@@ -313,20 +418,32 @@ async function labeledPageLink() {
   const label = selection.text;
   if (label.includes(']') || /[\r\n]/.test(label))
     return notify('Use a single-line label without ]', 'warning');
-  const answer = await askPageTitle(label);
+  // Measured now, while the words are still on screen in their text box.
+  const at = wordsRect(selectionBox(selection.blockId), selection.start, selection.end);
+  const answer = await askPageTitle(label, at, selection.blockId);
   if (answer === null) return;
-  const target = answer.trim().replace(/^\[\[/, '').replace(/\]\]$/, '');
-  if (!target || /[\[\]\r\n]/.test(target))
-    return notify('Enter a page title without brackets or line breaks', 'warning');
+  let uuid = answer.uuid, shownAs;
   try {
+    if (!uuid) {
+      const target = answer.name.trim().replace(/^\[\[/, '').replace(/\]\]$/, '');
+      if (!target || /[\[\]\r\n]/.test(target))
+        return notify('Enter a page title without brackets or line breaks', 'warning');
+      // The page by that name, or a new one: the link is written by its id either way.
+      const page = await logseq.Editor.getPage(target) || await logseq.Editor.createPage(target, {}, { redirect: false });
+      if (!page?.uuid) return notify(`Could not make the page ${target}`, 'warning');
+      uuid = String(page.uuid);
+      shownAs = page.title || target;
+    } else shownAs = linkBox.titles?.get(uuid) ?? uuid;
     await logseq.Editor.exitEditingMode();
     const range = await selectedRange(selection, before);
     if (!range) return notify('The block changed, or the selection runs across a link; select the display text again', 'warning');
-    const link = `[${label}]([[${target}]])`;
+    // By id, as Logseq stores every link, so it counts as a reference as [[page]] does.
+    const link = `[${label}]([[${uuid}]])`;
     await logseq.Editor.updateBlock(selection.blockId,
       range.saved.slice(0, range.start) + link + range.saved.slice(range.end));
     recentSelection = null;
-    await logseq.Editor.editBlock(selection.blockId, { pos: selection.start + link.length });
+    // The editor shows a page's link by its title.
+    await logseq.Editor.editBlock(selection.blockId, { pos: selection.start + `[${label}]([[${shownAs}]])`.length });
   } catch (error) { console.error(error); notify(`Could not insert labeled link: ${error.message}`, 'error'); }
 }
 
@@ -469,7 +586,7 @@ function provide(core) {
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
-  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
+  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
 (window.refinementParts ||= []).push({ name: 'editor', schema: [], provide, start, stop: runUnloadTasks });
 })();

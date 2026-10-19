@@ -595,6 +595,14 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .refinement-prompt .refinement-link-list[hidden] { display: none; }
 .refinement-prompt .refinement-link-list .rip-row { padding: 3px 8px; border-radius: 4px; }
 .refinement-prompt .rf-datebox { display: inline-block; width: .6em; height: .75em; border-radius: .15em; background: ${wash('--rf-wash-pct')}; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor var(--rf-line-pct), transparent); }
+.refinement-prompt .rf-blockdot { display: inline-block; width: .38em; height: .38em; border-radius: 50%; background: currentColor; opacity: var(--rf-quiet); }
+`],
+  ['linkBoxBeside', `/* The link box beside the words (askPageTitle, 0.4.137): no dimmed backdrop and nothing over the page to catch a
+   press, the box held under the selected words where the editor part puts it, about the size of Logseq's [[ menu. */
+.refinement-prompt-backdrop.refinement-beside { display: block; padding: 0; background: transparent; pointer-events: none; }
+.refinement-beside-box { position: fixed; pointer-events: auto; padding: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.refinement-beside-box input { padding: 4px 6px; }
+.refinement-beside-box .refinement-link-list { margin: 6px -2px 0; }
 `],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
 .refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
