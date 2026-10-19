@@ -448,7 +448,7 @@ function openTroubleshooting() {
 
 function start() {
   const core = window.refinementCore;
-  ({ CHECKED_WITH, PAGE_TITLE } = core);
+  ({ CHECKED_WITH, PAGE_TITLE } = core.provided); // from the model part
   ({ pageTitles, pageHeaderOf, listFold, listRows, foldLog, logFold, rowName, referencedNodeIds, incomingPropertyLinks, REFERENCE_AREAS } = core.provided); // from the pages, properties, links and styles parts
   core.onFoldAll(startFoldLog);
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }

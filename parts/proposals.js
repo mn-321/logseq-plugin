@@ -24,7 +24,7 @@ const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', stopKey: '__refinementProposalsStop',
   leaves: { elements: '.rfp-ghost, .rfp-undo, .rfp-made', attributes: ['data-refinement-proposal'] } });
-let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor;
+let dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor, bare, pick, idOf;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -52,9 +52,6 @@ const rulesOn = () => new Set(String(own('pillProposalRules') || '').toLowerCase
 const rule = name => rulesOn().has(name);
 const ownsDates = () => own('pillProposals') && rule('journal day');
 
-const bare = value => String(value ?? '').replace(/^:/, '');
-const pick = (node, name) => node?.[name] ?? node?.[':' + name] ?? node?.[name.slice(name.indexOf('/') + 1)];
-const idOf = value => typeof value === 'number' ? value : pick(value, 'db/id');
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shorten = (text, max = 48) => (text.length > max ? text.slice(0, max - 1) + '…' : text);
 // A pulled map's value under a property, by its ident, whatever the key's spelling; [] when the field is empty.
@@ -559,7 +556,7 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements', 'parseDay', 'dayNumber', 'journalIdFor', 'journalTitleFor']));
+  ({ dsQuery, graphWide, inlinePropsSetting, propSchema, propPages, journalDates, watchDomEarly, addsElements, parseDay, dayNumber, journalIdFor, journalTitleFor, bare, pick, idOf } = take(core, ['dsQuery', 'graphWide', 'inlinePropsSetting', 'propSchema', 'propPages', 'journalDates', 'watchDomEarly', 'addsElements', 'parseDay', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'bare', 'pick', 'idOf']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-proposals', style: css });
   listen(host().defaultView, ['keydown'], onKey);

@@ -27,6 +27,8 @@ const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = 
   leaves: { elements: '.rip-menu, .rip-ghost', attributes: ['data-rip-ghost'] } });
 const { graphNamedIn } = shared;
 let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor, undoBeside;
+// The Logseq model (parts/model.js, since 0.4.164): the schema, the pages, the fields of a record, days and journal pages.
+let propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -49,71 +51,8 @@ const settingsSchema = [
 ];
 const setting = shared.settingReader(settingsSchema);
 
-const bare = value => String(value ?? '').replace(/^:/, '');
-// A pulled map comes back with its keys shortened ("db/id" as "id", "block/title" as "title", "logseq.property/type" as "type").
-const pick = (node, name) => node?.[name] ?? node?.[':' + name] ?? node?.[name.slice(name.indexOf('/') + 1)];
-const idOf = value => typeof value === 'number' ? value : pick(value, 'db/id');
 const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shorten = (text, max = 40) => (text.length > max ? text.slice(0, max - 1) + '…' : text);
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/* The schema: your properties (and the four of Logseq's that a record takes: Deadline, Scheduled, Status,
-   Priority) with their type, cardinality, class and choices; and which tag has which fields. Read again at most
-   every 30 s while you write. */
-const OWN_PROP = /^(?:user\.property\/|logseq\.property\/(?:deadline|scheduled|status|priority)$)/;
-async function loadSchema() {
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality :logseq.property/icon
-      {:logseq.property/classes [:db/id :block/uuid :block/title]}])
-    :where [?p :block/tags :logseq.class/Property] [?p :db/ident _]]`);
-  const props = [], byId = new Map();
-  for (const [p] of rows) {
-    const ident = bare(pick(p, 'db/ident')), title = String(pick(p, 'block/title') ?? '');
-    if (!OWN_PROP.test(ident) || !title) continue;
-    const classes = (pick(p, 'logseq.property/classes') || []).map(c => ({ id: idOf(c), uuid: String(pick(c, 'block/uuid') ?? ''), title: String(pick(c, 'block/title') ?? '') }));
-    const prop = { id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), ident, title, lower: title.toLowerCase(),
-      type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many', classes, choices: [], icon: pick(p, 'logseq.property/icon') };
-    props.push(prop); byId.set(prop.id, prop);
-  }
-  for (const [pid, v] of await dsQuery(`[:find ?p (pull ?v [:db/id :block/title :block/order :logseq.property/icon]) :where [?v :block/closed-value-property ?p]]`)) {
-    const prop = byId.get(pid);
-    if (prop) prop.choices.push({ id: idOf(v), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? ''), icon: pick(v, 'logseq.property/icon') });
-  }
-  for (const prop of props) prop.choices.sort((a, b) => a.order.localeCompare(b.order));
-  props.sort((a, b) => a.lower.localeCompare(b.lower));
-  const classProps = new Map();
-  for (const [c, p] of await dsQuery(`[:find ?c ?p :where [?c :logseq.property.class/properties ?p]]`)) { if (!classProps.has(c)) classProps.set(c, []); classProps.get(c).push(p); }
-  const parentsOf = new Map();
-  for (const [child, parent] of await dsQuery(`[:find ?child ?parent :where [?child :logseq.property.class/extends ?parent]]`)) { if (!parentsOf.has(child)) parentsOf.set(child, []); parentsOf.get(child).push(parent); }
-  return { props, byId, classProps, parentsOf };
-}
-// Pages a page-valued field can point at: every page with its tags (journals left out: a day is a Date's business).
-async function loadPages() {
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title :logseq.property/icon {:block/tags [:db/id :block/title :db/ident]}])
-    :where [?p :block/name _] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`);
-  const pages = [];
-  for (const [p] of rows) {
-    const title = String(pick(p, 'block/title') ?? '');
-    if (!title || title.startsWith('$$$')) continue;
-    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
-    pages.push({ id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, icon: pick(p, 'logseq.property/icon'), isTag: tags.some(t => t.ident === 'logseq.class/Tag') });
-  }
-  pages.sort((a, b) => a.lower.localeCompare(b.lower));
-  return pages;
-}
-// The fields of the block's own tags, own tags first, then what they inherit, without repeats.
-async function fieldsOf(uuid, schema) {
-  if (!UUID.test(uuid)) return [];
-  const tags = (await dsQuery(`[:find ?t :where [?b :block/uuid #uuid "${uuid}"] [?b :block/tags ?t]]`)).map(([t]) => t);
-  const seen = new Set(), fields = [], queue = [...tags];
-  while (queue.length) {
-    const c = queue.shift();
-    if (seen.has(c)) continue;
-    seen.add(c);
-    for (const p of schema.classProps.get(c) || []) { const prop = schema.byId.get(p); if (prop && !fields.includes(prop)) fields.push(prop); }
-    queue.push(...(schema.parentsOf.get(c) || []));
-  }
-  return fields;
-}
 const typeLabel = prop => {
   const many = prop.many ? ' · many' : '';
   switch (prop.type) {
@@ -164,41 +103,6 @@ function ownIcon(icon) {
 const typeIcon = prop => ownIcon(prop.icon) || (prop.type === 'node' ? pageMark() : svg({ date: 'calendar', datetime: 'clock', number: 'number', checkbox: 'checkbox', url: 'link' }[prop.type] || (prop.choices?.length ? 'list' : 'text')));
 const pageIcon = page => page.isTag ? tagMark() : (ownIcon(page.icon) || pageMark());
 
-/* Days. A value typed for a Date: today, tomorrow, yesterday, a weekday (the next one after today), "next" and a
-   weekday (a week later), +3 or -2 (days from today), 2026-10-23, 23 oct, oct 23 (this year, or next year when
-   that day has passed). */
-const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-const dayAfter = (date, n) => { const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()); d.setDate(d.getDate() + n); return d; };
-const weekdayIndex = word => DAYS.findIndex(d => d.startsWith(word) && word.length >= 2);
-function parseDay(text, today) {
-  const t = text.trim().toLowerCase();
-  if (!t) return null;
-  if (t === 'today') return today;
-  if (t === 'tomorrow' || t === 'tmr') return dayAfter(today, 1);
-  if (t === 'yesterday') return dayAfter(today, -1);
-  let m = t.match(/^([+-])(\d{1,3})$/);
-  if (m) return dayAfter(today, (m[1] === '-' ? -1 : 1) * Number(m[2]));
-  m = t.match(/^(next\s+)?([a-z]{2,9})$/);
-  if (m) {
-    const wd = weekdayIndex(m[2]);
-    if (wd >= 0) { let n = (wd - today.getDay() + 7) % 7 || 7; if (m[1]) n += 7; return dayAfter(today, n); }
-  }
-  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  m = t.match(/^(\d{1,2})\s+([a-z]{3,9})\.?(?:\s+(\d{4}))?$/) || t.match(/^([a-z]{3,9})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/);
-  if (m) {
-    const [a, b] = /^\d/.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]];
-    const month = MONTHS.findIndex(name => name.startsWith(b));
-    if (month < 0) return null;
-    let date = new Date(m[3] ? Number(m[3]) : today.getFullYear(), month, Number(a));
-    if (!m[3] && date < today) date = new Date(today.getFullYear() + 1, month, Number(a));
-    return date;
-  }
-  return null;
-}
-const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-const dayNumber = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 async function dayRows(filter, withTime) {
   const today = new Date();
   // A time may follow the day for a date-and-time field: "fri 19:00".
@@ -238,7 +142,7 @@ function inPillOrder(fields, uuid) {
   return fields.map((prop, i) => [prop, at(prop), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(([prop]) => prop);
 }
 async function nameRows(filter, prefix = '') {
-  const schema = await graphWide('inlinePropsSchema', loadSchema);
+  const schema = await propSchema();
   const fields = inPillOrder(await fieldsOf(state.uuid, schema), state.uuid);
   const f = filter.toLowerCase();
   // With a prefix (d:: for date, Deadline, due date) only names that start so are listed; the letters after :: narrow them.
@@ -281,7 +185,7 @@ async function valueRows(prop, filter) {
     }
     case 'datetime': return dayRows(f, true);
     case 'node': {
-      const pages = await graphWide('inlinePropsPages', loadPages);
+      const pages = await propPages();
       const classIds = new Set(prop.classes.map(c => c.id));
       const ofClass = classIds.size ? pages.filter(p => p.tags.some(t => classIds.has(t.id))) : pages;
       const hits = lower ? ofClass.filter(p => p.lower.includes(lower)) : ofClass.slice(0, 12);
@@ -334,7 +238,7 @@ async function tokenAt(box) {
   if (!m) return null;
   const phrase = m[1], sep = m[2], filter = m[3], lowerPhrase = phrase.toLowerCase();
   if (sep === ';;' && !setting('inlinePropsKeep')) return null;
-  const schema = await graphWide('inlinePropsSchema', loadSchema);
+  const schema = await propSchema();
   let best = null;
   for (const prop of schema.props) if (lowerPhrase === prop.lower || lowerPhrase.endsWith(' ' + prop.lower)) if (!best || prop.lower.length > best.lower.length) best = prop;
   const tail = name => before.length - (name.length + 2 + filter.length);
@@ -505,12 +409,6 @@ function leaveToken() {
   if (state.sep === ';;' && state.kept.length) { const box = liveBox(); replaceRange(box, state.start, box.selectionStart, state.kept.join(', ')); }
   else removeToken();
   state.kept = [];
-}
-async function journalIdFor(day, title) {
-  const [[p] = []] = await dsQuery(`[:find (pull ?p [:db/id]) :where [?p :block/journal-day ${day}]]`);
-  if (p && idOf(p)) return idOf(p);
-  const page = await logseq.Editor.createPage(title, {}, { redirect: false, createFirstBlock: false, journal: true });
-  return page?.id ?? null;
 }
 async function currentValues(uuid, ident) {
   return (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
@@ -720,15 +618,14 @@ const menuCss = `
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-rip-ghost] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-rip-ghost] .empty-value { display: none !important; }`;
 
-// The marks and the schema, for the pickers the links part marks and the link box's list (0.4.101).
+// The marks, for the pickers the links part marks and the link box's list (0.4.101). The schema itself comes from the model part.
 function provide(core) {
-  core.provide({ propSchema: () => graphWide('inlinePropsSchema', loadSchema), propPages: () => graphWide('inlinePropsPages', loadPages), inlinePropsSetting: setting,
-    propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg, ripRowHtml: rowHtml,
-    parseDay, dayNumber, journalIdFor /* the day reader and the journal page, for a day in the words (parts/proposals.js, 0.4.122) */ });
+  core.provide({ inlinePropsSetting: setting, propTypeIcon: typeIcon, propTypeLabel: typeLabel, propPageIcon: pageIcon, ripSvg: svg, ripRowHtml: rowHtml });
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor, undoBeside } = take(core, ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor', 'undoBeside']));
+  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor, undoBeside, propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf } = take(core,
+    ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor', 'undoBeside', 'propSchema', 'propPages', 'fieldsOf', 'parseDay', 'dayNumber', 'sameDay', 'dayAfter', 'DAYS', 'journalIdFor', 'bare', 'pick', 'idOf']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-inline-props', style: menuCss });
   const win = host().defaultView;
@@ -741,7 +638,7 @@ function start() {
   onUnload(logseq.App.onRouteChanged(() => { state.allowed = null; closeMenu(); }));
   onUnload(logseq.onSettingsChanged(() => { state.allowed = null; }));
   onUnload(() => { clearTimeout(checkTimer); closeMenu(); });
-  window.inlinePropsDebug = { state, loadSchema, loadPages, parseDay, tokenAt };
+  window.inlinePropsDebug = { state, propSchema, propPages, parseDay, tokenAt };
 }
 (window.refinementParts ||= []).push({ name: 'inline properties', schema: settingsSchema, provide, start, stop: runUnloadTasks });
 })();

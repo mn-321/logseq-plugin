@@ -4,35 +4,15 @@
    commands that write to the block you are in. Make a page from this block, Link selected text to a
    page, Open selected text as page, Add tags to this page, Delete this block, New block at the
    outermost level, and the year-first date typed inside [[ ]] that becomes a journal name.
-   It provides its commands and startEditor / startDateLinkSwap to the core (main() calls them where it
-   always did) and readableTitle to the links part; it takes openTagPicker from the pages part. */
+   It provides its page-making actions to the other parts; it takes openTagPicker from the pages part and
+   readableTitle and journalTitleFor from the model part (there since 0.4.164). */
 const shared = window.refinementShared;
 const { host, notify, modal, modalHint } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ', leaves: { elements: '.refinement-link-list' } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
-let setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID, provided;
+let setting, dsQuery, titleOf, cleanTitle, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
-
-async function readableTitle(text, { pagesOnly = false, depth = 2, asShown = false } = {}) {
-  const value = String(text || '');
-  const names = new Map();
-  for (const [, open, uuid] of value.matchAll(storedRef)) {
-    const key = uuid.toLowerCase();
-    if (names.has(key) || (pagesOnly && open === '((')) continue;
-    let entity = null;
-    try { entity = await logseq.Editor.getPage(key) || await logseq.Editor.getBlock(key); } catch (error) { /* keep the id */ }
-    if (asShown && entity && !entity.name && !entity.originalName) { names.set(key, ''); continue; } // a block: shown as its id
-    let name = titleOf(entity) || entity?.originalName || entity?.name || '';
-    if (name && depth > 1) name = await readableTitle(name, { pagesOnly, depth: depth - 1 });
-    names.set(key, name);
-  }
-  return value.replace(storedRef, (match, open, uuid, close) => {
-    const name = names.get(uuid.toLowerCase());
-    if (!name || (open === '[[') !== (close === ']]')) return match;
-    return open === '[[' ? `[[${name}]]` : name;
-  });
-}
 
 // The text of blocks and their children, in order, as one batch for Editor.insertBatchBlock.
 const copyTree = children => (children || []).filter(child => child && !Array.isArray(child))
@@ -510,32 +490,7 @@ async function addTagsToPage() {
    Logseq's own menu offers the journal page and Enter links to it. Month and day need two digits,
    so the change waits until the date is complete. Typed text, so Undo brings the digits back. */
 const YEAR_FIRST_DATE = /^(\d{4})([ ./_-]?)(\d{2})\2(\d{2})$/;
-const dateLinkSwap = { busy: false, format: null };
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
-// The journal title formats Logseq offers (MMM do, yyyy; E, dd.MM.yyyy; yyyyMMdd ...).
-function formatJournalTitle(date, format) {
-  const pad = n => String(n).padStart(2, '0');
-  const parts = {
-    yyyy: date.getFullYear(), yy: pad(date.getFullYear() % 100),
-    MMMM: MONTH_NAMES[date.getMonth()], MMM: MONTH_NAMES[date.getMonth()].slice(0, 3), MM: pad(date.getMonth() + 1), M: date.getMonth() + 1,
-    do: ordinal(date.getDate()), dd: pad(date.getDate()), d: date.getDate(),
-    EEEE: DAY_NAMES[date.getDay()], EEE: DAY_NAMES[date.getDay()].slice(0, 3), E: DAY_NAMES[date.getDay()].slice(0, 3),
-  };
-  return format.replace(/yyyy|yy|MMMM|MMM|MM|M|do|dd|d|EEEE|EEE|E/g, token => parts[token]);
-}
-async function journalTitleFor(year, month, day) {
-  const journalDay = year * 10000 + month * 100 + day;
-  try {
-    const [[title] = []] = await dsQuery(`[:find ?t :where [?p :block/journal-day ${journalDay}] [?p :block/title ?t]]`);
-    if (title) return String(title);
-  } catch (error) { /* no such journal yet: use the format below */ }
-  if (!dateLinkSwap.format) {
-    try { dateLinkSwap.format = (await logseq.App.getUserConfigs())?.preferredDateFormat || null; } catch (error) { /* default below */ }
-  }
-  return formatJournalTitle(new Date(year, month - 1, day), dateLinkSwap.format || 'MMM do, yyyy');
-}
+const dateLinkSwap = { busy: false };
 // What is typed between an open [[ and the caret, if the caret is inside one.
 function openLinkQuery(box) {
   if (!box || box.tagName !== 'TEXTAREA' || box.selectionStart !== box.selectionEnd) return null;
@@ -598,7 +553,7 @@ const settingsSchema = [
     description: 'At the outermost level of the page, just after the top-level block you are in (after all of its nested blocks), adds an empty block as a spacer and then a new empty block with the cursor in it. alt+enter is Option+Return on a Mac.' },
 ];
 function provide(core) {
-  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock, readableTitle, journalTitleFor });
+  core.provide({ blockToPage, labeledPageLink, selectionToPage, addTagsToPage, deleteCurrentBlock, newOutermostBlock });
 }
 function ready() {
   startDateLinkSwap();
@@ -620,7 +575,7 @@ const moved = { linkShortcut: ['mod+shift+l', 'mod+alt+l'] };
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
-  ({ setting, dsQuery, storedRef, titleOf, cleanTitle, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'cleanTitle', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
+  ({ setting, dsQuery, titleOf, cleanTitle, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID } = take(core, ['setting', 'dsQuery', 'titleOf', 'cleanTitle', 'readableTitle', 'journalTitleFor', 'openTagPicker', 'graphWide', 'UUID', 'propPages', 'propPageIcon', 'ripSvg', 'ripRowHtml']));
 }
 (window.refinementParts ||= []).push({ name: 'editor', schema: settingsSchema, provide, start, ready, commands, moved, stop: runUnloadTasks });
 })();
