@@ -40,6 +40,12 @@ if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
 else
   echo "boot test skipped (needs node and: npm install --no-save --no-package-lock jsdom)"
 fi
+# 7. The model test (tools/model-test.js), where node is installed: parts/model.js against a small pretend graph.
+if command -v node >/dev/null 2>&1; then
+  node tools/model-test.js || problem "the model test failed (see above)"
+else
+  echo "model test skipped (needs node)"
+fi
 
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi
 echo "check.sh: OK (version $pkg)"

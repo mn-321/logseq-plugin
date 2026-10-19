@@ -25,4 +25,12 @@ loaded 18 parts, 117 settings
 foundation only: 2 palette commands (show-settings, troubleshooting), nothing drawn
   showMsg: DB Refinements is running only its foundation (Foundation only, under Troubleshooting in its settings). Turn it off and reload the plugin to get everything back.
 boot-test: OK
-check.sh: OK (version 0.4.167)
+timings on a large pretend graph (20,000 pages, 300 properties, 200 tags in one long chain):
+  the property schema: 15.9 ms
+  the page list: 64.1 ms
+  the page list again (remembered): 0.0 ms
+  fields of a record with the deepest tag: 2.8 ms
+  10,000 days read from words: 14.5 ms
+model-test: 118 checks passed
+model-test: OK
+check.sh: OK (version 0.4.168)
