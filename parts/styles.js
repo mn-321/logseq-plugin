@@ -638,14 +638,6 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .refinement-prompt.refinement-beside-box input { padding: 4px 6px; }
 .refinement-beside-box .refinement-link-list { margin: 4px 0 0; }
 `],
-  [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
-.refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
-.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
-.refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
-.refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small); opacity: var(--rf-quiet); }
-
-`],
 ];
 /* Links to tag pages are picked out by the tag pages' own ids (from the database), so Logseq applies
    these rules as it draws each link and nothing is marked. Tags are few, so the list stays short. */
