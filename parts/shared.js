@@ -43,8 +43,12 @@
    - take what it needs from window.refinementShared (`const shared = window.refinementShared;`), and
      make its own lifecycle with its own prefix and, when it cleans up Logseq's window, its own stopKey,
      so that a reload still stops each part's earlier copy on its own;
-   - push { name, schema, start, stop } onto window.refinementParts; main.js joins the schemas, in
-     the order of PART_FILES, after its own, and calls start() and stop() from main().
+   - push { name, schema, provide?, start, ready?, commands?, moved?, stop } onto window.refinementParts;
+     main.js joins the schemas, in the order of PART_FILES, after its own, and from main() calls every
+     part's provide(core), then every start(), then every ready() (what draws on screen, once every part
+     has started), and stop() at unload; it registers each command ({ key, label, run, shortcut, menu }:
+     the setting that holds the shortcut, and whether it is also in a bullet's right-click menu) and moves
+     a saved setting named in moved ({ key: [old default, new default] }). The core starts no part by name.
 
    LOAD ORDER AND WHY: loader.js → main.js → parts/shared.js → the other parts → main().
    loader.js loads main.js with a fresh timestamp (Logseq caches a plugin's script between reloads);

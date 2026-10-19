@@ -520,7 +520,7 @@ function startPageKind() {
 }
 
 function provide(core) {
-  core.provide({ startTitleChrome, startPageKind, schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
+  core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
   core.onDbRound('loadPageKind', loadPageKind, { before: () => clearTimeout(pageKind.timer) });
 }
 function start() {
@@ -533,5 +533,9 @@ function start() {
   ({ setting, dsQuery, UUID, isEntityId, idsIn, watchDom, watchDomEarly, PAGE_TITLE, escapeHtml, attribute, isJournalDate, updateOwnTags } =
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'watchDom', 'watchDomEarly', 'PAGE_TITLE', 'escapeHtml', 'attribute', 'isJournalDate', 'updateOwnTags']));
 }
-(window.refinementParts ||= []).push({ name: 'pages', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  if (setting('showTitleChrome')) startTitleChrome();
+  startPageKind();
+}
+(window.refinementParts ||= []).push({ name: 'pages', schema: [], provide, start, ready, stop: runUnloadTasks });
 })();

@@ -1592,7 +1592,7 @@ const CUE_SETTINGS = ['childTypeCues', 'referenceIcons', 'linkLabels'];
 const cancelRefresh = () => clearTimeout(refreshTimer);
 const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
 function provide(core) {
-  core.provide({ startDateLinks, startPdfCitations, startNestedReferenceLinks, scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
+  core.provide({ scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
     isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
   // The page's cues and details: after every round, a refresh still waiting from a page change cancelled first.
   core.onDbRound('refreshCues', refreshCues, { before: cancelRefresh });
@@ -1621,5 +1621,12 @@ function start() {
   ({ setting, dsQuery, storedRef, titleOf, trailingTags, UUID, isEntityId, idsIn, uuidsIn, graphWide, watchDom, watchDomEarly, addsElements, sendStyle, PAGE_TITLE, REFERENCE_AREAS, referenceAreas, wash, applyTagPageStyle, blockLink, blockLinkPlain, viaLook, escapeHtml } =
     take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'trailingTags', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'graphWide', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'PAGE_TITLE', 'REFERENCE_AREAS', 'referenceAreas', 'wash', 'applyTagPageStyle', 'blockLink', 'blockLinkPlain', 'viaLook', 'escapeHtml']));
 }
-(window.refinementParts ||= []).push({ name: 'links', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  startDateLinks();
+  startPdfCitations();
+  startNestedReferenceLinks();
+  scheduleRefresh();
+  onUnload(stopRefresh);
+}
+(window.refinementParts ||= []).push({ name: 'links', schema: [], provide, start, ready, stop: runUnloadTasks });
 })();
