@@ -598,10 +598,12 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 `],
   ['linkBoxBeside', `/* The link box beside the words (askPageTitle, 0.4.137): no dimmed backdrop and nothing over the page to catch a
    press, the box held under the selected words where the editor part puts it, in the popup look of Logseq's [[ menu
-   and the line list (0.4.140): its corner, shadow and row size. */
+   and the line list (0.4.140): its corner, shadow and row size, on Logseq's popup colours (0.4.144). Both class names in
+   the selector: the centred box's rule below has the same weight and comes later, so on its own this one lost to it and
+   the box kept the window's 8px corners and deeper shadow (measured in 0.4.143). */
 .refinement-prompt-backdrop.refinement-beside { display: block; padding: 0; background: transparent; pointer-events: none; }
-.refinement-beside-box { position: fixed; pointer-events: auto; padding: 6px; border-radius: var(--rf-popup-radius, 6px); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
-.refinement-beside-box input { padding: 4px 6px; }
+.refinement-prompt.refinement-beside-box { position: fixed; pointer-events: auto; padding: 6px; background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
+.refinement-prompt.refinement-beside-box input { padding: 4px 6px; }
 .refinement-beside-box .refinement-link-list { margin: 4px 0 0; }
 `],
   [null, `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */

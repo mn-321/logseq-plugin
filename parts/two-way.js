@@ -210,32 +210,35 @@ function onClick(event) {
 const twoWayCss = `
 /* Under the page's own properties, on the same light field: these rows are the far end of a field held by other
    records, so they read like properties but are not this page's own; the ← before the name says so. The names are
-   the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box). */
+   the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box).
+   Sizes and columns are Logseq's own property rows above, as measured in 2.0.2 (0.4.144): the text at the page's
+   size (the names .94 of it, as theirs), a 150px name column, a 12px gap, the values 22px in where theirs start
+   after their bullet, 28px rows; the ← sits where their property icon does, 15px and a 4px gap before the name. */
 .refinement-two-way {
   --rf-tw-accent: var(--ls-secondary-text-color, currentColor);
-  margin: .15rem 0 .6rem -.5rem; padding: .3rem .9rem .35rem .5rem;
+  margin: .15rem 0 .6rem -.5rem; padding: .3rem .9rem .3rem .5rem;
   background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct, 3%), transparent);
-  font-size: .95em; line-height: 1.55; user-select: text;
+  line-height: 1.5; user-select: text;
 }
-.refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(9.6rem, max-content) 1fr; column-gap: 1rem; padding: .1rem 0; }
-.refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .92em); white-space: nowrap; cursor: default; }
-.refinement-two-way .rf-tw-arrow { display: inline-block; width: 1.1em; opacity: .85; }
-.refinement-two-way .rf-tw-value { min-width: 0; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
+.refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
+.refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; }
+.refinement-two-way .rf-tw-arrow { display: inline-block; width: 19px; opacity: .85; }
+.refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
 .refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
 .refinement-two-way a.rf-tw-record { border-bottom: 1px solid color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent); }
 .refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
-.refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .86em); font-variant-numeric: tabular-nums; }
-.refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .86em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
+.refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }
-.refinement-two-way .rf-tw-chevron { display: inline-block; width: 7px; height: 8px; margin-left: .45em; background: currentColor; opacity: var(--rf-faint, .45);
+.refinement-two-way .rf-tw-chevron { display: inline-block; width: 7px; height: 8px; margin-left: .45em; background: currentColor; opacity: var(--rf-faint, .5);
   clip-path: polygon(0 0, 100% 50%, 0 100%); transition: transform .16s ease; }
 .refinement-two-way .rf-tw-row[data-open] .rf-tw-chevron { transform: rotate(90deg); }
 /* The list a count opens into: date, record, tag, one per line, under the value. */
-.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: .6rem; }
+.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 22px; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: .6rem; }
 .refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
-.refinement-two-way .rf-tw-more { display: inline-block; margin-top: .1rem; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .86em); }
+.refinement-two-way .rf-tw-more { display: inline-block; margin-top: .1rem; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); }
 .refinement-two-way .rf-tw-more:hover { color: var(--ls-primary-text-color, currentColor); }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and

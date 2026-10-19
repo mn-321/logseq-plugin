@@ -685,12 +685,13 @@ function onFocusOut(event) {
 }
 
 const menuCss = `
-/* The box and its rows in the one popup look (0.4.140, the tokens in main.js): Logseq's own [[ menu's corners, padding, shadow and row size. */
-.rip-menu { position: fixed; z-index: 10001; min-width: 260px; max-width: 380px; max-height: 300px; overflow-y: auto; padding: 6px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-popup-radius, 6px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
+/* The box and its rows in the one popup look (0.4.140, the tokens in main.js): Logseq's own [[ menu's corners, padding, shadow and row size,
+   and since 0.4.144 its colours (white in light mode, near-black in dark, a step off the page) and its 32px rows (20px lines). */
+.rip-menu { position: fixed; z-index: 10001; min-width: 260px; max-width: 380px; max-height: 300px; overflow-y: auto; padding: 6px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-popup-radius, 6px); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
 .rip-head { display: flex; align-items: baseline; gap: 8px; padding: 2px 8px 6px; border-bottom: 1px solid var(--ls-border-color); margin-bottom: 4px; }
 .rip-head-name { font-weight: 500; }
 .rip-head-type { font-size: var(--rf-small, .82em); color: var(--ls-secondary-text-color); }
-.rip-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.rip-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px; line-height: 1.25rem; border-radius: 4px; cursor: pointer; white-space: nowrap; }
 .rip-row.rip-sel, .rip-row:not(.rip-info):hover { background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rip-row.rip-info { color: var(--ls-secondary-text-color); cursor: default; font-size: var(--rf-small, .82em); }
 .rip-glyph { flex: 0 0 1.1em; display: inline-flex; justify-content: center; align-items: center; align-self: center; color: var(--ls-secondary-text-color); }

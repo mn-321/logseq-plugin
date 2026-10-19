@@ -1680,8 +1680,10 @@ const searchExtrasCss = `
 }
 /* The text column may shrink, so a long first line ends in "…" instead of pushing the label out. */
 .cp__cmdk [data-cmdk-item] > .flex.items-start > .flex-1 { min-width: 0; }
+/* The same size and grey as Logseq's own path above a result (12.8px, the secondary colour at .7, measured in 2.0.2),
+   so the two small lines of a row read as one kind of note (0.4.144). */
 .cp__cmdk [data-cmdk-item] :is(.rf-search-peek, .rf-search-where) {
-  font-size: .8rem; line-height: 1.4; color: var(--ls-primary-text-color); opacity: var(--rf-quiet);
+  font-size: .8rem; line-height: 1.4; color: var(--ls-secondary-text-color, currentColor); opacity: var(--rf-quiet);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
 }
 .cp__cmdk [data-cmdk-item] .rf-search-peek::before { content: '• '; opacity: var(--rf-faint); }
@@ -1724,16 +1726,16 @@ const searchExtrasCss = `
 .rf-search-preview mark { background: transparent; font-weight: 600; color: inherit; padding: 0 .06em; border-radius: 2px; }
 .rf-search-preview .rf-pv-title { font-size: 1.3rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
 .rf-search-preview .rf-pv-meta { font-size: var(--rf-tiny); opacity: var(--rf-faint); min-height: 1em; }
-/* Properties: names in a faint column, values beside them, as on the page itself. */
+/* Properties: names in the grey of a property name on the page (not a faded black, 0.4.144), values beside them. */
 .rf-search-preview .rf-pv-props { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin-top: 8px; font-size: .88rem; }
-.rf-search-preview .rf-pv-pname { opacity: var(--rf-quiet); }
+.rf-search-preview .rf-pv-pname { color: var(--ls-secondary-text-color, currentColor); }
 .rf-search-preview .rf-pv-props > span { overflow-wrap: anywhere; }
 .rf-search-preview .rf-pv-actions { display: flex; gap: 6px; margin: 10px 0 14px; }
 .rf-search-preview .rf-pv-actions button {
-  font: inherit; font-size: .78rem; padding: 2px 9px; border-radius: 5px; cursor: pointer;
+  font: inherit; font-size: .78rem; padding: 2px 9px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); background: transparent; color: inherit; opacity: var(--rf-quiet);
 }
-.rf-search-preview .rf-pv-actions button:hover { opacity: 1; background: rgba(128,128,128,.08); }
+.rf-search-preview .rf-pv-actions button:hover { opacity: 1; background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 /* The guide to the search codes, and the button that opens it at the bottom right of the panel. */
 /* The slim guide to the codes along the bottom: the window's row wraps so the bar takes a line of its own. */
 [data-rf-with-preview] { flex-wrap: wrap !important; }
@@ -1753,13 +1755,13 @@ const searchExtrasCss = `
 .rf-search-preview .rf-tips { display: grid; grid-template-columns: max-content 1fr max-content; gap: 7px 14px; align-items: baseline; font-size: .88rem; }
 .rf-search-preview .rf-tips code { white-space: nowrap; }
 .rf-search-preview .rf-tips button {
-  font: inherit; font-size: var(--rf-tiny); padding: 1px 8px; border-radius: 5px; white-space: nowrap; cursor: pointer;
+  font: inherit; font-size: var(--rf-tiny); padding: 1px 8px; border-radius: 6px; white-space: nowrap; cursor: pointer;
   color: inherit; background: transparent; border: 1px solid var(--ls-border-color, rgba(128,128,128,.25));
 }
-.rf-search-preview .rf-tips button:hover { background: rgba(128,128,128,.12); }
+.rf-search-preview .rf-tips button:hover { background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rf-search-preview .rf-tips-notes { margin: 16px 0 0; padding-left: 1.1em; font-size: .85rem; opacity: var(--rf-quiet); }
 .rf-search-preview .rf-tips-notes li { margin: 4px 0; list-style: disc; }
-.rf-search-preview .rf-pv-block { position: relative; padding: 2px 4px 2px calc(18px + var(--rf-depth) * 20px); border-radius: 5px; cursor: text; }
+.rf-search-preview .rf-pv-block { position: relative; padding: 2px 4px 2px calc(18px + var(--rf-depth) * 20px); border-radius: 4px; cursor: text; }
 .rf-search-preview .rf-pv-block::before {
   content: ''; position: absolute; left: calc(6px + var(--rf-depth) * 20px); top: .78em; width: 5px; height: 5px; border-radius: 50%;
   background: currentColor; opacity: var(--rf-faint);
@@ -1797,15 +1799,16 @@ const searchExtrasCss = `
 .rf-filter-results .rf-fr-none { padding: 8px 10px; opacity: var(--rf-faint); }
 .rf-filter-results .rf-fr-help { margin-top: 14px; padding: 8px 10px; font-size: var(--rf-tiny); opacity: var(--rf-faint); }
 .rf-filter-suggest {
-  position: absolute; left: 12px; z-index: 30; min-width: 300px; max-width: 75%; padding: 4px; border-radius: 8px;
-  background: var(--ls-primary-background-color); color: var(--ls-primary-text-color);
-  border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  position: absolute; left: 12px; z-index: 30; min-width: 300px; max-width: 75%; padding: 6px; border-radius: var(--rf-popup-radius, 6px);
+  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); font-size: var(--rf-row, .875rem);
+  border: 1px solid var(--ls-border-color, rgba(128,128,128,.25)); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
 }
-.rf-filter-suggest .rf-fs-item { display: flex; gap: 16px; justify-content: space-between; align-items: baseline; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-.rf-filter-suggest .rf-fs-item[data-rf-current], .rf-filter-suggest .rf-fs-item:hover { background: rgba(128,128,128,.14); }
+/* The popup look of every other list (0.4.140): its rows, their corners and the wash on the chosen one (0.4.144). */
+.rf-filter-suggest .rf-fs-item { display: flex; gap: 16px; justify-content: space-between; align-items: baseline; padding: 6px 8px; line-height: 1.25rem; border-radius: 4px; cursor: pointer; }
+.rf-filter-suggest .rf-fs-item[data-rf-current], .rf-filter-suggest .rf-fs-item:hover { background: color-mix(in srgb, var(--ls-primary-text-color) var(--rf-wash-pct, 8%), transparent); }
 .rf-filter-suggest .rf-fs-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rf-filter-suggest .rf-fs-hint, .rf-filter-suggest .rf-fs-keys { font-size: var(--rf-tiny); opacity: var(--rf-faint); white-space: nowrap; }
-.rf-filter-suggest .rf-fs-keys { padding: 4px 10px 2px; }
+.rf-filter-suggest .rf-fs-keys { padding: 4px 8px 2px; }
 `;
 
 const settingsSchema = [

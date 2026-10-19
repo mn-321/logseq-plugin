@@ -313,8 +313,9 @@ const promptCss = `
 .jdd-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .jdd-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .jdd-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .82em); opacity: var(--rf-quiet, .7); }
-/* The note is a popup beside the page (0.4.140): the popup corner, shadow and row size of the line list and Logseq's [[ menu. */
-.jdd-ask { position: fixed; top: 48px; right: 16px; z-index: 10000; display: flex; align-items: center; gap: 12px; max-width: min(460px, 80vw); padding: 8px 12px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-popup-radius, 6px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
+/* The note is a popup beside the page (0.4.140): the popup corner, shadow and row size of the line list and Logseq's [[ menu,
+   on its colours (0.4.144). */
+.jdd-ask { position: fixed; top: 48px; right: 16px; z-index: 10000; display: flex; align-items: center; gap: 12px; max-width: min(460px, 80vw); padding: 8px 12px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-popup-radius, 6px); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1)); font-size: var(--rf-row, .875rem); }
 .jdd-ask-what { color: var(--ls-secondary-text-color); }
 .jdd-ask-keys { display: flex; gap: 6px; flex: none; }
 .jdd-ask-keys button { padding: 3px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: .95em; cursor: pointer; }
