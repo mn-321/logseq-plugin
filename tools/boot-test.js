@@ -179,6 +179,27 @@ async function main() {
   const left2 = leftovers(doc);
   if (left2.length) problem('left on screen after the take-over and unload: ' + [...new Set(left2)].join(', '));
 
+  // 5. Foundation only (0.4.167): the same page, with only the foundation running. Nothing may be drawn, only the
+  // foundation's commands registered, and the unload must still leave nothing behind.
+  const logseq4 = fakeLogseq(log);
+  logseq4.settings.foundationOnly = true;
+  loadPlugin(host, logseq4);
+  await sleep(50);
+  try { logseq4._main(); } catch (error) { problem('main() threw with Foundation only on: ' + (error && error.stack || error)); }
+  await sleep(100);
+  logseq4.fire('App.onRouteChanged', { path: '/page/echo' });
+  logseq4.fire('DB.onChanged', { blocks: [] });
+  await sleep(1000);
+  const drawn = leftovers(doc);
+  if (drawn.length) problem('drawn with Foundation only on: ' + [...new Set(drawn)].join(', '));
+  const keys4 = logseq4.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0].key).sort();
+  if (keys4.join() !== 'show-settings,troubleshooting') problem('palette commands with Foundation only on: ' + keys4.join(', '));
+  console.log(`foundation only: ${keys4.length} palette commands (${keys4.join(', ')}), nothing drawn`);
+  await logseq4._unload();
+  await sleep(100);
+  const left4 = leftovers(doc);
+  if (left4.length) problem('left on screen after the foundation-only unload: ' + [...new Set(left4)].join(', '));
+
   console.warn = realWarn; console.error = realError;
   const own = warnings.filter(text => /Refinements|refinement|Error|error/i.test(text));
   for (const text of own) problem('warning: ' + text.slice(0, 300));

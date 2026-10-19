@@ -43,7 +43,9 @@
    - take what it needs from window.refinementShared (`const shared = window.refinementShared;`), and
      make its own lifecycle with its own prefix and, when it cleans up Logseq's window, its own stopKey,
      so that a reload still stops each part's earlier copy on its own;
-   - push { name, schema, provide?, start, ready?, commands?, moved?, stop } onto window.refinementParts;
+   - push { name, schema, provide?, start, ready?, commands?, moved?, foundation?, stop } onto window.refinementParts
+     (foundation: true keeps the part running under the setting Foundation only: the model, the troubleshooting
+     tools and the settings window);
      main.js joins the schemas, in the order of PART_FILES, after its own, and from main() calls every
      part's provide(core), then every start(), then every ready() (what draws on screen, once every part
      has started), and stop() at unload; it registers each command ({ key, label, run, shortcut, menu }:
