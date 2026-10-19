@@ -9,7 +9,7 @@ const { host, notify, modalButtons, showUndoBar } = shared;
 // This part's own clean-up list and stop key: a copy removed without its clean-up finishing is stopped
 // by the next one, which also removes a note or box the earlier copy left on screen.
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy } = shared.lifecycle({ prefix: 'Refinements (journal dates): ', stopKey: '__journalDayDatesStop',
-  sweep: doc => { try { for (const el of doc.querySelectorAll('.jdd-prompt-backdrop, .jdd-ask, .jdd-ghost')) el.remove(); for (const el of doc.querySelectorAll('[data-jdd-ghost]')) el.removeAttribute('data-jdd-ghost'); } catch (error) { /* nothing left over */ } } });
+  leaves: { elements: '.jdd-prompt-backdrop, .jdd-ask, .jdd-ghost', attributes: ['data-jdd-ghost'] } });
 // The shared dialog box, drawn with this part's own class names (styled in promptCss below).
 const modal = (cancelValue, build, width) => shared.modal(cancelValue, build, width, { backdrop: 'jdd-prompt-backdrop', box: 'jdd-prompt' });
 
@@ -292,7 +292,7 @@ async function fillMissingDates() {
 
 
 const settingsSchema = [
-  { key: 'journalDateHeading', type: 'heading', title: 'Journal day as date', default: null,
+  { key: 'journalDateHeading', type: 'heading', group: 'writing', rank: 3, title: 'Journal day as date', default: null,
     description: 'The only part that writes without you pressing anything, and only after asking unless Ask before filling is off. Also in the command palette: “Fill missing dates from journal days”.' },
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },

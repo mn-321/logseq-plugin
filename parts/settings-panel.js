@@ -216,13 +216,13 @@ const PREVIEWS = {
 };
 
 /* Umbrella groups (0.4.129): the sections gathered by what they are for, each group with a picture of where on
-   screen its sections work. A zone of the picture is marked data-section with the heading key of the section it
-   explains; the number on it is given when it is drawn, so the picture and the list beside it always agree. A
-   section no group names goes into Other. */
+   screen its sections work. Each section's heading names its group and its place in it (group, rank, in the
+   part's own schema; since 0.4.163); a section that names none goes into Other. A zone of the picture is marked
+   data-section with the heading key of the section it explains; the number on it is given when it is drawn, so
+   the picture and the list beside it always agree. */
 const ART_B = '<i class="b"></i>';
 const GROUPS = [
   { key: 'reading', title: 'Reading a page', note: 'How pages, rows and links look. Nothing here writes to your notes.',
-    headings: ['pageHeading', 'hierarchyHeading', 'twoWayHeading', 'linksHeading'],
     legend: { pageHeading: 'Around the title: what the page is, its tags and path, how it is used',
       hierarchyHeading: 'The rows: properties, empty slots, dates, what a folded block holds',
       twoWayHeading: 'Records that point at this page, as rows in its own properties',
@@ -234,7 +234,6 @@ const GROUPS = [
       <div class="rs-zone" data-section="twoWayHeading"><div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div></div>
       <div class="rs-zone" data-section="linksHeading"><div>${ART_B}Ask <u>Mateo Ruiz</u> about <span class="m">•</span> the budget block</div><div class="m">Linked references &nbsp; attendees · 3 &nbsp; in text · 4</div></div>` },
   { key: 'writing', title: 'Writing a record', note: 'Help while you write: a list for a field, values guessed from your words, the journal day. Nothing is written until you press a key.',
-    headings: ['inlinePropsHeading', 'proposalsHeading', 'journalDateHeading'],
     legend: { inlinePropsHeading: 'Type a field’s name and :: and pick its value from a list',
       proposalsHeading: 'Values guessed from your words, pencilled in; Tab takes one',
       journalDateHeading: 'The day you wrote a record on, as its date' },
@@ -245,7 +244,6 @@ const GROUPS = [
         <div><span class="m">project:</span> <u>Atlas</u> <span class="m">undo <span class="cap">⌘z</span></span></div></div>
       <div class="rs-zone" data-section="journalDateHeading"><div><span class="m">date:</span> <span class="pencil">Oct 18th, 2026</span> <span class="m">· the day the record was written</span></div></div>` },
   { key: 'around', title: 'Around the page', note: 'The sidebars, the toolbar and search.',
-    headings: ['appearanceHeading', 'searchHeading', 'searchSidebarHeading'],
     legend: { appearanceHeading: 'The left and right sidebars and the toolbar',
       searchHeading: 'The search window: grouping, details, a preview',
       searchSidebarHeading: 'Search kept open in the right sidebar' },
@@ -254,7 +252,6 @@ const GROUPS = [
       <div class="rs-zone" data-section="searchHeading"><div class="box">echo</div><div class="h">Echo</div><div class="ind">${ART_B}Kickoff <span class="m">· today</span></div><div class="ind">${ART_B}Budget <span class="m">· Oct 9</span></div></div>
       <div class="rs-zone" data-section="searchSidebarHeading"><div class="h">Search</div><div class="box">echo</div><div>${ART_B}Kickoff</div></div></div>` },
   { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, the tag tree, and the plugin’s keys.',
-    headings: ['richCopyHeading', 'tagTreeHeading', 'shortcutsHeading'],
     legend: { richCopyHeading: 'Copy a page or a block as tidy formatted text',
       tagTreeHeading: 'All your tags as one tree',
       shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks' },
@@ -264,7 +261,6 @@ const GROUPS = [
       <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>
       <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
   { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
-    headings: ['todosHeading', 'expectationsHeading'],
     legend: { todosHeading: 'Every task in the graph in one list',
       expectationsHeading: 'What you are waiting on others for' },
     art: () => `
@@ -276,9 +272,10 @@ const GROUPS = [
 const PAUSE_SWITCH = { todosHeading: 'todosEnabled', expectationsHeading: 'todosEnabled', tagTreeHeading: 'tagTreeEnabled' };
 function groupsOf(sections) {
   const groups = GROUPS.map(group => ({ ...group, sections: [] }));
-  const other = { key: 'other', title: 'Other', note: '', headings: [], legend: {}, art: null, sections: [] };
-  for (const section of sections) (groups.find(group => group.headings.includes(section.heading.key)) || other).sections.push(section);
-  for (const group of groups) group.sections.sort((a, b) => group.headings.indexOf(a.heading.key) - group.headings.indexOf(b.heading.key));
+  const other = { key: 'other', title: 'Other', note: '', legend: {}, art: null, sections: [] };
+  for (const section of sections) (groups.find(group => group.key === section.heading.group) || other).sections.push(section);
+  const rank = section => section.heading.rank ?? 0;
+  for (const group of groups) group.sections.sort((a, b) => rank(a) - rank(b) || sections.indexOf(a) - sections.indexOf(b));
   const shown = [...groups, other].filter(group => group.sections.length);
   for (const group of shown) for (const section of group.sections) section.group = group;
   return shown;
@@ -709,5 +706,7 @@ function stop() {
   for (const item of doc.querySelectorAll('.' + ITEM_CLASS)) item.remove();
 }
 
-(window.refinementParts ||= []).push({ name: 'settings panel', schema: [], start, stop });
+// The palette entry that opens the window (Logseq's own settings page for the plugin, should the window fail to open).
+const commands = [{ key: 'show-settings', label: 'Refinements settings', run: () => { try { open(); } catch (error) { logseq.showSettingsUI(); } } }];
+(window.refinementParts ||= []).push({ name: 'settings panel', schema: [], start, commands, stop });
 })();

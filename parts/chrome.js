@@ -7,7 +7,8 @@
    always did. */
 const shared = window.refinementShared;
 const { host } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ' });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
+  leaves: { attributes: ['data-refinement-quiet', 'data-refinement-sidebar-hidden', 'data-refinement-quiet-menu'] } });
 // From the core, taken when the part starts.
 let setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
@@ -188,12 +189,26 @@ function startHyperLinkTap() {
   } catch (error) { warnOnce('the Hyper key tap is unavailable', error); }
 }
 
-function provide(core) {
-  core.provide({ startSidebarPresentation, startQuietUi, startQuietLinkMenu, startHyperLinkTap });
-}
+// The sidebars and the toolbar (read by this part and the links part; the sidebar part's settings follow in the same section). Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'appearanceHeading', type: 'heading', group: 'around', rank: 1, title: 'Sidebars and toolbar', default: null,
+    description: 'Changes here apply after you reload the plugin.' },
+  { key: 'quietItems', type: 'string', title: 'Quiet these sidebar and toolbar items', default: 'Flashcards, Graph view',
+    description: 'Comma-separated names (as shown, or as in the button tooltip). These stay visible but are smaller and lighter. Applies after you reload the plugin.' },
+  { key: 'quietSidebarIcons', type: 'boolean', title: 'Left sidebar icons only where they mean something', default: true,
+    description: 'In Favorites and Recent, Logseq’s generic page icon is left out (names stay lined up). A tag’s #, an icon you gave a page and an icon that comes from its tag all stay. Journal days are in grey. Applies right away.' },
+  { key: 'tidySidebar', type: 'boolean', title: 'Tidy the right sidebar', default: true,
+    description: 'Expand page properties automatically and hide the Page graph, (Dev) RTC, Undo/Redo and Profiler buttons.' },
+];
 function start() {
   const core = window.refinementCore;
   ({ setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle } = take(core, ['setting', 'watchDom', 'watchDomEarly', 'ensureDomWatch', 'sendStyle']));
 }
-(window.refinementParts ||= []).push({ name: 'chrome', schema: [], provide, start, stop: runUnloadTasks });
+function ready() {
+  if (setting('tidySidebar')) startSidebarPresentation();
+  startQuietUi();
+  startQuietLinkMenu();
+  startHyperLinkTap();
+}
+(window.refinementParts ||= []).push({ name: 'chrome', schema: settingsSchema, start, ready, stop: runUnloadTasks });
 })();
