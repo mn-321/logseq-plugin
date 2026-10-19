@@ -33,6 +33,8 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 
 const settingsSchema = [
   { key: 'inlinePropsHeading', type: 'heading', group: 'writing', rank: 1, title: 'Properties in the line', default: null,
+    legend: 'Type a field’s name and :: and pick its value from a list',
+    zone: '<div><i class="b"></i>Met Priya about Atlas <span class="mono">o::pri</span><span class="caret"></span></div> <div class="menu"><div class="mrow sel"><span>▭ Priya Nair</span><span class="m mono">Person</span></div><div class="mrow"><span class="pencil">+ Make Person “pri”</span></div></div>',
     description: 'Type p:: at the end of the block you are writing to pick a property and its value without leaving the line, or name::value when you know the field (date::fri). With ;; in place of :: the value stays in your words as well (deadline;;today). The value is pencilled in, italic, before you press Enter; after it a small undo sits beside the value.' },
   { key: 'inlineProps', type: 'boolean', title: 'Properties typed in the line', default: true,
     description: 'The list under the caret after p:: or name::. Applies at once. Nothing is written until you press Enter on a value; names the graph does not have are never written to, and a new page comes only from an italic “Make …” row (a new property still comes from Logseq’s own Add property).' },

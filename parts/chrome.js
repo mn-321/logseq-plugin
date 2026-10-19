@@ -192,12 +192,16 @@ function startHyperLinkTap() {
 // The sidebars and the toolbar (read by this part and the links part; the sidebar part's settings follow in the same section). Declared here since 0.4.163; every part reads them through the core's setting().
 const settingsSchema = [
   { key: 'appearanceHeading', type: 'heading', group: 'around', rank: 1, title: 'Sidebars and toolbar', default: null,
+    legend: 'The left and right sidebars and the toolbar',
+    zone: '<div class="m">Favorites</div><div>Echo</div><div class="m">Recent</div><div>Mateo Ruiz</div><div class="m">Oct 14th</div><div class="tb">⌂ ← → ···</div>',
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'quietItems', type: 'string', title: 'Quiet these sidebar and toolbar items', default: 'Flashcards, Graph view',
     description: 'Comma-separated names (as shown, or as in the button tooltip). These stay visible but are smaller and lighter. Applies after you reload the plugin.' },
   { key: 'quietSidebarIcons', type: 'boolean', title: 'Left sidebar icons only where they mean something', default: true,
+    preview: ['<div><span class="m">#</span> Project</div><div><span class="pic outline"></span>Mateo Ruiz</div><div class=""><span class="pic outline"></span>Oct 14th</div>', '<div><span class="m">#</span> Project</div><div><span class="m" style="visibility:hidden">#</span> Mateo Ruiz</div><div class="m"><span class="m" style="visibility:hidden">#</span> Oct 14th</div>'],
     description: 'In Favorites and Recent, Logseq’s generic page icon is left out (names stay lined up). A tag’s #, an icon you gave a page and an icon that comes from its tag all stay. Journal days are in grey. Applies right away.' },
   { key: 'tidySidebar', type: 'boolean', title: 'Tidy the right sidebar', default: true,
+    preview: ['<div class="m">Page graph · Undo · Redo · Profiler</div><div><i class="b"></i>Echo</div>', '<div class="m">Page graph</div><div><i class="b"></i>Echo</div>'],
     description: 'Expand page properties automatically and hide the Page graph, (Dev) RTC, Undo/Redo and Profiler buttons.' },
 ];
 function start() {

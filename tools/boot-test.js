@@ -143,6 +143,17 @@ async function main() {
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
   if (toolKeys.join() !== 'check-link-labels,check-what-is-found,copy-fold-log,copy-header-details,copy-perf-report,copy-styling-details,copy-warnings,toggle-perf')
     problem('troubleshooting tools: ' + toolKeys.join(', '));
+  // The settings window (0.4.173): every picture comes from the setting or section that owns it.
+  pluginWindow.refinementSettingsPanel.open();
+  const panel = doc.querySelector('.refinement-settings');
+  const previews = panel ? panel.querySelectorAll('.rs-pv').length : 0;
+  if (previews !== 34) problem(`the settings window drew ${previews} small pictures, not 34`);
+  const zones = panel ? [...panel.querySelectorAll('.rs-zone')] : [];
+  const legends = panel ? [...panel.querySelectorAll('.rs-legend button')] : [];
+  if (!zones.length || zones.length !== legends.length || zones.some(zone => !zone.dataset.n) || legends.some(button => !button.querySelector('.rs-d')?.textContent))
+    problem(`the settings window's picture: ${zones.length} zones, ${legends.length} lines beside it`);
+  console.log(`settings window: ${previews} small pictures, ${zones.length} zones in the first group's picture`);
+  doc.querySelector('.refinement-settings-backdrop, .refinement-settings')?.remove();
   // Its screen report holds every running feature's rows, each thing once, with every feature that needs it.
   await pluginWindow.refinementDiagnostics.checkWhatIsFound();
   const report = doc.querySelector('textarea')?.value || '';

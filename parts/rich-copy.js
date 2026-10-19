@@ -760,6 +760,8 @@ function main() {
 
 const settingsSchema = [{
   key: 'richCopyHeading', type: 'heading', group: 'tools', rank: 1, title: 'Copy as rich text', default: null,
+    legend: 'Copy a page or a block as tidy formatted text',
+    zone: '<div class="row"><span><i class="b"></i>Kickoff call</span><span class="m">Copy as rich text</span></div> <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div>',
   description: 'Bullet right-click menu, page “…” menu or command palette. Title block, footer, page numbers and query sort order are chosen in the copy window and remembered.'
 }, {
   key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline'], default: 'document', title: 'Layout',
