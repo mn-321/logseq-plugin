@@ -578,7 +578,6 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 .property-select .refinement-value-icon svg { width: 1em; height: 1em; }
 .property-select .refinement-value-dot { font-size: .72em; opacity: var(--rf-faint); line-height: 1; }
 .property-select #ui__ac .menu-link[data-refinement-value="new"] .justify-between > .items-center:first-child { font-style: italic; color: var(--ls-secondary-text-color); }
-.property-select #ui__ac .menu-link[data-refinement-proposed] .justify-between > .items-center:first-child::after { content: 'proposed'; margin-left: .6em; font-size: var(--rf-small); color: var(--ls-secondary-text-color); }
 .property-select .breadcrumb__label[data-refinement-value-day] { display: inline-block; padding: 0 .3em; border-radius: .22em; background: ${wash('--rf-wash-pct')}; font-variant-numeric: tabular-nums; }
 `],
   ['propertyPickerTypes', `/* The property picker says each type (marked by updatePropertyPicker in the links part): the type icon the line

@@ -866,7 +866,8 @@ function loadValuePages(doc) {
 function updateValuePicker(doc) {
   const rows = setting('valuePickerMarks') && provided.propPages ? doc.querySelectorAll('.property-select .cp__select-results .menu-link') : [];
   if (rows.length) loadValuePages(doc);
-  const seen = new Set(), proposed = proposedTitles(doc);
+  // No "proposed" here (0.4.137): the picker's own field holds the caret, so the record in edit cannot be known.
+  const seen = new Set();
   for (const row of rows) {
     const main = row.querySelector('.justify-between > .items-center');
     if (!main) continue;
@@ -876,7 +877,6 @@ function updateValuePicker(doc) {
     if (!kind) continue;
     const label = kind === 'block' ? 'block' : kind === 'tag' ? 'tag' : kind === 'page' ? (page.tags.find(t => t.title !== 'Page')?.title || 'page') : '';
     if (row.getAttribute('data-refinement-value') !== kind) row.setAttribute('data-refinement-value', kind);
-    row.toggleAttribute('data-refinement-proposed', kind !== 'new' && !!proposed?.has(lower));
     if (label) { if (row.getAttribute('data-refinement-value-kind') !== label) row.setAttribute('data-refinement-value-kind', label); } else row.removeAttribute('data-refinement-value-kind');
     if (crumb) { const day = crumb.textContent.trim(); crumb.toggleAttribute('data-refinement-value-day', !!(dateLinkName(day) || dateLinks.names.has(day.toLowerCase()))); }
     // The mark before the words: a page with an icon of its own already has it (Logseq draws it), the rest get one.
@@ -894,7 +894,7 @@ function updateValuePicker(doc) {
   for (const row of valuePicker.marked) if (!seen.has(row)) unmarkValueRow(row);
 }
 function unmarkValueRow(row) {
-  row.removeAttribute('data-refinement-value'); row.removeAttribute('data-refinement-value-kind'); row.removeAttribute('data-refinement-proposed');
+  row.removeAttribute('data-refinement-value'); row.removeAttribute('data-refinement-value-kind');
   for (const el of row.querySelectorAll('[data-refinement-value-day]')) el.removeAttribute('data-refinement-value-day');
   for (const icon of row.querySelectorAll('.refinement-value-icon')) icon.remove();
   valuePicker.marked.delete(row);
