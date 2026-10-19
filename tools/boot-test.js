@@ -22,6 +22,9 @@ const PART_FILES = (() => {
   return line[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
 })();
 
+// Which parts main.js loads now (0.4.175: the resting parts are left out); checks of a feature run only when it is loaded.
+const has = name => PART_FILES.includes('parts/' + name + '.js');
+const ALL_PARTS = ['editor', 'pages', 'properties', 'links', 'chrome', 'sidebar', 'styles', 'search', 'journal-dates', 'inline-props', 'proposals', 'rich-copy', 'todos'].every(has);
 const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -135,19 +138,23 @@ async function main() {
   const palette = logseq.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0]);
   const menu = logseq.calls.filter(call => call.name === 'Editor.registerBlockContextMenuItem').map(call => call.args[0]);
   console.log(`${palette.length} palette commands, ${palette.filter(c => c.keybinding).length} with a shortcut, ${menu.length} bullet-menu items`);
-  for (const key of ['labeled-page-link', 'show-settings', 'troubleshooting', 'fold-query-results', 'search-in-sidebar']) if (!palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
-  if (menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
+  const wanted = [['labeled-page-link', 'editor'], ['show-settings'], ['troubleshooting'], ['fold-query-results', 'properties'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
+  for (const [key, part] of wanted) if ((!part || has(part)) && !palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
+  if (has('editor') && menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
   const keys = palette.map(c => c.key);
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
-  if (toolKeys.join() !== 'check-link-labels,check-what-is-found,copy-fold-log,copy-header-details,copy-perf-report,copy-styling-details,copy-warnings,toggle-perf')
+  const wantTools = ['check-what-is-found', 'copy-perf-report', 'copy-styling-details', 'copy-warnings', 'toggle-perf',
+    ...(has('links') ? ['check-link-labels'] : []), ...(has('properties') ? ['copy-fold-log'] : []), ...(has('pages') ? ['copy-header-details'] : [])].sort();
+  if (toolKeys.join() !== wantTools.join())
     problem('troubleshooting tools: ' + toolKeys.join(', '));
   // The settings window (0.4.173): every picture comes from the setting or section that owns it.
   pluginWindow.refinementSettingsPanel.open();
   const panel = doc.querySelector('.refinement-settings');
   const previews = panel ? panel.querySelectorAll('.rs-pv').length : 0;
-  if (previews !== 34) problem(`the settings window drew ${previews} small pictures, not 34`);
+  const wantPreviews = parts.flatMap(part => part.schema).filter(item => item.type === 'boolean' && Array.isArray(item.preview)).length;
+  if (previews !== wantPreviews || (ALL_PARTS && previews !== 34)) problem(`the settings window drew ${previews} small pictures, not ${wantPreviews}`);
   const zones = panel ? [...panel.querySelectorAll('.rs-zone')] : [];
   const legends = panel ? [...panel.querySelectorAll('.rs-legend button')] : [];
   if (!zones.length || zones.length !== legends.length || zones.some(zone => !zone.dataset.n) || legends.some(button => !button.querySelector('.rs-d')?.textContent))
@@ -157,10 +164,12 @@ async function main() {
   // Its screen report holds every running feature's rows, each thing once, with every feature that needs it.
   await pluginWindow.refinementDiagnostics.checkWhatIsFound();
   const report = doc.querySelector('textarea')?.value || '';
+  if (ALL_PARTS) {
   for (const row of ['the page area', 'reference areas', 'title row', 'fold state', 'nesting lines', 'right sidebar', 'toolbar'])
     if (!report.includes(` · ${row} · `)) problem(`the screen report misses the row “${row}”`);
   if (!/ · blocks · (?=.*cues)(?=.*fold all).*\n/.test(report)) problem('the screen report did not join the features needing blocks');
   if (report.split('\n').filter(line => / · \D/.test(line) && /^ +\d+ · /.test(line) && !/data-refinement|\.refinement-/.test(line)).length !== 36) problem('the screen report should hold 36 rows of Logseq parts');
+  } else if (!report.includes(' · the page area · ')) problem('the screen report misses the row “the page area”');
   const backdrop = doc.querySelector('.refinement-prompt-backdrop');
   backdrop?.dispatchEvent(Object.assign(new host.window.MouseEvent('mousedown', { bubbles: true })));
   await sleep(50);
