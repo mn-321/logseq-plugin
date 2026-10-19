@@ -222,14 +222,16 @@ const PREVIEWS = {
 const ART_B = '<i class="b"></i>';
 const GROUPS = [
   { key: 'reading', title: 'Reading a page', note: 'How pages, rows and links look. Nothing here writes to your notes.',
-    headings: ['pageHeading', 'hierarchyHeading', 'linksHeading'],
+    headings: ['pageHeading', 'hierarchyHeading', 'twoWayHeading', 'linksHeading'],
     legend: { pageHeading: 'Around the title: what the page is, its tags and path, how it is used',
       hierarchyHeading: 'The rows: properties, empty slots, dates, what a folded block holds',
+      twoWayHeading: 'Records that point at this page, as rows in its own properties',
       linksHeading: 'Links: the mark before a link, references, the pickers' },
     art: () => `
       <div class="rs-zone" data-section="pageHeading"><div class="m">Add icon · Set property &nbsp;<span class="mono">Project</span></div><div class="t">Echo</div><div class="m"># Entity › # Project</div></div>
       <div class="rs-zone" data-section="hierarchyHeading"><div class="row"><span>${ART_B}Kickoff call <span class="m">↳ ● 2 · 1 Decision</span></span><span class="mono m">Meeting</span></div>
         <div class="ind"><span class="m">attendees:</span> <u>Mateo Ruiz</u> <span class="m">·</span> <span class="m">date:</span> <span class="dbox">Oct 14th</span> <span class="m">· Scheduled: ···</span></div></div>
+      <div class="rs-zone" data-section="twoWayHeading"><div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div></div>
       <div class="rs-zone" data-section="linksHeading"><div>${ART_B}Ask <u>Mateo Ruiz</u> about <span class="m">•</span> the budget block</div><div class="m">Linked references &nbsp; attendees · 3 &nbsp; in text · 4</div></div>` },
   { key: 'writing', title: 'Writing a record', note: 'Help while you write: a list for a field, values guessed from your words, the journal day. Nothing is written until you press a key.',
     headings: ['inlinePropsHeading', 'proposalsHeading', 'journalDateHeading'],
