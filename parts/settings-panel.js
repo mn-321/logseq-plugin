@@ -258,7 +258,7 @@ const GROUPS = [
     art: () => `
       <div class="rs-zone" data-section="richCopyHeading"><div class="row"><span>${ART_B}Kickoff call</span><span class="m">Copy as rich text</span></div>
         <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div></div>
-      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⇧L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
+      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>` },
   { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
     headings: ['todosHeading', 'expectationsHeading', 'tagTreeHeading'],
     legend: { todosHeading: 'Every task in the graph in one list',
