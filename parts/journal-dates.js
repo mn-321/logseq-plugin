@@ -293,6 +293,8 @@ async function fillMissingDates() {
 
 const settingsSchema = [
   { key: 'journalDateHeading', type: 'heading', group: 'writing', rank: 3, title: 'Journal day as date', default: null,
+    legend: 'The day you wrote a record on, as its date',
+    zone: '<div><span class="m">date:</span> <span class="pencil">Oct 18th, 2026</span> <span class="m">· the day the record was written</span></div>',
     description: 'The only part that writes without you pressing anything, and only after asking unless Ask before filling is off. Also in the command palette: “Fill missing dates from journal days”.' },
   { key: 'autoDate', type: 'boolean', title: 'Fill dates automatically', default: true,
     description: 'Fill the date of new records as you write them, in the graphs listed below.' },

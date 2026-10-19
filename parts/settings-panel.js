@@ -170,111 +170,33 @@ const css = `
 `;
 const SEARCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>';
 
-/* Small pictures of what a look setting changes, drawn beside its switch. Each one shows the setting's
-   current state (on or off) and changes when the switch is flipped. Only settings with a visible
-   effect have one. */
-const B = '<i class="b"></i>';
-const PREVIEWS = {
-  showTitleChrome: on => `<div class="m">${on ? 'Add icon · Set property · <span class="tg">#Project</span>' : '&nbsp;'}</div><div class="t">Echo</div>`,
-  showPageKind: on => on ? `<div class="m"><span class="tg">#Project</span></div><div class="t">Echo</div>`
-    : `<div class="m">&nbsp;</div><div class="row"><span class="t">Echo</span><span class="tg">#Project</span></div>`,
-  showAliasOf: on => `<div class="t">JS</div>${on ? '<div class="m">Alias of <u>JavaScript</u></div>' : ''}`,
-  markReferenceHere: on => `<div class="m">Linked references</div><div>${B}Call with <span class="${on ? 'here' : 'ql'}">Mateo</span> about it</div>`,
-  showShape: on => `<div class="t"># Doctor</div>${on ? '<div class="m"><span class="tg">#Person</span> › #Doctor · 2 fields&nbsp; ▸</div>' : ''}`,
-  quietEmptyBullets: on => `<div>${B}Milk</div><div>${on ? '<i class="b" style="visibility:hidden"></i>' : B}&nbsp;</div><div>${B}Call Mateo</div>`,
-  indentGuides: on => `<div>${B}Plan</div><div class="nest ${on ? 'faint' : 'firm'}"><div>${B}Draft</div><div>${B}Review</div></div>`,
-  ownTagHidden: on => `<div class="t"># Task</div><div class="row"><span>${B}Renew certificate</span>${on ? '' : '<span class="tg">#Task</span>'}</div><div class="row"><span>${B}Send invites</span>${on ? '' : '<span class="tg">#Task</span>'}</div>`,
-  compactJournals: on => `<div class="h">Oct 15th</div>${on ? '' : '<div>&nbsp;</div><div>&nbsp;</div>'}<div class="h">Oct 14th</div><div>${B}Call Mateo</div>`,
-  quietSidebarIcons: on => `<div><span class="m">#</span> Project</div><div>${on ? '<span class="m" style="visibility:hidden">#</span> ' : '<span class="pic outline"></span>'}Mateo Ruiz</div><div class="${on ? 'm' : ''}">${on ? '<span class="m" style="visibility:hidden">#</span> ' : '<span class="pic outline"></span>'}Oct 14th</div>`,
-  plainProperties: on => `<div>${B}Echo</div><div class="ind">${on
-    ? '<span class="pn">stage:</span> Idea <span class="m">·</span> <span class="pn">owner:</span> Mateo'
-    : '<span class="pill">stage Idea</span> <span class="pill">owner Mateo</span>'}</div>`,
-  hiddenPropsChevron: on => `<div>${B}Send invites${on ? ' <span class="chev">›</span>' : ''}</div><div class="m ind">Deadline: Oct 30</div>`,
-  childTypeCues: on => `<div>${B}Launch plan${on ? ' <span class="m">↳ ◌ 2</span>' : ''}</div>`,
-  embedLine: on => `<div>${B}See:</div><div class="emb ${on ? 'line' : ''}">${B}Embedded block</div>`,
-  dateStyle: on => `<div>${B}Due <span class="${on ? 'dbox' : 'lk'}">Oct 14th, 2026</span></div>`,
-  plainPageIcons: on => `<div><span class="pic ${on ? 'outline' : 'filled'}"></span>Echo</div><div><span class="pic ${on ? 'outline' : 'filled'}"></span>Compass</div>`,
-  tintTags: on => `<div>${B}Kickoff <span class="tg ${on ? 'chip' : ''}">#Project</span></div>`,
-  quietLinks: on => `<div>${B}Ask <span class="${on ? 'ql' : 'lk'}">Mateo Ruiz</span> about <span class="${on ? 'ql' : 'lk'}">Echo</span></div>`,
-  referenceLayout: on => `<div class="m">Linked references</div><div class="h">Echo${on ? ' <span class="m">3</span>' : ''}</div><div>${B}Kickoff call</div>`,
-  referenceIcons: on => `<div>${B}${on ? '<span class="m">•</span> ' : ''}<span class="${on ? 'plain' : 'ql'}">the budget block</span></div><div>${B}${on ? '<span class="m">▤</span> ' : ''}<span class="ql">report</span>${on ? ' <span class="m">PDF</span>' : ''}</div>`,
-  linkLabels: on => `<div class="m">Linked references</div><div>${B}${on ? '<span class="pn">Doctor:</span> ' : ''}<span class="ql">Mateo Ruiz</span></div>`,
-  tidyPaths: on => `<div class="m">${on ? 'Project / Echo / Kickoff notes' : '[[Project]] / [[Echo]] / Kic…'}</div><div>${B}Found here</div>`,
-  quietLinkMenu: on => `<div>${B}[[</div><div class="menu">${on ? '<span class="m">type to find a page</span>' : 'Today<br>Tomorrow'}</div>`,
-  hyperLinkTap: on => `<div>${B}Call ${on ? '[[<span class="m">▏</span>]]' : ''}</div><div class="m">${on ? 'Hyper tapped: link started' : 'Hyper tapped: nothing'}</div>`,
-  dateLinkFormats: on => `<div>${B}[[2026 10 14</div><div class="menu">${on ? 'Oct 14th, 2026' : '<span class="m">New page “2026 10 14”</span>'}</div>`,
-  pdfCitations: on => on ? `<div><span class="m">❝ p. 3 · Report</span> Talking felt faster</div>` : `<div>${B}<span class="hl">Talking felt faster</span></div>`,
-  pageLabels: on => `<div>${B}Call <span class="ql">Mateo Ruiz${on ? '' : ' #doctor'}</span></div>`,
-  tidySidebar: on => `<div class="m">Page graph${on ? '' : ' · Undo · Redo · Profiler'}</div><div>${B}Echo</div>`,
-  tidySearch: on => `<div>${B}Kickoff for <span class="${on ? 'wash' : 'hl'}">Echo</span></div><div>${B}<span class="${on ? 'wash' : 'hl'}">Echo</span> budget</div>`,
-  groupSearch: on => on ? `<div class="h">Echo</div><div class="ind">${B}Kickoff · ${B}Budget</div>` : `<div>${B}Kickoff <span class="m">Echo</span></div><div>${B}Budget <span class="m">Echo</span></div>`,
-  searchDetails: on => `<div class="row"><span>${B}Echo</span>${on ? '<span class="m">#Project · today</span>' : ''}</div>`,
-  roomySearch: on => on ? `<div style="font-size:12px">${B}Echo kickoff</div><div style="font-size:12px;margin-top:3px">${B}Echo budget</div>`
-    : `<div style="font-size:10px;line-height:1.2">${B}Echo kickoff<br>${B}Echo budget<br>${B}Echo notes</div>`,
-  searchFilters: on => `<div class="menu" style="margin-left:0">${on ? '<span class="pill">#Task</span> todo' : '#Task todo'}</div><div class="m">${on ? '3 open tasks tagged Task' : 'pages mentioning “Task todo”'}</div>`,
-  searchPreview: on => `<div class="row"><span>${B}Echo</span>${on ? '<span class="side">Echo<br>· Kickoff</span>' : ''}</div>`,
-};
+/* Small pictures of what a look setting changes, drawn beside its switch: a setting brings its own (0.4.173), as
+   preview: [html when off, html when on] in its part's schema; the picture changes when the switch is flipped.
+   Only settings with a visible effect have one. The words of the pictures (.m, .t, .tg, .ql …) are styled above. */
 
 /* Umbrella groups (0.4.129): the sections gathered by what they are for, each group with a picture of where on
-   screen its sections work. Each section's heading names its group and its place in it (group, rank, in the
-   part's own schema; since 0.4.163); a section that names none goes into Other. A zone of the picture is marked
-   data-section with the heading key of the section it explains; the number on it is given when it is drawn, so
-   the picture and the list beside it always agree. */
-const ART_B = '<i class="b"></i>';
+   screen its sections work. This part holds only the groups' shells; each section's heading brings the rest in
+   its part's own schema (since 0.4.163, its words and picture since 0.4.173): group and rank (its place), legend
+   (its line beside the picture), zone (its piece of the picture), pauseSwitch (a paused part: the switch that
+   turns it back on; its other rows step back while that is off) and last (shown after the others). A section
+   that names no group goes into Other. The number on a zone is given when it is drawn, so the picture and the
+   list beside it always agree. layout 'win' lays the zones side by side, like the parts of Logseq's window. */
 const GROUPS = [
-  { key: 'reading', title: 'Reading a page', note: 'How pages, rows and links look. Nothing here writes to your notes.',
-    legend: { pageHeading: 'Around the title: what the page is, its tags and path, how it is used',
-      hierarchyHeading: 'The rows: properties, empty slots, dates, what a folded block holds',
-      twoWayHeading: 'Records that point at this page, as rows in its own properties',
-      linksHeading: 'Links: the mark before a link, references, the pickers' },
-    art: () => `
-      <div class="rs-zone" data-section="pageHeading"><div class="m">Add icon · Set property &nbsp;<span class="mono">Project</span></div><div class="t">Echo</div><div class="m"># Entity › # Project</div></div>
-      <div class="rs-zone" data-section="hierarchyHeading"><div class="row"><span>${ART_B}Kickoff call <span class="m">↳ ● 2 · 1 Decision</span></span><span class="mono m">Meeting</span></div>
-        <div class="ind"><span class="m">attendees:</span> <u>Mateo Ruiz</u> <span class="m">·</span> <span class="m">date:</span> <span class="dbox">Oct 14th</span> <span class="m">· Scheduled: ···</span></div></div>
-      <div class="rs-zone" data-section="twoWayHeading"><div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div></div>
-      <div class="rs-zone" data-section="linksHeading"><div>${ART_B}Ask <u>Mateo Ruiz</u> about <span class="m">•</span> the budget block</div><div class="m">Linked references &nbsp; attendees · 3 &nbsp; in text · 4</div></div>` },
-  { key: 'writing', title: 'Writing a record', note: 'Help while you write: a list for a field, values guessed from your words, the journal day. Nothing is written until you press a key.',
-    legend: { inlinePropsHeading: 'Type a field’s name and :: and pick its value from a list',
-      proposalsHeading: 'Values guessed from your words, pencilled in; Tab takes one',
-      journalDateHeading: 'The day you wrote a record on, as its date' },
-    art: () => `
-      <div class="rs-zone" data-section="inlinePropsHeading"><div>${ART_B}Met Priya about Atlas <span class="mono">o::pri</span><span class="caret"></span></div>
-        <div class="menu"><div class="mrow sel"><span>▭ Priya Nair</span><span class="m mono">Person</span></div><div class="mrow"><span class="pencil">+ Make Person “pri”</span></div></div></div>
-      <div class="rs-zone" data-section="proposalsHeading"><div><span class="m">attendees:</span> <span class="pencil">Priya Nair</span> <span class="m"><span class="cap">tab</span> takes · <span class="cap">⇧tab</span> passes</span></div>
-        <div><span class="m">project:</span> <u>Atlas</u> <span class="m">undo <span class="cap">⌘z</span></span></div></div>
-      <div class="rs-zone" data-section="journalDateHeading"><div><span class="m">date:</span> <span class="pencil">Oct 18th, 2026</span> <span class="m">· the day the record was written</span></div></div>` },
-  { key: 'around', title: 'Around the page', note: 'The sidebars, the toolbar and search.',
-    legend: { appearanceHeading: 'The left and right sidebars and the toolbar',
-      searchHeading: 'The search window: grouping, details, a preview',
-      searchSidebarHeading: 'Search kept open in the right sidebar' },
-    art: () => `<div class="win">
-      <div class="rs-zone" data-section="appearanceHeading"><div class="m">Favorites</div><div>Echo</div><div class="m">Recent</div><div>Mateo Ruiz</div><div class="m">Oct 14th</div><div class="tb">⌂ ← → ···</div></div>
-      <div class="rs-zone" data-section="searchHeading"><div class="box">echo</div><div class="h">Echo</div><div class="ind">${ART_B}Kickoff <span class="m">· today</span></div><div class="ind">${ART_B}Budget <span class="m">· Oct 9</span></div></div>
-      <div class="rs-zone" data-section="searchSidebarHeading"><div class="h">Search</div><div class="box">echo</div><div>${ART_B}Kickoff</div></div></div>` },
-  { key: 'tools', title: 'Tools', note: 'Copying for people who don’t use Logseq, the tag tree, the plugin’s keys, and troubleshooting.',
-    legend: { richCopyHeading: 'Copy a page or a block as tidy formatted text',
-      tagTreeHeading: 'All your tags as one tree',
-      shortcutsHeading: 'Keys for linking, tagging, deleting and new blocks',
-      troubleshootHeading: 'Run only the foundation, to measure it alone' },
-    art: () => `
-      <div class="rs-zone" data-section="richCopyHeading"><div class="row"><span>${ART_B}Kickoff call</span><span class="m">Copy as rich text</span></div>
-        <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div></div>
-      <div class="rs-zone" data-section="tagTreeHeading"><div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div></div>
-      <div class="rs-zone" data-section="shortcutsHeading"><div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div></div>
-      <div class="rs-zone" data-section="troubleshootHeading"><div><span class="m">Foundation only</span> · nothing drawn, measured alone</div></div>` },
-  { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.',
-    legend: { todosHeading: 'Every task in the graph in one list',
-      expectationsHeading: 'What you are waiting on others for' },
-    art: () => `
-      <div class="rs-zone" data-section="todosHeading"><div class="row"><span>◯ Renew certificate</span><span class="m">today</span></div><div class="row"><span>◯ Send invites</span><span class="m">Fri</span></div></div>
-      <div class="rs-zone" data-section="expectationsHeading"><div class="row"><span>⧗ Contract back from Kestrel</span><span class="m">waiting</span></div></div>` },
+  { key: 'reading', title: 'Reading a page', note: 'How pages, rows and links look. Nothing here writes to your notes.' },
+  { key: 'writing', title: 'Writing a record', note: 'Help while you write. Nothing is written until you press a key.' },
+  { key: 'around', title: 'Around the page', note: 'The parts of Logseq’s window around the page.', layout: 'win' },
+  { key: 'tools', title: 'Tools', note: 'Things you run when you need them, and the plugin’s keys.' },
+  { key: 'paused', title: 'Paused', note: 'Switched off for now. Turn one on with its first switch, then reload the plugin.' },
 ];
-// A paused part's sections, by the switch that turns it back on. The tag tree, on since 0.4.152, sits in Tools
-// and steps back the same way when its switch is turned off.
-const PAUSE_SWITCH = { todosHeading: 'todosEnabled', expectationsHeading: 'todosEnabled', tagTreeHeading: 'tagTreeEnabled' };
+// A section's picture, from its heading's zone; a group's picture is its sections' zones in their order.
+const zoneOf = heading => heading.zone ? `<div class="rs-zone" data-section="${heading.key}">${heading.zone}</div>` : '';
+const artOf = group => {
+  const zones = group.sections.map(section => zoneOf(section.heading)).join('');
+  return zones && (group.layout === 'win' ? `<div class="win">${zones}</div>` : zones);
+};
 function groupsOf(sections) {
   const groups = GROUPS.map(group => ({ ...group, sections: [] }));
-  const other = { key: 'other', title: 'Other', note: '', legend: {}, art: null, sections: [] };
+  const other = { key: 'other', title: 'Other', note: '', sections: [] };
   for (const section of sections) (groups.find(group => group.key === section.heading.group) || other).sections.push(section);
   const rank = section => section.heading.rank ?? 0;
   for (const group of groups) group.sections.sort((a, b) => rank(a) - rank(b) || sections.indexOf(a) - sections.indexOf(b));
@@ -294,8 +216,6 @@ const RELOAD_RE = /after you reload/i;
 const isList = item => item.type === 'string' && /^Comma-separated/i.test(item.description || '');
 // “Applies right away.” is the usual case and goes unsaid; “after you reload” becomes a small tag.
 const tidyText = text => (text || '').replace(/\s*(Changes here apply|Changes to [^.]* apply|Applies) (right away|after you reload the plugin)\.?/g, '').trim();
-// Shortcuts are looked up least often, so they come last.
-const LAST_SECTIONS = ['shortcutsHeading'];
 let lastSection = null;
 
 function el(doc, tag, props = {}, ...children) {
@@ -333,7 +253,7 @@ function sectionsOf(items) {
   }
   // Lists kept by other windows (such as rich copy's left-out properties) are not shown.
   return sections.filter(section => section.items.length)
-    .sort((a, b) => LAST_SECTIONS.includes(a.heading.key) - LAST_SECTIONS.includes(b.heading.key));
+    .sort((a, b) => !!a.heading.last - !!b.heading.last); // such as shortcuts, looked up least often
 }
 
 function open() {
@@ -349,7 +269,7 @@ function open() {
     entry.markChanged();
     entry.drawPreview?.(value);
     if (entry.reload) reloadWanted = true;
-    if (Object.values(PAUSE_SWITCH).includes(entry.item.key)) markPaused();
+    if (sections.some(section => section.heading.pauseSwitch === entry.item.key)) markPaused();
     status.textContent = reloadWanted ? 'Saved. Some changes show after you reload the plugin.' : 'Saved.';
     status.classList.toggle('rs-needs-reload', reloadWanted);
     updateCounts();
@@ -462,10 +382,10 @@ function open() {
       const [input, show, wide] = control(entry);
       // A small picture of the setting's effect, where one is drawn; clicking it flips the switch.
       let preview = null;
-      if (item.type === 'boolean' && PREVIEWS[item.key]) {
+      if (item.type === 'boolean' && Array.isArray(item.preview)) {
         preview = el(doc, 'div', { class: 'rs-pv', 'aria-hidden': 'true', title: 'What this changes (click to switch)' });
         preview.addEventListener('click', () => input.click());
-        entry.drawPreview = value => { preview.innerHTML = PREVIEWS[item.key](value); };
+        entry.drawPreview = value => { preview.innerHTML = item.preview[value ? 1 : 0] || ''; };
         entry.drawPreview(entry.value);
       }
       show(entry.value);
@@ -523,19 +443,20 @@ function open() {
 
   let current = lastSection && (lastSection === 'changed' || sections.some(s => s.heading.key === lastSection) || groups.some(g => 'group:' + g.key === lastSection))
     ? lastSection : groups[0] ? 'group:' + groups[0].key : sections[0]?.heading.key;
-  const isPaused = headingKey => !!PAUSE_SWITCH[headingKey] && !entries.find(entry => entry.item.key === PAUSE_SWITCH[headingKey])?.value;
+  const pauseSwitchOf = headingKey => sections.find(section => section.heading.key === headingKey)?.heading.pauseSwitch;
+  const isPaused = headingKey => !!pauseSwitchOf(headingKey) && !entries.find(entry => entry.item.key === pauseSwitchOf(headingKey))?.value;
   // A paused part's rows step back, all but the switch that turns it on.
   function markPaused() {
-    for (const entry of entries) entry.row.classList.toggle('rs-paused', isPaused(entry.section.heading.key) && entry.item.key !== PAUSE_SWITCH[entry.section.heading.key]);
+    for (const entry of entries) entry.row.classList.toggle('rs-paused', isPaused(entry.section.heading.key) && entry.item.key !== entry.section.heading.pauseSwitch);
   }
   // The group's picture: each zone numbered like the list beside it; the section on screen stands out.
   function drawCard(group, sectionKey) {
     card.textContent = '';
-    card.hidden = !group?.art;
+    card.hidden = !group || !artOf(group);
     card.classList.toggle('rs-card-focus', !!sectionKey);
     if (card.hidden) return;
     const art = el(doc, 'div', { class: 'rs-art' + (sectionKey ? ' rs-focus' : '') });
-    art.innerHTML = group.art();
+    art.innerHTML = artOf(group);
     const legend = el(doc, 'div', { class: 'rs-legend' });
     group.sections.forEach((section, index) => {
       const key = section.heading.key, n = String(index + 1), off = isPaused(key);
@@ -547,7 +468,7 @@ function open() {
         zone.addEventListener('click', () => show(key));
       }
       const button = el(doc, 'button', { type: 'button' }, el(doc, 'span', { class: 'rs-n' }, n),
-        el(doc, 'span', {}, el(doc, 'b', {}, section.heading.title), el(doc, 'span', { class: 'rs-d' }, group.legend[key] || '')));
+        el(doc, 'span', {}, el(doc, 'b', {}, section.heading.title), el(doc, 'span', { class: 'rs-d' }, section.heading.legend || '')));
       button.toggleAttribute('aria-current', key === sectionKey);
       button.classList.toggle('rs-off', off);
       button.addEventListener('click', () => show(key));

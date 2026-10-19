@@ -19,6 +19,8 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
+    legend: 'Records that point at this page, as rows in its own properties',
+    zone: '<div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
     description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record to open it (Shift-click: in the sidebar). The rows are read-only: change the link on the record that holds the field.' },

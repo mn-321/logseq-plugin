@@ -333,6 +333,8 @@ const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting
    built on it. The core reads the setting; the parts that stay mark themselves `foundation: true`. */
 const settingsSchema = [
   { key: 'troubleshootHeading', type: 'heading', group: 'tools', rank: 4, title: 'Troubleshooting', default: null,
+    legend: 'Run only the foundation, to measure it alone',
+    zone: '<div><span class="m">Foundation only</span> · nothing drawn, measured alone</div>',
     description: 'For finding out what the plugin does and what it costs. The tools themselves are in the command palette under “Refinements: troubleshooting”.' },
   { key: 'foundationOnly', type: 'boolean', title: 'Foundation only', default: false,
     description: 'Runs only the plugin’s foundation: the part that watches Logseq and the part that knows what pages, blocks, tags and days are. Nothing is drawn and no shortcut works; the settings window and the troubleshooting tools stay. For measuring the foundation alone (turn measuring on in the troubleshooting tools). Applies after you reload the plugin.' },

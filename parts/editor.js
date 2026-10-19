@@ -542,6 +542,9 @@ function startEditor() {
 // The shortcuts (the commands below read them when the plugin starts). Declared here since 0.4.163; every part reads them through the core's setting().
 const settingsSchema = [
   { key: 'shortcutsHeading', type: 'heading', group: 'tools', rank: 3, title: 'Shortcuts and actions', default: null,
+    last: true,
+    legend: 'Keys for linking, tagging, deleting and new blocks',
+    zone: '<div><span class="cap">⌘⌥L</span> Link selected text to a page</div><div><span class="cap">⌘T</span> Add tags to this page</div><div><span class="cap">⌥↩</span> New block at the outermost level</div>',
     description: 'Every action is also in the command palette, under the names below. Changes to shortcuts apply after you reload the plugin. Leave a shortcut empty to remove it. Examples: mod+alt+l, mod+alt+p (mod is Cmd on Mac, Ctrl elsewhere).' },
   { key: 'linkShortcut', type: 'string', title: 'Link selected text to a page', default: 'mod+alt+l',
     description: 'Select words in a block, press this, then pick a page or block. The words become [words]([[page]]), a link that counts as a reference to the page, as [[page]] does.' },
