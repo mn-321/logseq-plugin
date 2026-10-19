@@ -349,13 +349,12 @@ function scheduleDbWork() {
 function runDbWork() {
   dbWork.since = 0;
   perf.add('database round (calls only)', 0);
-  // The page's cues and details are part of this round; a look-up still waiting from a page change is not needed too.
-  provided.cancelRefresh();
-  clearTimeout(provided.pageKind.timer);
+  // A job's look-up still waiting from a page change is not needed too: each job says what to cancel first.
+  for (const job of dbJobs) if (job.before) { try { job.before(); } catch (error) { warnOnce(`${job.name} could not cancel its earlier look-up`, error); } }
   const failed = error => warnOnce('a look-up after a change failed', error);
-  const run = jobs => { for (const job of jobs) { try { Promise.resolve(job()).catch(failed); } catch (error) { failed(error); } } };
+  const run = jobs => { for (const job of jobs) { try { Promise.resolve(job.fn()).catch(failed); } catch (error) { failed(error); } } };
   // About the page on screen: after every round.
-  const pageJobs = [dbJobs.refreshCues, dbJobs.loadPageKind, dbJobs.refreshInlineValues, dbJobs.loadHiddenProps, dbJobs.proposals].filter(Boolean);
+  const pageJobs = dbJobs.filter(job => job.scope === 'page');
   // Whole-graph lists: now if they are due; otherwise one full round when they fall due.
   const fullRound = () => {
     clearTimeout(dbWork.slowTimer);
@@ -363,7 +362,7 @@ function runDbWork() {
     dbWork.slowAt = Date.now();
     graphCache.clear();
     graphCache.changed = false;
-    run([dbJobs.loadPageLabelTitles, dbJobs.refreshJournalDates, dbJobs.loadPropertyNames, ...pageJobs]);
+    run([...dbJobs.filter(job => job.scope === 'graph'), ...pageJobs]);
   };
   const wait = dbWork.slowAt + GRAPH_WIDE_EVERY - Date.now();
   if (wait <= 0) return fullRound();
@@ -375,17 +374,20 @@ function runDbWork() {
    the query helpers) and a registry for the area parts (parts/editor.js, pages.js, … in step 7 of the
    cleanup): each part gives its functions and state to the core by name (core.provide, in its provide()
    step) and takes what it needs from core.provided in its start() step, after every part has provided,
-   so the order of the parts does not matter. Database look-ups register with core.onDbRound(name, fn);
-   runDbWork runs them in its own fixed order (one database round, GUIDE.md). */
+   so the order of the parts does not matter. Database look-ups register with
+   core.onDbRound(name, fn, { scope, before }): scope 'page' (the default) runs after every round, 'graph'
+   only when the whole-graph lists fall due; before() is run at the start of every round to cancel a
+   look-up of the job's own still waiting. runDbWork knows no job by name (one database round, GUIDE.md). */
 const provided = {}; // what the area parts give the core and each other, by name
-const dbJobs = {};   // database-round jobs by name (core.onDbRound)
+const dbJobs = [];   // database-round jobs, in the order the parts registered them (core.onDbRound)
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, tokensCss, watchDom, watchDomEarly, addsElements, ensureDomWatch,
     RELOAD_SETTINGS, CUE_SETTINGS, UUID, isEntityId, idsIn, uuidsIn, dsQuery, storedRef, titleOf, trailingTags, cleanTitle,
     CHECKED_WITH, PAGE_TITLE,
     onFoldAll: fn => provided.onFoldAll(fn),
-    provided, provide: things => Object.assign(provided, things), onDbRound: (name, fn) => { dbJobs[name] = fn; },
+    provided, provide: things => Object.assign(provided, things),
+    onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
   };
 }
 // The troubleshooting tools live in parts/diagnostics.js; the palette entries below call them by name.

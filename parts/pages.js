@@ -521,7 +521,7 @@ function startPageKind() {
 
 function provide(core) {
   core.provide({ startTitleChrome, startPageKind, schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
-  core.onDbRound('loadPageKind', loadPageKind);
+  core.onDbRound('loadPageKind', loadPageKind, { before: () => clearTimeout(pageKind.timer) });
 }
 function start() {
   const core = window.refinementCore;

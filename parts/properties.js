@@ -835,7 +835,7 @@ function provide(core) {
     propertyCrumbs, updatePropertyCrumbs, unmarkPropertyCrumb, escapeHtml });
   core.onDbRound('refreshInlineValues', refreshInlineValues);
   core.onDbRound('loadHiddenProps', loadHiddenProps);
-  core.onDbRound('loadPropertyNames', loadPropertyNames);
+  core.onDbRound('loadPropertyNames', loadPropertyNames, { scope: 'graph' });
 }
 /* A page property value that starts with a page's icon (0.4.130): a text value whose first thing is a link to a page
    with an icon of its own (Hospital: City of Hope). It is marked so the stylesheet can put the icon where the other
