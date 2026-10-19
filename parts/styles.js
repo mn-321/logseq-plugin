@@ -781,9 +781,30 @@ const settingsSchema = [
 function provide(core) {
   core.provide({ mainCss, cueCss, applyHierarchy, applyTagPageStyle, wash, blockLink, blockLinkPlain, viaLook, REFERENCE_AREAS, referenceAreas });
 }
+// What this part's stylesheet looks for on screen, for "Check what the plugin finds on this page" (0.4.172: here,
+// not in the troubleshooting part). [what, selector, what stops without it]
+const screenRows = [
+  ['block content', '.block-content', 'tags, file icons'],
+  ['bullets', '.bullet-container', 'PDF quote bullet'],
+  ['nesting lines', '.block-children', 'faint nesting lines'],
+  ['page links', 'a.page-ref', 'quiet links'],
+  ['link wrappers', '.page-reference', 'quiet links'],
+  ['tags', 'a.tag', 'tag background'],
+  ['date values', '.ls-datetime, .timestamp', 'date boxes'],
+  ['block properties', '.positioned-properties', 'plainer properties'],
+  ['property capsules', '.bottom-property-pill', 'plainer properties'],
+  ['parent paths', '.breadcrumb.block-parents', 'tidy parent paths'],
+  ['path parts', '.breadcrumb__label', 'faded brackets in paths'],
+  ['group headings', '.ls-foldable-header', 'date headings of grouped queries'],
+  ['embedded blocks', '.embed-block', 'line beside embedded content'],
+  ['left sidebar links', '#left-sidebar a.link-item .page-icon', 'icons only where they mean something'],
+  ['page properties list', '.ls-page-properties.ls-properties-area', 'grey field, one column of dots, Add property on hover'],
+  ['journal days', '#journals .journal-item', 'days as tall as what they hold'],
+];
 function start() {
   const core = window.refinementCore;
   provided = core.provided;
+  provided.addTroubleshooting?.({ checks: screenRows });
   core.onSettingsChange(function stylesSettingsChange() {
     applyHierarchy();
     sendStyle('personal-db-refinements', mainCss());

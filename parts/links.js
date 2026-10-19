@@ -1632,6 +1632,65 @@ const settingsSchema = [
   { key: 'pageLabels', type: 'boolean', title: 'Page links without trailing tags', default: true,
     description: 'A page link whose shown name ends in a tag (“Name #tag”) shows the page’s own title alone.' },
 ];
+/* Troubleshooting for the "via Diagnosis" labels: what the database says links to this page,
+   and how Logseq draws those records on screen. Nothing is changed. */
+async function checkLinkLabels() {
+  try {
+    const page = await logseq.Editor.getCurrentPage?.();
+    if (!page?.id) return notify('Open the page whose tabbed list you want to check', 'warning');
+    const lines = [await provided.versionLine(),
+      `page id=${page.id} uuid=${page.uuid}`];
+    const run = async (label, query) => {
+      try {
+        const rows = await logseq.DB.datascriptQuery(query);
+        lines.push(`${label}: ${Array.isArray(rows) ? rows.length + ' rows' : typeof rows}`);
+        for (const row of (rows || []).slice(0, 12)) lines.push('  ' + JSON.stringify(row).slice(0, 160));
+        return rows || [];
+      } catch (error) { lines.push(`${label}: ERROR ${error?.message || error}`); return []; }
+    };
+    const pointing = await run('A. anything pointing at this page', `[:find ?uuid ?attr
+      :where [(identity ${page.id}) ?page] [?b ?attr ?page] [?b :block/uuid ?uuid]]`);
+    await run('B. property entities (count)', `[:find (count ?p)
+      :where [?p :block/tags ?c] [?c :db/ident :logseq.class/Property]]`);
+    await run('C. label query without filter', `[:find ?uuid ?name ?attr
+      :where [(identity ${page.id}) ?page]
+      [?prop :block/tags ?class] [?class :db/ident :logseq.class/Property]
+      [?prop :db/ident ?attr] [?b ?attr ?page] [?prop :block/title ?name] [?b :block/uuid ?uuid]]`);
+    const found = await incomingPropertyLinks();
+    lines.push(`D. labels the plugin would show: ${found.size}`);
+    for (const [uuid, names] of found) lines.push(`  ${uuid} → via ${[...names].join(', ')}`);
+    const doc = host();
+    const uuids = new Set([...pointing.map(row => String(row[0])), ...found.keys()]);
+    lines.push('E. on screen:');
+    for (const uuid of [...uuids].slice(0, 8)) {
+      const hits = doc.querySelectorAll(`[blockid="${uuid}"], [data-uuid="${uuid}"], [data-ref="${uuid}"], [data-id="${uuid}"]`);
+      lines.push(`  ${uuid}: ${hits.length} element(s)`);
+      for (const el of [...hits].slice(0, 4)) {
+        const chain = [];
+        for (let node = el, i = 0; node && node !== doc.body && i < 6; node = node.parentElement, i++) {
+          const cls = typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+          chain.push(node.tagName.toLowerCase() + cls);
+        }
+        const inRefs = Boolean(el.closest(REFERENCE_AREAS));
+        lines.push(`    ${chain.join(' < ')}${inRefs ? '  [in linked references]' : ''}`);
+      }
+    }
+    provided.showReport(lines.join('\n'));
+  } catch (error) { console.error(error); notify(`Check stopped: ${error.message}`, 'error'); }
+}
+
+// What this part looks for on screen, for "Check what the plugin finds on this page" (0.4.172: here, not in the
+// troubleshooting part). [what, selector, what stops without it]
+const screenRows = () => [
+  ['blocks', '.ls-block[blockid]', 'cues, reference rows'],
+  ['block text', '.block-title-wrap', 'cues after a block, block-link dot, reference rows'],
+  ['block content', '.block-content', 'links inside references'],
+  ['block row', '.block-main-container .block-content-wrapper', '“Doctor:” and “via …” labels'],
+  ['page links', 'a.page-ref', 'dates, tag-page icons'],
+  ['page links with an id', 'a.page-ref[data-uuid]', 'block links, tag pages, journal dates'],
+  ['PDF highlight labels', '.prefix-link .hl-page', 'compact PDF citations'],
+  ['reference areas', REFERENCE_AREAS, 'reference headings, “Doctor:” labels, the wash on the link here'],
+];
 function provide(core) {
   core.provide({ scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
     isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
@@ -1663,6 +1722,8 @@ function start() {
     take(core, ['setting', 'dsQuery', 'storedRef', 'titleOf', 'trailingTags', 'UUID', 'isEntityId', 'idsIn', 'uuidsIn', 'graphWide', 'watchDom', 'watchDomEarly', 'addsElements', 'sendStyle', 'PAGE_TITLE', 'REFERENCE_AREAS', 'referenceAreas', 'wash', 'applyTagPageStyle', 'blockLink', 'blockLinkPlain', 'viaLook', 'escapeHtml']));
 }
 function ready() {
+  provided.addTroubleshooting?.({ checks: screenRows(),
+    tools: [{ key: 'check-link-labels', label: 'Check linked-record labels', run: () => checkLinkLabels() }] });
   startDateLinks();
   startPdfCitations();
   startNestedReferenceLinks();

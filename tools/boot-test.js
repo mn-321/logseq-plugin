@@ -139,6 +139,20 @@ async function main() {
   if (menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
   const keys = palette.map(c => c.key);
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
+  // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
+  const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
+  if (toolKeys.join() !== 'check-link-labels,check-what-is-found,copy-fold-log,copy-header-details,copy-perf-report,copy-styling-details,copy-warnings,toggle-perf')
+    problem('troubleshooting tools: ' + toolKeys.join(', '));
+  // Its screen report holds every running feature's rows, each thing once, with every feature that needs it.
+  await pluginWindow.refinementDiagnostics.checkWhatIsFound();
+  const report = doc.querySelector('textarea')?.value || '';
+  for (const row of ['the page area', 'reference areas', 'title row', 'fold state', 'nesting lines', 'right sidebar', 'toolbar'])
+    if (!report.includes(` · ${row} · `)) problem(`the screen report misses the row “${row}”`);
+  if (!/ · blocks · (?=.*cues)(?=.*fold all).*\n/.test(report)) problem('the screen report did not join the features needing blocks');
+  if (report.split('\n').filter(line => / · \D/.test(line) && /^ +\d+ · /.test(line) && !/data-refinement|\.refinement-/.test(line)).length !== 35) problem('the screen report should hold 35 rows of Logseq parts');
+  const backdrop = doc.querySelector('.refinement-prompt-backdrop');
+  backdrop?.dispatchEvent(Object.assign(new host.window.MouseEvent('mousedown', { bubbles: true })));
+  await sleep(50);
 
   // 2. The screen changes, the hooks fire, time passes for the database round and the self-check.
   const block = doc.createElement('div');
@@ -194,6 +208,8 @@ async function main() {
   if (drawn.length) problem('drawn with Foundation only on: ' + [...new Set(drawn)].join(', '));
   const keys4 = logseq4.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0].key).sort();
   if (keys4.join() !== 'show-settings,troubleshooting') problem('palette commands with Foundation only on: ' + keys4.join(', '));
+  const tools4 = logseq4.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
+  if (tools4.join() !== 'check-what-is-found,copy-perf-report,copy-styling-details,copy-warnings,toggle-perf') problem('troubleshooting tools with Foundation only on: ' + tools4.join(', '));
   if (!logseq4.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinements-dialog')) problem('the dialogs’ look was not sent with Foundation only on');
   console.log(`foundation only: ${keys4.length} palette commands (${keys4.join(', ')}), nothing drawn`);
   await logseq4._unload();

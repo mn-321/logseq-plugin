@@ -529,6 +529,38 @@ const settingsSchema = [
   { key: 'dayCues', type: 'boolean', title: 'A day says what it holds', default: true,
     description: 'On the Journals list, after each day’s title, in small quiet words: a small circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”), the way a folded block says what it holds. A day with nothing open has a shorter cue; nothing steps back. A journal opened on its own shows none. Applies right away.' },
 ];
+// Troubleshooting: how Logseq builds the page title area, so the always-shown rule can be aimed.
+async function copyHeaderDiagnostics() {
+  try {
+    const doc = host();
+    const titles = [...pageTitles(doc)];
+    if (!titles.length) return notify('Open a page first', 'warning');
+    const lines = [await provided.versionLine(), `page titles found: ${titles.length}`];
+    const header = pageHeaderOf(titles[0]);
+    lines.push(`header parent chain: ${[header.parentElement, header.parentElement?.parentElement].filter(Boolean).map(el => el.tagName.toLowerCase() + (el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '')).join(' < ')}`);
+    const win = doc.defaultView;
+    for (const el of [header, ...header.querySelectorAll('*')].slice(0, 150)) {
+      let depth = 0;
+      for (let node = el; node && node !== header; node = node.parentElement) depth++;
+      const cs = win.getComputedStyle(el);
+      const cls = el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\s+/).join('.') : '';
+      const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue.trim()).filter(Boolean).join(' ').slice(0, 24);
+      const shown = el.hasAttribute('data-refinement-always-shown') ? ' [always shown]' : '';
+      lines.push(`${'  '.repeat(depth)}<${el.tagName.toLowerCase()}${cls}> opacity=${cs.opacity} vis=${cs.visibility} display=${cs.display}${shown}${own ? ` "${own}"` : ''}`);
+    }
+    provided.showReport(lines.join('\n'));
+  } catch (error) { console.error(error); notify(`Could not read the page title area: ${error.message}`, 'error'); }
+}
+
+// What this part looks for on screen, for "Check what the plugin finds on this page". [what, selector, what stops]
+const screenRows = () => [
+  ['page title', PAGE_TITLE, 'title tags, #Page, alias and inherited lines'],
+  ['title row', '.is-page-title-row', 'title tags, title triangle'],
+  ['title actions', '.ls-page-title-actions > div', 'always-visible actions, #Page, Add tags'],
+  ['title tags', '.is-page-title-row .ls-block-right .block-tags', 'tags beside the title actions'],
+  ['page properties', '.ls-page-properties', 'inherited line'],
+  ['fold arrows', 'a.block-control', 'always-visible title triangle'],
+];
 function provide(core) {
   core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
   core.onDbRound('loadPageKind', loadPageKind, { before: () => clearTimeout(pageKind.timer) });
@@ -544,6 +576,8 @@ function start() {
     take(core, ['setting', 'dsQuery', 'UUID', 'isEntityId', 'idsIn', 'watchDom', 'watchDomEarly', 'PAGE_TITLE', 'escapeHtml', 'attribute', 'isJournalDate', 'updateOwnTags']));
 }
 function ready() {
+  provided.addTroubleshooting?.({ checks: screenRows(),
+    tools: [{ key: 'copy-header-details', label: 'Copy page title area details', run: () => copyHeaderDiagnostics() }] });
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();
 }
