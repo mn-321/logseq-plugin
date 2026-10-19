@@ -89,11 +89,11 @@ function startTitleChrome() {
 /* Page type: a small muted word under the title of tag pages ("Tag") and property pages
    ("Property"). Ordinary and journal pages get nothing. The word is drawn by CSS from an
    attribute on the title, so nothing is inserted into Logseq's own page structure. */
-const pageKind = { timer: 0, aliasOf: [], aliasLine: null, tagPath: null, pathLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
+const pageKind = { shape: null, shapeBox: null, isProperty: false, timer: 0, aliasOf: [], aliasLine: null, tagPath: null, pathLine: null, inheritedBy: new Map(), inheritedAsked: new Set(), inheritLine: null, pageUuid: '', plain: false, isTag: false, titleTags: null, tagged: new Set(), offsets: new WeakMap() };
 async function loadPageKind() {
   // Lookups can overlap (a page change, then an edit); only the newest one's answer is used.
   const version = pageKind.version = (pageKind.version || 0) + 1;
-  let isTag = false, pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '', tagPath = null;
+  let isTag = false, isProperty = false, pageId = 0, aliasOf = [], inherited = [], plain = false, pageUuid = '', tagPath = null, shape = null;
   try {
     const page = await logseq.Editor.getCurrentPage?.();
     pageId = page?.id;
@@ -103,6 +103,7 @@ async function loadPageKind() {
         :where [(identity ${pageId}) ?p] [?p :block/tags ?c] [?c :db/ident ?ident]]`);
       const idents = new Set((rows || []).map(row => String(row[0]).replace(/^:/, '')));
       isTag = idents.has('logseq.class/Tag');
+      isProperty = idents.has('logseq.class/Property');
       plain = idents.size === 1 && idents.has('logseq.class/Page'); // an ordinary page with no tag of its own
       // Logseq records an alias only on the original page; look it up from the alias's side.
       const originals = await logseq.DB.datascriptQuery(`[:find ?uuid ?title
@@ -110,6 +111,9 @@ async function loadPageKind() {
       aliasOf = (originals || []).filter(row => UUID.test(String(row[0]))).map(row => [String(row[0]), String(row[1])])
         .sort((a, b) => a[1].localeCompare(b[1]));
       if (isTag) { inherited = await inheritedTagProperties(pageId); tagPath = await tagPathOf(pageId); }
+      if (isTag || isProperty) {
+        try { shape = isTag ? await tagShape(pageId) : await propertyShape(pageId); } catch (error) { warnOnce('could not read what the page holds', error); }
+      }
     }
   } catch (error) { warnOnce('could not tell the page type', error); }
   if (version !== pageKind.version) return;
@@ -118,6 +122,8 @@ async function loadPageKind() {
   if (pageUuid) pageKind.inheritedBy.set(pageUuid, inherited);
   pageKind.plain = plain;
   pageKind.isTag = isTag;
+  pageKind.isProperty = isProperty;
+  pageKind.shape = shape;
   pageKind.pageUuid = pageUuid;
   try { updatePageKind(host()); updateOwnTags(host()); } catch (error) { /* shown on the next change */ }
 }
@@ -135,6 +141,7 @@ function updatePageKind(doc) {
   updateAliasLine(doc, setting('showAliasOf') && known ? titles[0] : null);
   updateTagPathLine(doc, setting('showTagPath') && known && pageKind.isTag ? titles[0] : null);
   updateInheritedLine(doc, setting('showInherited') && titles.length === 1 ? titles[0] : null);
+  updateShapeBox(doc, setting('showShape') && known ? titles[0] : null);
 }
 // Opens Logseq's own "Set Tags" list for the page, the way you would by hand: press "Set property"
 // in the title's action row, then pick Tags in the menu that opens. The Tags entry is found by its
@@ -352,6 +359,113 @@ function updateTagPathLine(doc, title) {
   const after = pageKind.aliasLine?.isConnected && pageKind.aliasLine.ownerDocument === doc ? pageKind.aliasLine : titleAnchor(doc, title);
   if (after.nextElementSibling !== line) after.after(line);
 }
+// What a tag or property holds, in a small box under the title (showShape). A tag page shows the
+// record it defines: each field with what it takes, the inherited ones faint. A property page shows
+// what it takes and its most used values with bars. Both say so when the shape looks off for the
+// model: a child tag that adds no field of its own, free text that only ever holds a few words.
+const SHAPE_VALUES = 5;
+function takesWords(prop) {
+  const tags = list => list.map(c => `<span class="rf-cls">${escapeHtml(c.title)}</span>`).join(', ');
+  const many = prop.many ? ' · many' : '';
+  switch (prop.type) {
+    case 'node': return `→ ${prop.classes.length ? tags(prop.classes) : 'any page'}${many}`;
+    case 'default': {
+      if (!prop.choices.length) return `text${many}`;
+      const first = prop.choices.slice(0, 3).map(c => escapeHtml(c.title)).join(', ');
+      return `${prop.many ? 'any of' : 'one of'} ${first}${prop.choices.length > 3 ? ' …' : ''}`;
+    }
+    case 'date': return `date${many}`;
+    case 'datetime': return `date and time${many}`;
+    case 'number': return `number${many}`;
+    case 'checkbox': return 'yes or no';
+    case 'url': return `web link${many}`;
+    default: return escapeHtml(prop.type) + many;
+  }
+}
+async function tagShape(tagId) {
+  const schema = await provided.propSchema?.();
+  if (!schema) return null;
+  const fields = [], seen = new Set(), visited = new Set();
+  // Own fields first, then each parent's, nearest first.
+  const queue = [[tagId, null]];
+  while (queue.length) {
+    const [c, from] = queue.shift();
+    if (visited.has(c)) continue;
+    visited.add(c);
+    for (const id of schema.classProps.get(c) || []) {
+      const prop = schema.byId.get(id);
+      if (prop && !seen.has(prop.id)) { seen.add(prop.id); fields.push({ prop, from }); }
+    }
+    for (const parent of schema.parentsOf.get(c) || []) queue.push([parent, parent]);
+  }
+  const fromIds = [...new Set(fields.map(f => f.from).filter(Boolean))];
+  const names = new Map(fromIds.length ? (await dsQuery(`[:find ?t ?title :where ${idsIn('?t', fromIds)} [?t :block/title ?title]]`)).map(([t, title]) => [t, String(title)]) : []);
+  const [[count] = [0]] = await dsQuery(`[:find (count ?b) :where [?b :block/tags ${tagId}]]`);
+  const [[name] = ['']] = await dsQuery(`[:find ?title :where [(identity ${tagId}) ?t] [?t :block/title ?title]]`);
+  const ownParents = (schema.parentsOf.get(tagId) || []).length > 0;
+  return { kind: 'tag', name: String(name), count: Number(count) || 0, adds: fields.some(f => !f.from), hasParent: ownParents,
+    fields: fields.map(({ prop, from }) => ({ uuid: prop.uuid, title: prop.title, takes: takesWords(prop), from: from ? names.get(from) || '' : '' })) };
+}
+async function propertyShape(pageId) {
+  const schema = await provided.propSchema?.();
+  const prop = schema?.byId.get(pageId);
+  if (!prop || !/^[\w.-]+\/[\w.-]+$/.test(prop.ident)) return null;
+  // Every block and value pair, counted here: one plain query, no aggregates.
+  const pairs = await dsQuery(`[:find ?b ?v :in $ :where [?b :${prop.ident} ?v]]`);
+  const tally = new Map(), holders = new Set();
+  for (const [b, v] of pairs) { holders.add(b); tally.set(v, (tally.get(v) || 0) + 1); }
+  const blocks = holders.size, rows = [...tally].sort((a, b) => b[1] - a[1]);
+  const top = rows.slice(0, SHAPE_VALUES), ids = top.map(([v]) => v).filter(v => typeof v === 'number');
+  const byId = new Map();
+  if (ids.length) {
+    for (const [e] of await dsQuery(`[:find (pull ?e [:db/id :block/uuid :block/title :block/name :logseq.property/value]) :in $ :where ${idsIn('?e', ids)}]`)) {
+      const id = e?.['db/id'] ?? e?.[':db/id'] ?? e?.id;
+      const title = e?.['block/title'] ?? e?.[':block/title'] ?? e?.title ?? e?.['logseq.property/value'] ?? e?.[':logseq.property/value'] ?? e?.value;
+      const isPage = Boolean(e?.['block/name'] ?? e?.[':block/name'] ?? e?.name);
+      byId.set(id, { title: String(title ?? ''), uuid: isPage ? String(e?.['block/uuid'] ?? e?.[':block/uuid'] ?? e?.uuid ?? '') : '' });
+    }
+  }
+  const values = top.map(([v, n]) => {
+    const known = byId.get(v);
+    const title = known ? known.title : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v);
+    return { title: title || '(empty)', uuid: known?.uuid || '', count: Number(n) || 0 };
+  });
+  const rest = rows.slice(SHAPE_VALUES).reduce((sum, [, n]) => sum + (Number(n) || 0), 0);
+  const freeText = prop.type === 'default' && !prop.choices.length;
+  return { kind: 'property', takes: takesWords(prop), blocks: Number(blocks) || 0, distinct: rows.length, values, more: rows.length - top.length, rest, freeText };
+}
+function updateShapeBox(doc, title) {
+  const shape = title && (pageKind.isTag || pageKind.isProperty) ? pageKind.shape : null;
+  let box = pageKind.shapeBox;
+  if (!shape) { box?.remove(); return; }
+  if (!box || box.ownerDocument !== doc) {
+    box = pageKind.shapeBox = doc.createElement('div');
+    box.className = 'refinement-shape';
+    box.addEventListener('click', openTitleNoteLink);
+  }
+  const link = (uuid, text) => uuid && UUID.test(uuid) ? `<a data-uuid="${escapeHtml(uuid)}" href="#" title="Open ${text}">${text}</a>` : text;
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  let html;
+  if (shape.kind === 'tag') {
+    const rows = shape.fields.map(f => `<div class="rf-shape-row${f.from ? ' rf-from' : ''}"><span class="rf-shape-name">${link(f.uuid, escapeHtml(f.title))}</span><span class="rf-shape-takes">${f.takes}${f.from ? ` · from <span class="rf-cls">${escapeHtml(f.from)}</span>` : ''}</span></div>`).join('');
+    const hint = shape.hasParent && !shape.adds ? `<div class="rf-shape-hint">Adds no field of its own to what it inherits.</div>` : '';
+    html = `<div class="rf-shape-hd"><span>${shape.fields.length ? `Each <span class="rf-cls">${escapeHtml(shape.name)}</span> record has` : 'No fields yet'}</span><span>${shape.count} tagged</span></div>`
+      + (rows ? `<div class="rf-shape-bd">${rows}</div>` : '') + hint;
+  } else {
+    const max = Math.max(1, ...shape.values.map(v => v.count));
+    const rows = shape.values.map(v => `<div class="rf-shape-row"><span class="rf-shape-name">${link(v.uuid, escapeHtml(v.title))}</span><span class="rf-bar"><i style="width:${Math.round(v.count / max * 100)}%"></i></span><span class="rf-n">${v.count}</span></div>`).join('')
+      + (shape.more ? `<div class="rf-shape-row rf-from"><span class="rf-shape-name">${plural(shape.more, 'other', 'others')}</span><span></span><span class="rf-n">${shape.rest}</span></div>` : '');
+    const few = shape.freeText && shape.blocks >= 8 && shape.distinct <= 5;
+    const hint = few ? `<div class="rf-shape-hint">Only ${plural(shape.distinct, 'different value', 'different values')}: a choice list may fit.</div>` : '';
+    html = `<div class="rf-shape-hd"><span>${shape.takes}</span><span>${plural(shape.blocks, 'block', 'blocks')}${shape.freeText && shape.blocks ? ` · ${shape.distinct} different` : ''}</span></div>`
+      + (rows ? `<div class="rf-shape-bd rf-values">${rows}</div>` : '') + hint;
+  }
+  if (box.dataset.key !== html) { box.dataset.key = html; box.innerHTML = html; }
+  // After the lines under the title (Alias of, the tag's path), else right under the title row.
+  const lines = [pageKind.pathLine, pageKind.aliasLine].find(l => l?.isConnected && l.ownerDocument === doc);
+  const after = lines || titleAnchor(doc, title);
+  if (after.nextElementSibling !== box) after.after(box);
+}
 // "Alias of <page>" under the title of a page that another page lists as its alias.
 function updateAliasLine(doc, title) {
   const originals = title ? pageKind.aliasOf : [];
@@ -400,7 +514,25 @@ function startPageKind() {
 .refinement-usage a:hover { opacity: 1; }
 .refinement-usage .rf-gap { display: inline-block; width: 1em; }
 .ls-page-properties .refinement-inherited { margin: .25rem 0 0 1.25rem; }
-:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) a:hover { color: var(--ls-primary-text-color, currentColor); }` });
+:is(.refinement-alias-of, .refinement-inherited, .refinement-tag-path, .refinement-usage) a:hover { color: var(--ls-primary-text-color, currentColor); }
+/* What a tag or property holds: a small box on the faint property field, names and what they take in two columns. */
+.refinement-shape { max-width: 34rem; margin: .5rem 0 .75rem; font-size: var(--rf-small); line-height: 1.45; border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-hair-pct), transparent); border-radius: var(--rf-popup-radius); overflow: hidden; }
+.refinement-shape .rf-shape-hd { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem .65rem; background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct), transparent); color: var(--ls-primary-text-color, currentColor); }
+.refinement-shape .rf-shape-hd > span { opacity: var(--rf-quiet); }
+.refinement-shape .rf-shape-hd > span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.refinement-shape .rf-shape-bd { display: grid; grid-template-columns: max-content 1fr; gap: .1rem 1.1rem; padding: .4rem .65rem; border-top: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-hair-pct), transparent); }
+.refinement-shape .rf-shape-bd.rf-values { grid-template-columns: max-content minmax(4rem, 1fr) max-content; align-items: center; }
+.refinement-shape .rf-shape-row { display: contents; }
+.refinement-shape .rf-shape-name { color: var(--ls-primary-text-color, currentColor); }
+.refinement-shape .rf-shape-takes { color: var(--ls-primary-text-color, currentColor); opacity: var(--rf-quiet); }
+.refinement-shape .rf-from > * { opacity: var(--rf-faint); }
+.refinement-shape .rf-cls { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.refinement-shape a { color: inherit; text-decoration: none; cursor: pointer; }
+.refinement-shape a:hover { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor var(--rf-line-pct), transparent); }
+.refinement-shape .rf-bar { height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent); position: relative; }
+.refinement-shape .rf-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--ls-primary-text-color, currentColor); opacity: .3; }
+.refinement-shape .rf-n { font-variant-numeric: tabular-nums; opacity: var(--rf-quiet); text-align: right; }
+.refinement-shape .rf-shape-hint { padding: .3rem .65rem; border-top: 1px dashed color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-hair-pct), transparent); opacity: var(--rf-quiet); }` });
     for (const stray of host().querySelectorAll('.refinement-inherited')) stray.remove(); // left by an earlier load
     watchDom(updatePageKind);
     // The later pass can land a frame after Logseq draws a title (measured: about one pass in four
@@ -434,6 +566,7 @@ function startPageKind() {
       pageKind.aliasLine?.remove();
       pageKind.pathLine?.remove();
       pageKind.inheritLine?.remove();
+      pageKind.shapeBox?.remove();
       pageKind.titleTags?.remove();
       for (const el of pageKind.tagged) el.style.transform = '';
       pageKind.tagged.clear();

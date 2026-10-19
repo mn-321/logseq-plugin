@@ -244,6 +244,8 @@ const settingsSchema = [
     description: 'Under the title of a tag that extends another tag, shows a small muted line such as “Inherited from #Media: keywords, rating, website”, one line per parent tag. Click a name to open it. Applies right away.' },
   { key: 'showTagPath', type: 'boolean', title: 'Show where a tag sits', default: true,
     description: 'Under a tag page’s title, the tags it extends, from the top down (“#Entity › #Person › #Doctor”), and any other tag it also sits under; each name opens that tag. Applies right away.' },
+  { key: 'showShape', type: 'boolean', title: 'Show what a tag or property holds', default: true,
+    description: 'Under a tag page’s title, a small box with the record the tag defines: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
   { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
     description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
   { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,

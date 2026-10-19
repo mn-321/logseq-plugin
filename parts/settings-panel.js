@@ -181,6 +181,7 @@ const PREVIEWS = {
   showAliasOf: on => `<div class="t">JS</div>${on ? '<div class="m">Alias of <u>JavaScript</u></div>' : ''}`,
   markReferenceHere: on => `<div class="m">Linked references</div><div>${B}Call with <span class="${on ? 'here' : 'ql'}">Mateo</span> about it</div>`,
   showInherited: on => `<div class="t"># Book</div>${on ? '<div class="m">Inherited from <span class="tg">#Media</span>: rating</div>' : ''}`,
+  showShape: on => `<div class="t"># Doctor</div>${on ? '<div class="m">specialty&nbsp; one of Cardiology …</div><div class="m">facility&nbsp; → Organization</div>' : ''}`,
   quietEmptyBullets: on => `<div>${B}Milk</div><div>${on ? '<i class="b" style="visibility:hidden"></i>' : B}&nbsp;</div><div>${B}Call Mateo</div>`,
   indentGuides: on => `<div>${B}Plan</div><div class="nest ${on ? 'faint' : 'firm'}"><div>${B}Draft</div><div>${B}Review</div></div>`,
   ownTagHidden: on => `<div class="t"># Task</div><div class="row"><span>${B}Renew certificate</span>${on ? '' : '<span class="tg">#Task</span>'}</div><div class="row"><span>${B}Send invites</span>${on ? '' : '<span class="tg">#Task</span>'}</div>`,
