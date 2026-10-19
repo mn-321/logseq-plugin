@@ -17,6 +17,7 @@
                                                                     for the session; read again when the graph changes)
    - parseDay(text, today), dayNumber(d), sameDay(a, b), dayAfter(d, n), DAYS   a day typed in words, and days as numbers
    - journalIdFor(day, title), journalTitleFor(y, m, d), formatJournalTitle(date, format)   journal pages and their titles
+   - pageTitles(doc), titleAnchor(doc, title)                      the page titles drawn in the page area, and the row a title sits in
    - CHECKED_WITH, PAGE_TITLE, screenChecks()                       the Logseq version the plugin was checked with, the
                                                                     title selector, and what a drawn page must hold
    - bare(value), pick(node, name), idOf(value)                     readers of a pulled map (keys come back shortened) */
@@ -30,6 +31,23 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 // plugin draws depends on names Logseq uses inside its own pages, which can change in any release.
 const CHECKED_WITH = '2.0.2';
 const PAGE_TITLE = '.ls-page-title, .page-title, h1.title';
+// Every page title drawn in the page area (moved from parts/pages.js in 0.4.177).
+function pageTitles(doc) {
+  return doc.querySelectorAll(`#main-content-container :is(${PAGE_TITLE})`);
+}
+// Small lines under a page title go below the row the title sits in (beside its icon or buttons),
+// not squeezed in next to it.
+function titleAnchor(doc, title) {
+  let anchor = title;
+  const win = doc.defaultView;
+  while (anchor.parentElement && anchor.parentElement.id !== 'main-content-container') {
+    const cs = win.getComputedStyle(anchor.parentElement);
+    if (!cs.display.includes('flex') || cs.flexDirection.startsWith('column')) break;
+    anchor = anchor.parentElement;
+  }
+  return anchor;
+}
+
 /* What a drawn page must hold, for the core's self-check after a Logseq update: when the page plainly has a
    thing (blocks, a title, references) but the part the plugin finds inside it is missing, Logseq has most
    likely renamed that part, and the features listed beside it have quietly stopped.
@@ -234,7 +252,7 @@ async function kindOfPage(pageId) {
 function provide(core) {
   core.provide({ titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
-    journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks });
+    journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));

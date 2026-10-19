@@ -5,7 +5,7 @@
    the page kind ("#Page" on an untagged page, the tags beside the actions, the "Alias of …" line and
    the "Inherited from #Tag: …" line on a tag page) and the tag picker they open.
    It provides startTitleChrome, startPageKind, schedulePageKind, updatePageKind, loadPageKind, pageKind,
-   pageTitles, pageHeaderOf and openTagPicker to the core and the other parts; it takes isJournalDate,
+   pageHeaderOf and openTagPicker to the core and the other parts; it takes isJournalDate,
    updateOwnTags and attribute from the links area (still in main.js until that area moves). */
 const shared = window.refinementShared;
 const { host, notify } = shared;
@@ -15,7 +15,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
     reset: doc => { for (const el of doc.querySelectorAll('.is-page-title-row .ls-block-right .block-tags')) el.style.transform = ''; } } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, UUID, isEntityId, idsIn, watchDom, watchDomEarly, PAGE_TITLE, escapeHtml, attribute;
-let provided, isJournalDate, updateOwnTags;
+let provided, isJournalDate, updateOwnTags, pageTitles, titleAnchor;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -46,9 +46,7 @@ function touchesTitle(records) {
   }
   return false;
 }
-function pageTitles(doc) {
-  return doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title, h1.title)');
-}
+// pageTitles and titleAnchor are the model's (0.4.177): two-way links need them while this part rests.
 function updateTitleChrome(doc) {
   const win = doc.defaultView;
   for (const el of titleChrome.marked) if (!el.isConnected) titleChrome.marked.delete(el);
@@ -231,18 +229,6 @@ function updateTitleTags(doc, title) {
     });
   }
   if (chip.parentElement !== actions) actions.appendChild(chip);
-}
-// Small lines under a page title go below the row the title sits in (beside its icon or buttons),
-// not squeezed in next to it.
-function titleAnchor(doc, title) {
-  let anchor = title;
-  const win = doc.defaultView;
-  while (anchor.parentElement && anchor.parentElement.id !== 'main-content-container') {
-    const cs = win.getComputedStyle(anchor.parentElement);
-    if (!cs.display.includes('flex') || cs.flexDirection.startsWith('column')) break;
-    anchor = anchor.parentElement;
-  }
-  return anchor;
 }
 function openTitleNoteLink(event) {
   const link = event.target.closest('a[data-uuid]');
@@ -571,7 +557,8 @@ const screenRows = () => [
   ['fold arrows', 'a.block-control', 'always-visible title triangle'],
 ];
 function provide(core) {
-  core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
+  ({ pageTitles, titleAnchor } = core.provided);
+  core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageHeaderOf, openTagPicker });
   core.onDbRound('loadPageKind', loadPageKind, { before: () => clearTimeout(pageKind.timer) });
 }
 function start() {
