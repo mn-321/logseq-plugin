@@ -1808,13 +1808,13 @@ const searchExtrasCss = `
 `;
 
 const settingsSchema = [
-  { key: 'searchSidebarHeading', type: 'heading', title: 'Search in the right sidebar', default: null,
+  { key: 'searchSidebarHeading', type: 'heading', group: 'around', rank: 3, title: 'Search in the right sidebar', default: null,
     description: 'Also in the command palette: search for “Search in right sidebar”. Changes here apply after you reload the plugin.' },
   { key: 'searchShortcut', type: 'string', title: 'Search in the right sidebar', default: 'mod+alt+f',
     description: 'Opens Logseq search in the right sidebar, where it stays while you open results. Shift-click a result to open it in the sidebar too.' },
   { key: 'sidebarSearchButton', type: 'boolean', title: 'Search button in the right sidebar', default: true,
     description: 'A Search button at the start of the right sidebar’s top row, next to Contents and Help.' },
-  { key: 'searchHeading', type: 'heading', title: 'Search', default: null,
+  { key: 'searchHeading', type: 'heading', group: 'around', rank: 2, title: 'Search', default: null,
     description: 'Changes here apply after you reload the plugin.' },
   { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
     description: 'Compact result rows, quieter group headings, a soft grey wash on matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
@@ -1832,8 +1832,6 @@ const settingsSchema = [
     description: 'Type codes in the search box to narrow what is found: #tag, in:page, p:name or p:name=value (for a property; property: works too), is:task, todo, done, page, journal or block, and edited:today, week, month or a count of days such as 3d. A list under the box suggests names as you type; Tab or Enter takes one. Names with spaces go in [[ ]]. With a code, every other word must be in the text. A bar along the bottom of the search window names the codes (click one to add it); type ? or click “? More tips” for a short guide. Shift+Enter or Shift-click opens a result in the right sidebar.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-// Settings that only take effect when the plugin starts: all of them.
-const RELOAD_SETTINGS = settingsSchema.filter(item => item.type !== 'heading').map(item => item.key);
 
 function main() {
   // The plugin's one beforeunload callback (in main.js) runs this part's clean-up.
@@ -1850,11 +1848,6 @@ function main() {
   // Registered early: Logseq draws the piece that hosts its editor the next time it redraws the app.
   if (setting('searchPreviewEditor')) registerPreviewHost();
   if (setting('sidebarSearchButton')) startSidebarSearchButton();
-  onUnload(logseq.onSettingsChanged((now, before) => {
-    // Logseq rewrites every setting when the plugin starts, so a setting with no earlier value is a
-    // default being filled in, not a change.
-    if (RELOAD_SETTINGS.some(key => before && key in before && now?.[key] !== before[key])) notify('Reload the Refinements plugin to apply this change', 'info');
-  }));
   const binding = setting('searchShortcut').trim().toLowerCase();
   logseq.App.registerCommandPalette({ key: 'search-in-sidebar', label: 'Search in right sidebar', ...(binding ? { keybinding: { binding } } : {}) }, searchInSidebar);
 }

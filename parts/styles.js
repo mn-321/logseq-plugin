@@ -755,6 +755,37 @@ function applyHierarchy() {
 }
 
 
+// The visual hierarchy: the look of rows, properties, dates and tags (read by this part, the properties part and the links part). Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'hierarchyHeading', type: 'heading', group: 'reading', rank: 2, title: 'Visual hierarchy', default: null,
+    description: 'Quiet cues for the shape of the outline. Changes here apply right away.' },
+  { key: 'indentGuides', type: 'boolean', title: 'Faint nesting lines', default: true,
+    description: 'Makes the lines beside nested blocks fainter, and the line beside the branch you point at or type in a little stronger.' },
+  { key: 'plainProperties', type: 'boolean', title: 'Plainer properties', default: true,
+    description: 'The page’s own properties under its title sit on the same light grey field as a property list under a block, with one dot per property (the value’s own bullet is gone) and “Add property” shown only while you point at them. Shows a block’s properties as “name: value” text, separated by dots, instead of outlined capsules; when a row is too long to fit, a small triangle at its start opens it. Property names are grey so the values stand out. A property list under a block sits on a very light grey field, and the tag tabs below a page’s properties start with #.' },
+  { key: 'quietEmptyProps', type: 'boolean', title: 'Empty properties faint', default: true,
+    description: 'A property with no value yet (Logseq shows it as a dashed line) is drawn faint under a block and in a block’s property list, so a record’s filled values stand out. Nothing is hidden and nothing moves. The page’s own list under its title is not touched. Applies right away.' },
+  { key: 'emptySlotsInRow', type: 'boolean', title: 'Empty slots read as the row', default: true,
+    description: 'An empty slot Logseq lists under a block (after its own “Show hidden properties”, or a property added with nothing in it) reads like the row of filled properties: “Scheduled: ···”, faint, with no type icon, no bullet and no grey field. The page’s own list under its title is not touched. Applies right away.' },
+  { key: 'hiddenPropsChevron', type: 'boolean', title: 'Hidden properties arrow on every block', default: true,
+    description: 'While you point at a block, a small arrow right after the block’s own text opens the properties it hides, like the fold arrow beside a block: right while folded, down while open (Logseq shows its “Show hidden properties” button only on a block you have zoomed into). Logseq’s own button becomes the same arrow. Hidden means a value Logseq hides: an empty slot, such as a task’s unset Scheduled, gets no arrow.' },
+  { key: 'quietEmptyBullets', type: 'boolean', title: 'Hide the dot on empty blocks', default: true,
+    description: 'A block with no text, nothing nested under it, no tags, properties or pictures shows no dot, so empty blocks work as space between groups. Pointing at the block shows the dot faintly, and it is back in full while you type in the block.' },
+  { key: 'childTypeCues', type: 'boolean', title: 'Show what a block holds', default: true,
+    description: 'On a folded block only, after its text: ↳, a small circle with the number of unfinished tasks hidden below it, small image or PDF icons when its children are files, what kinds of record are inside (“3 #Decision”) and the nearest due day (“due Fri”). An open block shows nothing: its children are on screen. Point at the cue for details.' },
+  { key: 'embedLine', type: 'boolean', title: 'Line beside embedded content', default: true,
+    description: 'A faint line at the left of embedded blocks and pages, so you can tell they come from somewhere else.' },
+  { key: 'dateStyle', type: 'boolean', title: 'Dates in a soft grey box', default: true,
+    description: 'Dates in your notes, a record’s own dates in the pill row under it, and date headings of queries grouped by date, get a quiet grey box so they stand out from other links. Tables and the capsules at the side of a block keep plain dates.' },
+  { key: 'dateTense', type: 'boolean', title: 'Dates carry their tense', default: true,
+    description: 'A date in the past is quieter, today is a little firmer, a date to come stays as it is; an overdue Scheduled or Deadline keeps Logseq’s yellow. Applies right away.' },
+  { key: 'plainPageIcons', type: 'boolean', title: 'Simpler page icons', default: true,
+    description: 'Replaces Logseq’s generic page icon with a plain outline in titles and sidebars. Custom page icons are never changed.' },
+  { key: 'tintTags', type: 'boolean', title: 'Soft background behind tags', default: false,
+    description: 'Puts a faint violet chip behind tags, both in the text and at the end of a block.' },
+  { key: 'tagMark', type: 'boolean', title: 'Tags as grey class names', default: true,
+    description: 'A tag acts like a class, so the tag at the right of a block, the tag label above a title and the tag tabs are drawn as grey monospace names without the #. A tag word left in a sentence keeps its # in the tag colour, and so does the # before a tag page’s own title. Applies right away.' },
+];
 function provide(core) {
   core.provide({ mainCss, cueCss, applyHierarchy, applyTagPageStyle, wash, blockLink, blockLinkPlain, viaLook, REFERENCE_AREAS, referenceAreas });
 }
@@ -775,5 +806,5 @@ function ready() {
   applyHierarchy();
   logseq.provideStyle({ key: 'personal-db-context-cues', style: cueCss });
 }
-(window.refinementParts ||= []).push({ name: 'styles', schema: [], provide, start, ready, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'styles', schema: settingsSchema, provide, start, ready, stop: runUnloadTasks });
 })();

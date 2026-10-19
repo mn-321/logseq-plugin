@@ -519,6 +519,29 @@ function startPageKind() {
   } catch (error) { warnOnce('page type label is unavailable', error); }
 }
 
+// What is drawn around a page's title and the Journals list. Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'pageHeading', type: 'heading', group: 'reading', rank: 1, title: 'Pages', default: null,
+    description: 'Changes here apply right away unless a setting says otherwise.' },
+  { key: 'showTitleChrome', type: 'boolean', title: 'Always show page title actions and tags', default: true,
+    description: 'Keeps buttons like “Add tag property” and the page’s tags visible next to the title, muted until you point at them. Turn off to show them only on hover, as Logseq does. Applies after you reload the plugin.' },
+  { key: 'showPageKind', type: 'boolean', title: 'Show what a page is above its title', default: true,
+    description: 'Moves the page’s tags from the far right edge to the row of actions just above the title (they stay Logseq’s own, so their # still opens the tag menu), and shows #Page there on a page with no tag of its own. Needs “Always show page title actions and tags” to be visible without hovering. Applies right away.' },
+  { key: 'showAliasOf', type: 'boolean', title: 'Show which page an alias belongs to', default: true,
+    description: 'Under the title of a page that is an alias, shows a small muted “Alias of …” line; click the name to open the original page. Applies right away.' },
+  { key: 'showUsage', type: 'boolean', title: 'Show how a page is used', default: true,
+    description: 'Beside the Linked references heading, the references counted by how they arrive, using your own property names: “owner · 3   attendees · 2   in text · 4” (and “tagged · n” on a tag page). Click one and the other references step back, and so do their counts; click it again to bring them all forward. Nothing is written. Applies right away.' },
+  { key: 'markReferenceHere', type: 'boolean', title: 'Mark the link to this page in Linked references', default: true,
+    description: 'Under Linked references, the link that points to the page you are on is marked with a faint grey wash and a fine line beneath. Applies right away.' },
+  { key: 'showShape', type: 'boolean', title: 'Show what a tag or property holds', default: true,
+    description: 'Under a tag page’s title, a small box that starts closed to one line: where the tag sits (“#Entity › #Person › #Doctor”), how many fields it has and how many records it tags. Click the line to open the box: each field and what it takes (“facility → Organization · many”), the inherited ones faint. Under a property page’s title, what it takes and its most used values with bars. Each says when the shape looks off: a tag that adds no field of its own, free text that only ever holds a few words. Applies right away.' },
+  { key: 'ownTagHidden', type: 'boolean', title: 'Leave a tag page’s own tag off its rows', default: true,
+    description: 'On a tag’s page (such as #Task), the rows of its table, the records under it and its Linked references all carry that same tag. It is left off there, so only other tags show. Applies right away.' },
+  { key: 'compactJournals', type: 'boolean', title: 'Journal days only as tall as what they hold', default: true,
+    description: 'On the Journals list, Logseq gives every day at least a screen’s worth of height, so an empty day is a long gap. Each day is now as tall as its blocks. Applies right away.' },
+  { key: 'dayCues', type: 'boolean', title: 'A day says what it holds', default: true,
+    description: 'On the Journals list, after each day’s title, in small quiet words: a small circle with the number of unfinished tasks on that day, the nearest due day of one (“due Fri”), and the kinds of record inside by your own tags, counted (“2 Meeting · 1 Decision”), the way a folded block says what it holds. A day with nothing open has a shorter cue; nothing steps back. A journal opened on its own shows none. Applies right away.' },
+];
 function provide(core) {
   core.provide({ schedulePageKind, updatePageKind, loadPageKind, pageKind, pageTitles, pageHeaderOf, openTagPicker, titleAnchor });
   core.onDbRound('loadPageKind', loadPageKind, { before: () => clearTimeout(pageKind.timer) });
@@ -537,5 +560,5 @@ function ready() {
   if (setting('showTitleChrome')) startTitleChrome();
   startPageKind();
 }
-(window.refinementParts ||= []).push({ name: 'pages', schema: [], provide, start, ready, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'pages', schema: settingsSchema, provide, start, ready, stop: runUnloadTasks });
 })();

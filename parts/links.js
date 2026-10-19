@@ -1591,6 +1591,47 @@ const CUE_SETTINGS = ['childTypeCues', 'referenceIcons', 'linkLabels'];
 // The refresh timer and version are this part's own; the database round cancels a waiting refresh (before).
 const cancelRefresh = () => clearTimeout(refreshTimer);
 const stopRefresh = () => { clearTimeout(refreshTimer); ++refreshVersion; };
+// Links, references and the pickers (read by this part, the editor, the chrome part and the inline properties part). Declared here since 0.4.163; every part reads them through the core's setting().
+const settingsSchema = [
+  { key: 'linksHeading', type: 'heading', group: 'reading', rank: 4, title: 'Links and references', default: null,
+    description: 'Changes here apply right away.' },
+  { key: 'quietLinks', type: 'boolean', title: 'Quiet page links', default: true,
+    description: 'Page links in normal text colour with a faint underline instead of bright blue; page names heading Linked references read as headings; links inside highlights stay readable.' },
+  { key: 'referenceLayout', type: 'boolean', title: 'Clearer Linked references', default: true,
+    description: 'Under Linked references: a wider gap between source pages, a journal’s date as a plain heading like any other page, the number of references after a heading that holds more than one, a bullet before the grey path that names a reference’s parent block, with the reference stepped in below it, the blocks below a reference stepping back unless they link here too, and Logseq’s fold arrows kept faintly visible. Applies right away.' },
+  { key: 'referenceIcons', type: 'boolean', title: 'Icons for block references and files', default: true,
+    description: 'A small dot before links to blocks, with no underline (pages keep their solid underline), and grey document or image icons before links to PDFs and pictures.' },
+  { key: 'linkLabels', type: 'boolean', title: 'Show how records are linked', default: true,
+    description: 'In Linked references, puts the property name before a value (“Doctor: …”). Under a page’s tag tabs, the value that points to the page on screen gets the same faint grey “points here” mark as in Linked references, and a folded record shows that property beside its title (“Diagnosis: page”).' },
+  { key: 'tidyPaths', type: 'boolean', title: 'Tidy parent paths', default: true,
+    description: 'The grey path above a result or reference uses the width it has before cutting text short, and its [[ ]] brackets fade; a labelled link [words]([[page]]) fades all but its words.' },
+  { key: 'quietLinkMenu', type: 'boolean', title: 'Empty [[ ]] menu until you type', default: true,
+    description: 'Typing [[ no longer opens a list of date words (Today, Tomorrow, Next week …) straight away; the page menu appears with the first letter you type.' },
+  { key: 'hyperLinkTap', type: 'boolean', title: 'Tap the Hyper key to start a [[ link', default: true,
+    description: 'If Caps Lock is your Hyper key (Cmd+Ctrl+Opt+Shift, set up with Karabiner or the Hyperkey app), tapping it on its own while you type does what typing [[ does: the brackets appear and the page menu opens. With words selected, they become the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored here, so the menu stays open.' },
+  { key: 'pickerMarks', type: 'boolean', title: 'The [[ menu and the # picker say what each row is', default: true,
+    description: 'In the list that opens when you type #, a # in the tag colour before each tag, what the tag sits under and the fields it brings at the right (“under Occurrence · + date”), and the New tag row pencilled in, italic. In the list that opens when you type [[, each row carries the mark its link would have: a # in the tag colour before a tag, a small grey box before a journal day, the plain page rectangle or the page’s own icon before a page, its tags as grey class names at the right rather than “#Person” in the words; the relative days (Today, Last Wednesday …) step back to the quiet colour, and the New page row pencilled in, italic in the quiet colour with no box, since that means “not yet there”. Matched by what Logseq draws and by name, so a page and a tag with the same name cannot be told apart there. Applies right away.' },
+  { key: 'propertyPickerTypes', type: 'boolean', title: 'The property picker says each type', default: true,
+    description: 'In Logseq’s Add property list, each name is followed by its type in quiet words (Date, Person · many, yes/no) and the T before every name becomes the type’s icon, the one Properties in the line draws. A property the plugin does not know (one of Logseq’s own) keeps its T. Applies right away.' },
+  { key: 'valuePickerMarks', type: 'boolean', title: 'The value picker says what each row is', default: true,
+    description: 'In the list that opens on a property’s value (Set owner …), the plain page rectangle or the page’s own icon before a page, a # in the tag colour before a tag, a small dot before a block, the kind in quiet words at the right (Person, tag, page, block), a journal day above a block in the grey date box, and the New row pencilled in. Marked by name, as the [[ menu is. Applies right away.' },
+  { key: 'linkBoxList', type: 'boolean', title: 'The link box lists your pages', default: true,
+    description: 'Under the field of Link selected text to a page, a list of your pages, tags and journal days drawn with the marks the page uses, filtered as you type; Up and Down move, Enter links the highlighted row. A italic “Make page …” row appears only when no title matches exactly, and never above a match, so a typo cannot make a page. Off, the field is bare and Enter links what you typed. Applies right away.' },
+  { key: 'linkBoxBeside', type: 'boolean', title: 'The link box opens beside the words', default: true,
+    description: 'Link selected text to a page opens its field just under the selected words, as Logseq’s own [[ menu does, with nothing dimmed and nothing covering the page; a press elsewhere or Escape closes it. Off, the box opens in the middle of the window over a dimmed page. Applies right away.' },
+  { key: 'linkBoxNodes', type: 'boolean', title: 'The link box lists blocks too', default: true,
+    description: 'Under the pages in the link box, up to five blocks whose words match: tagged blocks (a Task, a Meeting) with their tags at the right, then any block Logseq’s own search finds once three letters are typed. The link points at the block, as a [[ ]] link to it would, and the block shows it in its references. Off, only pages, tags and journal days are listed. Applies right away.' },
+  { key: 'pickerEscapeClears', type: 'boolean', title: 'Escape takes [[ and # out', default: true,
+    description: 'In the [[ menu and the # tag picker, Escape closes the list and takes the [[ or # and the letters typed after it out of the text, so a key that meant “never mind” never makes a page or a tag when the block is saved; Cmd+Z brings the letters back. A new page or tag is made only through the list’s own New row. Off, Escape leaves the text as Logseq does. Applies right away.' },
+  { key: 'dateLinkFormats', type: 'boolean', title: 'Year-first dates in [[ ]] link to journals', default: true,
+    description: 'Inside [[ ]], a date typed year first (2026 10 14, 2026-10-14, 2026/10/14, 2026.10.14 or 20261014, month and day with two digits) turns into that day\'s journal name, so the menu offers the journal page.' },
+  { key: 'pdfCitations', type: 'boolean', title: 'Compact PDF citations', default: true,
+    description: 'PDF highlights show as normal text with a quote-mark bullet and a small page and source label at the start; click the line to open the PDF there.' },
+  { key: 'innerReferenceLinks', type: 'boolean', title: 'Links inside a reference open their own page', default: true,
+    description: 'A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar). Off: clicking anywhere on the reference opens the block, as in Logseq.' },
+  { key: 'pageLabels', type: 'boolean', title: 'Page links without trailing tags', default: true,
+    description: 'A page link whose shown name ends in a tag (“Name #tag”) shows the page’s own title alone.' },
+];
 function provide(core) {
   core.provide({ scheduleRefresh, cancelRefresh, stopRefresh, updateDateLinks, updatePdfCitations, updateOwnTags,
     isJournalDate, attribute, pdfCitations, dateLinks, cueMarks, referenceHere, tagPages, referencedNodeIds, incomingPropertyLinks, updateUsageLine, usage });
@@ -1628,5 +1669,5 @@ function ready() {
   scheduleRefresh();
   onUnload(stopRefresh);
 }
-(window.refinementParts ||= []).push({ name: 'links', schema: [], provide, start, ready, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'links', schema: settingsSchema, provide, start, ready, stop: runUnloadTasks });
 })();
