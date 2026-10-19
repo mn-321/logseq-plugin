@@ -27,8 +27,8 @@ settings=$(cat main.js parts/*.js | grep -c "key: '")
 windows=$(cat main.js parts/*.js | grep -c "window\.[a-zA-Z]* = ")
 echo "settings keys (grep \"key: '\"): $settings; window.* publications: $windows"
 
-# 5. Every file in parts/ is in PART_FILES in main.js, and the reverse.
-listed=$(sed -n "s/^const PART_FILES = \[\(.*\)\];.*/\1/p" main.js | tr -d "' " | tr ',' '\n' | sed 's#^parts/##' | sort)
+# 5. Every file in parts/ is in PART_FILES or RESTING_FILES (kept, not loaded) in main.js, and the reverse.
+listed=$(sed -n -E "s/^const (PART|RESTING)_FILES = \[(.*)\];.*/\2/p" main.js | tr -d "' " | tr ',' '\n' | sed 's#^parts/##' | sort)
 present=$(ls parts | sort)
 if [ "$listed" != "$present" ]; then
   problem "parts/ and PART_FILES differ. In PART_FILES: $(echo $listed). In parts/: $(echo $present)"
