@@ -6,9 +6,11 @@ JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers
 fail=0
 problem() { echo "PROBLEM: $1"; fail=1; }
 
-# 1. Syntax of every script file.
+# 1. Syntax of every script file: JavaScriptCore on a Mac, node elsewhere.
 for f in loader.js main.js parts/*.js; do
-  "$JSC" tools/check.js -- "$f" || fail=1
+  if [ -x "$JSC" ]; then "$JSC" tools/check.js -- "$f" || fail=1
+  elif command -v node >/dev/null 2>&1; then node --check "$f" >/dev/null 2>&1 && echo "OK $f" || { echo "ERROR $f: syntax"; fail=1; }
+  else problem "no JavaScriptCore and no node to check the syntax of $f"; fi
 done
 
 # 2. No leftover TEMP-DEV block.
@@ -30,6 +32,13 @@ listed=$(sed -n "s/^const PART_FILES = \[\(.*\)\];.*/\1/p" main.js | tr -d "' " 
 present=$(ls parts | sort)
 if [ "$listed" != "$present" ]; then
   problem "parts/ and PART_FILES differ. In PART_FILES: $(echo $listed). In parts/: $(echo $present)"
+fi
+
+# 6. The boot test (tools/boot-test.js), where node and jsdom are installed; skipped quietly elsewhere.
+if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
+  node tools/boot-test.js || problem "the boot test failed (see above)"
+else
+  echo "boot test skipped (needs node and: npm install --no-save --no-package-lock jsdom)"
 fi
 
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.156.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.157.
 
 Besides the look of pages, it holds:
 
@@ -28,7 +28,7 @@ The first group is the plugin itself and is all the release zip holds. The rest 
 | `GUIDE.md` | How to work on the plugin: the rules the code keeps, the reload loop, the command line. Not in the zip. |
 | `HANDOFF.md` | Where things stand: the owner's decisions, what each round built, what is left open. Not in the zip. |
 | `docs/` | Work notes: `NEXT.md` (what to do next, ranked, and the standing rules), `VISUAL-GUIDE.html` (the drawn guide to every part), `GRAMMAR.md` (every cue and how the plugin writes, asks and refuses), and `history/` (the audit, the reviews, earlier session diaries, the prompts of finished rounds). Not in the zip. |
-| `tools/` | `check.sh` (with `check.js`) checks every file, `release.sh` runs the checks and builds the zip. Not in the zip. |
+| `tools/` | `check.sh` (with `check.js`) checks every file, `boot-test.js` starts the plugin in a pretend Logseq window to check that it loads, starts, cleans up and reloads without a warning (needs node and jsdom), `bump.sh` sets the version, `release.sh` runs the checks and builds the zip. Not in the zip. |
 | `test/` | `plugin-test-graph.edn`, the seed of the Plugin Test Graph. Not in the zip. |
 | `dist/` | Copies of the release zips made for handing over; the zips themselves are not kept in git. The full set is in `~/logseq-plugin-archive/releases/`. |
 
