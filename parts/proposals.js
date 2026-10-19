@@ -7,6 +7,8 @@
      graphs, tags and property; this part takes over that part's asking while it is on);
    - a page linked in the record's text ([[Joe]], or words linked with the link box), in an empty field that
      takes one of its classes (or a class it extends), so a link and the field are made in one go (0.4.147);
+     a linked page with no tag of yours yet goes to an empty field that takes one class, and taking it also
+     gives the page that tag, so [[Dr. Joe]] in an Appointment makes Joe a Doctor and the doctor (0.4.149);
    - a Person (or a page of any class a field takes) whose first name, or whole name, is a word of the
      record's text, in an empty field that takes that class, only when exactly one such page matches;
    - the parent's value, in a child's empty field of the same name (a Decision under a Meeting gets its
@@ -34,6 +36,8 @@ const settingsSchema = [
     description: 'Comma-separated, any of: journal day (an empty Date field on a record Journal day as date names), people named (a page whose first name or whole name is a word of the record, in an empty field that takes its class, only when one page matches), the parent’s fields (a child’s empty field filled from its parent’s, or from the page the record is written on, when the value is a page the field can hold). The last two run only in the graphs named under Properties in the line. Applies at once.' },
   { key: 'proposeLinkedPages', type: 'boolean', title: 'A link fills its field', default: true,
     description: 'A page you link in a record’s text ([[Dr. Joe]], or words linked with the link box) is pencilled into the record’s empty field that takes its tag (doctor takes Doctor), so Tab makes the link a fact as well as a mention. One field per link, the first that fits; nothing when a single-value field would get two. Runs in the graphs named under Properties in the line. Applies at once.' },
+  { key: 'proposeLinkedTag', type: 'boolean', title: 'A new link gets the tag its field takes', default: true,
+    description: 'A linked page that has no tag of yours yet (a page just made by typing [[Dr. Joe]]) is pencilled into an empty field that takes one tag, as “Dr. Joe · #Doctor”; taking it also gives the page that tag, and its undo takes both back. Needs “A link fills its field”. Applies at once.' },
   { key: 'proposeDayInWords', type: 'boolean', title: 'A day in the words', default: true,
     description: 'The last words of the record read as a day (tomorrow, friday, next fri, 23 oct, +3; a bare weekday needs four letters or more) are pencilled into the record’s empty Deadline, else due date, else date, and nowhere else. Runs in the graphs named under Properties in the line. Applies at once.' },
   { key: 'undoBesideValue', type: 'boolean', title: 'Undo beside the value', default: true,
@@ -104,13 +108,34 @@ function peopleNamed(prop, wordSet, title, pages) {
 function pagesLinked(title, pages) {
   const byKey = new Map();
   for (const page of pages) { byKey.set(page.lower, page); if (page.uuid) byKey.set(page.uuid.toLowerCase(), page); }
-  const found = [];
+  const found = [], missing = [];
   for (const [, key] of String(title || '').matchAll(/\[\[([^\[\]]+)\]\]/g)) {
     const page = byKey.get(key.trim().toLowerCase());
-    if (page && !found.includes(page)) found.push(page);
+    if (!page) missing.push(key.trim());
+    else if (!found.includes(page)) found.push(page);
+  }
+  return { found, missing };
+}
+// A page made a moment ago by typing [[Zed]] is not yet in the page list, which is read again at most every 30 s:
+// such a link is looked up on its own, by uuid or by name, in the list's shape.
+async function lookUpPage(key) {
+  const where = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(key) ? `[?p :block/uuid #uuid "${key}"]` : `[?p :block/name ${JSON.stringify(key.toLowerCase())}]`;
+  const [[p] = []] = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title :db/ident]}]) :where ${where} [?p :block/name _] (not [?p :block/journal-day _])]`);
+  if (!p) return null;
+  const title = String(pick(p, 'block/title') ?? '');
+  const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
+  return title ? { id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, isTag: tags.some(t => t.ident === 'logseq.class/Tag') } : null;
+}
+async function linkedIn(title, pages) {
+  const { found, missing } = pagesLinked(title, pages);
+  for (const key of missing.slice(0, 5)) {
+    const page = await lookUpPage(key).catch(() => null);
+    if (page && !found.some(p => p.id === page.id)) found.push(page);
   }
   return found;
 }
+// A page with no tag of yours (only Logseq's own, such as Page) can still be given the one a field takes.
+const untagged = page => !page.isTag && !page.tags.some(t => !/^logseq\.class\//.test(t.ident));
 // A page fits a field when one of its tags, or a tag that tag extends, is a class the field takes (Doctor extends Person).
 function fits(page, classIds, schema) {
   const seen = new Set(), queue = page.tags.map(t => t.id);
@@ -158,13 +183,25 @@ async function itemsFor(b, title, ctx, recent) {
   const parentIsBlock = parent && pick(parent, 'block/page');
   const pageTags = new Set((pick(page, 'block/tags') || []).map(idOf));
   // A linked page goes to the first empty field it fits, and only there; the record's own values are not linked again.
-  const linked = inline && own('proposeLinkedPages') ? pagesLinked(title, pages) : [], linkUsed = new Set();
+  // A page already in one of the record's fields is not proposed again for another (a page just tagged is still untagged in the list).
+  const held = new Set(fields.flatMap(prop => valuesOf(b, prop.ident)));
+  const linked = inline && own('proposeLinkedPages') ? (await linkedIn(title, pages)).filter(p => !held.has(p.id)) : [], linkUsed = new Set();
   for (const prop of fields) {
     if (prop.type !== 'node' || !prop.classes.length || valuesOf(b, prop.ident).length) continue;
     const classIds = new Set(prop.classes.map(c => c.id));
     let found = null, how = '';
     const fitting = linked.filter(p => !linkUsed.has(p) && fits(p, classIds, schema));
     if (fitting.length && (prop.many || fitting.length === 1)) { found = fitting; how = 'linked'; for (const p of fitting) linkUsed.add(p); }
+    // A page linked with no tag yet (0.4.149): only into a field that takes one class, which taking it also gives the page.
+    if (!found && own('proposeLinkedTag') && prop.classes.length === 1 && prop.classes[0].uuid) {
+      const fresh = linked.filter(p => !linkUsed.has(p) && untagged(p));
+      if (fresh.length && (prop.many || fresh.length === 1)) {
+        for (const p of fresh) linkUsed.add(p);
+        const cls = prop.classes[0];
+        items.push({ ident: prop.ident, prop, ids: fresh.map(p => p.id), shown: fresh.map(p => `${p.title} · #${cls.title}`).join(', '), how: 'tagged', tag: cls, tagPages: fresh.map(p => p.uuid).filter(u => u) });
+        continue;
+      }
+    }
     if (!found && inline && rule('people named')) { found = peopleNamed(prop, wordSet, title, pages); how = 'named'; }
     if (!found && inline && rule("the parent's fields") && parentIsBlock) {
       const theirs = valuesOf(parent, prop.ident).map(id => pageById.get(id)).filter(p => p && p.tags.some(t => classIds.has(t.id)));
@@ -435,6 +472,7 @@ async function fill(uuid, onlyIdent) {
   const written = [];
   for (const item of items) {
     try {
+      for (const page of item.tagPages || []) await logseq.Editor.addBlockTag(page, item.tag.uuid);
       if (item.journal) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.journal);
       else if (item.when) await logseq.Editor.upsertBlockProperty(uuid, item.ident, item.when);
       else if (item.day) { const id = await journalIdFor(item.day, item.shown); if (!id) throw new Error('no journal page for that day'); await logseq.Editor.upsertBlockProperty(uuid, item.ident, id); }
@@ -452,6 +490,7 @@ async function fill(uuid, onlyIdent) {
   const onFail = error => { warnOnce('the proposed values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); };
   const restore = async item => {
     await logseq.Editor.removeBlockProperty(uuid, item.ident);
+    for (const page of item.tagPages || []) await logseq.Editor.removeBlockTag(page, item.tag.uuid);
     const now = recFor(uuid) || { words: rec.words, items: [], cursor: 0 };
     if (!now.items.some(i => i.ident === item.ident)) setRec(uuid, { ...now, items: [...now.items, item] });
     draw(host(), null);
@@ -508,7 +547,7 @@ const css = `
 .rfp-undo kbd { padding: 0 3px; border: 1px solid var(--ls-border-color); border-radius: 3px; font: inherit; font-size: .9em; text-transform: lowercase; }`;
 
 // Why a value is proposed, in the words the line list shows beside it (0.4.118).
-const WHY = { linked: 'linked in your words', named: 'in your words', words: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
+const WHY = { linked: 'linked in your words', tagged: 'linked in your words; gets the tag', named: 'in your words', words: 'in your words', parent: 'from the parent', page: 'this page', day: 'the journal day' };
 // The record's proposals for one field (or all of them), for the line list, which opens on them (0.4.118).
 function proposalsFor(uuid, ident) {
   const rec = recFor(uuid);
