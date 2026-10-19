@@ -24,6 +24,8 @@ const settingsSchema = [
     description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record to open it (Shift-click: in the sidebar). The rows are read-only: change the link on the record that holds the field.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
+  { key: 'twoWayHideTagLists', type: 'boolean', title: 'Leave out Logseq’s tag lists the rows repeat', default: true,
+    description: 'Below a page’s own text, Logseq lists the records that link to the page under a heading named after their tag (“Appointment”, “Project”), for tags with two-way links turned on. The rows above already show those records, with the field that links them, so on a page that has the rows the list is left out. Off: Logseq’s list shows as well.' },
   { key: 'openPropertyRows', type: 'boolean', title: 'Property rows open', default: true,
     description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
@@ -45,7 +47,7 @@ const dayText = day => {
 const plural = (word, n) => n === 1 ? word : /[^aeiou]y$/i.test(word) ? word.slice(0, -1) + 'ies' : /(s|x|z|ch|sh)$/i.test(word) ? word + 'es' : word + 's';
 // "symptoms = logged in; works at = works here" -> Map
 // Read before the setting's own pairs, which win: a saved setting keeps its old text when this list grows.
-const BUILT_IN = [['ask', 'asked'], ['symptoms', 'logged in'], ['works at', 'works here'], ['related', 'related to'], ['attendees', 'attended']];
+const BUILT_IN = [['ask', 'asked'], ['symptoms', 'logged in'], ['works at', 'works here'], ['related', 'related to'], ['attendees', 'attended'], ['authors', 'author of']];
 function backwardsNames() {
   const names = new Map(BUILT_IN);
   for (const pair of String(setting('twoWayNames') || '').split(/[;\n]/)) {
@@ -252,8 +254,15 @@ const openRowsCss = `
 ${STRIP} { flex-wrap: wrap !important; overflow: visible !important; row-gap: .1rem; }
 ${STRIP} > .bottom-property-pill { max-width: 100%; }
 `;
+/* Logseq's own far end (0.4.146, the owner's pick): the tag-named tabs below a page's blocks list the same records
+   as the rows, without the field that links them. Left out only in the main view, and only while the rows are drawn
+   there, so a page in the sidebar (which gets no rows) and a page with none keep Logseq's list. */
+const hideTagListsCss = `
+#main-content-container:has(.refinement-two-way) :is(.ls-bidirectional-properties, .ls-bidirectional-block-container) { display: none !important; }
+`;
 function applyStyles() {
   sendStyle('refinement-two-way', setting('twoWayRows') ? twoWayCss : '');
+  sendStyle('refinement-two-way-hide-tag-lists', setting('twoWayRows') && setting('twoWayHideTagLists') ? hideTagListsCss : '');
   sendStyle('refinement-open-property-rows', setting('openPropertyRows') ? openRowsCss : '');
 }
 

@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.145.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.146.
 
 Besides the look of pages, it holds:
 
@@ -124,6 +124,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The link box lists blocks too | `linkBoxNodes` | on | Links and references |
 | Links read the same from both ends (a row “← doctor of …” on the page a field points to, grey names, read-only) | `twoWayRows` | on | Two-way links |
 | Fields read backwards (names for those rows) | `twoWayNames` | a few pairs | Two-way links |
+| Leave out Logseq's tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
 | Property rows open (a record's fields wrap onto more lines) | `openPropertyRows` | on | Two-way links |
 | Escape takes [[ and # out | `pickerEscapeClears` | on | Links and references |
 | Year-first dates in [[ ]] link to journals | `dateLinkFormats` | on | Links and references |
