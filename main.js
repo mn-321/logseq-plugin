@@ -260,6 +260,7 @@ function main() {
   moveOldDefaults();
   takeOverFromEarlierCopy();
   publishCore();
+  logseq.provideStyle({ key: 'refinements-dialog', style: window.refinementShared.dialogCss }); // the dialogs' look, before any part (0.4.169)
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
   // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
   // next: provide() gives the core the part's functions and state; start() takes the others' things and
