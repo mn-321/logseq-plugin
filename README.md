@@ -1,13 +1,13 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.155.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.156.
 
 Besides the look of pages, it holds:
 
 - **Search**: a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
 - **Right sidebar**: titles that open their page in the main view, and a clear line between items.
 - **Todos** (paused for now; switch on under **Paused** in the settings): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
-- **Tag tree** (paused for now; switch on under **Paused** in the settings): all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
+- **Tag tree** (on; switch off with **Use the tag tree** under **Tools** in the settings): all your tags as one tree under a few root tags (Occurrence, Entity and Concept), where you make new tags in the right place and move tags under other tags.
 - **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
 - **Journal day as date**: fills an empty Date property with the journal day a record was written on, only in the graphs and for the tags you name in its settings.
 - **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`); `;;` in place of `::` also keeps the value in your words (`deadline;;today`). Only in the graphs you name.
@@ -51,7 +51,7 @@ The files in `parts/`:
 | `proposals.js` | Proposals in the pills: values guessed from your words, Tab to take, the undo beside a value. |
 | `rich-copy.js` | Copy as rich text. |
 | `todos.js` | Todos and Expectations (paused: off unless switched on in the settings). |
-| `tags.js` | The tag tree (paused: off unless switched on in the settings). |
+| `tags.js` | The tag tree (on since 0.4.152; off only if switched off in the settings). |
 | `settings-panel.js` | The settings window, its five groups and their pictures. |
 
 ## Install
@@ -282,7 +282,7 @@ Settings (section **Expectations**): **Tag of an expectation** (`Expectation`), 
 
 ## Tag tree
 
-**Paused for now.** With **Use the tag tree** off (the default since 0.4.128) the tag tree adds no toolbar button, page, sidebar panel, command or shortcut. Switch it on in the settings window and reload the plugin to use it again; everything below then applies.
+**On since 0.4.152** (it was paused from 0.4.128). With **Use the tag tree** switched off in the settings window, the tag tree adds no toolbar button, page, sidebar panel, command or shortcut until it is switched on again and the plugin reloaded.
 
 All your tags as one tree, so you can see what is inside each tag, make new tags in the right place and move tags around. Open it with the tree button at the top right of Logseq (Logseq may put it in the puzzle-piece menu first; the pin there keeps it in the toolbar), with `Cmd+Option+G`, or by running **Tag tree** from the command palette. It shows as a full view in the main area, or as a smaller panel in the right sidebar (**Tag tree in the right sidebar**).
 
