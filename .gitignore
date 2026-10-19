@@ -6,3 +6,4 @@ main.js.orig
 *.zip
 node_modules/
 package-lock.json
+check.log
