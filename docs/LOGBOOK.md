@@ -34,10 +34,27 @@ a note under a conversation ("Rang [[Amara]] and [[Tunde]]") proposed them as th
 list of people in a note is never a sure piece (a doctor named in a note still is the provider). Case added to the
 pretend test (13).
 
-**Not done:** the Illness Test Graph itself is still the old shape. The rebuild is the owner's: delete the old graph,
-make an empty one with the same name in the app, then the three parts are imported (CLAUDE.md, section 5). After
-it: `graph-check.js save`, the tour stops changed (Appointment → Consultation), and `RIGHT_LEAST` raised to 70.
-The scratch graph "Seed Check" is on the Mac for the owner to delete, or to keep as a second graph.
+**The rebuild (same day):** the owner deleted the old graph in Logseq. Deleting it in the app only unlinks it (its
+folder moved to "Unlinked graphs"), and the first new graph came out as "Illness Test Graph-1" because the old folder
+still held the name; the owner put "Unlinked graphs" in the Trash. The new empty graph was then made from Logseq's own
+"Create a new graph" dialog (by me, through the screen, at the owner's go-ahead), the app switched to Demo, the three
+parts imported through the command line (no errors), `graph validate` clean (691 entities), the command-line servers
+stopped, and the graph opened in the app. Lesson in PROCESS.md.
+
+**On the rebuilt graph:** `check.sh` passes: two-way rows 24 pages, 40 rows, 76 links as the answer key; proposals
+right 80, wrong 0, silent 20 of 100, so `RIGHT_LEAST` is 70. Tour stops now Consultation and Tingling fingers in place
+of Appointment and the second Nausea; the map's roots Occurrence, Interpretation, Phenomena, Entity (were Occurrence,
+Entity, Concept). Tour: 12 stops, rows with the title (65 to 105 ms), no errors, no warnings; on Oxaliplatin a small
+jump (0.032) as Logseq filled in its own references. The first visits made Logseq save seven view blocks; with no test
+edit made, the fingerprint was saved again after the tour with them in (690).
+
+**Seen, for the owner (layer 3):** with records written as sentences, the two-way rows show the whole sentence as the
+name ("Chemo cycle 3 at Northgate: Oxaliplatin, Fluorouracil (5-FU) and Leucovorin, Zoë Müller on the drip. Cold cap
+on, pump home for 46 hours." on Oxaliplatin's "agent of"). Readable, but long; how a sentence reads in a row (the
+first clause, up to a colon or full stop?) is a question for the page layer.
+
+**Left on the Mac:** the scratch graph "Seed Check" (made with the command line, so the app does not list it), for
+the owner to delete or keep.
 
 ## 2026-10-20 · Proposals, piece 1: the shadow under a bullet (0.4.197)
 

@@ -18,8 +18,8 @@ const { execFile } = require('child_process');
 const GRAPH = process.env.GRAPH || 'Illness Test Graph';
 const CLI = path.join(os.homedir(), '.local/bin/logseq');
 const root = path.resolve(__dirname, '..');
-// RIGHT_LEAST is 15 for the old-shaped graph; on the reshaped seed (2026-10-20) the rules are right 78 times, so raise it to 70 once that graph is in.
-const WRONG_LIMIT = 0, RIGHT_LEAST = 15;
+// On the reshaped Illness Test Graph (2026-10-20) the rules are right 80 times of 100; RIGHT_LEAST catches them going quiet.
+const WRONG_LIMIT = 0, RIGHT_LEAST = 70;
 const all = process.argv.includes('--all');
 let JSDOM;
 try { ({ JSDOM } = require('jsdom')); } catch { console.log('proposals check skipped (needs jsdom)'); process.exit(0); }

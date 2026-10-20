@@ -44,8 +44,8 @@ approved pictures are in `test/pictures/` and are committed.
 6. `node tools/graph-check.js compare`. It must say the graph is as it was; otherwise it names what differs, and
    that is put right before anything else.
 
-Usual tour stops: `theme: light; Dr. Mei Chen; Appointment; Nausea; Northgate Cancer Center; Oxaliplatin; #/refinement-tags;
-theme: dark; Dr. Mei Chen; Appointment; Nausea; #/refinement-tags` (the theme is put back at the end
+Usual tour stops: `theme: light; Dr. Mei Chen; Consultation; Nausea; Northgate Cancer Center; Oxaliplatin; #/refinement-tags;
+theme: dark; Dr. Mei Chen; Consultation; Tingling fingers; #/refinement-tags` (the theme is put back at the end
 whatever it was).
 
 **c. The owner's look, once per layer.** A short list: which pages to open, what to try. The owner says go or says
@@ -113,6 +113,11 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - After a click in the page, Logseq's keyboard focus can sit in a property's value box: a shortcut typed then goes in as
   words ("+ New option"). Press Escape before typing a shortcut, and look. Opening the Journals makes Logseq save a
   "Linked references" block for the day; remove it after leaving the page, like the "All" view.
+- Deleting a graph in Logseq 2.0.2 only unlinks it: its folder moves to `~/logseq/graphs/Unlinked graphs`, and a new graph
+  of the same name becomes "Name-1" until that folder is gone. Rebuilding: delete in the app, the owner trashes the
+  unlinked folder, create in the app, switch to another graph, import, `server stop`, open.
+- A freshly imported graph saves a view block ("All", "Linked references") the first time each page is opened: run the tour
+  once, then save the fingerprint.
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
   added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 
