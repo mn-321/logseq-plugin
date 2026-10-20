@@ -17,6 +17,7 @@ clear yet: ask the owner instead of guessing.
 |---|---|---|
 | Syntax, version, parts listed, no `TEMP-DEV` | `tools/check.sh` | broken files, forgotten bumps |
 | Boot test | `tools/boot-test.js` | the plugin not starting, warnings, things left behind after unload or reload |
+| Tag map redraw | `tools/tags-redraw-test.js` | an open property's box left acting for another property after a redraw |
 | Model test | `tools/model-test.js` | the plugin misreading pages, tags, properties, days (123+ checks) |
 | Tag map speed | `tools/tags-speed.js` | the map getting slower or rows jumping (limits on the Mac: first drawing 1 s, a change 0.4 s, no jump) |
 | Pictures | `tools/pictures.js` | anything the plugin draws looking different, light and dark |

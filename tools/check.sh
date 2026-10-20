@@ -34,9 +34,10 @@ if [ "$listed" != "$present" ]; then
   problem "parts/ and PART_FILES differ. In PART_FILES: $(echo $listed). In parts/: $(echo $present)"
 fi
 
-# 6. The boot test (tools/boot-test.js), where node and jsdom are installed; skipped quietly elsewhere.
+# 6. The boot test (tools/boot-test.js) and the tag map redraw test (tools/tags-redraw-test.js), where node and jsdom are installed; skipped quietly elsewhere.
 if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/boot-test.js || problem "the boot test failed (see above)"
+  node tools/tags-redraw-test.js || problem "the tag map redraw test failed (see above)"
 else
   echo "boot test skipped (needs node and: npm install --no-save --no-package-lock jsdom)"
 fi
