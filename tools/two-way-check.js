@@ -25,7 +25,7 @@ if (!fs.existsSync(CLI)) { console.log('two-way check skipped (no Logseq command
 let queue = Promise.resolve();
 const ask = query => (queue = queue.catch(() => {}).then(() => askNow(query)));
 const askNow = query => new Promise((resolve, reject) => execFile(CLI, ['query', '-g', GRAPH, '-o', 'json', '--timeout-ms', '60000', '--query', query],
-  { encoding: 'utf8', maxBuffer: 1 << 28 }, (error, stdout) => {
+  { encoding: 'utf8', maxBuffer: 1 << 28, timeout: 90000 }, (error, stdout) => {
     if (error) return reject(new Error(String(stdout || error.message).slice(0, 300)));
     const out = JSON.parse(stdout);
     if (out.status !== 'ok') return reject(new Error('the command line said: ' + stdout.slice(0, 300)));
@@ -90,6 +90,13 @@ async function pluginRows() {
 }
 
 (async () => {
+  // Only while the app has the graph open: a question asked otherwise starts a command-line server for the graph,
+  // which leaves it unusable in the app until that server is stopped (GUIDE.md).
+  const servers = await new Promise(resolve => execFile(CLI, ['server', 'list', '-o', 'json'], { encoding: 'utf8', timeout: 30000 },
+    (error, stdout) => { try { resolve(JSON.parse(stdout).data.servers || []); } catch { resolve([]); } }));
+  if (!servers.some(s => s.graph === GRAPH && s.status === 'ready' && s['owner-source'] === 'electron')) {
+    console.log(`two-way check skipped (the app does not have "${GRAPH}" open)`); process.exit(0);
+  }
   try { await ask('[:find ?e :where [?e :block/name "nausea"]]'); }
   catch (error) { console.log('two-way check skipped (the command line could not read the graph: ' + String(error.message).slice(0, 120) + ')'); process.exit(0); }
   const [{ key, titles }, { rows, summary }] = await Promise.all([answerKey(), pluginRows()]);
@@ -115,16 +122,20 @@ async function pluginRows() {
         const ok = rank(p) < rank(q) || (rank(p) === rank(q) && (rank(p) === 0 ? p.day <= q.day : rank(p) === 1 ? p.day >= q.day : true));
         if (!ok) { problem(`${name(pu)}: “${g.label}” lists ${p.title} before ${q.title} out of order`); break; }
       }
-      const counted = summary(g.items).split(' · ')[0].split(', ').reduce((n, part) => n + parseInt(part, 10), 0);
+      // The counts at the start of each kind ("8 Infusions, 3 Consultations"); a tag with a comma in its name is not read.
+      const counted = g.items.some(i => i.tag.includes(',')) ? g.items.length : summary(g.items).split(' · ')[0].split(', ').reduce((n, part) => n + parseInt(part, 10), 0);
       if (counted !== g.items.length) problem(`${name(pu)}: “${g.label}” says ${summary(g.items)} for ${g.items.length} records`);
     }
   }
   // Facts from the test graph's plan.
   const chen = [...titles].find(([, t]) => t === 'Dr. Mei Chen')?.[0];
   const doctorOf = (found.get(chen) || []).find(g => g.name === 'doctor');
-  if (!doctorOf) problem('Dr. Mei Chen has no “doctor of” row');
+  // Unless the doctor row was turned off or worded otherwise in the settings, which is allowed.
+  const mentioned = /(^|[;\n])\s*doctor\s*(=|;|$)/i;
+  if (mentioned.test(String(settings.twoWayOneEnd || ''))) console.log('  (the doctor row is shown from one end only; not checked)');
+  else if (!doctorOf) problem('Dr. Mei Chen has no “doctor of” row');
   else if (doctorOf.items.length !== 13) problem(`Dr. Mei Chen is the doctor of ${doctorOf.items.length}, not 13`);
-  else if (doctorOf.label !== 'doctor of') problem(`Dr. Mei Chen's row reads “${doctorOf.label}”, not “doctor of”`);
+  else if (doctorOf.label !== 'doctor of' && !mentioned.test(String(settings.twoWayNames || ''))) problem(`Dr. Mei Chen's row reads “${doctorOf.label}”, not “doctor of”`);
   console.log(`two-way rows on the Illness Test Graph: ${found.size} pages, ${fields} rows, ${links} links compared with the answer key`);
   if (problems.length) { console.log(`two-way check: FAILED (${problems.length})`); process.exit(1); }
   console.log('two-way check: OK');

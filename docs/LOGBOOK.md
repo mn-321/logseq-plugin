@@ -2,6 +2,46 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Two-way links: full workup, and the fold arrow before the list (0.4.195)
+
+**Done means:** on a page that nodes point at, each property that points here is a row with every such node, in
+order (coming up first, then the past, then undated), with the right counts; the row folds from an arrow just before
+its list (the owner's ask); a node opens on a click, in the sidebar with ⇥ or Shift-click; resting on it shows its
+card; the property's name opens the property; kinds filter the list; show all / show fewer and "earlier" work; + makes
+a new node pointing here and Undo takes it away, leaving the graph as it was.
+
+**Changed on screen (0.4.195):** the fold arrow sits just before the list ("▾ 8 Infusions, …"), not after the count.
+A first try put it before the row's name; the owner meant before the list, so it moved there before the commit.
+
+**New check:** `tools/two-way-check.js` runs the plugin's own row-finding on the real Illness Test Graph through the
+command line and compares it with an answer key worked out from every raw fact: 48 pages, 62 rows, 251 links, all
+the same; order and counts right; Dr. Mei Chen is the doctor of 13. Breaking the order and the same-page rule on
+purpose made it fail (9 problems); put back. In `check.sh`, skipped where the command line cannot read the graph.
+
+**Seen in Logseq (0.4.195):** on Dr. Mei Chen, the arrow opens and folds; show all 13 with "earlier" before Oct 7 and
+show fewer; Consultation 3 shows only the three; resting on Review after cycle 6 shows its card (tag, day, fields);
+on Northgate, Chemo cycle 4's card also shows its first line ("Bring the pump bag back"); a click opens the node, ⇥
+opens it in the sidebar; "doctor of" opens the doctor property. + on "doctor of", Consultation, "Test visit": added to
+today's journal, the row read 14 at once; Undo took it away; graph check matched. + on "works here" at Northgate,
+Doctor, "Dr. Test Person": "As a new page", added at once; Undo took it off the row, **but Logseq kept the page in its
+recycle bin** (the graph check caught it); removed with `logseq remove page --id … --force`; graph matched.
+
+**Found, not fixed (needs the owner):** Undo after + on a page leaves the page in Logseq's recycle bin. Logseq 2.0.2
+has a plugin call to delete a recycled page for good (`delete_recycled_page_permanently`); using it would make Undo
+leave nothing, but a page opened with "Add and open" and written in before Undo would then be gone for good.
+
+**Noticed:** a property named "with" reads "with of" on the other page (Ruth Okoro, Zoë Müller); its wording can be
+set on the map. Logseq's own search (Cmd+K) found nothing for "Dr. Raj Patel", which exists; Logseq's, not the plugin's.
+
+**Tour (0.4.195):** 12 stops, rows with the title (52 to 75 ms), nothing of the plugin's moved, no errors, no
+warnings. Graph check after: as it was (922).
+
+**Second reading:** nothing wrong in the arrow move. The new check could have started a command-line server for the
+graph when the app was not on it (leaving the graph unusable in the app), would fail if the doctor row were turned
+off or reworded, and had no time limit; all fixed: it now runs only while the app has the graph open.
+
+**Not checked:** "Leave out Logseq's tag lists" switched off; a graph big enough for the one-look-up limit (5,000 links).
+
 ## 2026-10-20 · Every edit on the tag map tried in Logseq (0.4.193, 0.4.194)
 
 **Done means:** each map edit never tried in the real app is made once in the Illness Test Graph, seen, undone, and
