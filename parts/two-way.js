@@ -679,11 +679,7 @@ const twoWayCss = `
 .refinement-two-way-add .rf-tw-add-foot span { flex: 1; white-space: nowrap; color: var(--ls-secondary-text-color); font-size: .9em; }
 .refinement-two-way-add .rf-tw-add-foot button[data-main] { background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; }
 .refinement-two-way-add .rf-tw-add-foot button[data-main]:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
-/* The bar after adding, with Undo (shared.showUndoBar); the same rules as parts/styles.js, which is resting for now. */
-.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: var(--rf-row, .875rem); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
-.refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
+/* The bar after adding, with Undo: shared.showUndoBar, drawn by the rules in parts/shared.js (moved there in 0.4.197). */
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the

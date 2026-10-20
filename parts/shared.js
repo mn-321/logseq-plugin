@@ -184,6 +184,14 @@ const dialogCss = `/* Small page-title box (window.prompt is unreliable inside p
 .refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
 .refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--rf-line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .85em); opacity: var(--rf-quiet, .6); }
+/* The bar at the bottom after a write, with Undo (showUndoBar): the popover's colours the other way round. Only Logseq's
+   newer colour names: its --ls-primary-text-color and siblings are empty or unset in 2.0.2, so a bar built on them
+   was see-through, its words lying over the page (0.4.197, seen in both themes). */
+.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: var(--rf-window-radius, 8px);
+  background: hsl(var(--popover-foreground, 0 0% 15%)); color: hsl(var(--popover, 0 0% 100%)); font-size: var(--rf-row, .875rem); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
+.refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, currentColor 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.refinement-undo-bar button:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
 `;
 function modalButtons(doc, buttons) {
   const row = doc.createElement('div');

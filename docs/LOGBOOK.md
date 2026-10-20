@@ -2,6 +2,89 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Proposals, piece 1: the shadow under a bullet (0.4.197)
+
+**The design (agreed with the owner today):** while you type a bullet, a faint shadow under it shows what the node
+would become; leaving the bullet (Enter, a click elsewhere, arrowing away) takes the sure pieces, with Undo in the
+bar; a faint guess is taken only by a click on it (not in piece 1); Escape clears the shadow and that bullet is left
+alone for good; Tab stays Logseq's indent. The plugin never changes the words typed.
+
+**Done means (piece 1, sure pieces only: links in the words, the page, the parent, the journal day):**
+- On the Aug 25 dietitian appointment (empty doctor), entering the bullet and leaving it fills `doctor` from the
+  link in the words, with Undo; Undo puts the graph back exactly.
+- On the Jul 17 appointment (two doctors named), nothing is proposed for `doctor`; the date and anything else sure
+  still show.
+- A new bullet on Dr. Mei Chen's page tagged #Consultation gets `doctor: Dr. Mei Chen` as a sure piece.
+- A new bullet under an #Infusion on a journal day gets that day as its date.
+- Escape clears the shadow; that bullet is never proposed for again.
+- Typing in a bullet with nothing to propose shows nothing and costs no measurable time (the tour's timings).
+- A hidden-property test on the whole Illness Test Graph reports right / wrong / silent, with wrong at or near zero,
+  and `check.sh` fails if wrong goes up.
+
+**Changed on screen:** a faint line under the bullet being written ("doctor: Dr. Mei Chen · enter takes · esc clears");
+the values filled in when the bullet is left; the Undo bar (now solid in both themes; it was see-through in the app).
+
+**The scorer (`tools/shadow-check.js`) earned its keep before anything was tried in the app.** First run: 18 wrong.
+- *The journal day is not sure*: appointments written on Oct 19 for Dec 2 would have got Oct 19 (14 wrong). Now the
+  journal day is proposed only for a tag whose nodes the graph shows are dated the day they are written (symptom
+  logs 18 of 18; appointments 3 of 8, so never). 18 right, 0 wrong after.
+- *Two doctors named spilled into "with"* (which takes any person): the most particular property claims a link first,
+  and one kept quiet by two names keeps them. A second doctor named when doctor is filled does not become "with" either.
+- *A dietitian offered as a hospital*: an untagged link could be given the tag of any empty one-tag property; now only
+  when there is exactly one such place.
+Final: 214 properties hidden, right 22, wrong 0, silent 192. The pretend check `tools/shadow-test.js` holds each of
+these as a case (10), plus the page filling two properties (seen in the app) and a two-word tag written as Logseq
+shows it ("#Symptom log", found in the app: no shadow came).
+
+**Seen in Logseq (0.4.197):**
+- Dr. Mei Chen's page, new bullet "Review of the tingling #Consultation": the shadow read "doctor: Dr. Mei Chen"
+  (and, before the fix, also "with: Dr. Mei Chen"); leaving the bullet filled doctor in about 0.4 s (traced in the
+  console: left, saved words matched, written). Removed with the command line; graph matched.
+- Escape: the shadow went, the caret stayed, leaving wrote nothing.
+- Today's journal, "Queasy after lunch #Symptom log" (picked from Logseq's list): the shadow came once the tag was
+  saved ("Date: Oct 20"), leaving filled it, the bar read "Date: Oct 20 filled in on “Queasy after lunch” · Undo",
+  Undo emptied it. Removed; graph matched.
+- The note under the Aug 25 dietitian: quiet, by the one-place rule (Hannah Reyes could be the doctor or the "with").
+  The done list expected a fill here; the rule is right and the done list was wrong: with the graph's Appointment
+  having both doctor and with, no one can say which. This is a guess for piece 2 (a click), not a sure piece.
+- Jul 17 (two doctors in the note): quiet, by the scorer; not tried on screen.
+
+**The owner, during the trials:** the examples use nodes with far more properties than they would ever have
+(Consultation: 10 with what it inherits; Appointment 7, Medication 7). Trials on such nodes stopped. The whole test
+graph is built that way; a decision for the owner (below).
+
+**Mistakes of mine on the way:** a palette shortcut typed while Logseq had no keyboard focus went into a property's
+value box as "Refinements: troubleshooting" with "+ New option"; Escape closed it, nothing was saved (graph check).
+Lesson: after a click in the page, Logseq's focus can sit in a property box; press Escape before typing a shortcut.
+Opening the Journals makes Logseq save a "Linked references" view block for the day, like the "All" view: removed after
+leaving the page.
+
+**Also found:** the plugin's self-check warns "block text not found" on the Pages list (a table of pages with no
+block text); the foundation's, not this piece's; harmless; to fix with the self-check.
+
+**Not checked in the app:** the parent rule (a tagged child under a tagged parent); the "becomes a #Doctor" piece
+(no node in the graph has exactly one place for an untagged link).
+
+**Tour (0.4.197):** 12 stops, rows with the title (61 to 158 ms), nothing of the plugin's moved, no errors, no
+warnings; the shadow costs nothing on a page opened (it draws only while a bullet is in edit). Graph check after: as
+it was (922).
+
+**Second reading (before the commit):** two real faults, both fixed: after waiting for Logseq's save, the shadow was
+taken anyway when the saved words never matched the typed ones (a link deleted just before leaving would still have
+been written); now nothing is written unless the saved words match. And the match itself never held for a bullet
+linking a journal day or a block, or one with several lines; the comparison now leaves links out (but counts them)
+and reads the whole bullet. Two rules taken out of the sure pieces on its advice: an untagged link given the tag a
+property takes (a topic page would have been made a person: "discussed [[Insurance]]" → with: Insurance) and the
+parent record's values (a follow-up nested under its first visit would get that visit's date). Both are guesses for a
+later piece. The carry-over of the old "Properties in the line" graphs into the new setting was taken out: the owner
+names the graph in the setting (done for the Illness Test Graph during the trials). Noted, not changed: a second Undo
+bar replaces the first; a text property edited in a textarea inside the block could be read as the bullet's words
+(not seen in 2.0.2).
+
+**Waits on the owner:** a realistic test graph. Every tag here carries 3 to 10 properties; the owner would have 2 to
+4. The rules get surer with fewer properties (no "with" beside "doctor"), so the next piece should be measured on a
+graph shaped like the owner's own.
+
 ## 2026-10-20 · Two-way links: full workup, and the fold arrow before the list (0.4.195)
 
 **Done means:** on a page that nodes point at, each property that points here is a row with every such node, in

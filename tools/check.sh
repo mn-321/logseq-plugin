@@ -38,6 +38,7 @@ fi
 if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/boot-test.js || problem "the boot test failed (see above)"
   node tools/tags-test.js || problem "the tag map checks failed (see above)"
+  node tools/shadow-test.js || problem "the proposals' rules failed on the pretend graph (see above)"
 else
   echo "boot test skipped (needs node and: npm install --no-save --no-package-lock jsdom)"
 fi
@@ -61,6 +62,7 @@ fi
 #     skipped quietly where the command line or the graph cannot be read.
 if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/two-way-check.js || problem "the two-way rows differ from the graph (see above)"
+  node tools/shadow-check.js || problem "the proposals' rules proposed something wrong on the graph (see above)"
 fi
 
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi

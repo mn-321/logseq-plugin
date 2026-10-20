@@ -21,6 +21,8 @@ clear yet: ask the owner instead of guessing.
 | Model test | `tools/model-test.js` | the plugin misreading pages, tags, properties, days (123+ checks) |
 | Tag map speed | `tools/tags-speed.js` | the map getting slower or rows jumping (limits on the Mac: first drawing 1 s, a change 0.4 s, no jump) |
 | Two-way rows | `tools/two-way-check.js` | the plugin's own row-finding run on the real Illness Test Graph (through the command line) against an answer key worked out from the raw graph: every link, the order, the counts |
+| Proposals' rules | `tools/shadow-test.js` | the rules on a pretend graph: every mistake found so far (the page filling two properties, two doctors spilling into "with", a dietitian offered as a hospital, the journal day on an appointment written ahead) |
+| Proposals | `tools/shadow-check.js` | the proposals' rules on the real Illness Test Graph with every filled property hidden in turn: right, wrong (must stay 0) and silent |
 | Pictures | `tools/pictures.js` | anything the plugin draws looking different, light and dark |
 
 Each layer adds its own speed limits and its own pictures as it is rebuilt.
@@ -108,6 +110,9 @@ stretch, the entries are gathered on one page for the owner with the pictures.
   and take a value off a page (`logseq upsert page --id … --remove-properties '[:user.property/…]'`).
 - Undo after a two-way + that made a page leaves it in Logseq's recycle bin (the owner's pick); after a test, remove it with
   `logseq remove page --id … --force` (by id: the command line does not find a recycled page by name).
+- After a click in the page, Logseq's keyboard focus can sit in a property's value box: a shortcut typed then goes in as
+  words ("+ New option"). Press Escape before typing a shortcut, and look. Opening the Journals makes Logseq save a
+  "Linked references" block for the day; remove it after leaving the page, like the "All" view.
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
   added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 

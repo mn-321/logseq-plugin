@@ -116,6 +116,35 @@ async function scenes(page) {
       },
       arg: TWO_WAY_GROUPS,
     },
+    // The shadow under a bullet being written (parts/shadow.js): the bullet is a pretend text box, the shadow the plugin's own line.
+    'shadow': {
+      scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'), read('parts/shadow.js')],
+      draw: async () => {
+        const inner = window.refinementShadowInner;
+        const style = document.createElement('style'); style.textContent = inner.css + ' .bullet { display: flex; gap: 8px; align-items: flex-start; } .bullet i { width: 6px; height: 6px; margin-top: 9px; border-radius: 50%; background: currentColor; opacity: .5; flex: none; } .bullet textarea { width: 100%; font: inherit; color: inherit; background: none; border: 0; outline: none; resize: none; padding: 0; line-height: 1.5; }'; document.head.append(style);
+        const stage = document.getElementById('stage');
+        stage.style.height = '120px';
+        stage.innerHTML = '<div class="bullet"><i></i><textarea rows="1">Saw [[Dr. Mei Chen]] about the tingling, bloods first #Consultation</textarea></div>';
+        const box = stage.querySelector('textarea');
+        const live = { forWords: '', pieces: [
+          { prop: { title: 'doctor' }, shown: 'Dr. Mei Chen' },
+          { prop: { title: 'hospital' }, shown: 'Northgate Cancer Center' },
+          { prop: { title: 'Date' }, shown: 'Oct 19' },
+        ] };
+        const el = document.createElement('div'); el.className = 'refinement-shadow'; el.innerHTML = inner.shadowHtml(live);
+        document.body.append(el);
+        const at = box.getBoundingClientRect();
+        el.style.position = 'absolute'; el.style.left = at.left + 'px'; el.style.top = (at.bottom + 2) + 'px';
+        const under = document.createElement('div'); under.className = 'bullet'; under.style.marginTop = '28px';
+        under.innerHTML = '<i></i><div>Notes under an appointment: the shadow names the appointment.</div>';
+        stage.append(under);
+        const el2 = document.createElement('div'); el2.className = 'refinement-shadow';
+        el2.innerHTML = inner.shadowHtml({ forWords: 'Dietitian', pieces: [{ prop: { title: 'doctor' }, shown: 'Dr. Mei Chen' }] });
+        document.body.append(el2);
+        const at2 = under.getBoundingClientRect();
+        el2.style.position = 'absolute'; el2.style.left = (at2.left + 14) + 'px'; el2.style.top = (at2.bottom + 2) + 'px';
+      },
+    },
     // A dialog of the plugin's own (the troubleshooting box) over a page full of words, so a see-through box shows.
     'dialog': {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js')],
@@ -123,8 +152,10 @@ async function scenes(page) {
         const shared = window.refinementShared;
         const style = document.createElement('style'); style.textContent = shared.dialogCss; document.head.append(style);
         const stage = document.getElementById('stage');
-        stage.style.height = '420px';
+        stage.style.height = '560px';
         stage.textContent = 'Linked references, Chemo cycle 7, Date: Dec 2nd, 2026, drugs: Oxaliplatin, Leucovorin. '.repeat(40);
+        // The bar at the bottom after a write, with Undo (0.4.197: see-through in dark mode until its rules got the dialogs' fallbacks).
+        shared.showUndoBar('doctor: Dr. Mei Chen filled in on “Review of the tingling”', () => {});
         shared.modal(null, (box, finish, doc) => {
           const heading = doc.createElement('label');
           heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
