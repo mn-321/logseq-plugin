@@ -2,22 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
-## 2026-10-20 · Option-Enter into the properties (done list proposed, not started)
+## 2026-10-20 · Option-Enter to the empty property (done list proposed, not started)
 
-**What Logseq 2.0.2 already has (read in its code, not yet tried):** each property value in a bullet can take keyboard
-focus; Up and Down move between them; Enter or Space opens Logseq's own value picker; Backspace or Delete clears the
-value. Option-Enter builds on that rather than a navigation of its own.
+**Tried on screen first:** Logseq has no keyboard way into the properties shown under a bullet: Escape selects the
+bullet, Down goes to the next bullet, and Cmd+J did nothing (its property navigation is for properties shown as rows
+of their own). What I had told the owner from reading Logseq's code was wrong. A click on an empty value opens
+Logseq's own "Set Topic" list: type to narrow it, arrows and Enter pick, Escape closes.
 
-**Done means, in the Illness Test Graph (Aug 18, "Post-op check with Dr. Patel", Provider proposed as Dr. Raj Patel):**
-1. Option-Enter in the words moves to the first property that has a proposal (Provider), with Logseq's focus ring on
-   it. The proposals stay shown, nothing is filled in yet.
-2. Tab goes to the next property, Shift-Tab back (Up and Down still work, as in Logseq).
-3. Typing a letter on a property opens Logseq's own picker for it with that letter; what you pick replaces the
-   proposal and is written as Logseq writes it.
-4. Backspace on a property with a proposal drops that proposal only.
-5. Enter fills in every proposal still shown and makes the next bullet, as Enter in the words does.
-6. Escape goes back to the end of the words, proposals kept.
-7. Clicking away from the properties fills in the sure values only, as leaving the words does now.
+**The owner's refinement:** Option-Enter goes to the empty property that has nothing proposed.
+
+**Done means, on Aug 18, "Post-op check with Dr. Patel" (Provider proposed, Topic empty, Date filled):**
+1. Option-Enter in the words opens Logseq's own "Set Topic" list: the first property that is empty and has nothing
+   proposed. Typing narrows it; Enter picks, and Logseq writes it.
+2. Tab in that list goes on to the next such property, Shift-Tab back; past the last one, back to the words.
+3. After a pick, or Escape, the caret is back at the end of the words and the proposals still show.
+4. Enter in the words then fills in the proposals, as now.
+5. With no such property, Option-Enter does nothing.
 
 ## 2026-10-20 · Enter takes the proposals; italic grey (0.4.202)
 
