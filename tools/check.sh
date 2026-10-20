@@ -47,5 +47,10 @@ else
   echo "model test skipped (needs node)"
 fi
 
+# 8. The tag map timings (tools/tags-speed.js) in a real browser, where Playwright and Chromium are installed; skipped quietly elsewhere.
+if command -v node >/dev/null 2>&1; then
+  node tools/tags-speed.js || problem "the tag map timings failed (see above)"
+fi
+
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi
 echo "check.sh: OK (version $pkg)"
