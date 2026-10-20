@@ -35,13 +35,15 @@ const settingsSchema = [
     description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-let UUID, isEntityId, watchDom, sendStyle, titleOf, provided;
+let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 // What is known about the page on screen: its uuid and one group per field that points at it.
 // byPage: each page's rows as last read this session, drawn at once when you come back to it (0.4.150).
-const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), open: new Map(), all: new Set(), box: null, html: '' };
+// indexed (0.4.182): every page's rows were read in one look-up, so a page not in byPage has none, and a page
+// opened for the first time gets its rows in the same frame as its title instead of half a second later.
+const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), box: null, html: '' };
 const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
@@ -107,11 +109,7 @@ async function load() {
   state.pageUuid = pageUuid;
   state.groups = groups;
   state.html = '';
-  if (pageUuid) {
-    state.byPage.delete(pageUuid);
-    state.byPage.set(pageUuid, groups);
-    if (state.byPage.size > 60) state.byPage.delete(state.byPage.keys().next().value);
-  }
+  if (pageUuid) state.byPage.set(pageUuid, groups);
   draw(host());
   // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
   const shown = shownPage(host());
@@ -121,29 +119,36 @@ const shownPage = doc => {
   const shown = doc ? [...doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title) .ls-block[blockid]')].map(el => el.getAttribute('blockid')) : [];
   return shown.length === 1 ? shown[0] : '';
 };
-async function groupsFor(id) {
+const groupsFor = async id => (await groupsByPage(id)).get(id)?.groups || [];
+// The rows of one page (id), or of every page that is not a journal (no id), as a Map of page id to { uuid, groups }.
+async function groupsByPage(id) {
   // One round of questions (0.4.150): each is asked about the blocks that point here through a field of
   // yours, rather than waiting for that list first, since every wait right after a page change is long.
-  const these = `[(identity ${id}) ?page] [?b ?attr ?page] [?prop :db/ident ?attr] [(namespace ?attr) ?pns] [(= ?pns "user.property")]
-    [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
+  // For every page the fields come first, so the database walks only their values (0.4.182).
+  const fields = '[?prop :db/ident ?attr] [(namespace ?attr) ?pns] [(= ?pns "user.property")]';
+  const these = id == null
+    ? `${fields} [?b ?attr ?page] [?page :block/name] (not [?page :block/journal-day]) [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`
+    : `[(identity ${id}) ?page] [?b ?attr ?page] ${fields} [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
   // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
   const [links, titled, tagged, dated, written] = await Promise.all([
-    logseq.DB.datascriptQuery(`[:find ?b ?attr ?name :where ${these} [?prop :block/title ?name]]`),
+    logseq.DB.datascriptQuery(`[:find ?page ?pu ?b ?attr ?name :where ${these} [?prop :block/title ?name] [?page :block/uuid ?pu]]`),
     logseq.DB.datascriptQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
     logseq.DB.datascriptQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
     // A record's own date: a date field of yours (the one named "date" first), else the journal day it is written on.
     logseq.DB.datascriptQuery(`[:find ?b ?dattr ?day :where ${these} [?dprop :logseq.property/type :date] [?dprop :db/ident ?dattr] [?b ?dattr ?d] [?d :block/journal-day ?day]]`),
     logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
   ]);
-  const byField = new Map(), ids = new Set();
-  for (const [b, attr, name] of links || []) {
+  const pages = new Map(), ids = new Set();
+  for (const [page, pageUuid, b, attr, name] of links || []) {
     // Only properties you made; built-in links such as tags, aliases and parents are left out.
     if (!isEntityId(b) || !name || !/^:?user\.property\//.test(String(attr))) continue;
+    if (!pages.has(page)) pages.set(page, { uuid: String(pageUuid || ''), byField: new Map() });
+    const byField = pages.get(page).byField;
     if (!byField.has(name)) byField.set(name, new Set());
     byField.get(name).add(b);
     ids.add(b);
   }
-  if (!ids.size) return [];
+  if (!ids.size) return new Map();
   const days = new Map();
   for (const [b, attr, day] of dated || []) {
     const ident = String(attr).replace(/^:/, '');
@@ -165,18 +170,42 @@ async function groupsFor(id) {
     records.set(b, { uuid: String(uuid), title, tag: tags.get(b) || 'note', day: days.get(b)?.day || 0 });
   }));
   const names = backwardsNames(), today = todayNumber(), oneEnd = oneEndNames();
-  const groups = [];
-  for (const [name, set] of byField) {
-    if (oneEnd.has(name.toLowerCase())) continue;
-    const items = [...set].map(b => records.get(b)).filter(item => item && UUID.test(item.uuid));
-    if (!items.length) continue;
-    // Coming up first (nearest first), then the past (latest first), then records with no date.
-    items.sort((a, b) => (a.day >= today ? 0 : a.day ? 1 : 2) - (b.day >= today ? 0 : b.day ? 1 : 2) ||
-      (a.day >= today ? a.day - b.day : b.day - a.day) || a.title.localeCompare(b.title));
-    groups.push({ name, label: readBackwards(name, names), items });
+  const result = new Map();
+  for (const [page, { uuid, byField }] of pages) {
+    const groups = [];
+    for (const [name, set] of byField) {
+      if (oneEnd.has(name.toLowerCase())) continue;
+      const items = [...set].map(b => records.get(b)).filter(item => item && UUID.test(item.uuid));
+      if (!items.length) continue;
+      // Coming up first (nearest first), then the past (latest first), then records with no date.
+      items.sort((a, b) => (a.day >= today ? 0 : a.day ? 1 : 2) - (b.day >= today ? 0 : b.day ? 1 : 2) ||
+        (a.day >= today ? a.day - b.day : b.day - a.day) || a.title.localeCompare(b.title));
+      groups.push({ name, label: readBackwards(name, names), items });
+    }
+    groups.sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
+    result.set(page, { uuid, groups });
   }
-  groups.sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
-  return groups;
+  return result;
+}
+
+// Every page's rows in one look-up (0.4.182), at the start and again when the graph has been still for a while. The
+// page on screen still asks for its own rows, which are newer; this only lets a page show its rows from its first
+// frame. In a graph with very many links it is read once, at the start, so typing never waits behind it.
+const BIG_INDEX = 5000;
+let indexVersion = 0, indexSize = 0;
+async function loadIndex() {
+  const version = ++indexVersion;
+  if (!setting('twoWayRows')) { state.indexed = false; return; }
+  const all = await groupsByPage(null);
+  if (version !== indexVersion) return;
+  indexSize = 0;
+  for (const { groups } of all.values()) for (const group of groups) indexSize += group.items.length;
+  const fresh = new Map();
+  for (const { uuid, groups } of all.values()) if (UUID.test(uuid) && groups.length) fresh.set(uuid, groups);
+  // The page on screen keeps what its own look-up found.
+  if (state.pageUuid && state.byPage.has(state.pageUuid)) fresh.set(state.pageUuid, state.byPage.get(state.pageUuid));
+  state.byPage = fresh;
+  state.indexed = true;
 }
 
 // "9 Appointments · next Nov 12", "4 Lab panels, 3 Imaging studies · Aug 2 – Oct 9"
@@ -218,16 +247,68 @@ function anchorFor(doc) {
   const title = titles.length === 1 ? titles[0] : null;
   return title ? (title.querySelector('.is-page-title-row') || provided.titleAnchor?.(doc, title) || title) : null;
 }
+/* A page opening in steps (0.4.182). Logseq draws a page's title and its blocks first and its property list in two
+   or three steps over the next half second, so the page's own words were pushed down each time, and once more when
+   the rows came. Seen in the owner's Logseq: Oxaliplatin's blocks at 223px, then 303, 495 and 820. Now the rows are
+   known before the page opens (loadIndex), and for the first two seconds after a page change the box keeps, above
+   the rows, the room that lay between the title and the rows when the page was last seen settled, less what is
+   there so far: the rows and the blocks start where they end. The room is kept in Logseq's window storage, so this
+   works from the second visit on, across restarts. */
+const SETTLE_MS = 2000, HEIGHTS_KEY = 'refinementTwoWayRoom';
+const settle = { since: 0, page: '', leaving: '', saved: false, timer: 0 };
+let heights = new Map();
+const readHeights = () => { try { heights = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(HEIGHTS_KEY) || '{}'))); } catch { heights = new Map(); } };
+function remember(page, height) {
+  height = Math.round(height);
+  if (heights.get(page) === height) return;
+  heights.delete(page);
+  heights.set(page, height);
+  if (heights.size > 500) heights.delete(heights.keys().next().value);
+  try { host().defaultView.localStorage.setItem(HEIGHTS_KEY, JSON.stringify(Object.fromEntries(heights))); } catch { /* storage full or off: kept for this session */ }
+}
+// 'hold' while the page on screen settles, 'save' once when it has, else nothing.
+function settling(page) {
+  if (!page || page === settle.leaving) return '';
+  const age = performance.now() - settle.since;
+  if (!settle.page && age < SETTLE_MS) { settle.page = page; settle.saved = false; }
+  if (settle.page !== page) return '';
+  return age < SETTLE_MS ? 'hold' : settle.saved ? '' : 'save';
+}
+function holdRoom(doc, box, mode, page) {
+  // The title's own row: the box and the property list sit inside the title's block, below that row.
+  const title = doc.querySelector('#main-content-container :is(.ls-page-title, .page-title) .is-page-title-row');
+  if (!mode || !title) { setHold(box, 0); return; }
+  const held = parseFloat(box.style.getPropertyValue('--rf-tw-hold')) || 0;
+  const room = box.getBoundingClientRect().top - title.getBoundingClientRect().bottom - held;
+  if (mode === 'save') { settle.saved = true; setHold(box, 0); if (room >= 0) remember(page, room); return; }
+  setHold(box, heights.has(page) ? Math.max(0, Math.round(heights.get(page) - room)) : 0);
+}
+const setHold = (box, px) => { if (px) box.style.setProperty('--rf-tw-hold', px + 'px'); else if (box.style.length) box.removeAttribute('style'); };
+function onRoute() {
+  // The page being left, which may still be on screen for a moment and must not take the new page's place.
+  settle.leaving = settle.page || shownPage(host());
+  Object.assign(settle, { since: performance.now(), page: '', saved: false });
+  clearTimeout(settle.timer);
+  // Once settled: no more room held, and the room is kept for next time.
+  settle.timer = setTimeout(() => draw(host()), SETTLE_MS + 50);
+}
+const shownPages = doc => [...doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title) .ls-block[blockid]')].map(el => el.getAttribute('blockid'));
 function draw(doc) {
   if (!doc) return;
-  const anchor = state.groups.length && setting('twoWayRows') ? anchorFor(doc) : null;
+  const on = setting('twoWayRows');
   // The rows belong to the page they were read for; a page drawn before its look-up finishes gets the rows it had
-  // when last seen, if any, until the look-up has checked them.
-  const shown = [...doc.querySelectorAll('#main-content-container :is(.ls-page-title, .page-title) .ls-block[blockid]')].map(el => el.getAttribute('blockid'));
-  if (shown.length === 1 && shown[0] !== state.pageUuid && state.byPage.has(shown[0])) {
-    state.pageUuid = shown[0]; state.groups = state.byPage.get(shown[0]); state.html = '';
+  // when last seen, or none if every page's rows were read and it had none, until the look-up has checked them.
+  const shown = shownPages(doc);
+  if (shown.length && !shown.includes(state.pageUuid)) {
+    const id = shown.find(uuid => state.byPage.has(uuid)) || (shown.length === 1 && state.indexed ? shown[0] : '');
+    if (id) { state.pageUuid = id; state.groups = state.byPage.get(id) || []; state.html = ''; }
   }
-  if (!anchor || (shown.length && !shown.includes(state.pageUuid))) { state.box?.remove(); return; }
+  const anchor = on ? anchorFor(doc) : null;
+  const rows = state.groups.length > 0 && !(shown.length && !shown.includes(state.pageUuid));
+  // A page with an alias has more than one block in its title area; the page is the one the rows were read for.
+  const page = shown.includes(state.pageUuid) ? state.pageUuid : shown.length === 1 ? shown[0] : '';
+  const mode = anchor ? settling(page) : '';
+  if (!anchor || (!rows && !mode)) { state.box?.remove(); return; }
   let box = state.box;
   if (!box || box.ownerDocument !== doc) {
     box = state.box = doc.createElement('div');
@@ -237,10 +318,15 @@ function draw(doc) {
     box.addEventListener('click', onClick);
     state.html = '';
   }
-  const html = state.groups.map(rowHtml).join('');
+  const html = rows ? state.groups.map(rowHtml).join('') : '';
   if (state.html !== html) { state.html = html; box.innerHTML = html; }
   if (anchor.nextElementSibling !== box) anchor.after(box);
+  holdRoom(doc, box, mode, page);
+  if (!rows && mode === 'save') box.remove();
 }
+// Before the screen is drawn (0.4.182), so the rows come in the same frame as the property list they sit under. Only
+// when elements came or went, or while a page settles.
+const drawEarly = (doc, records) => { if (performance.now() - settle.since < SETTLE_MS || addsElements(records)) draw(doc); };
 function onClick(event) {
   const target = event.target.closest?.('a');
   if (!target) return;
@@ -261,10 +347,12 @@ const twoWayCss = `
    after their bullet, 28px rows; the ← sits where their property icon does, 15px and a 4px gap before the name. */
 .refinement-two-way {
   --rf-tw-accent: var(--ls-secondary-text-color, currentColor);
-  margin: .15rem 0 .6rem -.5rem; padding: .3rem .9rem .3rem .5rem;
+  margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .6rem -.5rem; padding: .3rem .9rem .3rem .5rem;
   background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct, 3%), transparent);
   line-height: 1.5; user-select: text;
 }
+/* Only holding room while the page settles: no field, no rows. */
+.refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; padding: 0; background: none; }
 .refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
 .refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; }
 .refinement-two-way .rf-tw-arrow { display: inline-block; width: 19px; opacity: .85; }
@@ -301,7 +389,7 @@ ${STRIP} > .bottom-property-pill { max-width: 100%; }
    as the rows, without the field that links them. Left out only in the main view, and only while the rows are drawn
    there, so a page in the sidebar (which gets no rows) and a page with none keep Logseq's list. */
 const hideTagListsCss = `
-#main-content-container:has(.refinement-two-way) :is(.ls-bidirectional-properties, .ls-bidirectional-block-container) { display: none !important; }
+#main-content-container:has(.refinement-two-way .rf-tw-row) :is(.ls-bidirectional-properties, .ls-bidirectional-block-container) { display: none !important; }
 `;
 function applyStyles() {
   sendStyle('refinement-two-way', setting('twoWayRows') ? twoWayCss : '');
@@ -309,20 +397,25 @@ function applyStyles() {
   sendStyle('refinement-open-property-rows', setting('openPropertyRows') ? openRowsCss : '');
 }
 
-let timer = 0;
+let timer = 0, indexTimer = 0;
 const later = (ms = 600) => { clearTimeout(timer); timer = setTimeout(() => load().catch(error => warnOnce('could not refresh the two-way rows', error)), ms); };
+const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().catch(error => warnOnce('could not read the rows of every page', error)), ms); };
 function start() {
-  ({ UUID, isEntityId, watchDom, sendStyle, titleOf, provided } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDom', 'sendStyle', 'titleOf', 'provided']));
+  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided']));
   applyStyles();
-  watchDom(draw);
-  // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway.
-  onUnload(logseq.App.onRouteChanged(() => { state.box?.remove(); later(0); }));
-  onUnload(logseq.DB.onChanged(() => later(900)));
+  readHeights();
+  watchDomEarly(drawEarly);
+  draw(host());
+  // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway. The box stays until the next
+  // page is drawn (0.4.182): draw() moves it, or takes it away, in the same frame.
+  onUnload(logseq.App.onRouteChanged(() => { onRoute(); later(0); }));
+  onUnload(logseq.DB.onChanged(() => { later(900); if (indexSize < BIG_INDEX) indexLater(10000); }));
   onUnload(logseq.onSettingsChanged((now, before) => {
-    if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); }
+    if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   }));
-  onUnload(() => { clearTimeout(timer); state.box?.remove(); state.box = null; });
+  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); state.box?.remove(); state.box = null; });
   later(0);
+  indexLater(1500);
 }
 function provide(core) {
   core.provide({ backwardsLabel, setBackwards, shownAtOtherEnd, setShownAtOtherEnd });
