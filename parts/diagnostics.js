@@ -285,6 +285,107 @@ async function copyWarnings() {
   showDiagnostics(lines.join('\n'));
 }
 
+/* The tour (0.4.187), for checking a change in the real app one stop at a time. The stops are the hidden setting
+   tourStops: "Page; Page; theme: dark; #/route; …" (a page's title, a view of its own by its address, or a theme).
+   "Take the tour" opens the first stop and F8 goes on to the next, so whoever checks can look at each stop before
+   moving on. At each stop it waits until the page has been still for a second (at most 8 s), and records how long
+   the page's title and the plugin's own rows took to appear, what moved without input (with its score), and what
+   Logseq wrote to its console as errors or warnings meanwhile. The report so far is saved as tourReport in the
+   settings file after every stop; after the last one the theme is put back and the F8 key let go. Running "Take the
+   tour" again while it runs ends it. It reads the screen only: nothing in your notes is changed. */
+const tour = { stops: [], at: -1, lines: [], doc: null, keys: null, theme: '', console: null, busy: false };
+const TOUR_STILL = 1000, TOUR_LONGEST = 8000;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const describeNode = node => !node ? '?' : node.nodeType !== 1 ? 'text' : node.tagName.toLowerCase() + (typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+async function tourBegin() {
+  if (tour.at >= 0) return tourEnd('ended early');
+  tour.stops = String(logseq.settings?.tourStops || '').split(';').map(stop => stop.trim()).filter(Boolean);
+  if (!tour.stops.length) return notify('No tour stops. Put them in the settings file as tourStops: "Page; Page; theme: dark; …"', 'warning');
+  tour.doc = host();
+  const win = tour.doc.defaultView;
+  tour.theme = tour.doc.documentElement.getAttribute('data-theme') || '';
+  tour.lines = [await versionLine(), `Tour of ${tour.stops.length} stops, started ${new Date().toTimeString().slice(0, 8)}. Times are from opening the stop, in ms.`, '',
+    'STOP  title shown · plugin rows shown · still · moved without input (score) · console errors and warnings'];
+  tour.console = { error: win.console.error, warn: win.console.warn, seen: [] };
+  for (const kind of ['error', 'warn']) {
+    win.console[kind] = (...args) => {
+      tour.console.seen.push(`${kind}: ${args.map(arg => arg?.message || String(arg)).join(' ').slice(0, 200)}`);
+      return tour.console[kind].apply(win.console, args);
+    };
+  }
+  tour.keys = event => { if (event.key === 'F8') { event.preventDefault(); event.stopPropagation(); tourNext(); } };
+  tour.doc.addEventListener('keydown', tour.keys, true);
+  tour.at = -1;
+  tourNext();
+}
+async function tourNext() {
+  if (tour.busy || !tour.doc) return;
+  tour.at++;
+  if (tour.at >= tour.stops.length) return tourEnd('end of the tour');
+  tour.busy = true;
+  const stop = tour.stops[tour.at];
+  try {
+    const theme = stop.match(/^theme:\s*(light|dark)$/i);
+    if (theme) { await logseq.App.setThemeMode(theme[1].toLowerCase()); await sleep(600); tour.lines.push('', `— ${theme[1].toLowerCase()} —`); }
+    else tour.lines.push(...await tourVisit(stop));
+  } catch (error) { tour.lines.push(`${stop}: could not be visited (${error.message})`); }
+  tour.busy = false;
+  logseq.updateSettings({ tourReport: tour.lines.join('\n'), tourAt: `${tour.at + 1} of ${tour.stops.length}: ${stop}` });
+}
+async function tourVisit(stop) {
+  const doc = tour.doc, win = doc.defaultView, now = () => win.performance.now();
+  const titleSelector = '#main-content-container :is(.ls-page-title, .page-title)';
+  const oldTitle = doc.querySelector(titleSelector);
+  const shifts = [], consoleFrom = tour.console.seen.length;
+  const shiftWatch = new win.PerformanceObserver(list => { for (const entry of list.getEntries()) if (!entry.hadRecentInput) shifts.push(entry); });
+  shiftWatch.observe({ type: 'layout-shift' });
+  const begun = now();
+  let lastChange = begun, titleAt = 0, rowsAt = 0;
+  const changes = new win.MutationObserver(() => {
+    lastChange = now();
+    const title = doc.querySelector(titleSelector);
+    if (!titleAt && title && (title !== oldTitle || stop.startsWith('#'))) titleAt = lastChange;
+    if (titleAt && !rowsAt && doc.querySelector('#main-content-container [class*="refinement-"]')) rowsAt = lastChange;
+  });
+  changes.observe(doc.body, { childList: true, subtree: true, characterData: true });
+  if (stop.startsWith('#')) win.location.hash = stop; else logseq.App.pushState('page', { name: stop });
+  for (;;) {
+    await sleep(100);
+    const t = now();
+    if ((t - lastChange > TOUR_STILL && t - begun > 400) || t - begun > TOUR_LONGEST) break;
+  }
+  changes.disconnect();
+  shiftWatch.disconnect();
+  const ms = t => t ? String(Math.round(t - begun)) : '–';
+  const score = shifts.reduce((sum, entry) => sum + entry.value, 0);
+  const seen = tour.console.seen.slice(consoleFrom);
+  const lines = [`${stop}  ${ms(titleAt)} · ${ms(rowsAt)} · ${ms(lastChange)}${lastChange - begun >= TOUR_LONGEST - TOUR_STILL ? ' (still moving at 8 s)' : ''} · ${shifts.length} (${score.toFixed(4)}) · ${seen.length}`];
+  const moved = new Map();
+  for (const entry of shifts) for (const source of entry.sources || []) {
+    const node = source.node, own = node?.nodeType === 1 && node.closest('[class*="refinement-"]') ? ' (the plugin\'s)' : '';
+    const name = describeNode(node) + own;
+    moved.set(name, (moved.get(name) || 0) + 1);
+  }
+  for (const [name, n] of [...moved].sort((a, b) => b[1] - a[1]).slice(0, 6)) lines.push(`    moved ${n}×: ${name}`);
+  for (const line of [...new Set(seen)].slice(0, 6)) lines.push(`    ${line}`);
+  return lines;
+}
+async function tourEnd(how) {
+  const doc = tour.doc;
+  tour.doc = null;
+  tour.at = -1;
+  tour.busy = false;
+  if (!doc) return;
+  doc.removeEventListener('keydown', tour.keys, true);
+  const win = doc.defaultView;
+  if (tour.console) { win.console.error = tour.console.error; win.console.warn = tour.console.warn; }
+  if (tour.theme && doc.documentElement.getAttribute('data-theme') !== tour.theme) { try { await logseq.App.setThemeMode(tour.theme); } catch (error) { /* left as it is */ } }
+  tour.lines.push('', `${how}. The plugin's own warnings this session: ${shared.warnings.length}.`);
+  logseq.updateSettings({ tourReport: tour.lines.join('\n'), tourAt: 'done' });
+  notify('Tour finished. The report is saved in the plugin\'s settings file as tourReport');
+}
+onUnload(() => { if (tour.doc) tourEnd('ended by a reload'); });
+
 /* One palette entry, "Refinements: troubleshooting", opens this box; each tool keeps its command key
    (registered without a palette entry), so a shortcut bound to one still works. The features' own tools
    (addTroubleshooting) follow these. */
@@ -294,6 +395,7 @@ TOOLS.push(...[
   ['copy-perf-report', 'Copy performance report', () => copyPerfReport()],
   ['copy-styling-details', 'Copy styling details of this block', event => copyDiagnostics(event)],
   ['copy-warnings', 'Copy warnings', () => copyWarnings()],
+  ['take-the-tour', 'Take the tour (F8 for the next stop)', () => tourBegin()],
 ].map(([key, label, run]) => ({ key, label, run })));
 function openTroubleshooting() {
   return modal(null, (box, finish, doc) => {
