@@ -8,7 +8,7 @@ Save this file as `CLAUDE.md` in `/Users/admin/logseq-plugin` (Claude Code reads
 ## 1. Where everything is
 
 - **Code:** GitHub `mn-321/logseq-plugin`, branch `main`. On the owner's Mac: `/Users/admin/logseq-plugin` (a git clone, pushes over an SSH key already added to GitHub).
-- **State at handoff (2026-10-20, night):** `main` is at commit `c67fb47`, version **0.4.199**, pushed; no unmerged branches. Section 6 says where things stand.
+- **State (2026-10-20, morning):** `main` at version **0.4.200** (proposals piece 2), pushed; no unmerged branches. Section 6 says where things stand.
 - **Logseq** loads the plugin unpacked from that same folder, so a change on disk shows after a plugin reload. The plugin id is `logseq-db-refinements`. Settings file: `~/.logseq/settings/logseq-db-refinements.json`.
 - **Logseq command line:** `~/.local/bin/logseq` (queries, imports, `server stop`). See `GUIDE.md` Part 2.
 - **Notes in the repo** (read these before deep work):
@@ -99,7 +99,7 @@ When a layer changes, update the feature map page too (link above) if you can re
 
 ## 6. Where things stand (2026-10-20, end of the session)
 
-- **The Illness Test Graph does not exist right now.** The owner deleted it (and trashed the "Unlinked graphs" folder) for a rebuild; it has not been made again. To finish: in Logseq, All graphs → Create a new graph, name "Illness Test Graph"; switch the app to Demo; import `test/illness-test-graph-1.edn`, `-2`, `-3` with the command line; `logseq server stop --graph "Illness Test Graph"`; open it in the app; run the tour once (fresh pages make Logseq save view blocks); `node tools/graph-check.js save`. Creating the graph from the app's dialog, at the owner's go-ahead, is fine; deleting graphs is the owner's.
+- **The Illness Test Graph was rebuilt on 2026-10-20** from the 0.4.199 seed, exactly as below, and is open in the app; fingerprint saved (690 pages and blocks). To rebuild again: the owner deletes it in Logseq and trashes "Unlinked graphs"; in Logseq, All graphs → Create a new graph, name "Illness Test Graph"; switch the app to Demo; import `test/illness-test-graph-1.edn`, `-2`, `-3` with the command line; `logseq server stop --graph "Illness Test Graph"`; open it in the app; run the tour once (fresh pages make Logseq save view blocks); `node tools/graph-check.js save`. Creating the graph from the app's dialog, at the owner's go-ahead, is fine; deleting graphs is the owner's.
 - **The seed** (`test/illness-test-graph.py`, 0.4.199) is the owner's map expanded by their principle (section 5, `docs/MODELLING.md`): 15 tags with 1 to 3 properties, every record an ordinary journal line with a link only where one would naturally make one. On a fresh copy: two-way rows exact (76 links); proposals right 54, wrong 0, silent 46 of 100. Re-importing over an existing graph leaves old text values as loose blocks: always rebuild clean.
 - **A scratch graph "Seed Check"** (made with the command line, not listed in the app) holds the same seed for trying things; `GRAPH="Seed Check" OWNER=any node tools/shadow-check.js` scores on it. Claude may remove and remake it.
 - **Plugin settings changed for the new graph:** `tourStops` (Consultation, Tingling fingers) and `tagTreeRoots` (Occurrence, Interpretation, Phenomena, Entity).
@@ -108,7 +108,7 @@ When a layer changes, update the feature map page too (link above) if you can re
 
 ## 7. What comes next
 
-- **Rebuild the Illness Test Graph** (section 6), then the tour and `check.sh` on it.
-- **Proposals, piece 2: guesses, taken by a click.** Plain words and aliases ("Dr. Patel", "the tingling", "at Northgate"), a tag from the siblings ("Bloods before cycle N"), an untagged link given the tag a property takes, the parent record's values. The seed has these on purpose (the post-op check names Dr. Patel and Riverside in plain words; the dietitian Hannah Reyes is untagged; Jul 17 names two doctors and must stay quiet). Done means the scorer's silent count drops while wrong stays 0, and every guess shows faint in the shadow and is taken only by a click.
-- Then linking selected text and the pickers, then layer 3.
+- **Proposals, piece 2 is done (0.4.200):** guesses with a "?", taken by a click: plain words and aliases, the same line written before under the tag, the parent's values, a linked page with no tag (one or two places offered). Scorer: sure right 54, wrong 0; guesses right 19, wrong 1; silent 26. Left out on purpose: a tag from the siblings (no tagged example in the seed), dates in words ("on Friday", next small piece), Topic. Open for the owner: Hannah Reyes offered for two places; "about the tingling" guessing Tingling fingers as Topic.
+- **Next:** dates in words as guesses ("Colonoscopy on Friday", "Operation on the 4th"), then linking selected text and the pickers, then layer 3.
+
 - Open loose ends: "Reload plugin" stuck once in Foundation only mode; a property limited to a parent tag should offer nodes of its child tags in the picker (unchecked); the self-check warns "block text not found" on the Pages list (harmless); a second Undo bar replaces the first.
