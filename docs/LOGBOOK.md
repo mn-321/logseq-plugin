@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Option-Enter into the properties (done list proposed, not started)
+
+**What Logseq 2.0.2 already has (read in its code, not yet tried):** each property value in a bullet can take keyboard
+focus; Up and Down move between them; Enter or Space opens Logseq's own value picker; Backspace or Delete clears the
+value. Option-Enter builds on that rather than a navigation of its own.
+
+**Done means, in the Illness Test Graph (Aug 18, "Post-op check with Dr. Patel", Provider proposed as Dr. Raj Patel):**
+1. Option-Enter in the words moves to the first property that has a proposal (Provider), with Logseq's focus ring on
+   it. The proposals stay shown, nothing is filled in yet.
+2. Tab goes to the next property, Shift-Tab back (Up and Down still work, as in Logseq).
+3. Typing a letter on a property opens Logseq's own picker for it with that letter; what you pick replaces the
+   proposal and is written as Logseq writes it.
+4. Backspace on a property with a proposal drops that proposal only.
+5. Enter fills in every proposal still shown and makes the next bullet, as Enter in the words does.
+6. Escape goes back to the end of the words, proposals kept.
+7. Clicking away from the properties fills in the sure values only, as leaving the words does now.
+
 ## 2026-10-20 · Enter takes the proposals; italic grey (0.4.202)
 
 **The owner:** "I prefer italic grey and then add dotted. I do not want to have to click on it to confirm ... enter
