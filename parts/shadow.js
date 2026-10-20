@@ -516,7 +516,24 @@ function inPicker(el) {
 // box inside the bullet's properties is another block's and has another id.
 const ownWords = el => !!el && el.matches?.('textarea') && (el.id ? el.id === `edit-block-${picking.uuid}` : uuidOf(el) === picking.uuid);
 const OPEN_WAIT = 600, KEY_CLOSES = 400;
+// A text value's box makes the value as soon as it opens (seen in the app: Tab past an untouched Notes left an empty
+// Notes on the bullet). Moving on from one left blank takes that empty value off again, so passing through a property
+// leaves nothing behind.
+function leaveBlank(rowUuid, name) {
+  if (!rowUuid || !name) return;
+  setTimeout(async () => {
+    try {
+      const schema = await propSchema();
+      const prop = schema?.props.find(p => p.lower === name && (p.type === 'default' || p.type === 'url'));
+      if (!prop || !UUID.test(rowUuid)) return;
+      const [[title] = []] = await dsQuery(`[:find ?t :where [?r :block/uuid #uuid "${rowUuid}"] [?r :${prop.ident} ?v] [?v :block/title ?t]]`);
+      if (title === '') await logseq.Editor.removeBlockProperty(rowUuid, prop.ident);
+    } catch (error) { warnOnce('an empty value could not be taken off again', error); }
+  }, 300);
+}
+const passOn = () => { if (picking.at >= 0) leaveBlank(picking.rowUuid, picking.names[picking.at]); };
 function openAt(doc, i, step = 1) {
+  passOn();
   const found = triggerAt(doc, i, step);
   if (!found) return backToWords();
   picking.at = found.i;
@@ -542,6 +559,7 @@ function watchPicker() {
   }, 100);
 }
 async function backToWords() {
+  passOn();
   const { uuid, text } = picking;
   endPicking(false);
   // Coming back is not leaving: the focus-out it may cause takes nothing (second reading).
@@ -553,6 +571,7 @@ async function backToWords() {
   setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
 function endPicking(left) {
+  if (left) passOn();
   const live = picking.live;
   clearInterval(picking.timer); clearTimeout(picking.tab);
   Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, moving: 0, tab: 0 });

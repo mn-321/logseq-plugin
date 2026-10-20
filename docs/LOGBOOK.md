@@ -7,7 +7,7 @@ Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` descri
 **The owner:** "test this on bullets with completely empty properties, both capsules and bullet style". Two test
 bullets made on Oct 20 with the command line and removed after. Capsules: Provider, Topic and Tab/Shift-Tab work.
 Choice (Specialty) and the Notes row did not before; now they do (seen). Second reading's fixes are only pretend-checked:
-the Mac locked. **Still to look at:** Tab past an empty Notes may leave an empty value (Logseq creates it on opening).
+the Mac locked. **Looked at after (0.4.206):** Tab past an empty Notes did leave an empty value; now the plugin takes a blank text value off again when moving on. A child bullet's Tab indents while a list is open (seen). The second reader's other fixes hold on screen.
 
 ## 2026-10-20 · Option-Enter built (0.4.204)
 
