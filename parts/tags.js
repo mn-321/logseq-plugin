@@ -619,7 +619,10 @@ function createView(doc, mode) {
 
   // Changes made elsewhere show up here too, unless something is being typed or dragged.
   view.timer = 0;
+  view.quietUntil = 0;
   view.offChanged = logseq.DB.onChanged(() => {
+    // The map's own changes are redrawn by act(); their echoes from Logseq, during it and just after, are not.
+    if (view.busy || performance.now() < view.quietUntil) return;
     clearTimeout(view.timer);
     view.timer = setTimeout(function again() {
       if (view.busy) return;
@@ -729,8 +732,8 @@ async function act(view, run, failText) {
   let done = false;
   try { await run(); done = true; }
   catch (error) { warnOnce(failText, error); logseq.UI.showMsg(`${failText}: ${error?.message || error}`, 'warning'); }
-  finally { view.busy = false; }
-  await view.refresh();
+  try { await view.refresh(); }
+  finally { view.busy = false; view.quietUntil = performance.now() + 600; clearTimeout(view.timer); }
   return done;
 }
 
@@ -835,6 +838,7 @@ async function rename(view, tag, name) {
   const old = tag.title;
   view.cursorTag = tag.id;
   await view.act(() => logseq.Editor.renamePage(tag.uuid, name), `#${old} could not be renamed`);
+  view.mark(true); // the renamed tag moves to its new place in the order; keep it on screen
   if (view.fresh(tag).title !== old) view.showToast(`#${old} is now #${view.fresh(tag).title}`, () => logseq.Editor.renamePage(tag.uuid, old));
 }
 
