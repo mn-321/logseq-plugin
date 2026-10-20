@@ -86,7 +86,7 @@ function showDiagnostics(text) {
     const area = doc.createElement('textarea');
     area.readOnly = true;
     area.value = text;
-    area.style.cssText = 'width:100%;height:50vh;box-sizing:border-box;font:12px ui-monospace,monospace;padding:6px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;';
+    area.style.cssText = 'width:100%;height:50vh;box-sizing:border-box;font:12px ui-monospace,monospace;padding:6px;border:1px solid var(--rf-line);border-radius:6px;background:transparent;color:inherit;';
     const hint = modalHint(doc, '');
     box.append(heading, area, hint);
     area.focus();
@@ -406,7 +406,7 @@ function openTroubleshooting() {
     for (const tool of TOOLS) {
       const button = doc.createElement('button');
       button.textContent = tool.label;
-      button.style.cssText = 'text-align:left;padding:6px 12px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
+      button.style.cssText = 'text-align:left;padding:6px 12px;border:1px solid var(--rf-line);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
       button.addEventListener('click', event => { event.preventDefault(); finish(tool); tool.run(); });
       list.append(button);
     }

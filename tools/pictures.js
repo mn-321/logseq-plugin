@@ -22,9 +22,11 @@ const newDir = path.join(root, 'check.log/pictures');
 const approve = process.argv.includes('--approve');
 // A pixel counts as changed when a colour channel moves by more than this; a picture fails above this many changed pixels.
 const CHANNEL = 24, PIXELS = 20;
+// Logseq 2.0.2 sets its newer theme colours (--background, --popover, --border, as "h s% l%") and, in dark mode, leaves
+// the older --ls-* names unset (read in the app on 2026-10-19); the pretend page does the same.
 const THEMES = {
-  light: { attrs: '', css: 'body { background: #fff; color: #262626; }' },
-  dark: { attrs: ' data-theme="dark" class="dark"', css: 'body { background: #1d1f22; color: #d6d8db; }' },
+  light: { attrs: '', css: ':root { --background: 0 0% 100%; --popover: 0 0% 100%; --popover-foreground: 0 0% 15%; --border: 0 0% 89%; } body { background: #fff; color: #262626; }' },
+  dark: { attrs: ' data-theme="dark" class="dark"', css: ':root { --background: 0 0% 11%; --popover: 0 0% 7%; --popover-foreground: 0 0% 95%; --border: 0 0% 16%; } body { background: rgb(28, 28, 28); color: #d6d8db; }' },
 };
 
 // A small graph shaped like the Illness Test Graph, run inside the page as a pretend Logseq.
@@ -113,6 +115,22 @@ async function scenes(page) {
         document.getElementById('stage').append(box);
       },
       arg: TWO_WAY_GROUPS,
+    },
+    // A dialog of the plugin's own (the troubleshooting box) over a page full of words, so a see-through box shows.
+    'dialog': {
+      scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js')],
+      draw: async () => {
+        const shared = window.refinementShared;
+        const style = document.createElement('style'); style.textContent = shared.dialogCss; document.head.append(style);
+        const stage = document.getElementById('stage');
+        stage.style.height = '420px';
+        stage.textContent = 'Linked references, Chemo cycle 7, Date: Dec 2nd, 2026, drugs: Oxaliplatin, Leucovorin. '.repeat(40);
+        shared.modal(null, (box, finish, doc) => {
+          const heading = doc.createElement('label');
+          heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
+          box.append(heading, shared.modalButtons(doc, [['Check what the plugin finds', () => {}], ['Copy warnings', () => {}]]), shared.modalHint(doc, 'Esc to close'));
+        }, 'min(460px, 92vw)');
+      },
     },
   };
 }

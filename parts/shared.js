@@ -179,10 +179,10 @@ function modal(cancelValue, build, width, classes = {}) {
    the settings window's questions) must be drawn right when the look parts are not running (Foundation only), so it
    goes out with the core at start (main.js), before any part. The look parts may refine it, never be needed for it. */
 const dialogCss = `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
-.refinement-prompt-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
-.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--ls-border-color); border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
+.refinement-prompt-backdrop { --rf-bg: var(--ls-primary-background-color, hsl(var(--popover))); --rf-fg: var(--ls-primary-text-color, hsl(var(--popover-foreground))); --rf-line: var(--ls-border-color, hsl(var(--border))); position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
+.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--rf-line); border-radius: var(--rf-window-radius, 8px); background: var(--rf-bg); color: var(--rf-fg); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
 .refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
-.refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--rf-line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .85em); opacity: var(--rf-quiet, .6); }
 `;
 function modalButtons(doc, buttons) {
@@ -191,7 +191,7 @@ function modalButtons(doc, buttons) {
   for (const [text, onClick] of buttons) {
     const b = doc.createElement('button');
     b.textContent = text;
-    b.style.cssText = 'padding:4px 12px;border:1px solid var(--ls-border-color);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
+    b.style.cssText = 'padding:4px 12px;border:1px solid var(--rf-line);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
     b.addEventListener('click', event => { event.preventDefault(); onClick(); });
     row.append(b);
   }

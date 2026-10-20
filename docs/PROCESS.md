@@ -40,8 +40,8 @@ approved pictures are in `test/pictures/` and are committed.
 6. `node tools/graph-check.js compare`. It must say the graph is as it was; otherwise it names what differs, and
    that is put right before anything else.
 
-Usual tour stops: `Dr. Mei Chen; Appointment; Nausea; Northgate Cancer Center; Oxaliplatin; #/refinement-tags;
-theme: dark; Dr. Mei Chen; Appointment; Nausea; #/refinement-tags; theme: light` (the theme is put back at the end
+Usual tour stops: `theme: light; Dr. Mei Chen; Appointment; Nausea; Northgate Cancer Center; Oxaliplatin; #/refinement-tags;
+theme: dark; Dr. Mei Chen; Appointment; Nausea; #/refinement-tags` (the theme is put back at the end
 whatever it was).
 
 **c. The owner's look, once per layer.** A short list: which pages to open, what to try. The owner says go or says
