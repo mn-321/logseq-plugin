@@ -214,6 +214,7 @@ async function addChoice(prop, title) {
   const undo = () => logseq.Editor.removeBlock(block.uuid).catch(() => {});
   try { await logseq.Editor.addPropertyValueChoices(prop.uuid, [block.uuid]); } catch (error) { await undo(); throw error; }
   if (!(await choicesOf(prop)).some(c => c.uuid === String(block.uuid))) { await undo(); throw new Error('Logseq did not keep it'); }
+  return block;
 }
 async function renameChoice(prop, choice, title) {
   await logseq.Editor.updateBlock(choice.uuid, title);
@@ -370,6 +371,90 @@ async function runMerge(plan) {
   // 7. The old tag goes.
   await logseq.Editor.deletePage(source.uuid);
   void tags;
+}
+/* A choice made its own child tag (0.4.188), e.g. procedure type “Imaging” on #Procedure becomes #Imaging inside
+   #Procedure: the nodes tagged #Procedure with that choice get #Imaging instead (they keep every value, since
+   #Imaging gets all of #Procedure's properties), the choice is cleared on them, and the choice is removed from
+   the property once nothing else uses it. Every step is noted as it is made, so a failure puts back what was
+   done and Undo puts back the whole of it (docs/MODELLING.md: child tags for short lists of broad kinds). */
+const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uuid #uuid "${uuid}"] [?b ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`))
+  .map(([a]) => attrName(a)).filter(a => /^(user|plugin)\.property/.test(a));
+const valuesOf = async (uuid, ident) => (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
+async function setValues(uuid, prop, values) {
+  if (!values.length) { await logseq.Editor.removeBlockProperty(uuid, prop.ident); return; }
+  await logseq.Editor.upsertBlockProperty(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
+}
+async function planChildTag(tag, prop, choice, data) {
+  const [nodes, elsewhere, choiceRow] = await Promise.all([
+    dsQuery(`[:find ?u :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?b :block/uuid ?u]]`),
+    dsQuery(`[:find (count ?b) :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v] (not [?b :block/tags ?t])]`),
+    dsQuery(`[:find ?v :where [?v :block/uuid #uuid "${choice.uuid}"]]`),
+  ]);
+  const list = await choicesOf(prop);
+  return { tag, prop, choice, choiceId: choiceRow[0]?.[0], at: list.findIndex(c => c.uuid === choice.uuid),
+    nodes: nodes.map(([u]) => String(u)), elsewhere: elsewhere[0]?.[0] || 0, data };
+}
+// Is the name free for the new tag? A tag of that name already inside the tag is used as it is.
+async function childTagName(plan, name) {
+  if (!name) return { problem: 'Give the new tag a name' };
+  if (name.includes('/')) return { problem: 'A tag name cannot have a / in it' };
+  const existing = plan.data.byName.get(name.toLowerCase());
+  if (existing) {
+    if (existing.parents.some(p => p.id === plan.tag.id)) return { existing };
+    return { problem: `There is already a tag #${existing.title}${existing.parents.length ? ' under ' + existing.parents.map(p => '#' + p.title).join(', ') : ''}. Pick another name, or move it inside #${plan.tag.title} first.` };
+  }
+  const page = await logseq.Editor.getPage(name).catch(() => null);
+  if (page) return { problem: `There is already a page called “${page.title || name}” that is not a tag. Pick another name, or make that page a tag first.` };
+  return {};
+}
+async function runChildTag(plan, name, existing) {
+  const { tag, prop, choice } = plan;
+  const done = { made: null, child: existing || null, moved: [], choiceGone: false };
+  const undo = () => undoChildTag(plan, done);
+  try {
+    if (!done.child) {
+      done.made = await makeTag(name);
+      done.child = done.made;
+      await logseq.Editor.addTagExtends(done.made.uuid, tag.uuid);
+    }
+    const lost = [];
+    for (const uuid of plan.nodes) {
+      const [had, values, tags] = await Promise.all([userValues(uuid), valuesOf(uuid, prop.ident), valuesOf(uuid, 'block/tags')]);
+      const hadChild = !!done.made ? false : tags.includes(existing.id);
+      if (!hadChild) await logseq.Editor.addBlockTag(uuid, done.child.uuid);
+      done.moved.push({ uuid, values, hadChild, tagged: false, cleared: false });
+      const step = done.moved[done.moved.length - 1];
+      await logseq.Editor.removeBlockTag(uuid, tag.uuid); step.tagged = true;
+      await setValues(uuid, prop, values.filter(v => v !== plan.choiceId)); step.cleared = true;
+      const now = new Set(await userValues(uuid));
+      if (had.some(a => a !== prop.ident && !now.has(a))) lost.push(uuid);
+    }
+    if (lost.length) throw new Error(`${plural(lost.length, 'node')} lost a value on the way`);
+    const used = (await dsQuery(`[:find (count ?b) :where [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v]]`))[0]?.[0] || 0;
+    if (!used) { await removeChoice(prop, choice); done.choiceGone = true; }
+  } catch (error) {
+    await undo().catch(again => warnOnce('a half-made child tag could not be put back', again));
+    throw error;
+  }
+  return { done, undo };
+}
+async function undoChildTag(plan, done) {
+  const { tag, prop, choice } = plan;
+  let choiceId = plan.choiceId;
+  if (done.choiceGone) {
+    const block = await addChoice(prop, choice.title);
+    choiceId = (await logseq.Editor.getBlock(block.uuid))?.id;
+    const list = await choicesOf(prop), at = plan.at;
+    if (at >= 0 && at < list.length - 1 && list[at].uuid !== String(block.uuid)) await logseq.Editor.moveBlock(block.uuid, list[at].uuid, { before: true, children: false });
+    done.choiceGone = false;
+  }
+  for (const step of done.moved.slice().reverse()) {
+    if (step.cleared) await setValues(step.uuid, prop, step.values.map(v => v === plan.choiceId ? choiceId : v));
+    if (step.tagged) await logseq.Editor.addBlockTag(step.uuid, tag.uuid);
+    if (!step.hadChild) await logseq.Editor.removeBlockTag(step.uuid, done.child.uuid);
+  }
+  done.moved = [];
+  if (done.made) { await logseq.Editor.deletePage(done.made.uuid); done.made = null; }
 }
 async function openTag(tag, sidebar) {
   if (sidebar) await logseq.Editor.openInRightSidebar(tag.uuid);
@@ -571,6 +656,11 @@ const css = `
 .refinement-tags-dialog .rtg-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .refinement-tags-dialog button { border: 1px solid var(--rtg-fborder); border-radius: 6px; padding: 5px 14px; background: none; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
 .refinement-tags-dialog button.rtg-go { border-color: transparent; background: var(--rtg-fg); color: var(--rtg-bg); font-weight: 600; }
+.refinement-tags-dialog .rtg-namefield { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.refinement-tags-dialog .rtg-namefield input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--rtg-fborder); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 15px; outline: none; box-shadow: none; }
+.refinement-tags-dialog .rtg-note { font-size: 14px; color: color-mix(in srgb, var(--rtg-fg) 60%, transparent); }
+.refinement-tags-dialog p.rtg-warn { color: #b8641e; }
+.refinement-tags-dialog button:disabled { opacity: .45; cursor: default; }
 .refinement-tags-dialog button:focus-visible { outline: 2px solid color-mix(in srgb, var(--rtg-fg) 40%, transparent); outline-offset: 1px; }
 .refinement-tags-toast { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px;
   background: var(--rtg-fg); color: var(--rtg-bg); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
@@ -1065,6 +1155,7 @@ function propRow(view, tag, prop, from) {
     line.append(view.infoButton(infoKey, prop.title));
   }
   const row = el(doc, 'div', { class: 'rtg-row rtg-prow' + (from ? ' rtg-inh' : ''), 'data-key': `p${prop.id}<${from ? from.id : ''}` }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
+  row.rtgLive = [tag, prop, from]; // what its clicks read, brought up to date if the row is kept (see morph)
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname')) fold.click(); });
   const nodes = [row];
   if (open) nodes.push(view.propDetails(tag, prop, from));
@@ -1179,6 +1270,7 @@ function propMenu(view, tag, prop, from, anchor) {
   const items = [{ html: 'Rename …', run: () => view.askRenameProp(prop, anchor) }];
   if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
+  if (prop.choices.length && !tag.builtIn) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });
   items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) }, '-');
   if (from) {
     items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = view.shown.find(i => i.tag.id === from.id); if (at) view.setCursor(at.key); } });
@@ -1291,6 +1383,82 @@ function askChoices(view, prop, anchor, at) {
   panel.style.left = Math.max(8, Math.min(where.left, win.innerWidth - 340)) + 'px';
   panel.style.top = Math.max(8, Math.min(where.top, win.innerHeight - 320)) + 'px';
   add.focus({ preventScroll: true });
+}
+
+// Making one of a property's choices its own child tag: the choice is picked from a menu, then a dialog says
+// what will happen, with the new tag's name to change if wanted.
+async function askChildTag(view, tag, prop, anchor) {
+  tag = view.fresh(tag);
+  let list = [];
+  try {
+    list = await choicesOf(prop);
+    const counts = await dsQuery(`[:find ?u (count ?b) :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/closed-value-property ?p] [?p :block/uuid #uuid "${prop.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?v :block/uuid ?u]]`);
+    const by = new Map(counts.map(([u, n]) => [String(u), n]));
+    for (const choice of list) choice.count = by.get(choice.uuid) || 0;
+  } catch (error) { warnOnce('the choices could not be read', error); logseq.UI.showMsg('The choices could not be read: ' + (error?.message || error), 'warning'); return; }
+  if (!list.length) { logseq.UI.showMsg(`${prop.title} has no choices yet`, 'warning'); return; }
+  view.showMenu(anchor, `Which ${prop.title} becomes its own tag inside #${tag.title}?`, list.map(choice => ({
+    html: `${escapeHtml(choice.title)}<kbd>${plural(choice.count, 'node')}</kbd>`, run: () => view.confirmChildTag(tag, prop, choice) })));
+  view.menu.append(el(view.doc, 'div', { class: 'rtg-mnote' }, `Best for a short list of broad kinds that rarely changes. The nodes move to the new tag and keep all their values.`));
+  view.placeMenu(anchor);
+}
+async function confirmChildTag(view, tag, prop, choice) {
+  let plan;
+  try { plan = await planChildTag(view.fresh(tag), prop, choice, view.data); }
+  catch (error) { warnOnce('a child tag could not be prepared', error); logseq.UI.showMsg('Could not look up what it would change: ' + (error?.message || error), 'warning'); return; }
+  const doc = view.doc, T = '#' + tag.title, n = plan.nodes.length;
+  const input = el(doc, 'input', { class: 'rtg-input', type: 'text', value: choice.title, spellcheck: 'false', 'aria-label': 'Name of the new tag' });
+  keepKeys(input);
+  const lines = el(doc, 'ul');
+  const note = el(doc, 'p');
+  const go = el(doc, 'button', { class: 'rtg-go' });
+  const cancel = el(doc, 'button', {}, 'Cancel');
+  let check = {};
+  const fill = async () => {
+    const name = input.value.trim().replace(/^#/, '').trim(), C = '#' + (name || '…');
+    check = await childTagName(plan, name);
+    const items = [check.existing ? `${C} is already inside ${T} and is used as it is` : `${C} is made inside ${T}, so it gets every property ${T} has`,
+      n ? `${plural(n, 'node')} tagged ${T} with ${prop.title} “${choice.title}” get ${C} instead of ${T}. They keep all their values and still count as ${T}`
+        : `No node tagged ${T} has ${prop.title} “${choice.title}” yet`,
+      ...(n ? [`their ${prop.title} “${choice.title}” is cleared, since ${C} now says it`] : []),
+      plan.elsewhere ? `“${choice.title}” stays a choice of ${prop.title}: ${plural(plan.elsewhere, 'other node')} not tagged ${T} still ${plan.elsewhere === 1 ? 'has' : 'have'} it`
+        : `“${choice.title}” is taken off ${prop.title}’s choices`];
+    lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
+    note.textContent = check.problem || 'Undo puts everything back, for a few seconds after.';
+    note.classList.toggle('rtg-warn', !!check.problem);
+    go.textContent = check.existing ? `Move to ${C}` : `Make ${C}`;
+    go.disabled = !!check.problem;
+  };
+  const panel = el(doc, 'div', { role: 'dialog', 'aria-label': 'Make a child tag' },
+    el(doc, 'h2', {}, `Make “${choice.title}” its own tag inside ${T}?`),
+    el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Name'), input), lines, note,
+    el(doc, 'div', { class: 'rtg-btns' }, cancel, go));
+  const backdrop = el(doc, 'div', { class: 'refinement-tags-dialog' }, panel);
+  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  cancel.addEventListener('click', close);
+  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
+  backdrop.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
+    if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); }
+  });
+  input.addEventListener('input', () => { fill().catch(() => {}); });
+  go.addEventListener('click', async () => {
+    const name = input.value.trim().replace(/^#/, '').trim();
+    check = await childTagName(plan, name);
+    if (check.problem) { fill(); return; }
+    close();
+    folded.delete(tag.uuid); saveFolded();
+    let result = null;
+    const done = await view.act(async () => { result = await runChildTag(plan, name, check.existing); }, `“${choice.title}” could not be made its own tag`);
+    if (!done || !result) return;
+    const child = view.data.byName.get(name.toLowerCase());
+    if (child) { view.cursorTag = child.id; view.cursorKey = null; view.draw(); }
+    view.showToast(`${n ? plural(n, 'node') + ' moved to' : 'Made'} #${name}${result.done.choiceGone ? `; “${choice.title}” is no longer a choice` : ''}`, result.undo);
+  });
+  doc.body.append(view.paint(backdrop));
+  await fill().catch(() => {});
+  input.focus(); input.select();
 }
 
 // A tag's description, the line under its name.
@@ -1470,9 +1638,18 @@ function draw(view) {
 // same tag when it was drawn the same way. view.shown is pointed at the rows actually on screen.
 function morph(view, parent, fresh) {
   const kept = new Map(); // freshly built row -> the row on screen that stays in its place
+  // A kept row's clicks were made with the tag, property and place it was drawn from; those objects take the
+  // freshly read values, so a row that looks the same also acts on what is true now (a tag's kids, a property's choices).
+  const keep = (fresh, old) => {
+    kept.set(fresh, old);
+    const was = old.rtgLive, now = fresh.rtgLive;
+    if (!was || !now) return;
+    was.forEach((thing, i) => { if (thing && now[i] && thing !== now[i] && typeof thing === 'object') Object.assign(thing, now[i]); });
+    if (was[0]?.row) was[0].row = old;
+  };
   const sameKids = (a, b) => {
     const olds = a.querySelectorAll('.rtg-row'), news = b.querySelectorAll('.rtg-row');
-    news.forEach((row, i) => kept.set(row, olds[i]));
+    news.forEach((row, i) => { if (olds[i]) keep(row, olds[i]); });
   };
   const typing = node => node.nodeType === 1 && !!(node.matches('input, textarea') || node.querySelector('input, textarea'));
   const isBox = node => node.nodeType === 1 && (node.classList.contains('rtg-kids') || node.classList.contains('rtg-section'));
@@ -1487,7 +1664,7 @@ function morph(view, parent, fresh) {
       if (!was || (k && byKey.get(k) !== was)) return node;
       if (k) byKey.delete(k);
       if (was.nodeName !== node.nodeName || typing(node) || typing(was)) return node;
-      if (was.isEqualNode(node)) { sameKids(was, node); if (node.matches?.('.rtg-row')) kept.set(node, was); return was; }
+      if (was.isEqualNode(node)) { sameKids(was, node); if (node.matches?.('.rtg-row')) keep(node, was); return was; }
       if (isBox(node) && isBox(was)) {
         for (const { name } of [...was.attributes]) if (!node.hasAttribute(name)) was.removeAttribute(name);
         for (const { name, value } of [...node.attributes]) if (was.getAttribute(name) !== value) was.setAttribute(name, value);
@@ -1498,8 +1675,8 @@ function morph(view, parent, fresh) {
     });
     let ref = into.firstChild;
     for (const node of chosen) { if (node === ref) ref = ref.nextSibling; else into.insertBefore(node, ref); }
-    const keep = new Set(chosen);
-    for (const node of [...into.childNodes]) if (!keep.has(node)) node.remove();
+    const stays = new Set(chosen);
+    for (const node of [...into.childNodes]) if (!stays.has(node)) node.remove();
   };
   walk(parent, fresh);
   for (const item of view.shown) { const onScreen = kept.get(item.row); if (onScreen) item.row = onScreen; }
@@ -1522,6 +1699,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   const row = el(view.doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (pass.q && !tag.title.toLowerCase().includes(pass.q) ? ' rtg-dim' : ''),
     'data-key': key, draggable: tag.builtIn ? null : 'true', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null });
   const item = { key, tag, parent, row, depth, sec: pass.section, root: isRoot };
+  row.rtgLive = [item, tag, parent]; // what its clicks read, brought up to date if the row is kept (see morph)
   view.shown.push(item);
   const fold = el(view.doc, 'button', { class: 'rtg-fold' + (kids.length || view.hasRows(tag) ? '' : ' rtg-leaf') + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
     click: event => { event.stopPropagation(); view.toggle(tag); } });
@@ -1813,7 +1991,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
