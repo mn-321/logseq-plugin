@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Enter takes the proposals; italic grey (0.4.202)
+
+**The owner:** "I prefer italic grey and then add dotted. I do not want to have to click on it to confirm ... enter
+confirms I like things. if I want to change things then maybe option-enter can move focus to the properties and type
+or move that way with tab going next one." And: "if you have concern about creating a tag for a page silently then
+add ...as #tag".
+
+**Done:** values italic grey in their property, guesses dotted as well; Enter fills in everything shown; leaving any
+other way fills in only what is not a guess; a click on a value does nothing; a page with no tag shows "Name as
+#Tag" and is offered for one place only. Seen: Aug 18, Enter filled Provider: Dr. Raj Patel, Undo emptied it;
+clicking away left it empty. "as #Tag" only in the pretend check (no untagged page left in the graph: the owner
+tagged Hannah Reyes). Second reading's fixes: an Enter that kept the bullet in edit no longer counts later; Enter
+just before a typed tag fills in nothing.
+
+**Next, to agree:** Option-Enter into the properties (Tab to the next, type to change).
+
 ## 2026-10-20 · Proposals drawn where the value goes (0.4.201)
 
 **The owner, after looking:** Hannah Reyes offered for two places is reasonable; "about the tingling" guessing
