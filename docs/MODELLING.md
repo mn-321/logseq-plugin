@@ -1,24 +1,37 @@
-# Tags and fields: how to shape them
+# Tags and properties: how to shape them
 
-The principle behind the tag tree (and the shape box on tag and property pages): how to decide what is a tag, a child tag, a field or a link, given that some of these are cheap to change later and some are not. Agreed with the owner on 2026-10-19 in the "Illness test graph" thread, and used to build that graph.
+The owner's principle (2026-10-20), in short: **structure is extracted from free writing, not planned ahead of it.**
+
+## The principle
+
+- **Write the sentence first, with its links.** "Saw [[Dr. Chen]] at [[Northgate]] about the [[Tingling fingers]]." The
+  words carry the context and read well in ten years; the links make it findable from both ends.
+- **A linked page already has a quality.** Dr. Chen is a #Doctor, Northgate a #Hospital, Tingling fingers a #Symptom.
+  The tag on the page says which property a link belongs in, so a sentence written freely already holds its
+  structure. The plugin's job is to notice, not to ask.
+- **The main bits live in both.** The sentence keeps them as words; the properties copy out the few worth listing or
+  sorting by (Provider, Topic, Date). Not every detail needs a place in the schema: a node is not a database row.
+- **A property exists for later.** Make one only for what you will list, sort or filter by. The test: would I ever
+  want a list of these? If not, it stays in the words.
+- **A tag exists only for its properties.** Make a new tag when its nodes need properties the others don't, always,
+  or when you need to pull that kind out on its own. Otherwise it is a detail in the words, or a link.
+
+The Illness Test Graph is shaped this way (`test/illness-test-graph.py`): thirteen tags, one to three properties
+each, every record a sentence with its links.
 
 ## The three ways to connect things
 
-- **A tag says what something is** (Appointment, Doctor, Report). It acts like a class: it gives every record that carries it the same set of fields.
-- **A field records a fact you will want to list, sort or see from the other end** (which doctor, which day, which report). A field that points to a page also shows on that page, in the two-way rows.
-- **A link in the words is a mention.** It shows under Linked references and nowhere else.
+- **A tag says what something is** (Consultation, Doctor, Report) and gives every node that carries it the same few properties.
+- **A property records a fact you will want to list, sort or see from the other end** (which doctor, which day). A
+  property that points to a page shows on that page too, as a two-way row.
+- **A link in the words is a mention**, and when the page it points to has a tag, it is also the raw material of a
+  property: the plugin proposes the property from the link.
 
-The test for each connection: would anyone ever want a list of these? If yes, it is a field.
+## A child tag or a choice?
 
-## A child tag or a "kind" field?
-
-Make a child tag only when some records need a fact the others do not have.
-
-1. Start with one tag, Appointment. Every visit has a date, a doctor and a hospital; a "kind" choice (Scan, Blood test, Consultation) tells them apart. One tag is enough while every visit has the same fields.
-2. The first CT scan needs "contrast: yes/no". That fact only makes sense for scans.
-3. That is the moment to make Scan a child tag of Appointment. It gets "contrast" and keeps date, doctor and hospital from Appointment, and the other visits are not cluttered with a field they never use. Scan records still count as Appointments.
-
-So the trigger is not "this is a different sort of thing" but "this sort of thing needs a field the others do not". Until then a "kind" field with a fixed list does the same job and is easier to change. A sub-kind is never free text: "CT", "CT scan" and "ct" sort as three things.
+Make a child tag only when some nodes need a property the others do not. Until then a choice on the parent tells
+them apart. The trigger is not "this is a different sort of thing" but "this sort of thing needs a property the
+others do not".
 
 ## What is cheap and what is expensive to change later
 

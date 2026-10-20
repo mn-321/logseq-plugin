@@ -67,6 +67,9 @@ const appt = bullet('Dietitian', [T.appointment], journal, { 'user.property/hosp
 const record = expect('note under a record', piecesFor(bullet('Saw [[Dr. Mei Chen]] again', [], journal, { 'block/parent': appt }), 'Saw [[Dr. Mei Chen]] again', ctx), 'doctor=Dr. Mei Chen');
 if (record !== appt) problem('note under a record: the pieces are not for the appointment');
 expect('nested record', piecesFor(bullet('Follow-up', [T.appointment], journal, { 'block/parent': { ...appt, 'user.property/doctor': { 'db/id': 100 } } }), 'Follow-up', ctx), '(nothing)');
+// 6b. Several people named in a note under a record are not the record's "with" (a list in a note is a guess), while
+//     a doctor named there still is its doctor.
+expect('list in a note', piecesFor(bullet('Rang [[Ruth Okoro]] and [[Dr. Raj Patel]] after', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal, { 'user.property/doctor': { 'db/id': 100 } }) }), 'Rang [[Ruth Okoro]] and [[Dr. Raj Patel]] after', ctx), '(nothing)');
 // 7. A property already filled is never proposed for again, and a second doctor named does not become "with".
 expect('filled stays', piecesFor(bullet('x', [T.appointment], journal, { 'user.property/doctor': { 'db/id': 101 } }), 'Saw [[Dr. Mei Chen]]', ctx), '(nothing)');
 // 8. A symptom linked in a symptom log fills symptoms, several at once.

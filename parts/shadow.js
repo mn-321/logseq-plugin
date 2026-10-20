@@ -150,7 +150,9 @@ function piecesFor(b, text, ctx) {
       // A filled property still claims the links it takes: a second doctor named when doctor is filled does not become "with".
       if (fitting.length) {
         for (const p of fitting) used.add(p);
-        if (!filled && (prop.many || fitting.length === 1)) pieces.push({ ident: prop.ident, prop, kind: 'node', ids: fitting.map(p => p.id), shown: fitting.map(p => p.title).join(', '), how: 'linked' });
+        // From a note under the record, only a one-value property is sure: a list of people in a note ("rang Amara and
+        // Tunde") is not the record's "spoke with" (found by the scorer on the lean graph).
+        if (!filled && (prop.many ? record === b : fitting.length === 1)) pieces.push({ ident: prop.ident, prop, kind: 'node', ids: fitting.map(p => p.id), shown: fitting.map(p => p.title).join(', '), how: 'linked' });
         continue; // two names for one place: quiet, and the names are spoken for
       }
       if (filled) continue;

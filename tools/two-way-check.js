@@ -94,7 +94,8 @@ async function pluginRows() {
   // which leaves it unusable in the app until that server is stopped (GUIDE.md).
   const servers = await new Promise(resolve => execFile(CLI, ['server', 'list', '-o', 'json'], { encoding: 'utf8', timeout: 30000 },
     (error, stdout) => { try { resolve(JSON.parse(stdout).data.servers || []); } catch { resolve([]); } }));
-  if (!servers.some(s => s.graph === GRAPH && s.status === 'ready' && s['owner-source'] === 'electron')) {
+  // OWNER=any lets a graph the command line itself serves be read (a scratch import of the seed, never the owner's graph).
+  if (!servers.some(s => s.graph === GRAPH && s.status === 'ready' && (s['owner-source'] === 'electron' || process.env.OWNER === 'any'))) {
     console.log(`two-way check skipped (the app does not have "${GRAPH}" open)`); process.exit(0);
   }
   try { await ask('[:find ?e :where [?e :block/name "nausea"]]'); }
@@ -127,16 +128,20 @@ async function pluginRows() {
       if (counted !== g.items.length) problem(`${name(pu)}: “${g.label}” says ${summary(g.items)} for ${g.items.length} records`);
     }
   }
-  // Facts from the test graph's plan.
+  // A fact from the test graph's plan: Dr. Mei Chen is the provider of consultations, read from the answer key, with the
+  // row reading "provider of" unless the settings word it otherwise or turn it off.
   const chen = [...titles].find(([, t]) => t === 'Dr. Mei Chen')?.[0];
-  const doctorOf = (found.get(chen) || []).find(g => g.name === 'doctor');
-  // Unless the doctor row was turned off or worded otherwise in the settings, which is allowed.
-  const mentioned = /(^|[;\n])\s*doctor\s*(=|;|$)/i;
-  if (mentioned.test(String(settings.twoWayOneEnd || ''))) console.log('  (the doctor row is shown from one end only; not checked)');
-  else if (!doctorOf) problem('Dr. Mei Chen has no “doctor of” row');
-  else if (doctorOf.items.length !== 13) problem(`Dr. Mei Chen is the doctor of ${doctorOf.items.length}, not 13`);
-  else if (doctorOf.label !== 'doctor of' && !mentioned.test(String(settings.twoWayNames || ''))) problem(`Dr. Mei Chen's row reads “${doctorOf.label}”, not “doctor of”`);
-  console.log(`two-way rows on the Illness Test Graph: ${found.size} pages, ${fields} rows, ${links} links compared with the answer key`);
+  const field = [...(key.get(chen) || new Map())].find(([name]) => /^(provider|doctor)$/i.test(name));
+  const mentioned = /(^|[;\n])\s*(provider|doctor)\s*(=|;|$)/i;
+  if (!field) problem('the answer key has no provider (or doctor) links to Dr. Mei Chen; the test graph is not the one expected');
+  else if (mentioned.test(String(settings.twoWayOneEnd || ''))) console.log(`  (the ${field[0]} row is shown from one end only; not checked)`);
+  else {
+    const row = (found.get(chen) || []).find(g => g.name === field[0]);
+    if (!row) problem(`Dr. Mei Chen has no “${field[0]} of” row`);
+    else if (row.items.length !== field[1].size) problem(`Dr. Mei Chen is the ${field[0]} of ${row.items.length}, not ${field[1].size}`);
+    else if (row.label !== `${field[0].toLowerCase()} of` && !mentioned.test(String(settings.twoWayNames || ''))) problem(`Dr. Mei Chen's row reads “${row.label}”, not “${field[0].toLowerCase()} of”`);
+  }
+  console.log(`two-way rows on "${GRAPH}": ${found.size} pages, ${fields} rows, ${links} links compared with the answer key`);
   if (problems.length) { console.log(`two-way check: FAILED (${problems.length})`); process.exit(1); }
   console.log('two-way check: OK');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

@@ -81,11 +81,11 @@ When a layer changes, update the feature map page too (link above) if you can re
 
 ## 5. The Illness Test Graph and the tag/property principles
 
-**The graph:** "Illness Test Graph" on the Mac. A made-up patient, Daniel Okoro, 58, colon cancer from July 2026: about 110 journal days, doctors, hospitals, medicines, reports, appointments into December. 185 pages, 459 blocks; Dr. Mei Chen is the doctor on 13 appointments. The plan is `illness-test-graph/PLAN.md` in the project's files; the seed is `test/illness-test-graph-1.edn`, `-2`, `-3` (fixed ids, so re-importing can't create doubles).
+**The graph:** "Illness Test Graph" on the Mac. A made-up patient, Daniel Okoro, 58, colon cancer from July 2026: about 110 journal days, doctors, hospitals, medicines, reports, appointments into December. Reshaped on 2026-10-20 to the owner's own map: thirteen tags with one to three properties each (Consultation: Provider, Topic; Conversation: Topic, Spoke with; Expectation: Status, Completed; Hospitalization: Hospital, End; Symptom Log: Symptom type; Report: Date, Findings; Doctor: Location, Specialty, Works at; and so on), and every record a sentence written freely with its links. About 640 nodes; Dr. Mei Chen is the provider of 2 consultations. The seed is made by `test/illness-test-graph.py` into `test/illness-test-graph-1.edn`, `-2`, `-3` (fixed ids, so re-importing can't create doubles).
 
 - To rebuild it: the owner deletes the old one in Logseq (Claude must not delete graphs); create the empty DB graph from Logseq's own "Create a new graph" dialog with the same name; switch the app to another graph (Demo); import parts 1, 2, 3 in order with `~/.local/bin/logseq graph import --graph "Illness Test Graph" --type edn --input <file> --timeout-ms 300000`; then `logseq server stop --graph "Illness Test Graph"` and check `server list` before opening it in the app.
 - The plugin settings `autoDateGraphs` and `inlinePropsGraphs` include this graph.
-- Good places to look: Dr. Mei Chen (doctor of 13), the Appointment tag page and its child tags, Nausea (rows under the title), Northgate Cancer Center.
+- Good places to look: Dr. Mei Chen (provider of 2, spoke with), the Consultation and Expectation tag pages, Nausea and Tingling fingers (symptom logs under the title), Northgate Cancer Center.
 
 **Principles the owner agreed (also in `docs/MODELLING.md`):**
 
