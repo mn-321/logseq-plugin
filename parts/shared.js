@@ -191,7 +191,7 @@ function modalButtons(doc, buttons) {
   for (const [text, onClick] of buttons) {
     const b = doc.createElement('button');
     b.textContent = text;
-    b.style.cssText = 'padding:4px 12px;border:1px solid var(--rf-line);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
+    b.style.cssText = 'padding:4px 12px;border:1px solid var(--rf-line, var(--ls-border-color));border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
     b.addEventListener('click', event => { event.preventDefault(); onClick(); });
     row.append(b);
   }

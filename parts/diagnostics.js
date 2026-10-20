@@ -293,15 +293,17 @@ async function copyWarnings() {
    Logseq wrote to its console as errors or warnings meanwhile. The report so far is saved as tourReport in the
    settings file after every stop; after the last one the theme is put back and the F8 key let go. Running "Take the
    tour" again while it runs ends it. It reads the screen only: nothing in your notes is changed. */
-const tour = { stops: [], at: -1, lines: [], doc: null, keys: null, theme: '', console: null, busy: false };
+// run changes when a tour starts or ends, so a stop still being measured knows it is no longer wanted.
+const tour = { stops: [], at: -1, lines: [], doc: null, keys: null, theme: '', console: null, busy: false, run: 0, stopVisit: null };
 const TOUR_STILL = 1000, TOUR_LONGEST = 8000;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const describeNode = node => !node ? '?' : node.nodeType !== 1 ? 'text' : node.tagName.toLowerCase() + (typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
 async function tourBegin() {
-  if (tour.at >= 0) return tourEnd('ended early');
+  if (tour.doc) return tourEnd('ended early');
   tour.stops = String(logseq.settings?.tourStops || '').split(';').map(stop => stop.trim()).filter(Boolean);
   if (!tour.stops.length) return notify('No tour stops. Put them in the settings file as tourStops: "Page; Page; theme: dark; …"', 'warning');
   tour.doc = host();
+  tour.run++;
   const win = tour.doc.defaultView;
   tour.theme = tour.doc.documentElement.getAttribute('data-theme') || '';
   tour.lines = [await versionLine(), `Tour of ${tour.stops.length} stops, started ${new Date().toTimeString().slice(0, 8)}. Times are from opening the stop, in ms.`, '',
@@ -309,7 +311,8 @@ async function tourBegin() {
   tour.console = { error: win.console.error, warn: win.console.warn, seen: [] };
   for (const kind of ['error', 'warn']) {
     win.console[kind] = (...args) => {
-      tour.console.seen.push(`${kind}: ${args.map(arg => arg?.message || String(arg)).join(' ').slice(0, 200)}`);
+      // Recording must never break the caller: some values cannot be turned into text.
+      try { tour.console.seen.push(`${kind}: ${args.map(arg => arg?.message || String(arg)).join(' ').slice(0, 200)}`); } catch (error) { tour.console.seen.push(`${kind}: (not readable)`); }
       return tour.console[kind].apply(win.console, args);
     };
   }
@@ -323,17 +326,20 @@ async function tourNext() {
   tour.at++;
   if (tour.at >= tour.stops.length) return tourEnd('end of the tour');
   tour.busy = true;
-  const stop = tour.stops[tour.at];
+  const stop = tour.stops[tour.at], run = tour.run;
+  let lines;
   try {
     const theme = stop.match(/^theme:\s*(light|dark)$/i);
-    if (theme) { await logseq.App.setThemeMode(theme[1].toLowerCase()); await sleep(600); tour.lines.push('', `— ${theme[1].toLowerCase()} —`); }
-    else tour.lines.push(...await tourVisit(stop));
-  } catch (error) { tour.lines.push(`${stop}: could not be visited (${error.message})`); }
+    if (theme) { await logseq.App.setThemeMode(theme[1].toLowerCase()); await sleep(600); lines = ['', `— ${theme[1].toLowerCase()} —`]; }
+    else lines = await tourVisit(stop);
+  } catch (error) { lines = [`${stop}: could not be visited (${error.message})`]; }
+  if (run !== tour.run) return; // ended meanwhile: its report is already saved
+  tour.lines.push(...lines);
   tour.busy = false;
   logseq.updateSettings({ tourReport: tour.lines.join('\n'), tourAt: `${tour.at + 1} of ${tour.stops.length}: ${stop}` });
 }
 async function tourVisit(stop) {
-  const doc = tour.doc, win = doc.defaultView, now = () => win.performance.now();
+  const doc = tour.doc, win = doc.defaultView, now = () => win.performance.now(), run = tour.run;
   const titleSelector = '#main-content-container :is(.ls-page-title, .page-title)';
   const oldTitle = doc.querySelector(titleSelector);
   const shifts = [], consoleFrom = tour.console.seen.length;
@@ -349,13 +355,17 @@ async function tourVisit(stop) {
   });
   changes.observe(doc.body, { childList: true, subtree: true, characterData: true });
   if (stop.startsWith('#')) win.location.hash = stop; else logseq.App.pushState('page', { name: stop });
+  let stopped = false;
+  const stopWatching = () => { stopped = true; changes.disconnect(); shiftWatch.disconnect(); };
+  tour.stopVisit = stopWatching;
   for (;;) {
+    if (stopped || run !== tour.run) break;
     await sleep(100);
     const t = now();
     if ((t - lastChange > TOUR_STILL && t - begun > 400) || t - begun > TOUR_LONGEST) break;
   }
-  changes.disconnect();
-  shiftWatch.disconnect();
+  stopWatching();
+  if (tour.stopVisit === stopWatching) tour.stopVisit = null;
   const ms = t => t ? String(Math.round(t - begun)) : '–';
   const score = shifts.reduce((sum, entry) => sum + entry.value, 0);
   const seen = tour.console.seen.slice(consoleFrom);
@@ -373,6 +383,9 @@ async function tourVisit(stop) {
 async function tourEnd(how) {
   const doc = tour.doc;
   tour.doc = null;
+  tour.run++;
+  tour.stopVisit?.();
+  tour.stopVisit = null;
   tour.at = -1;
   tour.busy = false;
   if (!doc) return;

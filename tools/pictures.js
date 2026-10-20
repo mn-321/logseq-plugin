@@ -158,7 +158,9 @@ async function scenes(page) {
     const shot = await page.locator('#stage').screenshot({ animations: 'disabled', caret: 'hide' });
     for (const e of errors) problems.push(`${file}: error in the page: ${e}`);
     const approvedFile = path.join(approvedDir, file);
-    if (approve) {
+    if (approve && errors.length) {
+      lines.push(`  ${file}: not approved, the page had errors`);
+    } else if (approve) {
       fs.mkdirSync(approvedDir, { recursive: true });
       fs.writeFileSync(approvedFile, shot);
       lines.push(`  ${file}: approved`);
