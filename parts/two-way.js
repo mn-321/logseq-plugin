@@ -617,7 +617,8 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-fold:hover .rf-tw-chevron { opacity: 1; }
 .refinement-two-way .rf-tw-row[data-open] .rf-tw-chevron { transform: rotate(90deg); }
 /* The list a count opens into: date, record, tag, one per line, under the value. */
-.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 22px; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: .6rem; }
+/* The line drops from under the fold arrow (centred 11px in, 0.4.196), as Logseq's own guide lines drop from theirs; the words stay where they were. */
+.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: calc(.6rem + 11.5px); }
 .refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
 .refinement-two-way .rf-tw-more { display: inline-block; margin-top: .1rem; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); }
