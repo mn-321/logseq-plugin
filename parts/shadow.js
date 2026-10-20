@@ -17,15 +17,15 @@
    - the journal day, for an empty "date" of a record written on a journal page.
 
    Piece 2 (0.4.200): guesses, for empty properties the sure pieces leave empty (and not one kept quiet by two names).
-   They show in the same place with a dotted line under them, and only a click takes one (the dots go, and it is
-   filled in with the rest when the bullet is left, under the same Undo). A guess is made when every rule that speaks agrees:
+   They show in the same place with a dotted line under them as well, and Enter takes them with the rest (under the
+   same Undo; before 0.4.202 a click took each); leaving any other way takes only the sure values. A guess is made when every rule that speaks agrees:
    - plain words: a page named without brackets, by its whole title or alias ("Northgate") or by a word of its title
      that no other page of the right tag shares ("Dr. Patel", "the tingling"); a tie names no one;
    - the same line written before: an earlier node under the same tag with nearly the same words gives its values,
      when all such nodes agree ("Wiped out all day." has had Fatigue);
    - the parent's values: a tagged bullet under a tagged bullet gets the parent's values for properties both have;
-   - a linked page with no tag yet, for each empty place it could fill when there are one or two (the click also gives
-     the page that place's tag; taking one drops the other).
+   - a linked page with no tag yet, for the first empty place it could fill when there are one or two (taking it also
+     gives the page that place's tag).
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
@@ -36,10 +36,10 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 const settingsSchema = [
   { key: 'shadowHeading', type: 'heading', group: 'writing', rank: 1, title: 'Proposals', default: null,
     legend: 'What the plugin is sure of, shown faintly in the bullet’s own properties and filled in when you leave it',
-    zone: '<div><span class="m">Provider:</span> <span class="m"><u style="text-decoration-style: dotted">Dr. Raj Patel</u></span> <span class="m">· Date: Oct 20</span></div>',
+    zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. A guess has a dotted line under it: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Only a click takes a guess; it is then filled in with the rest. Escape clears them, and that bullet is then left alone. Your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them, and that bullet is then left alone. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -267,16 +267,17 @@ function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, do
     for (const p of pages) spoken.add(p);
     out.push({ ident: prop.ident, prop, kind: 'node', ids, shown: pages.map(p => p.title).join(', '), how: said.map(s => s.how).join('+'), guess: true });
   }
-  // A linked page with no tag yet: a guess for each empty place it could fill (a property taking one tag), when there
-  // are one or two such places and no other such page competes for them. The click gives the page that tag too.
+  // A linked page with no tag yet: a guess for the first empty place it could fill (a property taking one tag, the
+  // most particular first), when there are one or two such places and no other such page competes for them. Taking
+  // it gives the page that tag too. Only one place, since Enter takes every guess (0.4.202; it offered both before).
   const { aliasIds } = namesFor(ctx);
   const loose = free.filter(p => !used.has(p) && untagged(p) && !aliasIds.has(p.id));
   const places = fields.filter(prop => open(prop) && prop.type === 'node' && prop.classes.length === 1 && !out.some(g => g.ident === prop.ident));
   if (loose.length === 1 && places.length && places.length <= 2) {
     const [p] = loose;
-    for (const prop of places) {
+    for (const prop of places.slice(0, 1)) {
       const tag = prop.classes[0];
-      out.push({ ident: prop.ident, prop, kind: 'node', ids: [p.id], shown: p.title, how: 'untagged', guess: true, group: 'untagged ' + p.id,
+      out.push({ ident: prop.ident, prop, kind: 'node', ids: [p.id], shown: p.title, how: 'untagged', guess: true,
         tagPage: { tag, uuids: [p.uuid] }, note: `becomes a #${tag.title}` });
     }
   }
@@ -344,7 +345,8 @@ function datedWhenWritten(tagIds, ctx) {
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the
    block, drawn in the record's own properties, and taken when the bullet is left unless Escape cleared it. Only what
    was shown is taken: a record whose row is not on screen (a note zoomed into) gets nothing (second reading). */
-// taken: the guesses clicked in the bullet being written ({ uuid, keys }), filled in with the rest when it is left.
+// taken: the guesses Enter took in the bullet being written ({ uuid, at, keys }), filled in with the rest when it is left.
+const ENTER_LEAVES = 500;
 const state = window.refinementShadow = { live: null, times: [], taken: { uuid: '', keys: new Set() } };
 const guessKey = piece => `${piece.ident} ${piece.ids.join(',')}`;
 const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set();
@@ -401,7 +403,9 @@ function onFocusOut(event) {
   if (!box) return;
   const uuid = uuidOf(box);
   if (!state.live || state.live.uuid !== uuid) { if (state.taken.uuid === uuid) state.taken = { uuid: '', keys: new Set() }; return; }
-  const live = state.live, taken = new Set(takenIn(uuid));
+  // Enter's taking counts only when the bullet is left right after it: an Enter that kept the bullet in edit (at the
+  // very start of its words, or in document mode) must not let a later click away fill in guesses (second reading).
+  const live = state.live, taken = Date.now() - (state.taken.at || 0) < ENTER_LEAVES ? new Set(takenIn(uuid)) : new Set();
   setTimeout(() => {
     const now = editingBox(host().activeElement);
     if (now && uuidOf(now) === live.uuid) return;
@@ -415,38 +419,33 @@ function onFocusOut(event) {
   }, 120);
 }
 // Escape clears the shadow, and the bullet is left alone from then on; the caret stays (a second Escape is Logseq's).
+// Enter (plain, with no list of Logseq's open) takes the guesses too: the bullet is then left as usual, and everything
+// shown is filled in (the owner: "enter confirms I like things"; 0.4.202). Leaving any other way takes the sure values
+// only. Nothing of Enter is held back: Logseq still makes the next bullet.
 function onKey(event) {
-  if (event.key !== 'Escape' || event.isComposing || !state.live) return;
+  if ((event.key !== 'Escape' && event.key !== 'Enter') || event.isComposing || !state.live) return;
   const box = editingBox(event.target);
   if (!box || uuidOf(box) !== state.live.uuid) return;
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
+  if (event.key === 'Enter') {
+    if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
+    state.taken = { uuid: state.live.uuid, at: Date.now(), keys: new Set(state.live.pieces.filter(p => p.guess && state.live.drawn?.has(guessKey(p))).map(guessKey)) };
+    return;
+  }
   event.preventDefault(); event.stopImmediatePropagation();
   dismiss(state.live.uuid);
   state.live = null;
   state.taken = { uuid: '', keys: new Set() };
   hide();
 }
-// A click on a guess takes it (another click puts it back); taking one of a page's places drops its other. Logseq
-// never hears of the press, and the mouse press is held back so the bullet stays in edit. The pointer press is not
-// held back: that would stop the mouse press from coming at all (found in the app: the click did nothing).
+// A press on a proposed value does nothing (0.4.202: no click to confirm; Enter does): Logseq never hears of it, so
+// its value editor does not open under the value, and the mouse press is held back so the bullet stays in edit. The
+// pointer press is not held back: that would stop the mouse press, and its holding back, from coming at all.
 function onGuessPress(event) {
-  // A sure value is ours too: a click on it must not open Logseq's value editor under it (second reading).
   const el = event.target?.closest?.('.rfs-ghost');
   if (!el) return;
   event.stopImmediatePropagation();
-  if (event.type === 'pointerdown') return;
-  event.preventDefault();
-  if (event.type !== 'mousedown' || !state.live || !el.dataset.guess) return;
-  const piece = state.live.pieces.find(p => p.guess && guessKey(p) === el.getAttribute('data-guess'));
-  if (!piece) return;
-  if (state.taken.uuid !== state.live.uuid) state.taken = { uuid: state.live.uuid, keys: new Set() };
-  const keys = state.taken.keys, key = guessKey(piece);
-  if (keys.has(key)) keys.delete(key);
-  else {
-    if (piece.group) for (const other of state.live.pieces) if (other !== piece && other.group === piece.group) keys.delete(guessKey(other));
-    keys.add(key);
-  }
-  drawInPlace(el.ownerDocument);
+  if (event.type !== 'pointerdown') event.preventDefault();
 }
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
@@ -464,6 +463,10 @@ async function takeShadow(live) {
     if (!saved) await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!saved) return; // the words changed after the shadow was drawn, or never got saved: nothing is written (second reading)
+  // A tag typed in the words must be on the bullet as saved: Enter just before a typed tag moves the tag to the next
+  // bullet, and this one must not get that tag's properties (second reading).
+  const savedTags = new Set((pick(b, 'block/tags') || []).map(idOf));
+  if (inWords(live.text, ctx).tags.some(tag => !savedTags.has(tag))) return;
   const { record, pieces: found } = piecesFor(b, live.text, ctx);
   const taken = live.taken || new Set(), shown = live.drawn || new Set();
   const pieces = found.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || taken.has(guessKey(piece))));
@@ -492,14 +495,14 @@ async function takeShadow(live) {
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid);
     }
   };
-  showUndoBar(`${written.map(piece => `${piece.prop.title}: ${piece.shown}`).join(' · ')} filled in on “${words.length > 40 ? words.slice(0, 39) + '…' : words}”`, undo,
+  showUndoBar(`${written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · ')} filled in on “${words.length > 40 ? words.slice(0, 39) + '…' : words}”`, undo,
     error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
 }
 
 /* Drawing (0.4.201, at the owner's word: "all that is necessary is the name to appear in dotted line where it would
    be"): each proposed value is written faintly into the record's own property, where Logseq shows the empty value,
-   and nothing else: no line of its own, no keys. A sure value is faint; a guess is faint with a dotted underline and
-   is taken by a click (then it looks like a sure one: both are filled in when the bullet is left). A property Logseq
+   and nothing else: no line of its own, no keys. Values are italic grey; a guess has a dotted underline as well and
+   is filled in only when the bullet is left with Enter (0.4.202). A property Logseq
    shows no pill for gets one made for the value, in the record's own pill row (made too when there is none), as the
    resting proposals part did (0.4.122). Drawn again on the foundation's early pass, so Logseq's redraw of the row
    cannot lose it; only the plugin's own elements are added, and they go with the proposal. */
@@ -527,14 +530,12 @@ function makePill(doc, row, piece) {
   return pill;
 }
 // What one value looks like and says when pointed at; the page that gets a tag is named only there.
-function ghostLook(piece, taken) {
-  const guess = piece.guess && !taken.has(guessKey(piece));
-  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}${piece.guess && !guess ? ' rfs-taken' : ''}`,
-    title: guess ? `A guess: click to take it${piece.note ? ` (${piece.tagPage ? `${piece.shown} ${piece.note}` : piece.note})` : ''}`
-      : piece.guess ? 'Taken: filled in when you leave the bullet. Click to put it back' : 'Filled in when you leave the bullet' };
+function ghostLook(piece) {
+  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`,
+    title: piece.guess ? 'A guess: Enter fills it in with the rest' : 'Filled in when you leave the bullet' };
 }
 function drawInPlace(doc = host()) {
-  const live = state.live, taken = live ? takenIn(live.uuid) : new Set();
+  const live = state.live;
   const want = new Map(), rows = live?.recordUuid ? [...doc.querySelectorAll(`.ls-block[blockid="${live.recordUuid}"]`)] : [];
   for (const piece of live?.pieces || []) want.set(piece.ident, piece);
   // Out with what is no longer proposed (another bullet, a value changed, the bullet left).
@@ -552,7 +553,7 @@ function drawInPlace(doc = host()) {
       const pill = pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
       const target = pill && (pill.querySelector('.bottom-property-content') || pill);
       if (!target) continue;
-      const look = ghostLook(piece, taken);
+      const look = ghostLook(piece);
       let g = [...target.querySelectorAll(':scope > .rfs-ghost')].find(el => el.dataset.rfsIdent === piece.ident);
       if (!g) {
         g = doc.createElement('span');
@@ -560,7 +561,8 @@ function drawInPlace(doc = host()) {
         g.dataset.rfsIdent = piece.ident;
         g.dataset.rfsKey = guessKey(piece);
         if (piece.guess) g.dataset.guess = guessKey(piece);
-        g.textContent = piece.shown;
+        // A page that would get a tag says so where it shows (the owner: "add ...as #tag"; 0.4.202).
+        g.textContent = piece.tagPage ? `${piece.shown} as #${piece.tagPage.tag.title}` : piece.shown;
         target.appendChild(g);
       }
       if (g.className !== look.cls) g.className = look.cls;
@@ -576,14 +578,12 @@ function hide() { drawInPlace(); }
 const drawEarly = (doc, records) => { if (!state.live && !doc.querySelector('.rfs-ghost, .rfs-made, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made')))) drawInPlace(doc); };
 
 const css = `
-/* A proposed value (0.4.201): faint, in the record's own property where the value goes. A guess has a dotted line
-   under it and takes a click; taken, it looks like a sure one. Greys mixed from the text colour (dark mode). */
+/* A proposed value (0.4.202): italic grey, in the record's own property where the value goes; a guess has a dotted
+   line under it as well. Greys mixed from the text colour (dark mode). */
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
-.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); white-space: nowrap; }
-.rfs-ghost.rfs-guess { cursor: pointer; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-.rfs-ghost.rfs-guess:hover { color: color-mix(in srgb, currentColor 80%, transparent); }
-.rfs-ghost.rfs-taken { text-decoration: none; }
+.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); font-style: italic; white-space: nowrap; }
+.rfs-ghost.rfs-guess { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 `;

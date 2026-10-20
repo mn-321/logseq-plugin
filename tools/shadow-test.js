@@ -49,7 +49,7 @@ addHistory(ctx, [
 const journal = { 'db/id': 300, 'block/uuid': 'j-300', 'block/title': 'Oct 20th, 2026', 'block/journal-day': 20261020, 'block/tags': [] };
 const chenPage = { 'db/id': 100, 'block/uuid': 'page-100', 'block/title': 'Dr. Mei Chen', 'block/tags': [{ 'db/id': T.doctor }] };
 const bullet = (title, tags, on, extra = {}) => ({ 'db/id': 1000 + Math.floor(Math.random() * 1000), 'block/uuid': 'b-' + Math.random().toString(16).slice(2), 'block/title': title, 'block/tags': tags.map(t => ({ 'db/id': t })), 'block/page': on, ...extra });
-// A guess (piece 2, taken only by a click) is shown with a "?".
+// A guess (piece 2, taken only with Enter) is shown with a "?".
 const shown = pieces => pieces.map(p => `${p.prop.title}=${p.shown}${p.guess ? '?' : ''}${p.note ? ' (' + p.note + ')' : ''}`).join(' · ') || '(nothing)';
 let cases = 0;
 function expect(name, { record, pieces }, want) {
@@ -66,14 +66,14 @@ expect('two doctors', piecesFor(bullet('Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen
 // 3. One doctor and a person named: doctor and with.
 expect('doctor and person', piecesFor(bullet('x', [T.appointment], journal), 'Saw [[Dr. Mei Chen]] with [[Ruth Okoro]]', ctx), 'doctor=Dr. Mei Chen · with=Ruth Okoro');
 // 4. A link with no tag yet is never a sure piece (a topic page would be made a person; second reading). It is a guess
-//    for each empty place it could fill, when there are one or two such places; with three, nothing.
+//    for the first empty place it could fill, when there are one or two such places; with three, nothing.
 expect('untagged link, three places', piecesFor(bullet('x', [T.appointment], journal), 'Talked to [[Hannah Reyes]]', ctx), '(nothing)');
 const onePlace = piecesFor(bullet('x', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 }, 'user.property/with': [{ 'db/id': 102 }] }), 'Talked to [[Hannah Reyes]]', ctx);
 expect('untagged link, one place', onePlace, 'doctor=Hannah Reyes? (becomes a #Tag 3)');
 const tagging = onePlace.pieces[0]?.tagPage;
 if (tagging?.tag?.uuid !== 'tag-3' || tagging?.uuids?.join() !== 'page-103') problem('untagged link, one place: taking it would not tag Hannah Reyes #Doctor');
 expect('untagged link, two places', piecesFor(bullet('x', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 } }), 'Video call with [[Hannah Reyes]], the dietitian', ctx),
-  'doctor=Hannah Reyes? (becomes a #Tag 3) · with=Hannah Reyes? (becomes a #Tag 2)');
+  'doctor=Hannah Reyes? (becomes a #Tag 3)'); // only the first place: Enter takes every guess (0.4.202)
 // 5. The journal day: a symptom log (dated the day written, as the graph shows) gets it; an appointment (often written ahead) does not.
 expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journal), 'Nausea bad by evening', ctx), 'Date=Oct 20 · symptoms=Nausea?');
 expect('no day for an appointment', piecesFor(bullet('Review next month', [T.appointment], journal), 'Review next month', ctx), '(nothing)');
@@ -111,8 +111,9 @@ expect('same line before, disagreeing', piecesFor(bullet('x', [T.log], journal),
 expect('two doctors, no guess', piecesFor(bullet('x', [T.consultation], journal), 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] with Dr. Patel', ctx), '(nothing)');
 
 const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
-// 13. A click on a guess takes it and keeps the bullet in edit. The pointer press must not be held back: that would stop
-//     the mouse press the click is read from (found in the app: the click did nothing).
+// 13. Enter takes the guesses (the owner: "enter confirms"; 0.4.202). A click on a proposed value does nothing, and
+//     keeps the bullet in edit: the mouse press is held back, the pointer press is not (holding that back stops the
+//     mouse press from coming at all; found in the app).
 (async () => {
   const doc = window.document;
   // A bullet as Logseq draws it, with its property row: "doctor:" and an empty value.
@@ -131,14 +132,31 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   if (doc.querySelector('.refinement-shadow, kbd')) problem('guess in place: a line or keys of its own are drawn');
   const el = doc.querySelector('.rfs-ghost[data-guess]');
   cases++;
-  if (!el) problem('click on a guess: no guess drawn');
-  else {
+  if (el) {
     const press = type => { const e = new window.MouseEvent(type, { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e; };
-    if (press('pointerdown').defaultPrevented) problem('click on a guess: the pointer press is held back, so no mouse press follows');
-    if (!press('mousedown').defaultPrevented) problem('click on a guess: the mouse press is not held back, so the bullet would leave edit');
-    if (!window.refinementShadow.taken.keys.size) problem('click on a guess: the guess was not taken');
-    if (!doc.querySelector('.rfs-ghost.rfs-taken')) problem('click on a guess: the taken guess does not lose its dotted line');
+    if (press('pointerdown').defaultPrevented) problem('click on a value: the pointer press is held back, so no mouse press follows');
+    if (!press('mousedown').defaultPrevented) problem('click on a value: the mouse press is not held back, so the bullet would leave edit');
+    if (window.refinementShadow.taken.keys.size) problem('click on a value: a click took the guess; only Enter does now');
   }
+  cases++;
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }));
+  if (window.refinementShadow.taken.keys.size) problem('Shift+Enter (a line break) took the guesses');
+  cases++;
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  if (!window.refinementShadow.taken.keys.has(guessKeyOf(guess))) problem('Enter: the guess shown is not taken');
+  // An Enter that did not leave the bullet does not count for a later leaving (second reading).
+  cases++;
+  const stale = window.refinementShadow.live;
+  window.refinementShadow.taken.at = Date.now() - 5000;
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
+  box.blur();
+  await new Promise(resolve => setTimeout(resolve, 200));
+  if (window.refinementShadow.left !== stale || stale.taken?.size) problem('an Enter long before leaving still fills in the guesses');
+  // Back in the bullet for the next check.
+  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
+  window.refinementShadowInner.drawInPlace(doc);
+  box.focus();
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what was
   //     taken in the bullet left must still be filled in (second reading).
   const left = window.refinementShadow.live;
@@ -153,6 +171,17 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadowInner.drawInPlace(doc);
   cases++;
   if (doc.querySelector('.rfs-ghost, [data-refinement-proposal]')) problem('bullet left: the faint value stays in the property');
+  // 14b. A page that would get a tag says so where it shows (the owner: "add ...as #tag").
+  {
+    const loose = onePlace.pieces[0];
+    window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: '', pieces: [loose] };
+    window.refinementShadowInner.drawInPlace(doc);
+    cases++;
+    const shownAs = doc.querySelector('.rfs-ghost')?.textContent;
+    if (shownAs !== 'Hannah Reyes as #Tag 3') problem(`untagged page: shows "${shownAs}"; wanted "Hannah Reyes as #Tag 3"`);
+    window.refinementShadow.live = null;
+    window.refinementShadowInner.drawInPlace(doc);
+  }
   // 15. A record whose row is not on screen (a note zoomed into): nothing is drawn, so nothing may be taken (second reading).
   const unseen = { uuid: 'b-click', recordUuid: 'not-on-screen', text: box.value, pieces: [guess] };
   window.refinementShadow.live = unseen;

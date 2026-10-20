@@ -134,12 +134,12 @@ async function scenes(page) {
         stage.innerHTML = block('a', 'Post-op check with Dr. Patel. Wounds fine.', [['Provider'], ['Topic'], ['Date']])
           + block('b', 'Wiped out all day.', [['Symptom type'], ['Severity'], ['Date']]);
         const piece = (title, shown, guess, id) => ({ prop: { title, lower: title.toLowerCase() }, ident: title.toLowerCase(), ids: [id], shown, guess });
-        const draw = (uuid, pieces, taken = []) => { window.refinementShadow.live = { uuid, recordUuid: uuid, pieces }; window.refinementShadow.taken = { uuid, keys: new Set(taken) }; inner.drawInPlace(document); };
-        // One guess still to take (Provider) and a sure value (Date) on the first; a taken guess on the second.
+        const draw = (uuid, pieces) => { window.refinementShadow.live = { uuid, recordUuid: uuid, pieces }; inner.drawInPlace(document); };
+        // A guess (Provider, dotted) and a sure value (Date) on the first; the same on the second.
         draw('a', [piece('Provider', 'Dr. Raj Patel', true, 1), piece('Date', 'Aug 18', false, 2)]);
         const first = [...document.querySelectorAll('.rfs-ghost')];
         window.refinementShadow.live = null;
-        draw('b', [piece('Symptom type', 'Fatigue', true, 3), piece('Date', 'Oct 20', false, 4)], ['symptom type 3']);
+        draw('b', [piece('Symptom type', 'Fatigue', true, 3), piece('Date', 'Oct 20', false, 4)]);
         // drawInPlace keeps only the live bullet's values; put the first bullet's back for the picture.
         const pills = document.querySelectorAll('.ls-block[blockid="a"] .bottom-property-content');
         pills[0].replaceChildren(first[0]); pills[2].replaceChildren(first[1]);

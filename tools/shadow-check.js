@@ -6,7 +6,7 @@
      right   the proposal is exactly what is there
      wrong   something else was proposed (the one thing that must stay near zero: a wrong fill taken by habit)
      silent  nothing was proposed (costs a few key taps, nothing more)
-   A sure piece is judged first; only where there is none, the guess (piece 2, taken only by a click) is, and counted
+   A sure piece is judged first; only where there is none, the guess (piece 2, taken only with Enter) is, and counted
    apart: a wrong guess costs a look, not a wrong fill.
    Fails when wrong goes above WRONG_LIMIT, right falls under RIGHT_LEAST (the rules stopped firing), a wrong guess
    goes above GUESS_WRONG_LIMIT, or a right guess under GUESS_RIGHT_LEAST.
