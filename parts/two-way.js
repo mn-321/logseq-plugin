@@ -15,8 +15,8 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
-const { host, openEntity } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek' } });
+const { host, openEntity, showUndoBar, notify } = shared;
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The rows are read-only: change the link on the record that holds the field.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). A link is not removed from here: change it on the record that holds the field.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -35,7 +35,7 @@ const settingsSchema = [
     description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery;
+let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery, uuidsIn;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
@@ -109,7 +109,9 @@ async function load() {
   if (version !== state.version) return;
   state.pageUuid = pageUuid;
   state.groups = groups;
-  state.html = '';
+  // Not '' (0.4.185): a page with no rows makes '' too, and the box kept the last page's rows while it held room.
+  state.html = null;
+  state.readAt = performance.now();
   peek.cache.clear();
   if (pageUuid) state.byPage.set(pageUuid, groups);
   draw(host());
@@ -141,11 +143,12 @@ async function groupsByPage(id) {
     logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
   ]);
   const pages = new Map(), ids = new Set();
-  const fieldUuids = new Map();
+  const fieldUuids = new Map(), fieldIdents = new Map();
   for (const [page, pageUuid, b, attr, name, fieldUuid] of links || []) {
     // Only properties you made; built-in links such as tags, aliases and parents are left out.
     if (!isEntityId(b) || !name || !/^:?user\.property\//.test(String(attr))) continue;
     if (fieldUuid) fieldUuids.set(name, String(fieldUuid));
+    fieldIdents.set(name, String(attr).replace(/^:/, ''));
     if (!pages.has(page)) pages.set(page, { uuid: String(pageUuid || ''), byField: new Map() });
     const byField = pages.get(page).byField;
     if (!byField.has(name)) byField.set(name, new Set());
@@ -184,7 +187,7 @@ async function groupsByPage(id) {
       // Coming up first (nearest first), then the past (latest first), then records with no date.
       items.sort((a, b) => (a.day >= today ? 0 : a.day ? 1 : 2) - (b.day >= today ? 0 : b.day ? 1 : 2) ||
         (a.day >= today ? a.day - b.day : b.day - a.day) || a.title.localeCompare(b.title));
-      groups.push({ name, label: readBackwards(name, names), items, fieldUuid: fieldUuids.get(name) || '' });
+      groups.push({ name, label: readBackwards(name, names), items, fieldUuid: fieldUuids.get(name) || '', ident: fieldIdents.get(name) || '' });
     }
     groups.sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
     result.set(page, { uuid, groups });
@@ -225,13 +228,14 @@ function summary(items) {
   return [kinds, when].filter(Boolean).join(' · ');
 }
 const INLINE = 3, LISTED = 5;
-/* Moving around the rows (0.4.184, the owner asked for the rows to be more interactive). A record's line is
+/* Moving around the rows (0.4.184, the + and the hovers 0.4.185, the owner asked for the rows to be more interactive). A record's line is
    lit under the pointer and opens on a click anywhere along it; the ⇥ at its end opens it in the sidebar (as
    Shift-click does). Resting on a record shows a card with its fields and first lines (peek, below). The field's
    name opens the field's own page. In an open list, a row of kinds ("All 13 · Infusion 8 · Scan 1") shows only
    that kind, as does a kind at the end of a line; a line marked "earlier" parts what is coming up from what is
    past; "show all 13" folds back with "show fewer". Whether a list is open is kept across restarts. */
 const recordLink = item => `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#">${esc(item.title)}</a>`;
+const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page">+</a>` : '';
 const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
@@ -242,7 +246,7 @@ function rowHtml(group) {
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
     const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span>${sideLink(item)}</span>`).join('');
-    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div></div>`;
+    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}${addLink(group)}</div></div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
   const counts = new Map();
@@ -263,7 +267,7 @@ function rowHtml(group) {
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
   }
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value"><a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}<span class="rf-tw-chevron"></span></a></div>${list}</div>`;
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value"><a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}<span class="rf-tw-chevron"></span></a>${addLink(group)}</div>${list}</div>`;
 }
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
 const OPEN_KEY = 'refinementTwoWayOpen';
@@ -412,7 +416,7 @@ function holdRoom(doc, box, mode, page) {
 }
 const setHold = (box, px) => { if (px) box.style.setProperty('--rf-tw-hold', px + 'px'); else if (box.style.length) box.removeAttribute('style'); };
 function onRoute() {
-  hidePeek();
+  hidePeek(); closeAdd();
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
@@ -429,10 +433,12 @@ function draw(doc) {
   const shown = shownPages(doc);
   if (shown.length && !shown.includes(state.pageUuid)) {
     const id = shown.find(uuid => state.byPage.has(uuid)) || (shown.length === 1 && state.indexed ? shown[0] : '');
-    if (id) { state.pageUuid = id; state.groups = state.byPage.get(id) || []; state.html = ''; }
+    if (id) { state.pageUuid = id; state.groups = state.byPage.get(id) || []; state.html = null; }
   }
   const anchor = on ? anchorFor(doc) : null;
-  const rows = state.groups.length > 0 && !(shown.length && !shown.includes(state.pageUuid));
+  // A view with no page title the rows know (the Journals list), reached after the rows were read, has none of them (0.4.185).
+  const stale = !shown.length && settle.since > (state.readAt || 0);
+  const rows = state.groups.length > 0 && !stale && !(shown.length && !shown.includes(state.pageUuid));
   // A page with an alias has more than one block in its title area; the page is the one the rows were read for.
   const page = shown.includes(state.pageUuid) ? state.pageUuid : shown.length === 1 ? shown[0] : '';
   const mode = anchor ? settling(page) : '';
@@ -466,6 +472,7 @@ function onClick(event) {
   if (line) return openEntity(line.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
+  if (target.matches('.rf-tw-add')) return openAdd(target).catch(error => { warnOnce('could not open the new record box', error); });
   const key = target.dataset.key;
   if (target.matches('.rf-tw-toggle')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
@@ -474,6 +481,103 @@ function onClick(event) {
     if (!tag || state.only.get(key) === tag) state.only.delete(key); else state.only.set(key, tag);
   }
   draw(host());
+}
+
+/* Adding from the far end (0.4.185, the owner's pick of "Add only"): the + at the end of a row opens a small box,
+   "New record · doctor: Dr. Mei Chen", with the kinds the row already holds (the most common chosen) and a name.
+   Enter (or Add) makes the record with that name and tag and the field pointing at this page: a page of its own when
+   most records in the row are pages (people, places), else a block on today's journal (visits, tests). Add and open
+   also opens it in the sidebar to fill in. The bar at the bottom offers Undo, which removes what was made.
+   Nothing is unlinked from here: a link is changed on the record that holds it. */
+const adding = { el: null };
+function closeAdd() { adding.el?.remove(); adding.el = null; }
+async function openAdd(button) {
+  closeAdd(); hidePeek();
+  const group = state.groups.find(g => g.name === button.dataset.field);
+  if (!group?.ident) return;
+  const doc = button.ownerDocument, pageUuid = state.pageUuid;
+  const page = await logseq.Editor.getPage(pageUuid).catch(() => null);
+  if (!page?.id) return notify('This page could not be read, so nothing was added', 'warning');
+  const counts = new Map();
+  for (const item of group.items) if (item.tag !== 'note') counts.set(item.tag, (counts.get(item.tag) || 0) + 1);
+  const kinds = [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
+  let kind = kinds[0] || '';
+  const uuids = group.items.map(item => item.uuid);
+  const pages = (await dsQuery(`[:find ?u :where ${uuidsIn('?u', uuids)} [?b :block/uuid ?u] [?b :block/name _]]`)).length;
+  const asPage = pages * 2 > uuids.length;
+  const title = page.title || page.originalName || page.name || 'this page';
+  const el = adding.el = doc.createElement('div');
+  el.className = 'refinement-two-way-add';
+  el.innerHTML = `<div class="rf-tw-add-head">New record · <span class="rf-tw-add-field">${esc(group.name)}: ${esc(title)}</span></div>
+    ${kinds.length ? `<div class="rf-tw-add-kinds">${kinds.map(tag => `<button type="button" data-tag="${esc(tag)}"${tag === kind ? ' data-on=""' : ''}>${esc(tag)}</button>`).join('')}</div>` : ''}
+    <input type="text" placeholder="Name, e.g. ${esc(group.items[0]?.title || 'a new visit')}" spellcheck="false">
+    <div class="rf-tw-add-foot"><span>${asPage ? 'As a new page' : 'On today’s journal'}</span><button type="button" data-act="open">Add and open</button><button type="button" data-act="add" data-main="">Add</button></div>`;
+  const input = el.querySelector('input');
+  el.addEventListener('mousedown', event => event.stopPropagation());
+  el.addEventListener('click', event => {
+    const pick = event.target.closest('button');
+    if (!pick) return;
+    event.preventDefault(); event.stopPropagation();
+    if (pick.dataset.tag != null) {
+      kind = kind === pick.dataset.tag ? '' : pick.dataset.tag;
+      for (const b of el.querySelectorAll('.rf-tw-add-kinds button')) b.toggleAttribute('data-on', b.dataset.tag === kind);
+      input.focus();
+    } else submit(pick.dataset.act === 'open');
+  });
+  input.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); closeAdd(); }
+    else if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); submit(event.metaKey || event.shiftKey); }
+  });
+  const submit = async open => {
+    const name = input.value.trim();
+    if (!name) { input.focus(); el.querySelector('input').setAttribute('data-empty', ''); return; }
+    closeAdd();
+    try { await addRecord({ group, page, name, kind, open, asPage }); }
+    catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
+  };
+  doc.body.appendChild(el);
+  const at = button.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
+  el.style.left = `${Math.round(Math.max(8, Math.min(at.right - size.width, win.innerWidth - size.width - 8)))}px`;
+  el.style.top = `${Math.round(at.bottom + 6 + size.height < win.innerHeight - 8 ? at.bottom + 6 : Math.max(8, at.top - 6 - size.height))}px`;
+  input.focus();
+  // A click anywhere else closes the box.
+  const away = event => { if (!adding.el) return doc.removeEventListener('mousedown', away, true); if (!adding.el.contains(event.target)) { closeAdd(); doc.removeEventListener('mousedown', away, true); } };
+  doc.addEventListener('mousedown', away, true);
+}
+async function addRecord({ group, page, name, kind, open, asPage }) {
+  if (asPage && await logseq.Editor.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
+  const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
+  let tagUuid = '';
+  if (kind) {
+    const tags = await dsQuery(`[:find ?u :where [?t :block/tags :logseq.class/Tag] [?t :block/title ${JSON.stringify(kind)}] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/uuid ?u]]`);
+    tagUuid = String(tags[0]?.[0] || '');
+  }
+  let block, undo;
+  if (asPage) {
+    block = await logseq.Editor.createPage(name, {}, { redirect: false, createFirstBlock: false });
+    if (!block?.uuid) throw new Error('the page was not made');
+    // By name, as Properties in the line does: Logseq 2.0.2 left the page in place when asked by its uuid here.
+    undo = async () => { await logseq.Editor.deletePage(name); later(300); };
+    // A page made now is not in the look-up of every page: it has no rows of its own yet.
+    state.byPage.set(String(block.uuid), []);
+  } else {
+    const now = new Date();
+    const journalId = await provided.journalIdFor(todayNumber(), await provided.journalTitleFor(now.getFullYear(), now.getMonth() + 1, now.getDate()));
+    const [[journalUuid] = []] = journalId ? await dsQuery(`[:find ?u :where [(identity ${journalId}) ?p] [?p :block/uuid ?u]]`) : [];
+    if (!journalUuid) throw new Error('no journal page for today');
+    block = await logseq.Editor.appendBlockInPage(String(journalUuid), name);
+    if (!block?.uuid) throw new Error('the block was not made');
+    undo = async () => { await logseq.Editor.removeBlock(block.uuid); later(300); };
+  }
+  try {
+    if (tagUuid) await logseq.Editor.addBlockTag(block.uuid, tagUuid);
+    if (prop?.many) await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, [page.id], { entityId: true, reset: true });
+    else await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, page.id, { entityId: true });
+  } catch (error) { await undo().catch(() => {}); throw error; }
+  later(300);
+  showUndoBar(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : ' to today’s journal'}`, undo);
+  if (open) openEntity(block.uuid, true);
 }
 
 const twoWayCss = `
@@ -519,11 +623,20 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line:hover, .refinement-two-way .rf-tw-item:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 7%, transparent); }
 .refinement-two-way .rf-tw-side { visibility: hidden; margin-left: .4em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); text-align: center; }
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-side { visibility: visible; }
-.refinement-two-way .rf-tw-side:hover, .refinement-two-way a.rf-tw-tag:hover, .refinement-two-way .rf-tw-field:hover { color: var(--ls-primary-text-color, currentColor); }
+/* Every other thing that answers a click gets the same soft patch under the pointer (0.4.185, the owner's ask: the
+   field's name, the count that opens a list, the kinds, show all, the ⇥ and the +), drawn in the padding a negative
+   margin gives back, so nothing moves. */
+.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add) { border-radius: 4px; padding: 0 .25em; margin-left: -.25em; margin-right: -.25em; transition: background-color .1s ease, color .1s ease; }
+.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add):hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
+.refinement-two-way .rf-tw-line:hover a.rf-tw-tag:hover, .refinement-two-way .rf-tw-line:hover .rf-tw-side:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); }
 .refinement-two-way a.rf-tw-field { color: inherit; }
+.refinement-two-way .rf-tw-side { margin-left: .15em; }
+.refinement-two-way .rf-tw-add { margin-left: .6em; color: var(--ls-secondary-text-color); opacity: var(--rf-faint, .5); }
+.refinement-two-way .rf-tw-row:hover .rf-tw-add { opacity: 1; }
 .refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; font-size: var(--rf-small, .82em); }
 .refinement-two-way .rf-tw-chip { padding: 0 .45rem; border-radius: 999px; color: var(--ls-secondary-text-color); border: 1px solid color-mix(in srgb, var(--rf-tw-accent) 30%, transparent); }
-.refinement-two-way .rf-tw-chip:hover { color: var(--ls-primary-text-color, currentColor); }
+.refinement-two-way .rf-tw-chip { transition: background-color .1s ease, color .1s ease, border-color .1s ease; }
+.refinement-two-way .rf-tw-chip:hover { color: var(--ls-primary-text-color, currentColor); border-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 6%, transparent); }
 .refinement-two-way .rf-tw-chip[data-on] { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 9%, transparent); }
 .refinement-two-way .rf-tw-earlier { margin: .2rem 0 .1rem; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); display: flex; align-items: center; gap: .5em; }
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
@@ -532,12 +645,37 @@ const twoWayCss = `
   background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px);
   box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent); font-size: var(--rf-row, .875rem); line-height: 1.45; }
-.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; }
+.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; text-decoration: underline transparent; transition: text-decoration-color .1s ease; }
+.refinement-two-way-peek:hover .rf-tw-peek-title { text-decoration-color: currentColor; }
 .refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
 .refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 6px; }
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
 .refinement-two-way-peek .rf-tw-peek-lines { margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
+/* The box the + opens: the same popup look, a row of kinds, a name and two buttons. */
+.refinement-two-way-add { position: fixed; z-index: 999; width: 340px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px);
+  box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); font-size: var(--rf-row, .875rem); line-height: 1.4; }
+.refinement-two-way-add .rf-tw-add-head { font-weight: 600; }
+.refinement-two-way-add .rf-tw-add-field { font-weight: 400; color: var(--ls-secondary-text-color); }
+.refinement-two-way-add .rf-tw-add-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
+.refinement-two-way-add button { font: inherit; color: inherit; cursor: pointer; border-radius: 5px; padding: 2px 9px; background: transparent; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); transition: background-color .1s ease, border-color .1s ease; }
+.refinement-two-way-add button:hover { background: color-mix(in srgb, currentColor 9%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-two-way-add .rf-tw-add-kinds button { border-radius: 999px; font-size: .92em; color: var(--ls-secondary-text-color); }
+.refinement-two-way-add .rf-tw-add-kinds button[data-on] { color: inherit; background: color-mix(in srgb, currentColor 12%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-two-way-add input { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 5px; font: inherit; color: inherit; background: color-mix(in srgb, currentColor 5%, transparent); border: 1px solid color-mix(in srgb, currentColor 22%, transparent); outline: none; }
+.refinement-two-way-add input:focus { border-color: color-mix(in srgb, currentColor 50%, transparent); }
+.refinement-two-way-add input[data-empty] { border-color: #d9534f; }
+.refinement-two-way-add .rf-tw-add-foot { display: flex; align-items: center; gap: 6px; }
+.refinement-two-way-add .rf-tw-add-foot span { flex: 1; white-space: nowrap; color: var(--ls-secondary-text-color); font-size: .9em; }
+.refinement-two-way-add .rf-tw-add-foot button[data-main] { background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; }
+.refinement-two-way-add .rf-tw-add-foot button[data-main]:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+/* The bar after adding, with Undo (shared.showUndoBar); the same rules as parts/styles.js, which is resting for now. */
+.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: var(--rf-window-radius, 8px); background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: var(--rf-row, .875rem); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
+.refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.refinement-undo-bar button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the
@@ -566,7 +704,7 @@ let timer = 0, indexTimer = 0;
 const later = (ms = 600) => { clearTimeout(timer); timer = setTimeout(() => load().catch(error => warnOnce('could not refresh the two-way rows', error)), ms); };
 const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().catch(error => warnOnce('could not read the rows of every page', error)), ms); };
 function start() {
-  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'dsQuery']));
+  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery, uuidsIn } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'dsQuery', 'uuidsIn']));
   applyStyles();
   readHeights();
   readOpen();
@@ -579,7 +717,7 @@ function start() {
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   }));
-  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); hidePeek(); state.box?.remove(); state.box = null; });
+  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
   later(0);
   indexLater(1500);
 }
