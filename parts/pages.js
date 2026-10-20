@@ -273,6 +273,8 @@ function toggleShape(event) {
   try { localStorage.setItem(SHAPE_OPEN_KEY, open ? '1' : '0'); } catch (error) { /* kept for this page only */ }
 }
 const SHAPE_VALUES = 5;
+// A tag's own field filled on half its records or fewer, once it has this many, suggests a child tag (0.4.183).
+const SPARSE_MIN = 6;
 function takesWords(prop) {
   const tags = list => list.map(c => `<span class="rf-cls">${escapeHtml(c.title)}</span>`).join(', ');
   const many = prop.many ? ' · many' : '';
@@ -315,8 +317,13 @@ async function tagShape(tagId) {
     dsQuery(`[:find ?title :where [(identity ${tagId}) ?t] [?t :block/title ?title]]`),
   ]);
   const names = new Map(fromRows.map(([t, title]) => [t, String(title)]));
+  // How many of the tagged records fill each of the tag's own fields (0.4.183), for the child-tag hint below.
+  const own = fields.filter(f => !f.from && /^[\w.-]+\/[\w.-]+$/.test(f.prop.ident || ''));
+  const fills = Number(count) >= SPARSE_MIN ? await Promise.all(own.map(f =>
+    dsQuery(`[:find (count ?b) :where [?b :block/tags ${tagId}] [?b :${f.prop.ident} _]]`).then(([[n] = [0]]) => Number(n) || 0, () => 0))) : [];
+  const sparse = own.map((f, i) => ({ title: f.prop.title, filled: fills[i] ?? 0 })).filter(f => f.filled > 0 && f.filled * 2 <= Number(count));
   const ownParents = (schema.parentsOf.get(tagId) || []).length > 0;
-  return { kind: 'tag', name: String(name), count: Number(count) || 0, adds: fields.some(f => !f.from), hasParent: ownParents,
+  return { kind: 'tag', name: String(name), count: Number(count) || 0, sparse, adds: fields.some(f => !f.from), hasParent: ownParents,
     fields: fields.map(({ prop, from }) => ({ uuid: prop.uuid, title: prop.title, takes: takesWords(prop), from: from ? names.get(from) || '' : '' })) };
 }
 async function propertyShape(pageId) {
@@ -368,7 +375,9 @@ function updateShapeBox(doc, title) {
     head = `${where} <span class="rf-sep">·</span> <span class="rf-q">${shape.fields.length ? plural(shape.fields.length, 'field', 'fields') : 'no fields yet'}</span>`;
     side = `${shape.count} tagged`;
     const rows = shape.fields.map(f => `<div class="rf-shape-row${f.from ? ' rf-from' : ''}"><span class="rf-shape-name">${link(f.uuid, escapeHtml(f.title))}</span><span class="rf-shape-takes">${f.takes}${f.from ? ` · from <span class="rf-cls">${escapeHtml(f.from)}</span>` : ''}</span></div>`).join('');
-    const hint = shape.hasParent && !shape.adds ? `<div class="rf-shape-hint">Adds no field of its own to what it inherits.</div>` : '';
+    // The modelling rule (docs/MODELLING.md): make a child tag when some records need a field the others do not.
+    const few = shape.sparse.slice(0, 2).map(f => `<div class="rf-shape-hint">${escapeHtml(f.title)} is filled on only ${f.filled} of ${shape.count}. If only some of them need it, those may want their own child tag that has it.</div>`).join('');
+    const hint = (shape.hasParent && !shape.adds ? `<div class="rf-shape-hint">Adds no field of its own to what it inherits.</div>` : '') + few;
     body = (rows ? `<div class="rf-shape-bd">${rows}</div>` : '') + hint;
   } else {
     const max = Math.max(1, ...shape.values.map(v => v.count));
