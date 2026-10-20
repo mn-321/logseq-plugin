@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Second reading, tour fixes, merged (0.4.189)
+
+**Second reader:** nothing serious; three small faults in the tour (a logged value that cannot become text could break
+the logging, two quick starts could run two tours, ending mid-stop left its measuring running) and two lesser ones.
+All fixed in 0.4.189.
+
+**On main:** the checking system, the tour, the dark-mode fix and these fixes, merged and pushed; the Mac folder is on
+`main`. The faster tag map and the child-tag action stay on `claude/project-thread-ocmi6u` until the owner decides how
+the child-tag action treats the old choice. On main the tag map's speed limit for a change is 1.5 s (the map there
+takes about 1 s on the Mac); it goes back to 0.4 s when the faster map joins.
+
+**Seen in Logseq (0.4.189), light theme:** Dr. Mei Chen, Appointment, Nausea and Northgate Cancer Center look right;
+the rows come with the title (42 to 87 ms), nothing of the plugin moved, no errors. Starting the tour again ended it
+at once, wrote "ended early" and put the dark theme back.
+
 ## 2026-10-19 · Trial run on the tag map close-out
 
 **Done means:** the tour runs in the real app; the faster tag map (`f9c6d88`, `38eb6f3` from the "Close out map work
