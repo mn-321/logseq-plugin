@@ -22,6 +22,11 @@ the graph check agreed). Opening the kind property's page made Logseq save an "A
 
 **Not checked:** renaming a tag, changing what a link accepts, renaming or moving a choice, description editing.
 
+**Second reading (0.4.192):** nothing that harms the graph; one real fault (after a redraw, an open property's box
+could stay for another property that looked the same, so its Change acted on the wrong one) and three small ones
+(Make could run twice; Escape did nothing in a choices panel without choices; wrong version notes). All fixed. No
+picture or test holds the first one yet: the pretend graph would need two open text properties; to add.
+
 ## 2026-10-20 · Second reading, tour fixes, merged (0.4.189)
 
 **Second reader:** nothing serious; three small faults in the tour (a logged value that cannot become text could break
