@@ -51,6 +51,10 @@ fi
 if command -v node >/dev/null 2>&1; then
   node tools/tags-speed.js || problem "the tag map timings failed (see above)"
 fi
+# 9. Pictures of what the plugin draws (tools/pictures.js), light and dark, compared with the approved ones in test/pictures/.
+if command -v node >/dev/null 2>&1; then
+  node tools/pictures.js || problem "a picture changed (see above); look at check.log/pictures/, and approve it with node tools/pictures.js --approve only if the change was meant"
+fi
 
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi
 echo "check.sh: OK (version $pkg)"

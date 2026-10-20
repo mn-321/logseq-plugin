@@ -17,9 +17,10 @@ for (const where of ['playwright', '/opt/node-tools/node_modules/playwright']) {
 if (!chromium) { console.log('tag map timings skipped (needs Playwright and Chromium)'); process.exit(0); }
 
 const root = path.resolve(__dirname, '..');
-// 0.4.180: the whole map is drawn again after every change, so these are set just above what that takes
-// today (about 1.5 to 2.5 s on this graph); they are lowered once only the changed part is redrawn.
-const LIMITS = { first: 3000, change: 3500, jump: 0 };
+// Measured on the owner's Mac once redraws kept unchanged rows: about 300 ms for the first drawing and
+// 100 to 130 ms after a change. The limits are about three times that, so a real slowdown fails and a busy moment does not.
+// Elsewhere (a slower cloud machine took 1.2 s per change) they are the old, looser ones.
+const LIMITS = process.platform === "darwin" ? { first: 1000, change: 400, jump: 0 } : { first: 3000, change: 3500, jump: 0 };
 
 // The pretend Logseq, run inside the page.
 function pretendLogseq() {
