@@ -208,14 +208,6 @@ async function choicesOf(prop) {
   return rows.map(([v]) => ({ uuid: String(pick(v, 'block/uuid') ?? ''), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? '') }))
     .sort((a, b) => a.order < b.order ? -1 : a.order > b.order ? 1 : 0);
 }
-async function addChoice(prop, title) {
-  const block = await logseq.Editor.appendBlockInPage(prop.uuid, title);
-  if (!block?.uuid) throw new Error('Logseq did not make it');
-  const undo = () => logseq.Editor.removeBlock(block.uuid).catch(() => {});
-  try { await logseq.Editor.addPropertyValueChoices(prop.uuid, [block.uuid]); } catch (error) { await undo(); throw error; }
-  if (!(await choicesOf(prop)).some(c => c.uuid === String(block.uuid))) { await undo(); throw new Error('Logseq did not keep it'); }
-  return block;
-}
 async function renameChoice(prop, choice, title) {
   await logseq.Editor.updateBlock(choice.uuid, title);
   if ((await choicesOf(prop)).find(c => c.uuid === choice.uuid)?.title !== title) throw new Error('Logseq kept the old name');
@@ -374,9 +366,11 @@ async function runMerge(plan) {
 }
 /* A choice made its own child tag (0.4.188), e.g. procedure type “Imaging” on #Procedure becomes #Imaging inside
    #Procedure: the nodes tagged #Procedure with that choice get #Imaging instead (they keep every value, since
-   #Imaging gets all of #Procedure's properties), the choice is cleared on them, and the choice is removed from
-   the property once nothing else uses it. Every step is noted as it is made, so a failure puts back what was
-   done and Undo puts back the whole of it (docs/MODELLING.md: child tags for short lists of broad kinds). */
+   #Imaging gets all of #Procedure's properties), and the choice is cleared on them. The choice itself stays in
+   the property's list, for you to remove from the map when nothing needs it (0.4.190, the owner's pick): Logseq
+   2.0.2 does not let a plugin make a choice again once it is gone, so removing it here would leave Undo unable to
+   bring it back. Every step is noted as it is made, so a failure puts back what was done and Undo puts back the
+   whole of it (docs/MODELLING.md: child tags for short lists of broad kinds). */
 const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uuid #uuid "${uuid}"] [?b ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`))
   .map(([a]) => attrName(a)).filter(a => /^(user|plugin)\.property/.test(a));
 const valuesOf = async (uuid, ident) => (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
@@ -385,14 +379,11 @@ async function setValues(uuid, prop, values) {
   await logseq.Editor.upsertBlockProperty(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
 }
 async function planChildTag(tag, prop, choice, data) {
-  const [nodes, elsewhere, choiceRow] = await Promise.all([
+  const [nodes, choiceRow] = await Promise.all([
     dsQuery(`[:find ?u :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?b :block/uuid ?u]]`),
-    dsQuery(`[:find (count ?b) :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v] (not [?b :block/tags ?t])]`),
     dsQuery(`[:find ?v :where [?v :block/uuid #uuid "${choice.uuid}"]]`),
   ]);
-  const list = await choicesOf(prop);
-  return { tag, prop, choice, choiceId: choiceRow[0]?.[0], at: list.findIndex(c => c.uuid === choice.uuid),
-    nodes: nodes.map(([u]) => String(u)), elsewhere: elsewhere[0]?.[0] || 0, data };
+  return { tag, prop, choice, choiceId: choiceRow[0]?.[0], nodes: nodes.map(([u]) => String(u)), data };
 }
 // Is the name free for the new tag? A tag of that name already inside the tag is used as it is.
 async function childTagName(plan, name) {
@@ -408,8 +399,8 @@ async function childTagName(plan, name) {
   return {};
 }
 async function runChildTag(plan, name, existing) {
-  const { tag, prop, choice } = plan;
-  const done = { made: null, child: existing || null, moved: [], choiceGone: false };
+  const { tag, prop } = plan;
+  const done = { made: null, child: existing || null, moved: [] };
   const undo = () => undoChildTag(plan, done);
   try {
     if (!done.child) {
@@ -430,8 +421,6 @@ async function runChildTag(plan, name, existing) {
       if (had.some(a => a !== prop.ident && !now.has(a))) lost.push(uuid);
     }
     if (lost.length) throw new Error(`${plural(lost.length, 'node')} lost a value on the way`);
-    const used = (await dsQuery(`[:find (count ?b) :where [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v]]`))[0]?.[0] || 0;
-    if (!used) { await removeChoice(prop, choice); done.choiceGone = true; }
   } catch (error) {
     await undo().catch(again => warnOnce('a half-made child tag could not be put back', again));
     throw error;
@@ -439,17 +428,9 @@ async function runChildTag(plan, name, existing) {
   return { done, undo };
 }
 async function undoChildTag(plan, done) {
-  const { tag, prop, choice } = plan;
-  let choiceId = plan.choiceId;
-  if (done.choiceGone) {
-    const block = await addChoice(prop, choice.title);
-    choiceId = (await logseq.Editor.getBlock(block.uuid))?.id;
-    const list = await choicesOf(prop), at = plan.at;
-    if (at >= 0 && at < list.length - 1 && list[at].uuid !== String(block.uuid)) await logseq.Editor.moveBlock(block.uuid, list[at].uuid, { before: true, children: false });
-    done.choiceGone = false;
-  }
+  const { tag, prop } = plan;
   for (const step of done.moved.slice().reverse()) {
-    if (step.cleared) await setValues(step.uuid, prop, step.values.map(v => v === plan.choiceId ? choiceId : v));
+    if (step.cleared) await setValues(step.uuid, prop, step.values);
     if (step.tagged) await logseq.Editor.addBlockTag(step.uuid, tag.uuid);
     if (!step.hadChild) await logseq.Editor.removeBlockTag(step.uuid, done.child.uuid);
   }
@@ -1344,8 +1325,9 @@ function askChoices(view, prop, anchor, at) {
   const again = () => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where); };
   const run = async (job, failText, said) => { if (await view.act(job, failText) && said) view.showToast(said); again(); };
   const box = el(doc, 'div', { class: 'rtg-list' }, el(doc, 'div', { class: 'rtg-none' }, 'Reading the choices …'));
-  const add = el(doc, 'input', { type: 'text', placeholder: 'Add a choice', spellcheck: 'false', 'aria-label': 'Add a choice' });
-  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, 'Enter saves. A choice that nodes still use can be renamed, not removed.'));
+  // A new choice is added in the property's own settings (0.4.190): Logseq 2.0.2 lets only itself make one.
+  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add a choice in its settings ⇥');
+  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, 'Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added in the property’s own settings, in the right sidebar: Logseq lets only itself make them.'));
   const keys = (input, onEnter, reset) => {
     keepKeys(input);
     input.addEventListener('keydown', event => {
@@ -1354,12 +1336,6 @@ function askChoices(view, prop, anchor, at) {
       if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); onEnter(); }
     });
   };
-  keys(add, () => {
-    const title = add.value.trim();
-    if (!title) return;
-    if ([...box.querySelectorAll('input')].some(i => i.defaultValue.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
-    run(() => addChoice(prop, title), `“${title}” could not be added`, `${prop.title} can now be “${title}”`);
-  });
   choicesOf(prop).then(list => {
     if (view.menu !== panel) return;
     box.replaceChildren(...(list.length ? [] : [el(doc, 'div', { class: 'rtg-none' }, 'No choices yet: anything can be typed.')]));
@@ -1377,6 +1353,7 @@ function askChoices(view, prop, anchor, at) {
         button('↓', 'Move down', i < list.length - 1, () => run(() => moveChoice(prop, choice, 1), `“${choice.title}” could not be moved`)),
         button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
     });
+    (box.querySelector('input') || add).focus({ preventScroll: true });
   }).catch(error => { warnOnce('the choices could not be read', error); box.replaceChildren(el(doc, 'div', { class: 'rtg-none' }, 'The choices could not be read.')); });
   doc.body.append(view.paint(panel));
   const win = doc.defaultView;
@@ -1421,8 +1398,7 @@ async function confirmChildTag(view, tag, prop, choice) {
       n ? `${plural(n, 'node')} tagged ${T} with ${prop.title} “${choice.title}” get ${C} instead of ${T}. They keep all their values and still count as ${T}`
         : `No node tagged ${T} has ${prop.title} “${choice.title}” yet`,
       ...(n ? [`their ${prop.title} “${choice.title}” is cleared, since ${C} now says it`] : []),
-      plan.elsewhere ? `“${choice.title}” stays a choice of ${prop.title}: ${plural(plan.elsewhere, 'other node')} not tagged ${T} still ${plan.elsewhere === 1 ? 'has' : 'have'} it`
-        : `“${choice.title}” is taken off ${prop.title}’s choices`];
+      `“${choice.title}” stays in ${prop.title}’s choices; remove it from there when nothing needs it`];
     lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
     note.textContent = check.problem || 'Undo puts everything back, for a few seconds after.';
     note.classList.toggle('rtg-warn', !!check.problem);
@@ -1454,7 +1430,7 @@ async function confirmChildTag(view, tag, prop, choice) {
     if (!done || !result) return;
     const child = view.data.byName.get(name.toLowerCase());
     if (child) { view.cursorTag = child.id; view.cursorKey = null; view.draw(); }
-    view.showToast(`${n ? plural(n, 'node') + ' moved to' : 'Made'} #${name}${result.done.choiceGone ? `; “${choice.title}” is no longer a choice` : ''}`, result.undo);
+    view.showToast(`${n ? plural(n, 'node') + ' moved to' : 'Made'} #${name}; “${choice.title}” is still a choice of ${prop.title}`, result.undo);
   });
   doc.body.append(view.paint(backdrop));
   await fill().catch(() => {});
