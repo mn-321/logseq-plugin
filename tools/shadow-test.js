@@ -204,14 +204,17 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const empty = id => `<div class="empty-value" data-type="node"><div class="jtrigger" id="${id}">—</div></div>`;
   doc.body.innerHTML = '<div class="ls-block" blockid="b-opt"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
     + '<textarea>Post-op check with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
-    + pill('doctor', empty('t-doctor')) + pill('with', empty('t-with')) + pill('hospital', empty('t-hospital')) + '</div></div></div></div></div></div>';
+    + pill('doctor', empty('t-doctor')) + pill('with', empty('t-with')) + pill('hospital', empty('t-hospital'))
+    + pill('Date', '<div class="empty-value" data-type="date"><div class="jtrigger" id="t-date">—</div></div>') + '</div></div></div></div>'
+    // A property shown as a row of its own ("bullet style"), after the capsules: reached too (0.4.205).
+    + '<div class="ls-block-properties"><div class="property-pair" data-property-title="Notes"><div class="empty-value" data-type="default"><div class="jtrigger" id="t-notes"></div></div></div></div></div></div>';
   const box = doc.querySelector('textarea');
   box.focus();
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
   window.refinementShadow.live = { uuid: 'b-opt', recordUuid: 'b-opt', text: box.value, pieces: [guess] };
   window.refinementShadowInner.drawInPlace(doc);
   const pressed = [];
-  for (const id of ['t-doctor', 't-with', 't-hospital']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
+  for (const id of ['t-doctor', 't-with', 't-hospital', 't-date', 't-notes']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
   cases++;
   if (pressed.join() !== 't-with') problem(`Option-Enter: opened ${pressed.join() || 'nothing'}; wanted the first empty property with nothing proposed ("with")`);
@@ -223,6 +226,13 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   cases++;
   if (pressed.join() !== 't-with,t-hospital') problem(`Tab in the list: opened ${pressed.join()}; wanted "hospital" next`);
   list.querySelector('input').focus(); // the next list, as Logseq opens it, takes the keys
+  await new Promise(resolve => setTimeout(resolve, 150));
+  // Tab again: the date is passed over, the row of its own is next.
+  list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 120));
+  cases++;
+  if (pressed.join() !== 't-with,t-hospital,t-notes') problem(`Tab past the capsules: opened ${pressed.join()}; wanted the Notes row (the date passed over)`);
+  list.querySelector('input').focus();
   await new Promise(resolve => setTimeout(resolve, 150));
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   list.remove(); box.blur();

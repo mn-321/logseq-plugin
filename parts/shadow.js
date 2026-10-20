@@ -39,7 +39,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens Logseq’s own list for the first link property that is empty and has nothing proposed; Tab goes on to the next, and Enter or Escape there comes back to the words. Your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Tab goes on to the next, and Enter or Escape there comes back to the words. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -356,7 +356,10 @@ const OFF_KEY = 'refinementShadowOff';
 const forgetOld = () => { try { host().defaultView.localStorage.removeItem(OFF_KEY); } catch { /* nothing kept */ } };
 const hushed = state.hushed = { uuid: '' };
 function dismiss(uuid) { hushed.uuid = uuid; }
-const editingBox = el => (el?.matches?.('textarea') && el.closest('.ls-block[blockid]')) ? el : null;
+// The box of a bullet being written. A property value's box (a text value is drawn as a block of its own, inside the
+// record's properties) is not one: proposals are never worked out, shown or taken there (second reading).
+const VALUE_PLACE = '.property-pair, .bottom-property-pill, .property-block-container, .property-value-container';
+const editingBox = el => (el?.matches?.('textarea') && el.closest('.ls-block[blockid]') && !el.closest(VALUE_PLACE)) ? el : null;
 const uuidOf = box => box.closest('.ls-block[blockid]')?.getAttribute('blockid') || '';
 let liveTimer = 0, liveVersion = 0;
 async function allowed() {
@@ -459,21 +462,33 @@ function onGuessPress(event) {
    go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does. */
 const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, timer: 0, moving: 0, tab: 0, returning: '' };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
-// Only a property whose empty value opens Logseq's list (a link, data-type "node"): a text property opens a block of
-// its own and a date a calendar, which the keys here do not follow (second reading).
-const emptyTrigger = pill => pill.querySelector('.bottom-property-content .empty-value[data-type="node"] .jtrigger');
-// The record's properties that are empty and have nothing proposed, in the order they show, by name: taken once, at
-// Option-Enter, since the proposals may go from the screen while a list is open (found by the pretend check).
-function emptyNames(doc, rowUuid) {
-  const row = recordRow(doc, rowUuid);
-  return row ? pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !p.querySelector('.rfs-ghost') && emptyTrigger(p)).map(pillName) : [];
+// An empty value's own trigger, for the kinds whose list or box is followed here: a link, a text (or choice), a web
+// address, a number. A date's calendar is not followed yet, and a checkbox's trigger is the box itself, which a press
+// would tick (second reading).
+const emptyTrigger = el => el.querySelector(['node', 'default', 'url', 'number'].map(type => `.empty-value[data-type="${type}"] .jtrigger`).join(', '));
+// The record's properties, as Logseq shows them: capsules under the bullet, and rows of their own ("Notes", shown like
+// a bullet), by name, in the order they show (0.4.205, at the owner's word: "test this on ... both capsules and bullet
+// style"). Capsules the plugin made for a proposal are left out.
+function propertyPlaces(row) {
+  if (!row) return [];
+  const own = ownRow(row);
+  const capsules = pillsOf(row).filter(p => !p.classList.contains('rfs-made')).map(el => ({ el, name: pillName(el) }));
+  const rows = [...row.querySelectorAll('.ls-block-properties .property-pair[data-property-title]')].filter(own)
+    .map(el => ({ el, name: String(el.getAttribute('data-property-title')).toLowerCase() }));
+  return [...capsules, ...rows].sort((a, b) => a.el.compareDocumentPosition(b.el) & 4 ? -1 : 1);
 }
-// The trigger of the i-th of them, if it is still empty (one picked meanwhile is passed over).
+// The record's properties that are empty and have nothing proposed, by name: taken once, at Option-Enter, since the
+// proposals may go from the screen while a list is open (found by the pretend check).
+function emptyNames(doc, rowUuid) {
+  const proposed = new Set((state.live?.recordUuid === rowUuid ? state.live.pieces : []).map(piece => piece.prop.lower));
+  return propertyPlaces(recordRow(doc, rowUuid)).filter(({ el, name }) => !proposed.has(name) && !el.querySelector('.rfs-ghost') && emptyTrigger(el)).map(p => p.name);
+}
+// The trigger of the i-th of them, if it is still empty (one filled meanwhile is passed over).
 function triggerAt(doc, i, step) {
-  const row = recordRow(doc, picking.rowUuid);
+  const places = propertyPlaces(recordRow(doc, picking.rowUuid));
   for (; i >= 0 && i < picking.names.length; i += step) {
-    const pill = row && pillsOf(row).find(p => pillName(p) === picking.names[i]);
-    const trigger = pill && emptyTrigger(pill);
+    const place = places.find(p => p.name === picking.names[i]);
+    const trigger = place && emptyTrigger(place.el);
     if (trigger) return { i, trigger };
   }
   return null;
@@ -484,9 +499,22 @@ function press(el) {
   for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
     el.dispatchEvent(new (type.startsWith('pointer') && win.PointerEvent ? win.PointerEvent : win.MouseEvent)(type, { bubbles: true, cancelable: true, button: 0, buttons: type.endsWith('down') ? 1 : 0, pointerType: 'mouse', isPrimary: true }));
 }
-// In Logseq's list for a property ("Set Topic"): its own box and results, nothing else (second reading: any input
-// counted before, so the search box kept the keys here).
-const inPicker = el => !!el?.closest?.('.cp__select');
+// In what a property's value opened: Logseq's list ("Set Topic"), or the box of a text or number value, which Logseq
+// opens inside the record's own properties. Nothing else counts (second reading: any input counted before, so the
+// search box kept the keys here).
+function inPicker(el) {
+  if (!el?.closest) return false;
+  if (el.closest('.cp__select')) return true;
+  // A text box inside the record's own drawing, other than the bullet's words (found in the app: a text value's box
+  // sits in a block of its own there, so matching it by Logseq's class names missed it).
+  if (!picking.rowUuid || !el.matches('input, textarea, [contenteditable="true"]') || ownWords(el)) return false;
+  // Only inside one of the record's own property places: a child bullet inside the record is not (second reading).
+  const place = el.closest('.property-pair, .bottom-property-pill');
+  return !!place && [...el.ownerDocument.querySelectorAll(`.ls-block[blockid="${picking.rowUuid}"]`)].some(row => ownRow(row)(place));
+}
+// The bullet's own words: Logseq names the box it edits a block in "edit-block-<its id>" (read in the app); a value's
+// box inside the bullet's properties is another block's and has another id.
+const ownWords = el => !!el && el.matches?.('textarea') && (el.id ? el.id === `edit-block-${picking.uuid}` : uuidOf(el) === picking.uuid);
 const OPEN_WAIT = 600, KEY_CLOSES = 400;
 function openAt(doc, i, step = 1) {
   const found = triggerAt(doc, i, step);
@@ -507,8 +535,7 @@ function watchPicker() {
     if (inPicker(active)) { picking.moving = 0; return; }
     if (picking.moving && Date.now() - picking.moving < OPEN_WAIT) return;
     const opened = !picking.moving;
-    const box = editingBox(active);
-    if (box && uuidOf(box) === picking.uuid) return endPicking(false);
+    if (ownWords(active)) return endPicking(false);
     if (!opened) return endPicking(false); // nothing opened
     if (picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) return backToWords();
     endPicking(true);

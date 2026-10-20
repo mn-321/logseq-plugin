@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Option-Enter on capsules and rows, every kind but dates (0.4.205)
+
+**The owner:** "test this on bullets with completely empty properties, both capsules and bullet style". Two test
+bullets made on Oct 20 with the command line and removed after. Capsules: Provider, Topic and Tab/Shift-Tab work.
+Choice (Specialty) and the Notes row did not before; now they do (seen). Second reading's fixes are only pretend-checked:
+the Mac locked. **Still to look at:** Tab past an empty Notes may leave an empty value (Logseq creates it on opening).
+
 ## 2026-10-20 · Option-Enter built (0.4.204)
 
 **Against the done list:** 1 seen (Option-Enter opened "Set Topic", the Provider proposal still shown); 2 seen for
