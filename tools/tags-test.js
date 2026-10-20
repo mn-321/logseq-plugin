@@ -3,6 +3,7 @@
    - a redraw never leaves an open property's box acting for another property (second reading of 0.4.192). A pretend
      #Report tag has two plain text properties, summary and notes, both opened: their boxes look exactly alike.
      Folding summary away must leave notes with a box of its own, whose Change button speaks of notes;
+   - renaming a choice offers Undo, like every other change on the map (0.4.194);
    - the choices panel offers no moving of choices (0.4.193): Logseq 2.0.2 refuses a plugin's move up and garbles a
      move down (the choice lands last and the property's own page gets the choice as a value).
 
@@ -22,7 +23,8 @@ function pretendLogseq(window) {
     { ':db/id': 21, ':db/ident': ':user.property/notes', ':block/title': 'notes', ':block/uuid': 'p-notes', ':logseq.property/type': ':default', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] },
     { ':db/id': 22, ':db/ident': ':user.property/result', ':block/title': 'result', ':block/uuid': 'p-result', ':logseq.property/type': ':default', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] },
   ];
-  const choices = [[22, 'Normal', 'c1'], [22, 'Abnormal', 'c2'], [22, 'Unclear', 'c3']];
+  const choices = [['c-normal', 'Normal', 'a1'], ['c-abnormal', 'Abnormal', 'a2'], ['c-unclear', 'Unclear', 'a3']].map(([uuid, title, order]) => ({ uuid, title, order }));
+  window.pretendChoices = choices;
   const ref = p => ({ ':db/id': p[':db/id'], ':db/ident': p[':db/ident'], ':block/title': p[':block/title'], ':block/uuid': p[':block/uuid'] });
   const tags = [{ ':db/id': 10, ':db/ident': ':user.class/Report', ':block/uuid': 't-Report', ':block/title': 'Report', ':logseq.property.class/extends': [], ':logseq.property.class/properties': props.map(ref) }];
   const settings = { tagTreeRoots: 'Report', twoWayNames: '', twoWayOneEnd: '' };
@@ -30,13 +32,17 @@ function pretendLogseq(window) {
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
     DB: { datascriptQuery: async q => q.includes('logseq.property/classes [:db/id]') ? props.map(p => [p])
-      : q.includes('closed-value') ? choices
+      : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
+      : q.includes('closed-value') ? choices.map(c => [22, c.title, c.order])
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
       : q.includes('count') ? [[10, 3]] : [], onChanged: () => () => {} },
-    UI: { showMsg() {} }, App: { pushState() {} }, Editor: { openInRightSidebar() {} },
+    UI: { showMsg() {} }, App: { pushState() {} },
+    Editor: { openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; } },
   };
   window.refinementCore = { provided: { backwardsLabel: n => n + ' of', setBackwards() {}, shownAtOtherEnd: () => true, setShownAtOtherEnd() {} } };
 }
+
+const until = async test => { for (let i = 0; i < 50; i++) { const found = test(); if (found) return found; await new Promise(r => setTimeout(r, 10)); } return null; };
 
 (async () => {
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="stage"></div></body></html>', { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
@@ -79,13 +85,29 @@ function pretendLogseq(window) {
   else {
     const values = resultRow.querySelector('.rtg-ptype [data-act="values"]');
     if (values) values.click(); else problem('result shows no choices to click');
-    for (let i = 0; i < 20 && !doc.querySelector('.rtg-choices .rtg-crow'); i++) await new Promise(r => setTimeout(r, 10));
+    await until(() => doc.querySelector('.rtg-choices .rtg-crow'));
     const rows = doc.querySelectorAll('.rtg-choices .rtg-crow');
     if (rows.length !== 3) problem(`the choices panel shows ${rows.length} choices instead of 3`);
     const moving = [...doc.querySelectorAll('.rtg-choices button')].filter(b => /^move/i.test(b.getAttribute('aria-label') || b.title || ''));
     if (moving.length) problem(`the choices panel offers ${moving.length} buttons to move choices, which Logseq 2.0.2 refuses or garbles`);
+    // Renaming a choice says so with an Undo, like every other change on the map, and Undo puts the old name back.
+    const input = rows[2]?.querySelector('input');
+    if (!input || input.value !== 'Unclear') problem(`the third choice reads “${input?.value}” instead of Unclear`);
+    else {
+      input.value = 'Unsure';
+      input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      const toast = await until(() => doc.querySelector('.refinement-tags-toast'));
+      if (window.pretendChoices[2].title !== 'Unsure') problem('renaming a choice did not rename it');
+      const undo = toast && [...toast.querySelectorAll('button')].find(b => b.textContent === 'Undo');
+      if (!undo) problem(`renaming a choice says “${toast?.textContent ?? 'nothing'}” with no Undo`);
+      else {
+        undo.click();
+        await until(() => window.pretendChoices[2].title === 'Unclear');
+        if (window.pretendChoices[2].title !== 'Unclear') problem(`Undo after renaming a choice left “${window.pretendChoices[2].title}”`);
+      }
+    }
   }
   view.destroy();
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

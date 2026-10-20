@@ -1323,9 +1323,9 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   const panel = el(doc, 'div', { class: 'refinement-tags-menu rtg-choices', role: 'dialog', 'aria-label': `Choices for ${prop.title}` }, el(doc, 'div', { class: 'rtg-mh' }, `Choices for ${prop.title}`));
   view.menu = panel;
   const again = index => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
-  const run = async (job, failText, said) => {
+  const run = async (job, failText, said, undo) => {
     const index = Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement));
-    if (await view.act(job, failText) && said) view.showToast(said);
+    if (await view.act(job, failText) && said) view.showToast(said, undo);
     again(index);
   };
   // Keys pressed anywhere in the panel stay out of Logseq's shortcuts, and Escape closes it.
@@ -1356,7 +1356,9 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
         const title = input.value.trim();
         if (!title || title === choice.title) return;
         if (list.some(c => c !== choice && c.title.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
-        run(() => renameChoice(prop, choice, title), `“${choice.title}” could not be renamed`, `“${choice.title}” is now “${title}” everywhere`);
+        run(() => renameChoice(prop, choice, title), `“${choice.title}” could not be renamed`, `“${choice.title}” is now “${title}” everywhere`,
+          () => renameChoice(prop, choice, choice.title)); // a rename can be undone (0.4.194); a removal cannot: Logseq lets only itself make a choice
+
       }, () => choice.title);
       const button = (label, text, enabled, job) => el(doc, 'button', { class: 'rtg-cb', title: text, 'aria-label': text, disabled: enabled ? null : '', click: event => { event.stopPropagation(); if (enabled) job(); } }, label);
       box.append(el(doc, 'div', { class: 'rtg-crow' }, input,
