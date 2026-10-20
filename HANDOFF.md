@@ -16,7 +16,7 @@ A personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. Most of i
 | Shared helpers and the contract between files | `parts/shared.js` (read its header) |
 | The areas, one file each | `parts/editor.js`, `pages.js`, `properties.js`, `links.js`, `chrome.js`, `styles.js` (with the scale, `tokensCss`), `diagnostics.js`; each holds its own settings section with its `group` and `rank`; the README's "What is in the folder" says what each part holds |
 | The former plugins | `parts/sidebar.js`, `search.js`, `journal-dates.js`, `rich-copy.js`, `todos.js` (paused since 0.4.128), `tags.js` (the tag tree, paused at 0.4.128 and back on since 0.4.152), `settings-panel.js` |
-| Two-way rows (0.4.141) | `parts/two-way.js`: the “← doctor of” rows in a page's own property list, read-only, for the page in the main view only; since 0.4.146 it leaves out Logseq's tag lists below the page that the rows repeat (`twoWayHideTagLists`) |
+| Two-way rows (0.4.141) | `parts/two-way.js`: the “← doctor of” rows in a page's own property list, read-only, for the page in the main view only; since 0.4.146 it leaves out Logseq's tag lists below the page that the rows repeat (`twoWayHideTagLists`); since 0.4.184 a line opens on a click, shows a card of the record on hover (`peek`), and an open list filters by kind, marks "earlier" and folds back with "show fewer" |
 | The shape box (0.4.145, closed to one line in 0.4.151) | `parts/pages.js`: `tagShape`, `propertyShape`, `updateShapeBox`; the box's top line is now also the tag's path |
 | The Hyper tap (0.4.148) | `parts/chrome.js`: `startHyperLinkTap` |
 | How late the extras appear | `docs/TIMING-2026-10-19.md` (measured at 0.4.149, before the 0.4.150 speed-up) |

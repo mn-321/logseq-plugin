@@ -16,7 +16,7 @@
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
 const { host, openEntity } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way' } });
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record to open it (Shift-click: in the sidebar). The rows are read-only: change the link on the record that holds the field.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The rows are read-only: change the link on the record that holds the field.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -35,7 +35,7 @@ const settingsSchema = [
     description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided;
+let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
@@ -43,7 +43,8 @@ const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<':
 // byPage: each page's rows as last read this session, drawn at once when you come back to it (0.4.150).
 // indexed (0.4.182): every page's rows were read in one look-up, so a page not in byPage has none, and a page
 // opened for the first time gets its rows in the same frame as its title instead of half a second later.
-const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), box: null, html: '' };
+// open, all and only (0.4.184): per row, whether its list is open, shows every record, or only one kind ("Infusion").
+const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '' };
 const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
@@ -109,6 +110,7 @@ async function load() {
   state.pageUuid = pageUuid;
   state.groups = groups;
   state.html = '';
+  peek.cache.clear();
   if (pageUuid) state.byPage.set(pageUuid, groups);
   draw(host());
   // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
@@ -131,7 +133,7 @@ async function groupsByPage(id) {
     : `[(identity ${id}) ?page] [?b ?attr ?page] ${fields} [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
   // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
   const [links, titled, tagged, dated, written] = await Promise.all([
-    logseq.DB.datascriptQuery(`[:find ?page ?pu ?b ?attr ?name :where ${these} [?prop :block/title ?name] [?page :block/uuid ?pu]]`),
+    logseq.DB.datascriptQuery(`[:find ?page ?pu ?b ?attr ?name ?fu :where ${these} [?prop :block/title ?name] [?page :block/uuid ?pu] [?prop :block/uuid ?fu]]`),
     logseq.DB.datascriptQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
     logseq.DB.datascriptQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
     // A record's own date: a date field of yours (the one named "date" first), else the journal day it is written on.
@@ -139,9 +141,11 @@ async function groupsByPage(id) {
     logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
   ]);
   const pages = new Map(), ids = new Set();
-  for (const [page, pageUuid, b, attr, name] of links || []) {
+  const fieldUuids = new Map();
+  for (const [page, pageUuid, b, attr, name, fieldUuid] of links || []) {
     // Only properties you made; built-in links such as tags, aliases and parents are left out.
     if (!isEntityId(b) || !name || !/^:?user\.property\//.test(String(attr))) continue;
+    if (fieldUuid) fieldUuids.set(name, String(fieldUuid));
     if (!pages.has(page)) pages.set(page, { uuid: String(pageUuid || ''), byField: new Map() });
     const byField = pages.get(page).byField;
     if (!byField.has(name)) byField.set(name, new Set());
@@ -180,7 +184,7 @@ async function groupsByPage(id) {
       // Coming up first (nearest first), then the past (latest first), then records with no date.
       items.sort((a, b) => (a.day >= today ? 0 : a.day ? 1 : 2) - (b.day >= today ? 0 : b.day ? 1 : 2) ||
         (a.day >= today ? a.day - b.day : b.day - a.day) || a.title.localeCompare(b.title));
-      groups.push({ name, label: readBackwards(name, names), items });
+      groups.push({ name, label: readBackwards(name, names), items, fieldUuid: fieldUuids.get(name) || '' });
     }
     groups.sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
     result.set(page, { uuid, groups });
@@ -221,19 +225,142 @@ function summary(items) {
   return [kinds, when].filter(Boolean).join(' · ');
 }
 const INLINE = 3, LISTED = 5;
+/* Moving around the rows (0.4.184, the owner asked for the rows to be more interactive). A record's line is
+   lit under the pointer and opens on a click anywhere along it; the ⇥ at its end opens it in the sidebar (as
+   Shift-click does). Resting on a record shows a card with its fields and first lines (peek, below). The field's
+   name opens the field's own page. In an open list, a row of kinds ("All 13 · Infusion 8 · Scan 1") shows only
+   that kind, as does a kind at the end of a line; a line marked "earlier" parts what is coming up from what is
+   past; "show all 13" folds back with "show fewer". Whether a list is open is kept across restarts. */
 const recordLink = item => `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#">${esc(item.title)}</a>`;
+const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
-  const name = `<div class="rf-tw-name" title="“${esc(group.name)}” on the records listed here points to this page. Change it on the record."><span class="rf-tw-arrow">←</span>${esc(group.label)}</div>`;
+  const tip = `“${esc(group.name)}” on the records listed here points to this page. Change it on the record.`;
+  const label = `<span class="rf-tw-arrow">←</span>${esc(group.label)}`;
+  const name = group.fieldUuid
+    ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
+    : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
-    const values = group.items.map(item => `<span class="rf-tw-item">${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span></span>`).join('');
+    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span>${sideLink(item)}</span>`).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div></div>`;
   }
-  const open = state.open.get(key) ?? true, all = state.all.has(key);
-  const shown = all ? group.items : group.items.slice(0, LISTED);
-  const list = open ? `<div class="rf-tw-list">${shown.map(item => `<div class="rf-tw-line"><span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}<span class="rf-tw-tag">${esc(item.tag)}</span></div>`).join('')}${
-    group.items.length > shown.length ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">show all ${group.items.length}</a>` : ''}</div>` : '';
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value"><a class="rf-tw-toggle" data-key="${esc(key)}" href="#">${esc(summary(group.items))}<span class="rf-tw-chevron"></span></a></div>${list}</div>`;
+  const open = isOpen(key), all = state.all.has(key);
+  const counts = new Map();
+  for (const item of group.items) counts.set(item.tag, (counts.get(item.tag) || 0) + 1);
+  const only = counts.has(state.only.get(key)) ? state.only.get(key) : '';
+  const items = only ? group.items.filter(item => item.tag === only) : group.items;
+  const shown = all ? items : items.slice(0, LISTED);
+  let list = '';
+  if (open) {
+    const chip = (tag, text) => `<a class="rf-tw-chip" data-key="${esc(key)}" data-tag="${esc(tag)}" href="#"${tag === only ? ' data-on=""' : ''}>${esc(text)}</a>`;
+    const chips = counts.size > 1 ? `<div class="rf-tw-chips">${chip('', `All ${group.items.length}`)}${[...counts].sort((a, b) => b[1] - a[1]).map(([tag, n]) => chip(tag, `${tag} ${n}`)).join('')}</div>` : '';
+    const today = todayNumber();
+    const lines = shown.map((item, i) => {
+      const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier">earlier</div>' : '';
+      const tag = counts.size > 1 ? `<a class="rf-tw-tag" data-key="${esc(key)}" data-tag="${esc(item.tag)}" href="#" title="Show only ${esc(plural(item.tag, 2))}">${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
+      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}"><span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
+    }).join('');
+    const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
+    list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
+  }
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value"><a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}<span class="rf-tw-chevron"></span></a></div>${list}</div>`;
+}
+// Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
+const OPEN_KEY = 'refinementTwoWayOpen';
+const isOpen = key => state.open.get(key) ?? true;
+function readOpen() { try { state.open = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(OPEN_KEY) || '{}'))); } catch { state.open = new Map(); } }
+function setOpen(key, open) {
+  state.open.delete(key);
+  if (!open) state.open.set(key, false);
+  while (state.open.size > 300) state.open.delete(state.open.keys().next().value);
+  try { host().defaultView.localStorage.setItem(OPEN_KEY, JSON.stringify(Object.fromEntries(state.open))); } catch { /* kept for this session */ }
+}
+
+/* Peek (0.4.184): resting the pointer on a record for a moment shows a card beside it, with the record's tag and
+   day, its fields (the one that points here left out) and its first lines, read when asked and kept until the
+   graph changes. It goes when the pointer leaves the record and the card. */
+const PEEK_MS = 450;
+const peek = { timer: 0, hide: 0, el: null, uuid: '', anchor: null, cache: new Map() };
+async function peekData(uuid, field) {
+  const key = `${uuid}|${field}`;
+  if (peek.cache.has(key)) return peek.cache.get(key);
+  const where = `[?b :block/uuid #uuid "${uuid}"] [?b ?attr ?v] [?prop :db/ident ?attr] [(namespace ?attr) ?ns] [(= ?ns "user.property")] [?prop :block/title ?name]`;
+  const [raw, titled, dated] = await Promise.all([
+    dsQuery(`[:find ?name ?v :where ${where}]`),
+    dsQuery(`[:find ?name ?v ?t :where ${where} [?v :block/title ?t]]`),
+    dsQuery(`[:find ?name ?v ?d :where ${where} [?v :block/journal-day ?d]]`),
+  ]);
+  const fields = new Map(), add = (name, value) => { if (!fields.has(name)) fields.set(name, []); if (!fields.get(name).includes(value)) fields.get(name).push(value); };
+  const known = new Set();
+  for (const [name, v, day] of dated) { known.add(`${name}|${v}`); add(name, dayText(day)); }
+  for (const [name, v, title] of titled) { if (known.has(`${name}|${v}`)) continue; known.add(`${name}|${v}`); add(name, title); }
+  for (const [name, v] of raw) if (!known.has(`${name}|${v}`) && !(typeof v === 'number' && isEntityId(v))) add(name, String(v));
+  fields.delete(field);
+  const readable = async text => { try { text = await provided.readableTitle(String(text || '')); } catch { /* as stored */ } return String(text).replace(/\[\[([^\]]+)\]\]/g, '$1').trim(); };
+  const rows = [];
+  for (const [name, values] of [...fields].sort((a, b) => a[0].localeCompare(b[0])).slice(0, 8)) rows.push([name, (await Promise.all(values.map(readable))).filter(Boolean).join(', ')]);
+  let lines = [];
+  try {
+    const entity = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+    const children = entity?.name || entity?.originalName ? await logseq.Editor.getPageBlocksTree(uuid) : entity?.children;
+    for (const child of children || []) {
+      const text = await readable(child?.title ?? child?.content ?? '');
+      if (text) lines.push(text);
+      if (lines.length >= 4) break;
+    }
+  } catch { /* no lines, then */ }
+  const data = { rows: rows.filter(([, value]) => value), lines };
+  peek.cache.set(key, data);
+  return data;
+}
+function peekHtml(item, field, data) {
+  const head = `<div class="rf-tw-peek-title">${esc(item.title)}</div><div class="rf-tw-peek-meta">${esc(['#' + item.tag, dayText(item.day)].filter(Boolean).join(' · '))}</div>`;
+  // The record's own day is in the line above already.
+  const fields = data.rows.filter(([, value]) => !item.day || value !== dayText(item.day));
+  const rows = fields.length ? `<div class="rf-tw-peek-fields">${fields.map(([name, value]) => `<span class="rf-tw-peek-name">${esc(name)}</span><span>${esc(value)}</span>`).join('')}</div>` : '';
+  const lines = data.lines.length ? `<div class="rf-tw-peek-lines">${data.lines.map(line => `<div>${esc(line.length > 140 ? line.slice(0, 139) + '…' : line)}</div>`).join('')}</div>` : '';
+  return head + rows + lines + (rows || lines ? '' : '<div class="rf-tw-peek-meta">Nothing else written on it yet.</div>');
+}
+function findItem(uuid, rowEl) {
+  const group = state.groups.find(g => g.name === rowEl?.dataset.field);
+  return group ? { group, item: group.items.find(item => item.uuid === uuid) } : {};
+}
+function onOver(event) {
+  const link = event.target.closest?.('a.rf-tw-record');
+  if (!link) return;
+  clearTimeout(peek.hide);
+  if (peek.anchor === link && peek.el?.isConnected) return;
+  clearTimeout(peek.timer);
+  peek.timer = setTimeout(() => showPeek(link).catch(error => warnOnce('could not show the record card', error)), PEEK_MS);
+}
+function onOut(event) {
+  if (!event.target.closest?.('a.rf-tw-record')) return;
+  clearTimeout(peek.timer);
+  hidePeekSoon();
+}
+const hidePeekSoon = () => { clearTimeout(peek.hide); peek.hide = setTimeout(hidePeek, 200); };
+function hidePeek() { clearTimeout(peek.timer); clearTimeout(peek.hide); peek.el?.remove(); peek.el = null; peek.anchor = null; }
+async function showPeek(link) {
+  const { group, item } = findItem(link.dataset.uuid, link.closest('.rf-tw-row'));
+  if (!item) return;
+  const data = await peekData(item.uuid, group.name);
+  if (!link.isConnected || !link.matches(':hover')) return;
+  const doc = link.ownerDocument;
+  hidePeek();
+  const el = peek.el = doc.createElement('div');
+  el.className = 'refinement-two-way-peek';
+  el.innerHTML = peekHtml(item, group.name, data);
+  el.addEventListener('mouseenter', () => clearTimeout(peek.hide));
+  el.addEventListener('mouseleave', hidePeekSoon);
+  el.addEventListener('mousedown', event => event.stopPropagation());
+  el.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); openEntity(item.uuid, event.shiftKey); hidePeek(); });
+  doc.body.appendChild(el);
+  peek.anchor = link;
+  const at = link.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
+  const left = Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8));
+  const below = at.bottom + 6 + size.height < win.innerHeight - 8;
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(below ? at.bottom + 6 : Math.max(8, at.top - 6 - size.height))}px`;
 }
 
 // The page's own property list in the main view (not one inside a record, a reference or the sidebar).
@@ -285,6 +412,7 @@ function holdRoom(doc, box, mode, page) {
 }
 const setHold = (box, px) => { if (px) box.style.setProperty('--rf-tw-hold', px + 'px'); else if (box.style.length) box.removeAttribute('style'); };
 function onRoute() {
+  hidePeek();
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
@@ -316,6 +444,8 @@ function draw(doc) {
     box.setAttribute('contenteditable', 'false');
     box.addEventListener('mousedown', event => event.stopPropagation());
     box.addEventListener('click', onClick);
+    box.addEventListener('mouseover', onOver);
+    box.addEventListener('mouseout', onOut);
     state.html = '';
   }
   const html = rows ? state.groups.map(rowHtml).join('') : '';
@@ -329,12 +459,20 @@ function draw(doc) {
 const drawEarly = (doc, records) => { if (performance.now() - settle.since < SETTLE_MS || addsElements(records)) draw(doc); };
 function onClick(event) {
   const target = event.target.closest?.('a');
-  if (!target) return;
+  const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
+  if (!target && !line) return;
   event.preventDefault(); event.stopPropagation();
-  if (target.matches('.rf-tw-record')) return openEntity(target.dataset.uuid, event.shiftKey);
+  hidePeek();
+  if (line) return openEntity(line.dataset.uuid, event.shiftKey);
+  if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
+  if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
   const key = target.dataset.key;
-  if (target.matches('.rf-tw-toggle')) state.open.set(key, !(state.open.get(key) ?? true));
-  else if (target.matches('.rf-tw-more')) state.all.add(key);
+  if (target.matches('.rf-tw-toggle')) setOpen(key, !isOpen(key));
+  else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
+  else if (target.matches('.rf-tw-chip, .rf-tw-tag')) {
+    const tag = target.dataset.tag || '';
+    if (!tag || state.only.get(key) === tag) state.only.delete(key); else state.only.set(key, tag);
+  }
   draw(host());
 }
 
@@ -373,6 +511,33 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
 .refinement-two-way .rf-tw-more { display: inline-block; margin-top: .1rem; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); }
 .refinement-two-way .rf-tw-more:hover { color: var(--ls-primary-text-color, currentColor); }
+/* Moving around (0.4.184): a record's line lit under the pointer, the ⇥ to the sidebar shown there, the field's
+   name and the kinds as quiet links, the kinds row above an open list, "earlier" before what is past. */
+.refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { cursor: pointer; border-radius: 4px; }
+.refinement-two-way .rf-tw-line { margin: 0 -.35rem; padding: 0 .35rem; grid-template-columns: 3.6em minmax(0, 1fr) auto 1.2em; }
+.refinement-two-way .rf-tw-item { margin: 0 -.3rem; padding: 0 .3rem; }
+.refinement-two-way .rf-tw-line:hover, .refinement-two-way .rf-tw-item:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 7%, transparent); }
+.refinement-two-way .rf-tw-side { visibility: hidden; margin-left: .4em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); text-align: center; }
+.refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-side { visibility: visible; }
+.refinement-two-way .rf-tw-side:hover, .refinement-two-way a.rf-tw-tag:hover, .refinement-two-way .rf-tw-field:hover { color: var(--ls-primary-text-color, currentColor); }
+.refinement-two-way a.rf-tw-field { color: inherit; }
+.refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; font-size: var(--rf-small, .82em); }
+.refinement-two-way .rf-tw-chip { padding: 0 .45rem; border-radius: 999px; color: var(--ls-secondary-text-color); border: 1px solid color-mix(in srgb, var(--rf-tw-accent) 30%, transparent); }
+.refinement-two-way .rf-tw-chip:hover { color: var(--ls-primary-text-color, currentColor); }
+.refinement-two-way .rf-tw-chip[data-on] { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 9%, transparent); }
+.refinement-two-way .rf-tw-earlier { margin: .2rem 0 .1rem; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); display: flex; align-items: center; gap: .5em; }
+.refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
+/* The card a record shows when the pointer rests on it: the popup look of the plugin's other popups. */
+.refinement-two-way-peek { position: fixed; z-index: 999; width: max-content; max-width: 360px; padding: 8px 10px; cursor: pointer;
+  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px);
+  box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); font-size: var(--rf-row, .875rem); line-height: 1.45; }
+.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; }
+.refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
+.refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 6px; }
+.refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
+.refinement-two-way-peek .rf-tw-peek-lines { margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the
@@ -401,9 +566,10 @@ let timer = 0, indexTimer = 0;
 const later = (ms = 600) => { clearTimeout(timer); timer = setTimeout(() => load().catch(error => warnOnce('could not refresh the two-way rows', error)), ms); };
 const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().catch(error => warnOnce('could not read the rows of every page', error)), ms); };
 function start() {
-  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided']));
+  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'dsQuery']));
   applyStyles();
   readHeights();
+  readOpen();
   watchDomEarly(drawEarly);
   draw(host());
   // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway. The box stays until the next
@@ -413,7 +579,7 @@ function start() {
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   }));
-  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); state.box?.remove(); state.box = null; });
+  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); hidePeek(); state.box?.remove(); state.box = null; });
   later(0);
   indexLater(1500);
 }
