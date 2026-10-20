@@ -218,12 +218,9 @@ async function removeChoice(prop, choice) {
   await logseq.Editor.removeBlock(choice.uuid);
   if ((await choicesOf(prop)).some(c => c.uuid === choice.uuid)) throw new Error('Logseq kept it');
 }
-async function moveChoice(prop, choice, step) {
-  const list = await choicesOf(prop), at = list.findIndex(c => c.uuid === choice.uuid), next = list[at + step];
-  if (at < 0 || !next) return;
-  await logseq.Editor.moveBlock(choice.uuid, next.uuid, { before: step < 0, children: false });
-  if ((await choicesOf(prop)).findIndex(c => c.uuid === choice.uuid) !== at + step) throw new Error('Logseq kept the old order');
-}
+// Choices are not moved from the map (0.4.193): Logseq 2.0.2 refuses a plugin's move up ("invalid data"), and a move
+// down puts the choice last and writes it as a value on the property's own page. Their order is changed in the
+// property's own settings, where Logseq does it itself.
 // A tag's description; empty takes it away.
 const DESCRIPTION = 'logseq.property/description';
 async function setDescription(tag, text) {
@@ -1157,7 +1154,7 @@ function propDetails(view, tag, prop, from) {
   line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'),
     el(doc, 'button', { class: 'rtg-make', title: 'What kind of value it holds, and one or several, are changed in Logseq’s own settings for the property', click: event => { event.stopPropagation(); view.kindMenu(prop, event.currentTarget); } }, 'Change'));
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) line('Choices', el(doc, 'span', { class: prop.choices.length ? 'rtg-val' : 'rtg-note' }, prop.choices.length ? prop.choices.join(' · ') : 'none, anything can be typed'),
-    el(doc, 'button', { class: 'rtg-make', title: prop.choices.length ? 'Add, rename, reorder or remove choices' : 'Give it a list to pick from', click: event => { event.stopPropagation(); view.askChoices(prop, event.currentTarget); } }, prop.choices.length ? 'Edit' : 'Add choices'));
+    el(doc, 'button', { class: 'rtg-make', title: prop.choices.length ? 'Rename or remove choices; add or reorder them in its settings' : 'Give it a list to pick from', click: event => { event.stopPropagation(); view.askChoices(prop, event.currentTarget); } }, prop.choices.length ? 'Edit' : 'Add choices'));
   if (prop.type !== 'node') return box;
   const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
   const inside = new Set(to.flatMap(t => [...below(t)]));
@@ -1318,7 +1315,7 @@ function kindMenu(view, prop, anchor) {
   view.placeMenu(anchor);
 }
 
-// The choices of a property, edited in a small panel: rename in place, move up or down, remove, add.
+// The choices of a property, edited in a small panel: rename in place and remove; adding and reordering open Logseq's own settings.
 function askChoices(view, prop, anchor, at, focusAt = 0) {
   const doc = view.doc;
   const where = at || (() => { const r = anchor.getBoundingClientRect(); return { left: r.left, top: r.bottom + 4 }; })();
@@ -1338,9 +1335,10 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   });
   for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
   const box = el(doc, 'div', { class: 'rtg-list' }, el(doc, 'div', { class: 'rtg-none' }, 'Reading the choices …'));
-  // A new choice is added in the property's own settings (0.4.191): Logseq 2.0.2 lets only itself make one.
-  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add a choice in its settings ⇥');
-  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, 'Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added in the property’s own settings, in the right sidebar: Logseq lets only itself make them.'));
+  // A new choice is added, and the order changed, in the property's own settings (0.4.191, 0.4.193): Logseq 2.0.2
+  // lets only itself make a choice or move one.
+  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add or reorder in its settings ⇥');
+  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, `Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added, and the order changed, in Logseq’s own list, which only Logseq may change: in the right sidebar, click the column headed ${prop.title}, then Available choices.`));
   const keys = (input, onEnter, reset) => {
     keepKeys(input);
     input.addEventListener('keydown', event => {
@@ -1352,7 +1350,7 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   choicesOf(prop).then(list => {
     if (view.menu !== panel) return;
     box.replaceChildren(...(list.length ? [] : [el(doc, 'div', { class: 'rtg-none' }, 'No choices yet: anything can be typed.')]));
-    list.forEach((choice, i) => {
+    list.forEach(choice => {
       const input = el(doc, 'input', { type: 'text', value: choice.title, spellcheck: 'false', 'aria-label': `Rename ${choice.title}` });
       keys(input, () => {
         const title = input.value.trim();
@@ -1362,8 +1360,6 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
       }, () => choice.title);
       const button = (label, text, enabled, job) => el(doc, 'button', { class: 'rtg-cb', title: text, 'aria-label': text, disabled: enabled ? null : '', click: event => { event.stopPropagation(); if (enabled) job(); } }, label);
       box.append(el(doc, 'div', { class: 'rtg-crow' }, input,
-        button('↑', 'Move up', i > 0, () => run(() => moveChoice(prop, choice, -1), `“${choice.title}” could not be moved`)),
-        button('↓', 'Move down', i < list.length - 1, () => run(() => moveChoice(prop, choice, 1), `“${choice.title}” could not be moved`)),
         button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
     });
     const inputs = box.querySelectorAll('input');
