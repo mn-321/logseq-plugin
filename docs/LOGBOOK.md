@@ -26,7 +26,7 @@ today's journal, the row read 14 at once; Undo took it away; graph check matched
 Doctor, "Dr. Test Person": "As a new page", added at once; Undo took it off the row, **but Logseq kept the page in its
 recycle bin** (the graph check caught it); removed with `logseq remove page --id … --force`; graph matched.
 
-**Found, not fixed (needs the owner):** Undo after + on a page leaves the page in Logseq's recycle bin. Logseq 2.0.2
+**Owner's pick (kept as is):** Undo after + on a page leaves the page in Logseq's recycle bin, so anything written in it is not lost. Logseq 2.0.2
 has a plugin call to delete a recycled page for good (`delete_recycled_page_permanently`); using it would make Undo
 leave nothing, but a page opened with "Add and open" and written in before Undo would then be gone for good.
 

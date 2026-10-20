@@ -106,6 +106,8 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - Logseq re-makes an "All" view at once while its page is open in the sidebar: close it there first, then remove it.
 - The command line can put a block's hidden place back (`logseq upsert block --id … --update-properties '{:block/order "…"}'`)
   and take a value off a page (`logseq upsert page --id … --remove-properties '[:user.property/…]'`).
+- Undo after a two-way + that made a page leaves it in Logseq's recycle bin (the owner's pick); after a test, remove it with
+  `logseq remove page --id … --force` (by id: the command line does not find a recycled page by name).
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
   added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 
