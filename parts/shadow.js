@@ -29,7 +29,7 @@
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal'] } });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
 let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -39,7 +39,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Tab goes on to the next, and Enter or Escape there comes back to the words. Your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -460,7 +460,7 @@ function onGuessPress(event) {
    fills them in as usual. Leaving the list any other way (a click elsewhere) is leaving the bullet: what is sure is
    filled in. Logseq has no key of its own into the properties shown under a bullet (tried on screen: Escape and Down
    go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does. */
-const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, timer: 0, moving: 0, tab: 0, returning: '' };
+const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '' };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
 // An empty value's own trigger, for the kinds whose list or box is followed here: a link, a text (or choice), a web
 // address, a number. A date's calendar is not followed yet, and a checkbox's trigger is the box itself, which a press
@@ -532,29 +532,47 @@ function leaveBlank(rowUuid, name) {
   }, 300);
 }
 const passOn = () => { if (picking.at >= 0) leaveBlank(picking.rowUuid, picking.names[picking.at]); };
-function openAt(doc, i, step = 1) {
+// The property being filled in carries Logseq's own kind of focus ring, so it is clear where you are (0.4.207).
+function markAt(doc, el) {
+  // On a row of its own the ring goes round the property's name: the row's own box draws no outline (seen in the app).
+  if (el?.matches?.('.property-pair')) el = el.querySelector('.property-key-inner') || el;
+  for (const old of doc.querySelectorAll('[data-rfs-at]')) if (old !== el) old.removeAttribute('data-rfs-at');
+  if (el && !el.hasAttribute('data-rfs-at')) el.setAttribute('data-rfs-at', '');
+}
+// Opens the i-th remembered property. Past the end going forward (Enter): the bullet is done, as Enter in the words
+// does it (the owner: "enter should go to next bullet on last enter"); past either end with Tab: back to the words.
+function openAt(doc, i, step = 1, pastEnd = backToWords) {
   passOn();
   const found = triggerAt(doc, i, step);
-  if (!found) return backToWords();
+  if (!found) return pastEnd();
   picking.at = found.i;
   picking.keyAt = 0;
+  picking.lastKey = '';
   picking.moving = Date.now();
+  markAt(doc, found.trigger.closest('.bottom-property-pill, .property-pair'));
   press(found.trigger);
   watchPicker();
 }
-// Watches the focus while a list is meant to be open. The list closed: right after Enter or Escape in it, back to the
-// words; back in the bullet's own words (a click there), simply done; anything else is leaving the bullet, and what
-// is sure is filled in. A press that opened nothing within a moment ends it with nothing taken (second reading).
+// Watches the focus while a list is meant to be open. The list closed: right after Enter in it, on to the next empty
+// property (past the last, the next bullet); right after Escape, back to the words; back in the bullet's own words (a
+// click there), simply done; anything else is leaving the bullet, and what is sure is filled in. A press that opened
+// nothing within a moment ends it with nothing taken (second reading). A list that stays open after Enter (a property
+// that holds several) is still in it: Enter adds, Tab moves on, Option-Enter finishes the bullet.
 function watchPicker() {
   clearInterval(picking.timer);
   picking.timer = setInterval(() => {
     const active = host().activeElement;
+    // Logseq draws a row again when its value's box opens (seen: the ring on Notes went): put the mark back.
+    if (picking.at >= 0) { const doc = host(), place = propertyPlaces(recordRow(doc, picking.rowUuid)).find(p => p.name === picking.names[picking.at]); if (place) markAt(doc, place.el); }
     if (inPicker(active)) { picking.moving = 0; return; }
     if (picking.moving && Date.now() - picking.moving < OPEN_WAIT) return;
     const opened = !picking.moving;
     if (ownWords(active)) return endPicking(false);
     if (!opened) return endPicking(false); // nothing opened
-    if (picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) return backToWords();
+    if (picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) {
+      if (picking.lastKey === 'Enter') return openAt(active?.ownerDocument || host(), picking.at + 1, 1, finishBullet);
+      return backToWords();
+    }
     endPicking(true);
   }, 100);
 }
@@ -570,11 +588,38 @@ async function backToWords() {
   } catch (error) { warnOnce('could not go back to the words', error); }
   setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
+// Done with the bullet from its properties (Enter past the last one, or Option-Enter): as Enter at the end of the
+// words, everything proposed and shown is filled in, guesses too, and the next bullet is made and put in edit.
+async function finishBullet() {
+  passOn();
+  const { uuid, live } = picking;
+  endPicking(false);
+  if (!UUID.test(uuid)) return;
+  picking.returning = uuid;
+  if (hushed.uuid === uuid) hushed.uuid = ''; // the bullet is left: Escape's clearing ends (second reading)
+  try {
+    // The fill goes on behind the next bullet, as with Enter in the words (second reading: waiting for it left
+    // nothing in edit for a moment).
+    if (live && !live.left) {
+      live.left = true;
+      live.taken = new Set(live.pieces.filter(piece => piece.guess && live.drawn?.has(guessKey(piece))).map(guessKey));
+      if (state.live === live) { state.live = null; hide(); }
+      takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+    }
+    // Where Logseq's own Enter puts it: the first child of a bullet whose children show, else the next sibling.
+    const row = recordRow(host(), uuid);
+    const kids = row && [...row.querySelectorAll('.block-children-container .ls-block[blockid]')].some(el => el.parentElement?.closest('.ls-block[blockid]') === row);
+    const next = kids ? await logseq.Editor.insertBlock(uuid, '', { sibling: false, before: true }) : await logseq.Editor.insertBlock(uuid, '', { sibling: true });
+    if (next?.uuid) await logseq.Editor.editBlock(next.uuid);
+  } catch (error) { warnOnce('could not go on to the next bullet', error); }
+  setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
+}
 function endPicking(left) {
   if (left) passOn();
   const live = picking.live;
   clearInterval(picking.timer); clearTimeout(picking.tab);
-  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, moving: 0, tab: 0 });
+  markAt(host(), null);
+  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0 });
   if (!left || !live || live.left) return;
   // Left from the list: as leaving the words, the sure values only.
   live.left = true;
@@ -582,10 +627,22 @@ function endPicking(left) {
   if (state.live === live) { state.live = null; hide(); }
   takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
 }
+// Closes what is open in the properties with an Escape of the plugin's own (Logseq closes its list, or saves and
+// closes a value's box), then does next.
+function closeThen(target, next) {
+  const doc = target.ownerDocument;
+  picking.moving = Date.now();
+  picking.ownKey = true; // not a way back to the words
+  target.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+  picking.ownKey = false;
+  picking.tab = setTimeout(() => { picking.tab = 0; if (picking.uuid) next(doc); }, 60);
+}
+const isTextBox = el => !!el?.matches?.('input, textarea, [contenteditable="true"]') && !el.closest('.cp__select');
 function onPickKey(event) {
   if (event.isComposing) return;
+  const plainEnter = event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey;
   // Option-Enter in the words (only while the proposals are on).
-  if (event.key === 'Enter' && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+  if (plainEnter && event.altKey && !picking.uuid) {
     const box = editingBox(event.target);
     if (!box || !setting('shadowProposals')) return;
     const uuid = uuidOf(box), doc = box.ownerDocument;
@@ -599,18 +656,30 @@ function onPickKey(event) {
     return;
   }
   if (!picking.uuid || !inPicker(event.target)) return;
+  // A list or menu of Logseq's open inside a value's box ("[[" pages, "/" commands) keeps its keys (second reading:
+  // Enter there would have saved a half-typed link).
+  if (isTextBox(event.target) && event.target.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
+  // Option-Enter in the properties: done with the bullet, from anywhere (a list that holds several included).
+  if (plainEnter && event.altKey) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!picking.tab) closeThen(event.target, () => finishBullet());
+    return;
+  }
   if (event.key === 'Tab') {
     event.preventDefault(); event.stopImmediatePropagation();
     if (picking.tab) return; // one move at a time
-    const doc = event.target.ownerDocument, step = event.shiftKey ? -1 : 1, next = picking.at + step;
-    picking.moving = Date.now();
-    picking.ownKey = true; // the Escape that closes this list is the plugin's, not a way back to the words
-    event.target.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
-    picking.ownKey = false;
-    picking.tab = setTimeout(() => { picking.tab = 0; if (picking.uuid) openAt(doc, next, step); }, 60);
+    const step = event.shiftKey ? -1 : 1, next = picking.at + step;
+    closeThen(event.target, doc => openAt(doc, next, step));
     return;
   }
-  if ((event.key === 'Enter' || event.key === 'Escape') && !picking.ownKey) picking.keyAt = Date.now();
+  // Enter in a text or number value: keep what was typed and move on (Shift-Enter stays a new line in it). In a list,
+  // Enter is Logseq's pick; the move on comes when the list closes.
+  if (plainEnter && isTextBox(event.target)) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!picking.tab) closeThen(event.target, doc => openAt(doc, picking.at + 1, 1, finishBullet));
+    return;
+  }
+  if ((event.key === 'Enter' || event.key === 'Escape') && !picking.ownKey) { picking.keyAt = Date.now(); picking.lastKey = event.key; }
 }
 
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
@@ -750,6 +819,10 @@ const css = `
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
 .rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); font-style: italic; white-space: nowrap; }
 .rfs-ghost.rfs-guess { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+/* The property Option-Enter is on (0.4.207): a ring in the text colour, as Logseq marks a focused value. */
+[data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
+/* On a row's name the ring is drawn just inside it: the row's box cuts off what is outside (seen in the app). */
+.property-key-inner[data-rfs-at] { outline-offset: -2px; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 `;

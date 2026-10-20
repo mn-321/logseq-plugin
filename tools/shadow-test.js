@@ -250,6 +250,58 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadow.live = null;
   window.refinementShadowInner.drawInPlace(doc);
 }
+// 19. Enter moves on (0.4.207): Enter in a text value keeps it and opens the next empty property; Enter past the last
+//     one goes to the next bullet (the owner: "enter should go to next bullet on last enter"); Option-Enter in the
+//     properties finishes the bullet from anywhere. The property being filled in is marked.
+{
+  const doc = window.document, edited = [], inserted = [];
+  window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push(uuid); };
+  window.logseq.Editor.insertBlock = async (uuid, content, opts) => { inserted.push([uuid, opts?.sibling]); return { uuid: 'b-next-bullet' }; };
+  const pill = (name, id, type = 'node') => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content"><div class="empty-value" data-type="${type}"><div class="jtrigger" id="${id}">—</div></div></span></div>`;
+  doc.body.innerHTML = '<div class="ls-block" blockid="0e000000-0000-4000-8000-0000000000e1"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
+    + '<textarea id="edit-block-0e000000-0000-4000-8000-0000000000e1">Call with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
+    + pill('notes', 't-notes', 'default') + pill('hospital', 't-hosp') + '</div></div></div></div></div></div>';
+  const box = doc.querySelector('textarea'), pressed = [];
+  for (const id of ['t-notes', 't-hosp']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
+  box.focus();
+  window.refinementShadow.live = null;
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
+  cases++;
+  if (!doc.getElementById('t-notes').closest('[data-rfs-at]')) problem('Option-Enter: the property being filled in is not marked');
+  // Logseq opens the text value's box inside the property; Enter there moves on to hospital.
+  const valueBox = doc.createElement('textarea'); valueBox.id = 'edit-block-value';
+  doc.getElementById('t-notes').closest('.bottom-property-content').appendChild(valueBox);
+  valueBox.focus();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  valueBox.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  valueBox.remove();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  cases++;
+  if (pressed.join() !== 't-notes,t-hosp') problem(`Enter in a text value: opened ${pressed.join()}; wanted hospital next`);
+  if (!doc.getElementById('t-hosp').closest('[data-rfs-at]') || doc.getElementById('t-notes').closest('[data-rfs-at]')) problem('Enter in a text value: the mark did not move to hospital');
+  // The hospital list; Enter picks (Logseq closes it) and, being the last, the next bullet is made.
+  const list = doc.createElement('div'); list.className = 'cp__select'; list.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list);
+  list.querySelector('input').focus();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  list.remove(); box.blur();
+  await new Promise(resolve => setTimeout(resolve, 400));
+  cases++;
+  if (inserted.map(i => i.join(':')).join() !== '0e000000-0000-4000-8000-0000000000e1:true' || !edited.includes('b-next-bullet')) problem(`Enter on the last property: made ${JSON.stringify(inserted)}, edited ${edited.join()}; wanted the next bullet`);
+  if (doc.querySelector('[data-rfs-at]')) problem('done: the mark stays on a property');
+  // Option-Enter inside a list (one that holds several stays open after Enter): the bullet is done.
+  inserted.length = 0; edited.length = 0;
+  box.focus();
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
+  const list2 = doc.createElement('div'); list2.className = 'cp__select'; list2.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list2);
+  list2.querySelector('input').focus();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  list2.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
+  list2.remove();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  cases++;
+  if (inserted.length !== 1) problem(`Option-Enter in a list: made ${inserted.length} next bullets; wanted one`);
+}
 // 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
 {
   const doc = window.document;
