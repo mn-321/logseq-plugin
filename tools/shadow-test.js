@@ -21,7 +21,7 @@ window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
 window.refinementCore = { dsQuery: async () => [], UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {} };
 window.refinementParts.find(p => p.name === 'proposals').start();
-const { piecesFor } = window.refinementShadowInner;
+const { piecesFor, addHistory } = window.refinementShadowInner;
 
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
 const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10 };
@@ -32,15 +32,25 @@ const schema = { props, byId: new Map(props.map(p => [p.id, p])),
   parentsOf: new Map([[T.person, [T.entity]], [T.doctor, [T.person]], [T.place, [T.entity]], [T.hospital, [T.place]], [T.appointment, [T.occurrence]], [T.consultation, [T.appointment]]]) };
 const page = (id, title, tags, extra = {}) => ({ id, uuid: 'page-' + id, title, lower: title.toLowerCase(), tags: tags.map(t => ({ id: t, title: 'Tag ' + t, ident: 'user.class/t' + t })), isTag: false, ...extra });
 const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel', [T.doctor]), page(102, 'Ruth Okoro', [T.person]), page(103, 'Hannah Reyes', [], { tags: [{ id: 999, title: 'Page', ident: 'logseq.class/Page' }] }),
-  page(104, 'Northgate Cancer Center', [T.hospital]), page(105, 'Nausea', [T.symptom]), { id: 200, uuid: 'tag-8', title: 'Consultation', lower: 'consultation', tags: [], isTag: true },
+  page(104, 'Northgate Cancer Center', [T.hospital]), page(105, 'Nausea', [T.symptom]), page(106, 'Northgate', []), page(107, 'Fatigue', [T.symptom]),
+  page(108, 'Tingling fingers', [T.symptom]), page(109, 'Cold sensitivity', [T.symptom]), { id: 200, uuid: 'tag-8', title: 'Consultation', lower: 'consultation', tags: [], isTag: true },
   { id: T.log, uuid: 'tag-9', title: 'Symptom log', lower: 'symptom log', tags: [], isTag: true }, { id: T.symptom, uuid: 'tag-10', title: 'Symptom', lower: 'symptom', tags: [], isTag: true }];
 const byKey = new Map(), byId = new Map();
 for (const p of pages) { byKey.set(p.lower, p); byKey.set(p.uuid, p); byId.set(p.id, p); }
-const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }]]) };
+const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }]]),
+  aliases: [[104, 106]] };
+// Lines written before, for "the same line written before": two symptom logs saying "Wiped out all day." with Fatigue,
+// and two "Bad day." that disagree.
+addHistory(ctx, [
+  { id: 500, title: 'Wiped out all day.', tags: [T.log], values: new Map([['user.property/symptoms', [107]]]) },
+  { id: 501, title: 'Wiped out all day.', tags: [T.log], values: new Map([['user.property/symptoms', [107]]]) },
+  { id: 502, title: 'Bad day.', tags: [T.log], values: new Map([['user.property/symptoms', [107]]]) },
+  { id: 503, title: 'Bad day.', tags: [T.log], values: new Map([['user.property/symptoms', [105]]]) }]);
 const journal = { 'db/id': 300, 'block/uuid': 'j-300', 'block/title': 'Oct 20th, 2026', 'block/journal-day': 20261020, 'block/tags': [] };
 const chenPage = { 'db/id': 100, 'block/uuid': 'page-100', 'block/title': 'Dr. Mei Chen', 'block/tags': [{ 'db/id': T.doctor }] };
 const bullet = (title, tags, on, extra = {}) => ({ 'db/id': 1000 + Math.floor(Math.random() * 1000), 'block/uuid': 'b-' + Math.random().toString(16).slice(2), 'block/title': title, 'block/tags': tags.map(t => ({ 'db/id': t })), 'block/page': on, ...extra });
-const shown = pieces => pieces.map(p => `${p.prop.title}=${p.shown}${p.note ? ' (' + p.note + ')' : ''}`).join(' · ') || '(nothing)';
+// A guess (piece 2, taken only by a click) is shown with a "?".
+const shown = pieces => pieces.map(p => `${p.prop.title}=${p.shown}${p.guess ? '?' : ''}${p.note ? ' (' + p.note + ')' : ''}`).join(' · ') || '(nothing)';
 let cases = 0;
 function expect(name, { record, pieces }, want) {
   cases++;
@@ -55,18 +65,26 @@ expect('page rule', piecesFor(bullet('Review of the tingling', [T.consultation],
 expect('two doctors', piecesFor(bullet('Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]]', [T.consultation], journal), 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]]', ctx), '(nothing)');
 // 3. One doctor and a person named: doctor and with.
 expect('doctor and person', piecesFor(bullet('x', [T.appointment], journal), 'Saw [[Dr. Mei Chen]] with [[Ruth Okoro]]', ctx), 'doctor=Dr. Mei Chen · with=Ruth Okoro');
-// 4. A link with no tag yet is never a sure piece (a topic page would be made a person; second reading).
-expect('untagged link', piecesFor(bullet('x', [T.appointment], journal), 'Talked to [[Hannah Reyes]]', ctx), '(nothing)');
-expect('untagged link, one place', piecesFor(bullet('x', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 }, 'user.property/with': [{ 'db/id': 102 }] }), 'Talked to [[Hannah Reyes]]', ctx), '(nothing)');
+// 4. A link with no tag yet is never a sure piece (a topic page would be made a person; second reading). It is a guess
+//    for each empty place it could fill, when there are one or two such places; with three, nothing.
+expect('untagged link, three places', piecesFor(bullet('x', [T.appointment], journal), 'Talked to [[Hannah Reyes]]', ctx), '(nothing)');
+const onePlace = piecesFor(bullet('x', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 }, 'user.property/with': [{ 'db/id': 102 }] }), 'Talked to [[Hannah Reyes]]', ctx);
+expect('untagged link, one place', onePlace, 'doctor=Hannah Reyes? (becomes a #Tag 3)');
+const tagging = onePlace.pieces[0]?.tagPage;
+if (tagging?.tag?.uuid !== 'tag-3' || tagging?.uuids?.join() !== 'page-103') problem('untagged link, one place: taking it would not tag Hannah Reyes #Doctor');
+expect('untagged link, two places', piecesFor(bullet('x', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 } }), 'Video call with [[Hannah Reyes]], the dietitian', ctx),
+  'doctor=Hannah Reyes? (becomes a #Tag 3) · with=Hannah Reyes? (becomes a #Tag 2)');
 // 5. The journal day: a symptom log (dated the day written, as the graph shows) gets it; an appointment (often written ahead) does not.
-expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journal), 'Nausea bad by evening', ctx), 'Date=Oct 20');
+expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journal), 'Nausea bad by evening', ctx), 'Date=Oct 20 · symptoms=Nausea?');
 expect('no day for an appointment', piecesFor(bullet('Review next month', [T.appointment], journal), 'Review next month', ctx), '(nothing)');
-// 6. A note under an appointment: the pieces are the appointment's. A record nested under a record does not inherit
-//    its parent's values (a follow-up under its first visit would get that visit's date; second reading).
+// 6. A note under an appointment: the pieces are the appointment's. A record nested under a record does not take
+//    its parent's values as sure pieces (a follow-up under its first visit would get that visit's date; second
+//    reading); they are guesses, and only where the child says nothing itself.
 const appt = bullet('Dietitian', [T.appointment], journal, { 'user.property/hospital': { 'db/id': 104 } });
 const record = expect('note under a record', piecesFor(bullet('Saw [[Dr. Mei Chen]] again', [], journal, { 'block/parent': appt }), 'Saw [[Dr. Mei Chen]] again', ctx), 'doctor=Dr. Mei Chen');
 if (record !== appt) problem('note under a record: the pieces are not for the appointment');
-expect('nested record', piecesFor(bullet('Follow-up', [T.appointment], journal, { 'block/parent': { ...appt, 'user.property/doctor': { 'db/id': 100 } } }), 'Follow-up', ctx), '(nothing)');
+expect('nested record', piecesFor(bullet('Follow-up', [T.appointment], journal, { 'block/parent': { ...appt, 'user.property/doctor': { 'db/id': 100 } } }), 'Follow-up', ctx), 'doctor=Dr. Mei Chen? · hospital=Northgate Cancer Center?');
+expect('nested record says otherwise', piecesFor(bullet('Follow-up', [T.appointment], journal, { 'user.property/doctor': { 'db/id': 101 }, 'block/parent': { ...appt, 'user.property/doctor': { 'db/id': 100 } } }), 'Follow-up', ctx), 'hospital=Northgate Cancer Center?');
 // 6b. Several people named in a note under a record are not the record's "with" (a list in a note is a guess), while
 //     a doctor named there still is its doctor.
 expect('list in a note', piecesFor(bullet('Rang [[Ruth Okoro]] and [[Dr. Raj Patel]] after', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal, { 'user.property/doctor': { 'db/id': 100 } }) }), 'Rang [[Ruth Okoro]] and [[Dr. Raj Patel]] after', ctx), '(nothing)');
@@ -77,5 +95,54 @@ expect('several symptoms', piecesFor(bullet('x', [T.log], journal), '[[Nausea]] 
 
 // 9. A two-word tag typed without brackets, as Logseq shows it ("#Symptom log"), is read whole, not as #Symptom.
 expect('two-word tag in the words', piecesFor(bullet('Queasy after lunch', [], journal), 'Queasy after lunch #Symptom log', ctx), 'Date=Oct 20');
+
+// 10. Guesses from plain words: a page named without brackets, by a word of its title or by an alias, when one page
+//     of the right tag is named; "Dr." alone, or two doctors, name no one.
+expect('plain words', piecesFor(bullet('x', [T.appointment], journal), 'Post-op check with Dr. Patel. Wounds fine.', ctx), 'doctor=Dr. Raj Patel?');
+expect('plain words, alias', piecesFor(bullet('x', [T.appointment], journal), 'Bloods at Northgate this morning', ctx), 'hospital=Northgate Cancer Center?');
+expect('plain words, a word of the title', piecesFor(bullet('x', [T.log], journal), 'Bad night, the tingling again', ctx), 'Date=Oct 20 · symptoms=Tingling fingers?');
+expect('plain words, "Dr." alone', piecesFor(bullet('x', [T.appointment], journal), 'Saw the Dr. today', ctx), '(nothing)');
+expect('plain words, two doctors', piecesFor(bullet('x', [T.appointment], journal), 'Saw Dr. Chen and Dr. Patel', ctx), '(nothing)');
+expect('plain words, two symptoms tie', piecesFor(bullet('x', [T.log], journal), 'Cold hurts my fingers', ctx), 'Date=Oct 20');
+// 11. The same line written before under the same tag gives its values, when the earlier ones agree.
+expect('same line before', piecesFor(bullet('x', [T.log], journal), 'Wiped out all day.', ctx), 'Date=Oct 20 · symptoms=Fatigue?');
+expect('same line before, disagreeing', piecesFor(bullet('x', [T.log], journal), 'Bad day.', ctx), 'Date=Oct 20');
+// 12. Two doctors linked keep the doctor quiet: no guess either (Jul 17 in the Illness Test Graph).
+expect('two doctors, no guess', piecesFor(bullet('x', [T.consultation], journal), 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] with Dr. Patel', ctx), '(nothing)');
+
+const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
+// 13. A click on a guess takes it and keeps the bullet in edit. The pointer press must not be held back: that would stop
+//     the mouse press the click is read from (found in the app: the click did nothing).
+(async () => {
+  const doc = window.document;
+  doc.body.innerHTML = '<div class="ls-block" blockid="b-click"><textarea>Post-op check with Dr. Patel</textarea></div>';
+  const box = doc.querySelector('textarea');
+  box.getBoundingClientRect = () => ({ left: 40, top: 40, right: 400, bottom: 60, width: 360, height: 20 }); // jsdom lays nothing out
+  box.focus();
+  const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
+  window.refinementShadow.live = { uuid: 'b-click', text: box.value, pieces: [guess], forWords: '' };
+  window.refinementShadowInner.draw(box);
+  const el = doc.querySelector('.refinement-shadow [data-guess]');
+  cases++;
+  if (!el) problem('click on a guess: no guess drawn');
+  else {
+    const press = type => { const e = new window.MouseEvent(type, { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e; };
+    if (press('pointerdown').defaultPrevented) problem('click on a guess: the pointer press is held back, so no mouse press follows');
+    if (!press('mousedown').defaultPrevented) problem('click on a guess: the mouse press is not held back, so the bullet would leave edit');
+    if (!window.refinementShadow.taken.keys.size) problem('click on a guess: the guess was not taken');
+    if (!doc.querySelector('.refinement-shadow .rfs-taken')) problem('click on a guess: the taken guess is not drawn solid');
+  }
+  // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what was
+  //     taken in the bullet left must still be filled in (second reading).
+  const left = window.refinementShadow.live;
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
+  box.blur();
+  window.refinementShadow.live = { uuid: 'b-next', text: '', pieces: [], forWords: '' };
+  window.refinementShadow.taken = { uuid: 'b-next', keys: new Set() };
+  await new Promise(resolve => setTimeout(resolve, 200));
+  cases++;
+  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
+  window.refinementShadow.live = null;
 if (problems.length) { console.log(`proposals rules: FAILED (${problems.length})`); process.exit(1); }
 console.log(`proposals rules: OK (${cases} cases on a pretend graph)`);
+})().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

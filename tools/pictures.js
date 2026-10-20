@@ -143,6 +143,20 @@ async function scenes(page) {
         document.body.append(el2);
         const at2 = under.getBoundingClientRect();
         el2.style.position = 'absolute'; el2.style.left = (at2.left + 14) + 'px'; el2.style.top = (at2.bottom + 2) + 'px';
+        // Guesses (piece 2): one still to take, with its "?", and one taken by a click.
+        stage.style.height = '170px';
+        const third = document.createElement('div'); third.className = 'bullet'; third.style.marginTop = '28px';
+        third.innerHTML = '<i></i><div>Post-op check with Dr. Patel. Wounds fine.</div>';
+        stage.append(third);
+        const el3 = document.createElement('div'); el3.className = 'refinement-shadow';
+        el3.innerHTML = inner.shadowHtml({ forWords: '', pieces: [
+          { prop: { title: 'Date' }, shown: 'Aug 18' },
+          { prop: { title: 'Provider' }, ident: 'provider', ids: [1], shown: 'Dr. Raj Patel', guess: true },
+          { prop: { title: 'Topic' }, ident: 'topic', ids: [2], shown: 'Colon cancer', guess: true },
+        ] }, new Set(['topic 2']));
+        document.body.append(el3);
+        const at3 = third.getBoundingClientRect();
+        el3.style.position = 'absolute'; el3.style.left = (at3.left + 14) + 'px'; el3.style.top = (at3.bottom + 2) + 'px';
       },
     },
     // A dialog of the plugin's own (the troubleshooting box) over a page full of words, so a see-through box shows.

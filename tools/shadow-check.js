@@ -6,7 +6,10 @@
      right   the proposal is exactly what is there
      wrong   something else was proposed (the one thing that must stay near zero: a wrong fill taken by habit)
      silent  nothing was proposed (costs a few key taps, nothing more)
-   Fails when wrong goes above WRONG_LIMIT, or right falls under RIGHT_LEAST (the rules stopped firing).
+   A sure piece is judged first; only where there is none, the guess (piece 2, taken only by a click) is, and counted
+   apart: a wrong guess costs a look, not a wrong fill.
+   Fails when wrong goes above WRONG_LIMIT, right falls under RIGHT_LEAST (the rules stopped firing), a wrong guess
+   goes above GUESS_WRONG_LIMIT, or a right guess under GUESS_RIGHT_LEAST.
      node tools/shadow-check.js          the score, and every wrong one
      node tools/shadow-check.js --all    also every right and silent one
    Runs only while the app has the graph open (as tools/two-way-check.js); skipped quietly otherwise. Reads only. */
@@ -22,6 +25,9 @@ const root = path.resolve(__dirname, '..');
 // silent ones are mostly words with no link ("dull ache on the right"), for the plain-words piece. RIGHT_LEAST catches
 // the rules going quiet.
 const WRONG_LIMIT = 0, RIGHT_LEAST = 50;
+// Guesses (0.4.200), on the same graph: right 19 (15 from earlier lines like it, 4 from plain words), wrong 1 (“about
+// the tingling” guesses Tingling fingers as the Topic, which holds Peripheral neuropathy); silent went from 46 to 26.
+const GUESS_WRONG_LIMIT = 1, GUESS_RIGHT_LEAST = 15;
 const all = process.argv.includes('--all');
 let JSDOM;
 try { ({ JSDOM } = require('jsdom')); } catch { console.log('proposals check skipped (needs jsdom)'); process.exit(0); }
@@ -64,7 +70,7 @@ async function plugin() {
     (error, stdout) => { try { resolve(JSON.parse(stdout).data.servers || []); } catch { resolve([]); } }));
   if (!servers.some(s => s.graph === GRAPH && s.status === 'ready' && (s['owner-source'] === 'electron' || process.env.OWNER === 'any'))) { console.log(`proposals check skipped (the app does not have "${GRAPH}" open)`); process.exit(0); }
   const inner = await plugin();
-  const ctx = await inner.daysFor(await inner.contextFor());
+  const ctx = await inner.guessDataFor(await inner.daysFor(await inner.contextFor()));
   const { schema, byId } = ctx;
   // Every block with words, pulled as the rules read one (one question for all of them).
   const blocks = (await ask(`[:find (pull ?b ${inner.BLOCK_PULL}) :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :logseq.property/deleted-at _])]`)).map(([b]) => b);
@@ -78,7 +84,7 @@ async function plugin() {
   const hide = (node, ident) => { const copy = { ...node }; const k = keyOf(copy, ident); if (k) delete copy[k]; return copy; };
   const title = b => String(pick(b, 'block/title') ?? '').replace(/\[\[([0-9a-f-]{36})\]\]/gi, (m, u) => `[[${ctx.byKey.get(u.toLowerCase())?.title || u}]]`).slice(0, 50);
   const name = id => byId.get(id)?.title || (ctx.days.get(id) ? 'the day ' + ctx.days.get(id) : String(id));
-  const tally = { right: 0, wrong: 0, silent: 0 }, byHow = {};
+  const tally = { right: 0, wrong: 0, silent: 0, guessRight: 0, guessWrong: 0 }, byHow = {};
   const fields = (tagIds) => { const seen = new Set(), out = [], q = [...tagIds]; while (q.length) { const c = q.shift(); if (seen.has(c)) continue; seen.add(c); for (const p of schema.classProps.get(c) || []) { const prop = schema.byId.get(p); if (prop && !out.includes(prop)) out.push(prop); } q.push(...(schema.parentsOf.get(c) || [])); } return out; };
   let cases = 0;
   for (const record of blocks) {
@@ -92,27 +98,34 @@ async function plugin() {
       // The record's own words, then each note under it (its parent being the record with the property hidden).
       const runs = [[hidden, String(pick(record, 'block/title') ?? '')]];
       for (const child of childrenOf.get(idOf(record)) || []) runs.push([{ ...child, 'block/parent': hidden }, String(pick(child, 'block/title') ?? '')]);
-      let verdict = 'silent', said = null;
+      // A property that holds several: a proposal that is part of them is right (the rest is still to add).
+      const judge = piece => piece.ids.every(id => actual.includes(id)) && (prop.many || piece.ids.length === actual.length) ? 'right' : 'wrong';
+      let verdict = 'silent', said = null, guess = null, guessVerdict = null;
       for (const [b, text] of runs) {
         const { record: target, pieces } = inner.piecesFor(b, text, ctx);
         if (idOf(target) !== idOf(record)) continue;
-        const piece = pieces.find(p => p.ident === prop.ident);
+        const piece = pieces.find(p => p.ident === prop.ident && !p.guess);
+        const guessed = pieces.find(p => p.ident === prop.ident && p.guess);
+        if (guessed && guessVerdict !== 'wrong') { guess = guessed; guessVerdict = judge(guessed); }
         if (!piece) continue;
-        // A property that holds several: a proposal that is part of them is right (the rest is still to add).
-        const same = piece.ids.every(id => actual.includes(id)) && (prop.many || piece.ids.length === actual.length);
-        if (!same) { verdict = 'wrong'; said = piece; break; }
+        if (judge(piece) === 'wrong') { verdict = 'wrong'; said = piece; break; }
         verdict = 'right'; said = piece;
       }
+      if (verdict === 'silent' && guess) { verdict = guessVerdict === 'right' ? 'guessRight' : 'guessWrong'; said = guess; }
       tally[verdict]++;
-      if (said) byHow[said.how] = byHow[said.how] || { right: 0, wrong: 0 }, byHow[said.how][verdict]++;
+      const how = said ? (said.guess ? 'guess ' : '') + said.how : null;
+      if (said) byHow[how] = byHow[how] || { right: 0, wrong: 0 }, byHow[how][/right/i.test(verdict) ? 'right' : 'wrong']++;
       if (verdict === 'wrong') problem(`“${title(record)}”: ${prop.title} would be filled with ${said.shown} (${said.how}); it holds ${actual.map(name).join(', ')}`);
-      else if (all) console.log(`  ${verdict.padEnd(6)} “${title(record)}”: ${prop.title}${said ? ` = ${said.shown} (${said.how})` : ''}`);
+      else if (verdict === 'guessWrong') console.log(`  wrong guess “${title(record)}”: ${prop.title} = ${said.shown} (${said.how}); it holds ${actual.map(name).join(', ')}`);
+      else if (all) console.log(`  ${verdict.padEnd(10)} “${title(record)}”: ${prop.title}${said ? ` = ${said.shown} (${how})` : ''}`);
     }
   }
-  console.log(`proposals on "${GRAPH}": ${cases} filled properties hidden in turn; right ${tally.right}, wrong ${tally.wrong}, silent ${tally.silent}`);
+  console.log(`proposals on "${GRAPH}": ${cases} filled properties hidden in turn; right ${tally.right}, wrong ${tally.wrong}; guesses right ${tally.guessRight}, wrong ${tally.guessWrong}; silent ${tally.silent}`);
   for (const [how, n] of Object.entries(byHow)) console.log(`  by ${how}: right ${n.right}, wrong ${n.wrong}`);
   if (tally.wrong > WRONG_LIMIT) problem(`wrong proposals: ${tally.wrong}, over the limit of ${WRONG_LIMIT}`);
   if (tally.right < RIGHT_LEAST) problem(`right proposals: ${tally.right}, under the least of ${RIGHT_LEAST}; the rules have stopped firing`);
+  if (tally.guessWrong > GUESS_WRONG_LIMIT) problem(`wrong guesses: ${tally.guessWrong}, over the limit of ${GUESS_WRONG_LIMIT}`);
+  if (tally.guessRight < GUESS_RIGHT_LEAST) problem(`right guesses: ${tally.guessRight}, under the least of ${GUESS_RIGHT_LEAST}; the guesses have stopped firing`);
   if (problems.length) { console.log(`proposals check: FAILED (${problems.length})`); process.exit(1); }
   console.log('proposals check: OK');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

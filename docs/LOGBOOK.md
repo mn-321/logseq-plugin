@@ -2,7 +2,46 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
-## 2026-10-20 · Proposals, piece 2: guesses taken by a click (done list proposed, not started)
+## 2026-10-20 · Proposals, piece 2 built (0.4.200)
+
+**Against the done list (agreed with the owner today):**
+- *Plain words:* Aug 18 "Post-op check with Dr. Patel" showed "Provider: Dr. Raj Patel?"; a click turned it solid and
+  kept the bullet in edit; leaving filled it; Undo emptied it. "at Northgate" and "the tingling": pretend checks only.
+- *The same line written before:* a new "Wiped out all day. #Symptom Log" on Oct 20 showed "Date: Oct 20 · Symptom
+  type: Fatigue?"; taken, then left with Enter: both filled. "Chemo cycle 1 done …": right in the scorer (three agents).
+- *A link to a page with no tag:* Aug 25 showed "Provider: Hannah Reyes? (becomes a #Doctor) · Topic: Nausea?". One
+  change from the list: the list said "with more than one empty property her page could fill, nothing is offered",
+  but Consultation has Provider and Topic both empty there, so that rule would have made the example silent. Built
+  instead: a guess for each empty place, up to two, and taking one drops the other. Here Topic was already guessed
+  from "nausea" in the words, so only Provider was offered for her. Taking it filled Provider and gave her page
+  #Doctor (seen in the graph check).
+- *The parent's values:* a new "#Decision" under the Jul 17 consultation (not Oct 7, which has no notes on its own
+  page view; same rule) showed "Date: Jul 17?" and filled it.
+- *Kept quiet:* Jul 17 in edit, no line at all.
+
+**The scorer:** sure right 54, wrong 0; guesses right 19 (15 from earlier lines, 4 from plain words), wrong 1
+("Video call with Dr. Mei Chen about the tingling": Topic guessed Tingling fingers, holds Peripheral neuropathy);
+silent 46 down to 26. Limits set to these (`GUESS_WRONG_LIMIT` 1, `GUESS_RIGHT_LEAST` 15).
+
+**Found on the way:** the first click on a guess did nothing: holding back the pointer press in the app also stops
+the mouse press the click was read from. Pretend check added, fixed, seen working. The second reader found the same,
+plus: leaving with Enter could lose what was taken (the next bullet's line comes first); a taken guess could carry
+over to a later visit; the earlier lines were read again every 30 seconds and waited for while typing; a tag could
+stay on a page when its fill failed; the README listed the parent's values as sure. All fixed; Enter seen working.
+
+**Tour after:** 12 stops, rows with the title in 49 to 95 ms, nothing moved, no console errors or warnings, no plugin
+warnings. Every test edit removed (the command line for the bullets and Hannah's tag); the graph check says the graph
+is as it was (690).
+
+**My mistakes in the app:** a click beside a bullet's words did not put it in edit, and the words I typed went to
+Logseq as shortcuts (the Journals scrolled; nothing in the notes changed, graph check). The End key scrolls on a Mac
+instead of moving the caret: Cmd+Right. The Undo bar lasts 7 seconds, shorter than my round trip twice; the values
+were taken off with the command line instead. Lessons in PROCESS.md.
+
+**For the owner to look at:** Aug 25 with Hannah Reyes (two places offered, or one, as now); whether "about the
+tingling" guessing Tingling fingers as the Topic is a useful guess or noise.
+
+## 2026-10-20 · Proposals, piece 2: guesses taken by a click (done list, agreed)
 
 **What a guess is:** something the plugin is fairly but not fully sure of. It shows in the same faint line under the
 bullet, set apart from the sure pieces (a dotted underline and a "?"), and is taken only by a click on it. Leaving the

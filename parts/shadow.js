@@ -6,8 +6,7 @@
    While you write a bullet, a faint line under it shows what the plugin is sure of and would fill in when you
    leave the bullet (Enter, a click elsewhere, the arrows): nothing is written before that, and the bar at the
    bottom offers Undo after. Escape clears the shadow, and that bullet is left alone for good. The words typed
-   are never changed. Only the sure pieces are in this piece; guesses (plain words, a tag from the siblings) come
-   later and will need a click.
+   are never changed.
 
    The record a bullet belongs to is the bullet itself when its tags give it properties, else its parent when the
    parent's do (notes under an appointment belong to the appointment). The sure pieces, for the record's empty
@@ -16,10 +15,18 @@
      #Doctor); one link per property, and nothing when a one-value property would get two (two doctors named: quiet);
    - the page the record is written on, when its tag fits (a consultation written on Dr. Mei Chen's page), once;
    - the journal day, for an empty "date" of a record written on a journal page.
-   Left for a later piece, as guesses taken by a click (the second reading): a linked page with no tag yet given the tag
-   a property takes (a topic page would be made a person), and the parent record's values (a follow-up nested under
-   its first visit would get that visit's date). Writes only in the graphs named in its setting, as every part that
-   writes to notes does. */
+
+   Piece 2 (0.4.200): guesses, for empty properties the sure pieces leave empty (and not one kept quiet by two names).
+   They show in the same line with a "?", and only a click takes one (it turns solid and is filled in with the rest
+   when the bullet is left, under the same Undo). A guess is made when every rule that speaks agrees:
+   - plain words: a page named without brackets, by its whole title or alias ("Northgate") or by a word of its title
+     that no other page of the right tag shares ("Dr. Patel", "the tingling"); a tie names no one;
+   - the same line written before: an earlier node under the same tag with nearly the same words gives its values,
+     when all such nodes agree ("Wiped out all day." has had Fatigue);
+   - the parent's values: a tagged bullet under a tagged bullet gets the parent's values for properties both have;
+   - a linked page with no tag yet, for each empty place it could fill when there are one or two (the click also gives
+     the page that place's tag; taking one drops the other).
+   Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.refinement-shadow' } });
@@ -29,10 +36,10 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 const settingsSchema = [
   { key: 'shadowHeading', type: 'heading', group: 'writing', rank: 1, title: 'Proposals', default: null,
     legend: 'What the plugin is sure of, shown under the bullet you write and filled in when you leave it',
-    zone: '<div><span class="m">doctor:</span> Dr. Mei Chen <span class="m">· date:</span> Oct 20 <span class="m"><span class="cap">enter</span> takes · <span class="cap">esc</span> clears</span></div>',
+    zone: '<div><span class="m">doctor:</span> Dr. Mei Chen <span class="m">· date:</span> Oct 20 <span class="m">· provider:</span> <u>Dr. Raj Patel?</u> <span class="m"><span class="cap">enter</span> takes · <span class="cap">esc</span> clears</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals under the bullet', default: true,
-    description: 'While you write a bullet, a faint line under it shows what the plugin is sure of from your words, the page, the parent bullet and the journal day: a linked doctor for the doctor property, the day for the date. Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. Escape clears the line, and that bullet is then left alone. Your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, a faint line under it shows what the plugin is sure of from your words, the page, the record a note is written under and the journal day: a linked doctor for the doctor property, the day for the date. Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. Guesses show fainter, with a “?”: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Only a click takes a guess; it is then filled in with the rest. Escape clears the line, and that bullet is then left alone. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -134,9 +141,8 @@ function piecesFor(b, text, ctx) {
   const pageTags = new Set((pick(page, 'block/tags') || []).map(idOf));
   const pageAsPage = page && !journalDay ? { id: idOf(page), uuid: String(pick(page, 'block/uuid') ?? ''), title: String(pick(page, 'block/title') ?? ''), tags: [...pageTags].map(id => ({ id })) } : null;
   const held = new Set(fields.flatMap(prop => valuesOf(record, prop.ident)));
-  const free = links.filter(p => !held.has(p.id)), used = new Set();
+  const free = links.filter(p => !held.has(p.id)), used = new Set(), quiet = new Set();
   let pageUsed = false;
-  void untagged;
   // The most particular property claims a link first (doctor, taking #Doctor, before with, taking #Person), and a
   // property kept quiet by two names keeps them: two doctors named do not spill into "with" (found by the scorer).
   const depth = id => { let d = 0, q = [id]; const seen = new Set(); while (q.length) { const c = q.shift(); if (seen.has(c)) continue; seen.add(c); for (const p of schema.parentsOf.get(c) || []) { q.push(p); } d = Math.max(d, seen.size); } return d; };
@@ -153,11 +159,12 @@ function piecesFor(b, text, ctx) {
         // From a note under the record, only a one-value property is sure: a list of people in a note ("rang Amara and
         // Tunde") is not the record's "spoke with" (found by the scorer on the lean graph).
         if (!filled && (prop.many ? record === b : fitting.length === 1)) pieces.push({ ident: prop.ident, prop, kind: 'node', ids: fitting.map(p => p.id), shown: fitting.map(p => p.title).join(', '), how: 'linked' });
+        else quiet.add(prop.ident); // no guess either
         continue; // two names for one place: quiet, and the names are spoken for
       }
       if (filled) continue;
       // The page fills one property only, the most particular that takes it (doctor, not also "with"; seen in the app).
-      if (pageAsPage && !pageUsed && pageAsPage.id !== idOf(record) && fits(pageAsPage, classIds, schema)) { pageUsed = true; pieces.push({ ident: prop.ident, prop, kind: 'node', ids: [pageAsPage.id], shown: pageAsPage.title, how: 'page' }); continue; }
+      if (pageAsPage && !pageUsed && pageAsPage.id !== idOf(record) && fits(pageAsPage, classIds, schema)) { pageUsed = true; used.add(ctx.byId.get(pageAsPage.id) || pageAsPage); pieces.push({ ident: prop.ident, prop, kind: 'node', ids: [pageAsPage.id], shown: pageAsPage.title, how: 'page' }); continue; }
     } else if (!filled && prop.type === 'date' && prop.lower === 'date') {
       // The journal day only for tags whose nodes are dated the day they are written, as the graph shows (symptom logs
       // are; appointments are often written ahead, so the day would be wrong; found by the scorer).
@@ -165,7 +172,156 @@ function piecesFor(b, text, ctx) {
     }
   }
   pieces.sort((a, b) => fields.indexOf(a.prop) - fields.indexOf(b.prop)); // shown in the order the tag gives them
-  return { record, pieces };
+  const guesses = guessesFor({ b, text, record, fields: ordered, recordTags, free, used, quiet, done: new Set(pieces.map(p => p.ident)), ctx });
+  guesses.sort((a, b) => fields.indexOf(a.prop) - fields.indexOf(b.prop));
+  return { record, pieces: [...pieces, ...guesses] };
+}
+
+/* Piece 2: the guesses. Words are compared as lower-case words, links read as the names they show. */
+const WORD = /[\p{L}\p{N}]+/gu;
+const wordsOf = text => String(text || '').toLowerCase().match(WORD) || [];
+// Words that name nothing on their own, even when a title has them.
+const COMMON = new Set('with from that this have been after before about again today tomorrow morning evening night week weeks home done back into over than then them they there what when will just very more some other first last next little still feel felt good well better worse every each same also only once twice like says said told rang call called video check post appointment report results result about'.split(' '));
+const telling = word => word.length >= 4 && !COMMON.has(word) && !/^\d+$/.test(word);
+// The words a bullet's text shows outside its links and tags (what plain words can name).
+const freeWords = text => wordsOf(String(text || '').replace(/#?\[\[[^\[\]]*\]\]/g, ' ').replace(TAG, ' '));
+// All the words a text shows, a saved link ([[uuid]]) read as its page's title, tags left out (for "the same line").
+function shownWords(text, ctx) {
+  const named = String(text || '').replace(/#?\[\[([^\[\]]+)\]\]/g, (m, key) => ' ' + (/^[0-9a-f-]{36}$/i.test(key) ? ctx.byKey.get(key.toLowerCase())?.title || '' : key) + ' ');
+  return new Set(wordsOf(named.replace(TAG, ' ')));
+}
+// Every page by the names it goes by (its title and its aliases), for plain words: the telling words of each name,
+// and each whole name. Alias pages themselves are left out: they stand for their original.
+function namesFor(ctx) {
+  if (ctx.names) return ctx.names;
+  const aliasOf = new Map((ctx.aliases || []).map(([original, alias]) => [alias, original]));
+  const byWord = new Map(), whole = new Map();
+  const add = (page, name) => {
+    const words = wordsOf(name);
+    if (!words.length || name.length < 3) return;
+    if (!whole.has(words[0])) whole.set(words[0], []);
+    whole.get(words[0]).push({ page, words });
+    for (const word of new Set(words.filter(telling))) { if (!byWord.has(word)) byWord.set(word, new Set()); byWord.get(word).add(page); }
+  };
+  for (const page of ctx.pages) if (!page.isTag && !aliasOf.has(page.id)) add(page, page.title);
+  for (const [alias, original] of aliasOf) { const page = ctx.byId.get(original), name = ctx.byId.get(alias)?.title; if (page && name) add(page, name); }
+  return (ctx.names = { byWord, whole, aliasIds: new Set(aliasOf.keys()) });
+}
+// The one page of the property's tags the words name, or null: a whole name counts more than a word of it, and a tie
+// names no one.
+function namedIn(words, classIds, ctx, spoken) {
+  const { byWord, whole } = namesFor(ctx), score = new Map();
+  const bump = (page, n) => { if (!spoken.has(page) && fits(page, classIds, ctx.schema)) score.set(page, (score.get(page) || 0) + n); };
+  for (const word of new Set(words)) for (const page of byWord.get(word) || []) bump(page, 1);
+  words.forEach((word, i) => { for (const { page, words: name } of whole.get(word) || []) if (name.every((w, k) => words[i + k] === w)) bump(page, 10); });
+  let best = null, top = 0, tie = false;
+  for (const [page, n] of score) { if (n > top) { best = page; top = n; tie = false; } else if (n === top) tie = true; }
+  return tie ? null : best;
+}
+// Earlier nodes under the record's tags with nearly the same words (at least three in four words shared).
+const SIMILAR = .75;
+function similarBefore(text, tagIds, skip, ctx) {
+  const words = shownWords(text, ctx), found = new Map();
+  if (words.size < 2) return [];
+  for (const tag of tagIds) for (const entry of ctx.history?.get(tag) || []) {
+    if (skip.has(entry.id) || found.has(entry.id)) continue;
+    let shared = 0;
+    for (const w of words) if (entry.words.has(w)) shared++;
+    if (shared / (words.size + entry.words.size - shared) >= SIMILAR) found.set(entry.id, entry);
+  }
+  return [...found.values()];
+}
+const sameIds = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, done, ctx }) {
+  const own = record === b, parent = pick(b, 'block/parent');
+  const parentTags = own && isBlock(parent) ? (pick(parent, 'block/tags') || []).map(idOf) : [];
+  const before = own ? similarBefore(text, recordTags, new Set([idOf(b)]), ctx) : [];
+  const words = freeWords(text), spoken = new Set(used), out = [];
+  const open = prop => !done.has(prop.ident) && !quiet.has(prop.ident) && !valuesOf(record, prop.ident).length;
+  const nodeOf = id => ctx.byId.get(id);
+  for (const prop of fields) {
+    if (!open(prop)) continue;
+    const isNode = prop.type === 'node' && prop.classes.length, isDate = prop.type === 'date';
+    if (!isNode && !isDate) continue;
+    const said = [];
+    // The parent's values, for a property both have.
+    if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
+    if (isNode) {
+      const classIds = new Set(prop.classes.map(c => c.id));
+      // The same line written before: all such nodes that have the property agree.
+      const theirs = before.map(entry => entry.values.get(prop.ident)).filter(v => v?.length);
+      if (theirs.length && theirs.every(v => sameIds(v, theirs[0]))) said.push({ ids: theirs[0], how: 'before' });
+      const named = namedIn(words, classIds, ctx, spoken);
+      if (named) said.push({ ids: [named.id], how: 'words' });
+    }
+    if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids))) continue;
+    const ids = said[0].ids;
+    if (!prop.many && ids.length !== 1) continue;
+    if (isDate) {
+      const day = ctx.days?.get(ids[0]);
+      if (day) out.push({ ident: prop.ident, prop, kind: 'day', ids, day, journalId: ids[0], shown: dayText(day), how: said.map(s => s.how).join('+'), guess: true });
+      continue;
+    }
+    const pages = ids.map(nodeOf);
+    if (pages.some(p => !p)) continue;
+    for (const p of pages) spoken.add(p);
+    out.push({ ident: prop.ident, prop, kind: 'node', ids, shown: pages.map(p => p.title).join(', '), how: said.map(s => s.how).join('+'), guess: true });
+  }
+  // A linked page with no tag yet: a guess for each empty place it could fill (a property taking one tag), when there
+  // are one or two such places and no other such page competes for them. The click gives the page that tag too.
+  const { aliasIds } = namesFor(ctx);
+  const loose = free.filter(p => !used.has(p) && untagged(p) && !aliasIds.has(p.id));
+  const places = fields.filter(prop => open(prop) && prop.type === 'node' && prop.classes.length === 1 && !out.some(g => g.ident === prop.ident));
+  if (loose.length === 1 && places.length && places.length <= 2) {
+    const [p] = loose;
+    for (const prop of places) {
+      const tag = prop.classes[0];
+      out.push({ ident: prop.ident, prop, kind: 'node', ids: [p.id], shown: p.title, how: 'untagged', guess: true, group: 'untagged ' + p.id,
+        tagPage: { tag, uuids: [p.uuid] }, note: `becomes a #${tag.title}` });
+    }
+  }
+  return out;
+}
+// The nodes under each tag with link properties, their words and values, for "the same line written before"; and
+// the aliases (original, alias), for plain words. Kept apart from the context, per graph, read again at most
+// every five minutes (guessDataFor).
+function addHistory(ctx, entries) {
+  ctx.history = new Map();
+  for (const entry of entries) {
+    const kept = { id: entry.id, words: entry.words || shownWords(entry.title, ctx), values: entry.values };
+    if (kept.words.size < 2) continue;
+    for (const tag of entry.tags) { if (!ctx.history.has(tag)) ctx.history.set(tag, []); ctx.history.get(tag).push(kept); }
+  }
+  return ctx;
+}
+// Read at most every five minutes, apart from the context (which is read again every 30 s while you write), and
+// never waited for while typing: until it is there, the guesses go without aliases and earlier lines.
+const GUESS_DATA_EVERY = 300000;
+const guessCache = { graph: null, at: 0, data: null, loading: null };
+async function guessDataFor(ctx, { wait = true } = {}) {
+  if (ctx.history) return ctx;
+  const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
+  let data = guessCache.graph === graph ? guessCache.data : null;
+  if (!data || Date.now() - guessCache.at > GUESS_DATA_EVERY) {
+    guessCache.loading ||= loadGuessData(ctx).then(fresh => Object.assign(guessCache, { graph, at: Date.now(), data: fresh }).data).finally(() => { guessCache.loading = null; });
+    if (!data && wait) data = await guessCache.loading;
+  }
+  if (!data) return ctx;
+  ctx.aliases = data.aliases;
+  ctx.names = null;
+  return addHistory(ctx, data.entries);
+}
+async function loadGuessData(ctx) {
+  const { schema } = ctx;
+  const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
+  const tagIds = [...new Set([...schema.classProps.keys(), ...[...schema.parentsOf.keys()]])].filter(c => fieldsOfTags([c], schema).some(p => nodeProps.includes(p)));
+  const [rows, aliases] = await Promise.all([
+    tagIds.length && nodeProps.length ? dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${nodeProps.map(p => `{:${p.ident} [:db/id]}`).join(' ')}])
+      :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }) : [],
+    dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])]);
+  return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]),
+    entries: rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
+      values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) })) };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
 // page carry that page's day (a small look-up kept with the context).
@@ -187,7 +343,10 @@ function datedWhenWritten(tagIds, ctx) {
 
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the
    block, drawn under the text box, and taken when the bullet is left unless Escape cleared it. */
-const state = window.refinementShadow = { live: null, el: null, times: [] };
+// taken: the guesses clicked in the bullet being written ({ uuid, keys }), filled in with the rest when it is left.
+const state = window.refinementShadow = { live: null, el: null, times: [], taken: { uuid: '', keys: new Set() } };
+const guessKey = piece => `${piece.ident} ${piece.ids.join(',')}`;
+const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set();
 const OFF_KEY = 'refinementShadowOff';
 let off = new Set();
 const readOff = () => { try { off = new Set(JSON.parse(host().defaultView.localStorage.getItem(OFF_KEY) || '[]')); } catch { off = new Set(); } };
@@ -202,19 +361,22 @@ let liveTimer = 0, liveVersion = 0;
 async function allowed() {
   return setting('shadowProposals') && await graphNamedIn(setting('shadowGraphs'));
 }
+// No shadow: nor anything taken in it, so a guess taken earlier is never written on a later visit (second reading).
+function clearLive() { state.live = null; state.taken = { uuid: '', keys: new Set() }; hide(); }
 async function compute(box) {
   const uuid = uuidOf(box);
-  if (!uuid || off.has(uuid)) { state.live = null; hide(); return; }
+  if (!uuid || off.has(uuid)) { clearLive(); return; }
   const version = ++liveVersion, text = box.value, t0 = performance.now();
   try {
-    if (!await allowed()) { state.live = null; hide(); return; }
-    const ctx = await daysFor(await contextFor());
+    if (!await allowed()) { clearLive(); return; }
+    const ctx = await guessDataFor(await daysFor(await contextFor()), { wait: false });
     const b = await pullBlock(uuid);
     if (version !== liveVersion) return;
-    if (!b) { state.live = null; hide(); return; }
+    if (!b) { clearLive(); return; }
     const { record, pieces } = piecesFor(b, text, ctx);
     state.times.push(Math.round(performance.now() - t0)); if (state.times.length > 50) state.times.shift();
-    if (!pieces.length) { state.live = null; hide(); return; }
+    if (!pieces.length) { clearLive(); return; }
+    if (state.taken.uuid !== uuid) state.taken = { uuid, keys: new Set() };
     state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), forWords: record === b ? '' : cleanWords(String(pick(record, 'block/title') ?? '')), pieces, at: Date.now() };
     draw(box);
   } catch (error) { warnOnce('the shadow could not be worked out', error); }
@@ -231,14 +393,24 @@ function onFocusIn(event) {
 }
 // The bullet left: the shadow is taken, once Logseq has saved the words (a link typed a moment ago is in the saved
 // title only after that).
+// What was taken is read at once: leaving with Enter or the arrows puts the next bullet in edit, and its shadow can
+// replace this one before the wait is over (second reading).
 function onFocusOut(event) {
   const box = editingBox(event.target);
-  if (!box || !state.live || state.live.uuid !== uuidOf(box)) return;
-  const live = state.live;
+  if (!box) return;
+  const uuid = uuidOf(box);
+  if (!state.live || state.live.uuid !== uuid) { if (state.taken.uuid === uuid) state.taken = { uuid: '', keys: new Set() }; return; }
+  const live = state.live, taken = new Set(takenIn(uuid));
   setTimeout(() => {
     const now = editingBox(host().activeElement);
     if (now && uuidOf(now) === live.uuid) return;
-    if (state.live === live) { state.live = null; hide(); takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); }); }
+    if (live.left) return;
+    live.left = true;
+    live.taken = taken;
+    state.left = live; // for tools/shadow-test.js
+    if (state.live === live) { state.live = null; hide(); }
+    if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
+    takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
   }, 120);
 }
 // Escape clears the shadow, and the bullet is left alone from then on; the caret stays (a second Escape is Logseq's).
@@ -250,7 +422,30 @@ function onKey(event) {
   event.preventDefault(); event.stopImmediatePropagation();
   dismiss(state.live.uuid);
   state.live = null;
+  state.taken = { uuid: '', keys: new Set() };
   hide();
+}
+// A click on a guess takes it (another click puts it back); taking one of a page's places drops its other. Logseq
+// never hears of the press, and the mouse press is held back so the bullet stays in edit. The pointer press is not
+// held back: that would stop the mouse press from coming at all (found in the app: the click did nothing).
+function onGuessPress(event) {
+  const el = event.target?.closest?.('.refinement-shadow [data-guess]');
+  if (!el) return;
+  event.stopImmediatePropagation();
+  if (event.type === 'pointerdown') return;
+  event.preventDefault();
+  if (event.type !== 'mousedown' || !state.live) return;
+  const piece = state.live.pieces.find(p => p.guess && guessKey(p) === el.getAttribute('data-guess'));
+  if (!piece) return;
+  if (state.taken.uuid !== state.live.uuid) state.taken = { uuid: state.live.uuid, keys: new Set() };
+  const keys = state.taken.keys, key = guessKey(piece);
+  if (keys.has(key)) keys.delete(key);
+  else {
+    if (piece.group) for (const other of state.live.pieces) if (other !== piece && other.group === piece.group) keys.delete(guessKey(other));
+    keys.add(key);
+  }
+  const box = editingBox(host().activeElement);
+  if (box && uuidOf(box) === state.live.uuid) draw(box);
 }
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
@@ -258,7 +453,7 @@ const linksOut = text => { const found = String(text || '').match(LINK) || []; r
 const sameWords = (saved, text) => { const a = linksOut(saved), b = linksOut(text); return a.n === b.n && a.words === b.words; };
 async function takeShadow(live) {
   if (!await allowed() || off.has(live.uuid)) return;
-  const ctx = await daysFor(await contextFor());
+  const ctx = await guessDataFor(await daysFor(await contextFor()), { wait: false });
   let b = null;
   let saved = false;
   for (let tries = 0; tries < 12 && !saved; tries++) {
@@ -268,18 +463,24 @@ async function takeShadow(live) {
     if (!saved) await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!saved) return; // the words changed after the shadow was drawn, or never got saved: nothing is written (second reading)
-  const { record, pieces } = piecesFor(b, live.text, ctx);
+  const { record, pieces: found } = piecesFor(b, live.text, ctx);
+  const taken = live.taken || new Set(), pieces = found.filter(piece => !piece.guess || taken.has(guessKey(piece)));
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
   if (!pieces.length || !UUID.test(recordUuid)) return;
   const written = [];
   for (const piece of pieces) {
+    const tagged = [];
     try {
-      if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid);
+      if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
       if (piece.kind === 'day') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.journalId);
       else if (piece.prop.many) await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids, { entityId: true, reset: true });
       else await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0], { entityId: true });
       written.push(piece);
-    } catch (error) { warnOnce(`${piece.prop.title} could not be filled in`, error); notify(`${piece.prop.title} could not be filled in`, 'warning'); }
+    } catch (error) {
+      // The tag a page was given for this fill goes again when the fill fails.
+      for (const uuid of tagged) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid).catch(() => {});
+      warnOnce(`${piece.prop.title} could not be filled in`, error); notify(`${piece.prop.title} could not be filled in`, 'warning');
+    }
   }
   if (!written.length) return;
   const words = cleanWords(String(pick(record, 'block/title') ?? '')) || 'the bullet';
@@ -295,10 +496,15 @@ async function takeShadow(live) {
 
 /* Drawing: one faint line under the text box, in Logseq's own window, placed by the box's edges; it follows the box
    as the words wrap and goes when the box does. Nothing of Logseq's is touched. */
-function shadowHtml(live) {
+function shadowHtml(live, taken = takenIn(live.uuid)) {
   const head = live.forWords ? `<span class="rfs-for">${esc(live.forWords.length > 32 ? live.forWords.slice(0, 31) + '…' : live.forWords)} ·</span>` : '';
-  const pieces = live.pieces.map(piece => `<span class="rfs-piece"><span class="rfs-name">${esc(piece.prop.title)}:</span> ${esc(piece.shown)}${piece.note ? ` <span class="rfs-note">(${esc(piece.note)})</span>` : ''}</span>`).join('<span class="rfs-dot">·</span>');
-  return `${head}${pieces}<span class="rfs-keys"><kbd>enter</kbd> takes · <kbd>esc</kbd> clears</span>`;
+  const pieces = live.pieces.map(piece => {
+    const guess = piece.guess && !taken.has(guessKey(piece));
+    const attrs = piece.guess ? ` data-guess="${esc(guessKey(piece))}" title="${guess ? 'Click to take this guess' : 'Taken: filled in when you leave the bullet. Click to put it back'}"` : '';
+    return `<span class="rfs-piece${piece.guess ? ' rfs-guess' : ''}${guess ? '' : piece.guess ? ' rfs-taken' : ''}"${attrs}><span class="rfs-name">${esc(piece.prop.title)}:</span> ${esc(piece.shown)}${guess ? '<span class="rfs-q">?</span>' : ''}${piece.note ? ` <span class="rfs-note">(${esc(piece.note)})</span>` : ''}</span>`;
+  }).join('<span class="rfs-dot">·</span>');
+  const open = live.pieces.some(piece => piece.guess && !taken.has(guessKey(piece)));
+  return `${head}${pieces}<span class="rfs-keys"><kbd>enter</kbd> takes${open ? ' · click a <b>?</b> to take it' : ''} · <kbd>esc</kbd> clears</span>`;
 }
 function draw(box) {
   const doc = box.ownerDocument;
@@ -331,6 +537,11 @@ const css = `
 .refinement-shadow .rfs-dot { margin: 0 .5em; }
 .refinement-shadow .rfs-note { font-style: italic; }
 .refinement-shadow .rfs-keys { margin-left: 1em; font-size: .9em; color: var(--ls-secondary-text-color, currentColor); opacity: .55; }
+.refinement-shadow .rfs-guess { pointer-events: auto; cursor: pointer; opacity: .6; text-decoration: underline dotted; text-underline-offset: 3px; }
+.refinement-shadow .rfs-guess:hover { opacity: 1; }
+.refinement-shadow .rfs-taken { opacity: 1; text-decoration: none; }
+.refinement-shadow .rfs-q { margin-left: .1em; font-weight: 600; }
+.refinement-shadow .rfs-keys b { font-weight: 600; }
 .refinement-shadow kbd { font: inherit; font-size: .9em; padding: 0 .3em; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 3px; }
 `;
 
@@ -345,12 +556,13 @@ function start() {
   listen(win, ['focusin'], onFocusIn);
   listen(win, ['focusout'], onFocusOut);
   listen(win, ['keydown'], onKey);
+  listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
   listen(win, ['scroll', 'resize'], onMove);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); hide(); state.live = null; } }));
-  onUnload(() => { clearTimeout(liveTimer); hide(); state.live = null; });
+  onUnload(() => { clearTimeout(liveTimer); hide(); state.live = null; state.taken = { uuid: '', keys: new Set() }; });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, contextFor, daysFor, BLOCK_PULL, shadowHtml, css };
+window.refinementShadowInner = { piecesFor, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, shadowHtml, css, draw };
 })();

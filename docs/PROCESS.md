@@ -102,6 +102,10 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - Press a test's Undo at once: the plugin's Undo bar lasts a few seconds. Check the result after, with the graph check.
 - Do not type into Logseq's developer console through the screen: a missed click sends the keys to Logseq as
   shortcuts. Read values with the tour, the troubleshooting tools or the command line instead.
+- Before typing into a bullet, zoom in and see the caret: a click beside the words can leave Logseq out of edit, and
+  the letters then go in as shortcuts. On a Mac, End scrolls the page; Cmd+Right moves the caret to the line's end.
+- The Undo bar lasts 7 seconds: press Undo in the same batch as the action that shows it, or take the test values off
+  with the command line.
 - Run the tag map speed test with the screen released: while Claude controls the screen it ran six times slower and failed.
 - Logseq's own Cmd+Z goes back further than the test: undo one step at a time and run the graph check after each.
 - Take a screenshot before every click on a dialog: a changed wording moves its buttons, and a missed click looks like
