@@ -351,8 +351,8 @@ const DOTS = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor
 const HUES = 4;
 
 const css = `
-.refinement-tags { --rtg-line: color-mix(in srgb, var(--ls-primary-text-color) 13%, transparent); --rtg-wash: color-mix(in srgb, var(--ls-primary-text-color) 6%, transparent);
-  --rtg-faint: color-mix(in srgb, var(--ls-primary-text-color) 52%, transparent); --rtg-mid: color-mix(in srgb, var(--ls-primary-text-color) 74%, transparent);
+.refinement-tags { --rtg-line: color-mix(in srgb, currentColor 16%, transparent); --rtg-wash: color-mix(in srgb, currentColor 7%, transparent); --rtg-border: color-mix(in srgb, currentColor 22%, transparent);
+  --rtg-faint: color-mix(in srgb, currentColor 55%, transparent); --rtg-mid: color-mix(in srgb, currentColor 75%, transparent);
   --rtg-h0: #b07a2a; --rtg-h1: #4a76b4; --rtg-h2: #7c5fb3; --rtg-h3: #4e9a62; --rtg-plain: var(--rtg-faint); --rtg-warn: #b8641e;
   color: var(--ls-primary-text-color); font-size: 16px; }
 .dark .refinement-tags, html[data-theme=dark] .refinement-tags { --rtg-h0: #dcae5e; --rtg-h1: #86a6db; --rtg-h2: #a990dc; --rtg-h3: #7fbf8c; --rtg-warn: #e09a5a; }
@@ -360,9 +360,9 @@ const css = `
 .refinement-tags button { font: inherit; color: inherit; }
 .refinement-tags [hidden] { display: none !important; }
 .refinement-tags .rtg-title { margin: 0 0 18px; padding: 0 10px; font-size: 2em; font-weight: 600; line-height: 1.2; }
-.refinement-tags header { display: flex; align-items: center; gap: 12px; padding: 0 0 12px 10px; border-bottom: 1px solid var(--ls-border-color); }
+.refinement-tags header { display: flex; align-items: center; gap: 12px; padding: 0 0 12px 10px; border-bottom: 1px solid var(--rtg-border); }
 .refinement-tags .rtg-count { font-size: 14px; color: var(--rtg-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.refinement-tags .rtg-find { flex: 1; min-width: 100px; padding: 6px 12px; border: 1px solid var(--ls-border-color); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
+.refinement-tags .rtg-find { flex: 1; min-width: 100px; padding: 6px 12px; border: 1px solid var(--rtg-border); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
 .refinement-tags .rtg-find:focus, .refinement-tags .rtg-input:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-tags .rtg-tool { flex: none; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; color: var(--rtg-faint) !important; font-size: 13.5px !important; white-space: nowrap; }
 .refinement-tags .rtg-tool:hover { background: var(--rtg-wash); color: var(--ls-primary-text-color) !important; }
@@ -388,7 +388,7 @@ const css = `
 .refinement-tags .rtg-root > .rtg-main .rtg-name { font-size: 19px; font-weight: 600; }
 .refinement-tags .rtg-root > .rtg-fold { height: 30px; }
 .refinement-tags .rtg-builtin > .rtg-main .rtg-name { color: var(--rtg-faint); }
-.refinement-tags .rtg-small { font-size: 13px; color: var(--rtg-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.refinement-tags .rtg-small { font-size: 14px; color: var(--rtg-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .refinement-tags .rtg-small + .rtg-small::before { content: '·'; margin-right: 8px; opacity: .7; }
 .refinement-tags .rtg-also { font-style: italic; }
 .refinement-tags .rtg-desc { margin-top: 1px; font-size: 13.5px; line-height: 1.4; color: var(--rtg-faint); }
@@ -405,42 +405,43 @@ const css = `
 .refinement-tags h3.rtg-drop { color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-addrow { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 24px; }
 .refinement-tags .rtg-addrow::before { content: '#'; color: var(--rtg-hue, var(--rtg-plain)); }
-.refinement-tags .rtg-input { flex: 1; min-width: 0; padding: 2px 8px; border: 1px solid var(--ls-border-color); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
+.refinement-tags .rtg-input { flex: 1; min-width: 0; padding: 2px 8px; border: 1px solid var(--rtg-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
 .refinement-tags .rtg-addrow .rtg-small { white-space: normal; }
 .refinement-tags .rtg-missing { display: flex; align-items: baseline; gap: 12px; padding: 5px 8px 5px 24px; }
 .refinement-tags .rtg-missing .rtg-ghost { font-size: 19px; font-weight: 600; color: var(--rtg-faint); }
 .refinement-tags .rtg-missing .rtg-ghost::before { content: '#'; font-weight: 400; color: var(--rtg-hue); }
-.refinement-tags .rtg-make { border: 1px dashed var(--ls-border-color); border-radius: 6px; padding: 1px 10px; background: none; cursor: pointer; font-size: 13.5px !important; color: var(--rtg-faint) !important; }
+.refinement-tags .rtg-make { border: 1px dashed var(--rtg-border); border-radius: 6px; padding: 1px 10px; background: none; cursor: pointer; font-size: 13.5px !important; color: var(--rtg-faint) !important; }
 .refinement-tags .rtg-make:hover { border-style: solid; color: var(--ls-primary-text-color) !important; }
 .refinement-tags .rtg-row.rtg-picked { background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 13%, transparent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 70%, transparent); }
-.refinement-tags .rtg-pickbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 8px 6px 12px; border-radius: 8px; background: var(--ls-primary-background-color); box-shadow: inset 0 0 0 1px var(--ls-border-color); }
+.refinement-tags .rtg-pickbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 8px 6px 12px; border-radius: 8px; background: var(--ls-primary-background-color); box-shadow: inset 0 0 0 1px var(--rtg-border); }
 .refinement-tags .rtg-pickcount { flex: 1; font-size: 14px; font-weight: 500; }
 .refinement-tags .rtg-pickbar .rtg-pickgo { color: var(--ls-primary-text-color) !important; font-weight: 600; }
 .refinement-tags .rtg-newroot { padding: 14px 8px 0 24px; }
 .refinement-tags .rtg-missing .rtg-leave { border-color: transparent; }
-.refinement-tags .rtg-missing .rtg-leave:hover { border-color: var(--ls-border-color); }
+.refinement-tags .rtg-missing .rtg-leave:hover { border-color: var(--rtg-border); }
 .refinement-tags .rtg-empty { padding: 4px 10px 4px 34px; font-size: 14px; color: var(--rtg-faint); }
-.refinement-tags footer { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 14px 10px 0; border-top: 1px solid var(--ls-border-color); font-size: 12.5px; color: var(--rtg-faint); }
+.refinement-tags footer { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 14px 10px 0; border-top: 1px solid var(--rtg-border); font-size: 12.5px; color: var(--rtg-faint); }
 .refinement-tags footer kbd { font: inherit; padding: 0 4px; border: 1px solid var(--rtg-line); border-radius: 3px; }
 /* The map: a tag's properties as rows under it, faded when they come from a tag above. */
-.refinement-tags .rtg-prow { padding-top: 1px; padding-bottom: 1px; font-size: 14.5px; }
+.refinement-tags .rtg-prow { padding-top: 2px; padding-bottom: 2px; font-size: 16px; }
 .refinement-tags .rtg-prow > .rtg-fold { height: 22px; }
 .refinement-tags .rtg-prow .rtg-line { align-items: center; }
-.refinement-tags .rtg-pname { cursor: pointer; color: var(--ls-primary-text-color); font-weight: 500; overflow-wrap: anywhere; }
+.refinement-tags .rtg-pname { cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
 .refinement-tags .rtg-pname:hover { text-decoration: underline; text-underline-offset: 2px; }
-.refinement-tags .rtg-inh .rtg-pname { color: var(--rtg-mid); font-weight: 400; }
-.refinement-tags .rtg-ptype { font-size: 13.5px; color: var(--rtg-mid); }
-.refinement-tags .rtg-inh .rtg-ptype, .refinement-tags .rtg-prow .rtg-small { color: var(--rtg-faint); font-size: 12.5px; }
+.refinement-tags .rtg-inh .rtg-main { opacity: .62; }
+.refinement-tags .rtg-inh .rtg-pname { font-weight: 400; }
+.refinement-tags .rtg-ptype { font-size: 15px; color: var(--rtg-mid); }
+.refinement-tags .rtg-prow .rtg-small { color: var(--rtg-faint); font-size: 14px; }
 .refinement-tags .rtg-ptype b { font-weight: 500; color: var(--rtg-hue, var(--rtg-plain)); }
-.refinement-tags .rtg-i { flex: none; width: 17px; height: 17px; padding: 0; border: 1px solid var(--ls-border-color); border-radius: 50%; background: none; cursor: pointer;
+.refinement-tags .rtg-i { flex: none; width: 17px; height: 17px; padding: 0; border: 1px solid var(--rtg-border); border-radius: 50%; background: none; cursor: pointer;
   color: var(--rtg-faint) !important; font: italic 600 11px/15px Georgia, 'Times New Roman', serif !important; text-align: center; }
 .refinement-tags .rtg-i:hover, .refinement-tags .rtg-i[aria-pressed=true] { color: var(--ls-primary-text-color) !important; border-color: color-mix(in srgb, var(--ls-primary-text-color) 45%, transparent); }
-.refinement-tags .rtg-pinfo { display: flex; flex-direction: column; gap: 4px; margin: 0 0 4px 26px; padding: 3px 10px; border-left: 2px solid var(--rtg-line); font-size: 13.5px; line-height: 1.45; color: var(--rtg-faint); }
-.refinement-tags .rtg-pinfo .rtg-plbl { font-size: 12.5px; }
+.refinement-tags .rtg-pinfo { display: flex; flex-direction: column; gap: 5px; margin: 2px 0 6px 26px; padding: 4px 12px; border-left: 2px solid var(--rtg-line); font-size: 15px; line-height: 1.45; }
+.refinement-tags .rtg-pinfo .rtg-plbl, .refinement-tags .rtg-pinfo .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-pinfo > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .refinement-tags .rtg-plbl { min-width: 9.5em; }
-.refinement-tags .rtg-pinfo .rtg-val { color: var(--ls-primary-text-color); font-weight: 500; }
-.refinement-tags .rtg-words { width: 13em; padding: 1px 7px; border: 1px solid var(--ls-border-color); border-radius: 5px; background: transparent; color: var(--ls-primary-text-color); font: inherit; }
+.refinement-tags .rtg-pinfo .rtg-val, .refinement-tags .rtg-pointrow .rtg-val { font-weight: 600; }
+.refinement-tags .rtg-words { width: 13em; padding: 1px 7px; border: 1px solid var(--rtg-border); border-radius: 5px; background: transparent; color: var(--ls-primary-text-color); font: inherit; }
 .refinement-tags .rtg-words:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-tags .rtg-pinfo .rtg-make { padding: 0 8px; font-size: 12.5px !important; }
 .refinement-tags .rtg-guide { max-width: 60em; margin: 2px 8px 6px 26px; padding: 8px 12px; border-radius: 7px; background: var(--rtg-wash);
@@ -450,8 +451,8 @@ const css = `
 .refinement-tags .rtg-guide ol { margin-top: 0; padding-left: 18px; }
 .refinement-tags .rtg-guide li { margin: 2px 0; }
 .refinement-tags .rtg-guide .rtg-end { display: block; margin: 2px 0 2px 10px; }
-.refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 3px 8px 3px 26px; font-size: 13.5px; color: var(--rtg-faint); }
-.refinement-tags .rtg-pointrow .rtg-val { color: var(--ls-primary-text-color); font-weight: 500; }
+.refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 4px 26px; font-size: 15px; }
+.refinement-tags .rtg-pointrow .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-off { font-style: italic; }
 .refinement-tags .rtg-newtag { display: flex; align-items: center; gap: 8px; padding: 12px 10px 0; font-size: 14px; color: var(--rtg-faint); }
 .refinement-tags .rtg-newtag + .rtg-guide { margin-left: 10px; }
@@ -966,13 +967,13 @@ function propDetails(view, tag, prop, from) {
   const line = (label, ...rest) => box.append(el(doc, 'div', {}, el(doc, 'span', { class: 'rtg-plbl' }, label), ...rest));
   const tagNames = list => list.map(t => '#' + t.title).join(', ');
   const givers = prop.givenBy?.length ? prop.givenBy : [from || tag];
-  line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? el(doc, 'span', {}, 'and the tags inside them') : null);
+  line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? el(doc, 'span', { class: 'rtg-note' }, 'and the tags inside them') : null);
   if (prop.choices.length) line('Choices', el(doc, 'span', { class: 'rtg-val' }, prop.choices.join(' · ')));
   if (prop.type !== 'node') return box;
   const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
   const inside = new Set(to.flatMap(t => [...below(t)]));
   line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? tagNames(to) : 'any node'),
-    to.length && inside.size ? el(doc, 'span', {}, `and the ${plural(inside.size, 'tag')} inside`) : null, el(doc, 'span', {}, prop.many ? '· several at once' : '· one at a time'));
+    to.length && inside.size ? el(doc, 'span', { class: 'rtg-note' }, `and the ${plural(inside.size, 'tag')} inside`) : null, el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'));
   const tw = twoWay();
   if (!tw) return box;
   const input = el(doc, 'input', { class: 'rtg-words', type: 'text', spellcheck: 'false', value: tw.backwardsLabel(prop.title), 'aria-label': `How ${prop.title} reads on the other page`,
@@ -995,17 +996,17 @@ function propDetails(view, tag, prop, from) {
     : 'On: the page it points to lists these at the top again.',
     click: event => { event.stopPropagation(); tw.setShownAtOtherEnd(prop.title, !shown); view.showToast(shown ? `${prop.title} no longer shows on the other page; the links stay` : `${prop.title} shows on the other page again`, () => tw.setShownAtOtherEnd(prop.title, shown)); } },
     shown ? 'Turn off' : 'Turn on');
-  line('On the other page', '←', input, shown ? null : el(doc, 'span', { class: 'rtg-off' }, 'not shown there'), turn);
+  line('On the other page', el(doc, 'span', { class: 'rtg-note' }, '←'), input, shown ? null : el(doc, 'span', { class: 'rtg-off rtg-note' }, 'not shown there'), turn);
   return box;
 }
 // The links that point at a tag from elsewhere, as the tag's page shows them.
 function pointerRow(view, tag) {
   const doc = view.doc, tw = twoWay();
-  const row = el(doc, 'div', { class: 'rtg-pointrow' }, el(doc, 'span', {}, 'Shows up here as'));
+  const row = el(doc, 'div', { class: 'rtg-pointrow' }, el(doc, 'span', { class: 'rtg-note' }, 'Shows up here as'));
   for (const prop of tag.pointers) {
     const on = tw ? tw.shownAtOtherEnd(prop.title) : true;
     row.append(el(doc, 'span', {}, '← ', el(doc, 'span', { class: 'rtg-val' }, tw ? tw.backwardsLabel(prop.title) : prop.title),
-      prop.givenBy?.length ? ` filled in on ${prop.givenBy.map(t => '#' + t.title).join(', ')}` : '', on ? '' : el(doc, 'span', { class: 'rtg-off' }, ' (turned off)')));
+      prop.givenBy?.length ? el(doc, 'span', { class: 'rtg-note' }, ` filled in on ${prop.givenBy.map(t => '#' + t.title).join(', ')}`) : '', on ? '' : el(doc, 'span', { class: 'rtg-off rtg-note' }, ' (turned off)')));
   }
   return row;
 }
