@@ -184,6 +184,21 @@ async function setTagProps(tag, ids) {
   for (const id of had) if (!want.includes(id) || failed.includes(id)) await addTagProp(tag, { id }).catch(() => {});
   throw new Error('a property could not be written; the list was put back as it was');
 }
+// A property's "Specify node tags" (0.4.179), written the same way as a tag's properties: cleared, then one at a time,
+// with what was there put back if a value cannot be written.
+const ACCEPTS = 'logseq.property/classes';
+async function setAccepts(prop, ids) {
+  const read = async () => (await dsQuery(`[:find ?c :where [?p :block/uuid #uuid "${prop.uuid}"] [?p :${ACCEPTS} ?c]]`)).map(([id]) => id);
+  const had = await read(), want = [...new Set(ids)];
+  if (want.length === had.length && want.every(id => had.includes(id))) return;
+  if (had.length) await logseq.Editor.removeBlockProperty(prop.uuid, ACCEPTS);
+  const failed = [];
+  for (const id of want) { try { await logseq.Editor.upsertBlockProperty(prop.uuid, ACCEPTS, id, { entityId: true }); } catch (error) { console.error(error); failed.push(id); } }
+  const now = await read();
+  if (!failed.length && want.every(id => now.includes(id))) return;
+  for (const id of had) if (!now.includes(id)) await logseq.Editor.upsertBlockProperty(prop.uuid, ACCEPTS, id, { entityId: true }).catch(() => {});
+  throw new Error('Logseq did not take the change; the list was put back as it was');
+}
 const removeTagProp = async (tag, prop) => setTagProps(tag, (await tagPropIds(tag)).filter(id => id !== prop.id));
 // The graph's own properties (made by you or a plugin), for adding to a tag.
 async function loadProps() {
@@ -430,7 +445,10 @@ const css = `
 .refinement-tags .rtg-pname:hover { text-decoration: underline; text-underline-offset: 2px; }
 .refinement-tags .rtg-inh .rtg-main { opacity: .62; }
 .refinement-tags .rtg-inh .rtg-pname { font-weight: 400; }
-.refinement-tags .rtg-ptype { font-size: 15px; color: var(--rtg-mid); }
+.refinement-tags .rtg-ptype { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 15px; color: var(--rtg-mid); cursor: pointer; }
+.refinement-tags .rtg-kind { padding: 0 6px; border: 1px solid var(--rtg-border); border-radius: 4px; font-size: 11.5px; line-height: 17px; letter-spacing: .05em; text-transform: uppercase; color: var(--rtg-faint); }
+.refinement-tags .rtg-ptype:hover .rtg-kind { border-color: currentColor; }
+.refinement-tags .rtg-tv { font-style: italic; }
 .refinement-tags .rtg-prow .rtg-small { color: var(--rtg-faint); font-size: 14px; }
 .refinement-tags .rtg-ptype b { font-weight: 500; color: var(--rtg-hue, var(--rtg-plain)); }
 .refinement-tags .rtg-i { flex: none; width: 17px; height: 17px; padding: 0; border: 1px solid var(--rtg-border); border-radius: 50%; background: none; cursor: pointer;
@@ -915,15 +933,18 @@ function rootAddRow(view) {
 function hasRows(view, tag) {
   return !view.compact && !!(tag.propList.length || tag.pointers?.length || (showInherited && inheritedProps(tag).length));
 }
-// What a property holds, in a few words: "text", "date", "one of Planned, Done, Missed", "→ #City · several".
+// What a property holds, as separate pieces: a small kind label ("choice", "link", "date"), then what it
+// accepts or offers, then "several" when it takes more than one value.
+const KINDS = { default: 'text', number: 'number', date: 'date', datetime: 'date and time', checkbox: 'checkbox', url: 'web address' };
 function typeHtml(view, prop) {
-  const several = prop.many ? ' · several' : '';
+  const kind = text => `<span class="rtg-kind">${escapeHtml(text)}</span>`;
+  const several = prop.many ? kind('several') : '';
   if (prop.type === 'node') {
     const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
-    return (to.length ? '→ ' + to.map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') : '→ any node') + several;
+    return kind('link') + `<span class="rtg-tv">${to.length ? to.map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') : 'any node'}</span>` + several;
   }
-  if (prop.choices.length) return 'one of ' + escapeHtml(prop.choices.slice(0, 4).join(', ') + (prop.choices.length > 4 ? ', …' : '')) + several;
-  return ({ default: 'text', number: 'number', date: 'date', datetime: 'date and time', checkbox: 'checkbox', url: 'web address' }[prop.type] || escapeHtml(prop.type)) + several;
+  if (prop.choices.length) return kind('choice') + `<span class="rtg-tv">${escapeHtml(prop.choices.slice(0, 4).join(' · ') + (prop.choices.length > 4 ? ' · …' : ''))}</span>` + several;
+  return kind(KINDS[prop.type] || prop.type) + several;
 }
 // A property as Logseq has it, with what it holds; one the schema read does not know is read as text.
 function propInfoOf(view, prop) {
@@ -947,7 +968,8 @@ function propRow(view, tag, prop, from) {
     click: event => { event.stopPropagation(); flip(propsOpen, key); saveProps(); view.draw(); } });
   const name = el(doc, 'span', { class: 'rtg-pname', title: from ? `${prop.title} comes from #${from.title}` : view.passesDown(tag, prop),
     click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } }, prop.title);
-  const line = el(doc, 'div', { class: 'rtg-line' }, name, el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop) }));
+  const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), title: 'Change it', click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } });
+  const line = el(doc, 'div', { class: 'rtg-line' }, name, type);
   if (from) line.append(el(doc, 'span', { class: 'rtg-small' }, 'from #' + from.title));
   else {
     const others = (prop.givenBy || []).filter(t => t.id !== tag.id).length;
@@ -973,6 +995,7 @@ function propDetails(view, tag, prop, from) {
   const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
   const inside = new Set(to.flatMap(t => [...below(t)]));
   line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? tagNames(to) : 'any node'),
+    el(doc, 'button', { class: 'rtg-make', title: 'Choose the tags this link accepts', click: event => { event.stopPropagation(); view.askAccepts(prop, event.currentTarget); } }, 'Change'),
     to.length && inside.size ? el(doc, 'span', { class: 'rtg-note' }, `and the ${plural(inside.size, 'tag')} inside`) : null, el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'));
   const tw = twoWay();
   if (!tw) return box;
@@ -1061,7 +1084,9 @@ function propMoves(view, tag, prop) { return view.fresh(tag).parents.filter(p =>
 
 function propMenu(view, tag, prop, from, anchor) {
   tag = view.fresh(tag);
-  const items = [{ html: `Open the property ${escapeHtml(prop.title)}`, run: () => openTag(prop) }];
+  const items = [{ html: 'Rename …', run: () => view.askRenameProp(prop, anchor) }];
+  if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
+  items.push({ html: 'Type, choices, one or several: on its page', run: () => openTag(prop) }, '-');
   if (from) {
     items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = view.shown.find(i => i.tag.id === from.id); if (at) view.setCursor(at.key); } });
     if (!from.builtIn) items.push({ html: `Take it off #${escapeHtml(from.title)}`, run: () => view.takePropOff(from, prop) });
@@ -1070,6 +1095,45 @@ function propMenu(view, tag, prop, from, anchor) {
     if (!tag.builtIn) items.push({ html: `Take it off #${escapeHtml(tag.title)}`, run: () => view.takePropOff(tag, prop) });
   }
   view.showMenu(anchor, from ? `${prop.title}, from #${from.title}` : view.passesDown(tag, prop), items);
+}
+
+// Renaming a property: it is a page, so Logseq's own rename is asked; the name is read back to be sure.
+function askRenameProp(view, prop, anchor) {
+  view.closeMenu();
+  const input = el(view.doc, 'input', { type: 'text', value: prop.title, spellcheck: 'false', 'aria-label': 'New name' });
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(view.doc, 'div', { class: 'rtg-mh' }, `Rename ${prop.title}`), input,
+    el(view.doc, 'div', { class: 'rtg-mnote' }, 'Everywhere it is used. Enter to rename, Esc to leave it.'));
+  keepKeys(input);
+  input.addEventListener('keydown', async event => {
+    if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); return; }
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    const name = input.value.trim(), old = prop.title;
+    view.closeMenu();
+    if (!name || name === old) return;
+    const done = await view.act(async () => {
+      await logseq.Editor.renamePage(prop.uuid, name);
+      const now = (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${prop.uuid}"] [?p :block/title ?t]]`))[0]?.[0];
+      if (now !== name) throw new Error('Logseq kept the old name');
+    }, `${old} could not be renamed`);
+    if (done) view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
+  });
+  view.doc.body.append(view.menu);
+  input.focus(); input.select();
+  view.placeMenu(anchor);
+}
+// What a link property accepts: pick a tag to add it or take it away; "Any node" clears the list.
+function askAccepts(view, prop, anchor) {
+  const now = new Set(view.data.propInfo?.get(prop.id)?.accepts || prop.accepts || []);
+  const choices = [{ tag: { id: -1, title: '' }, label: 'Any node (no tag)', path: now.size ? 'clears the list' : 'now' },
+    ...[...view.data.tags.values()].filter(t => !t.builtIn || PARENT_BUILT_INS.has(t.ident)).sort((a, b) => (now.has(b.id) - now.has(a.id)) || view.data.byTitle(a, b))
+      .map(t => ({ tag: t, label: (now.has(t.id) ? '✓ #' : '#') + t.title, path: now.has(t.id) ? 'click to take away' : pathOf(t) }))];
+  view.pickTag(anchor, `${prop.title} accepts …`, choices, async picked => {
+    const before = [...now];
+    const next = picked.id === -1 ? [] : now.has(picked.id) ? before.filter(id => id !== picked.id) : [...before, picked.id];
+    const done = await view.act(() => setAccepts(prop, next), `What ${prop.title} accepts could not be changed`);
+    if (done) view.showToast(next.length ? `${prop.title} accepts ${next.map(id => '#' + (view.data.tags.get(id)?.title || '?')).join(', ')}` : `${prop.title} accepts any node`, () => setAccepts(prop, before));
+  });
 }
 
 async function addProp(view, tag, prop) {
@@ -1491,7 +1555,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
