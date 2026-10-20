@@ -20,6 +20,7 @@ clear yet: ask the owner instead of guessing.
 | Tag map checks | `tools/tags-test.js` | an open property's box left acting for another property after a redraw; moving choices, which Logseq refuses |
 | Model test | `tools/model-test.js` | the plugin misreading pages, tags, properties, days (123+ checks) |
 | Tag map speed | `tools/tags-speed.js` | the map getting slower or rows jumping (limits on the Mac: first drawing 1 s, a change 0.4 s, no jump) |
+| Two-way rows | `tools/two-way-check.js` | the plugin's own row-finding run on the real Illness Test Graph (through the command line) against an answer key worked out from the raw graph: every link, the order, the counts |
 | Pictures | `tools/pictures.js` | anything the plugin draws looking different, light and dark |
 
 Each layer adds its own speed limits and its own pictures as it is rebuilt.

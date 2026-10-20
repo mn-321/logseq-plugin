@@ -57,5 +57,11 @@ if command -v node >/dev/null 2>&1; then
   node tools/pictures.js || problem "a picture changed (see above); look at check.log/pictures/, and approve it with node tools/pictures.js --approve only if the change was meant"
 fi
 
+# 10. The two-way rows against the real Illness Test Graph (tools/two-way-check.js), through Logseq's command line;
+#     skipped quietly where the command line or the graph cannot be read.
+if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
+  node tools/two-way-check.js || problem "the two-way rows differ from the graph (see above)"
+fi
+
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi
 echo "check.sh: OK (version $pkg)"
