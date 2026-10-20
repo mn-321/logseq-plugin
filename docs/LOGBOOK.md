@@ -2,6 +2,66 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Proposals, piece 2: guesses taken by a click (done list proposed, not started)
+
+**What a guess is:** something the plugin is fairly but not fully sure of. It shows in the same faint line under the
+bullet, set apart from the sure pieces (a dotted underline and a "?"), and is taken only by a click on it. Leaving the
+bullet takes the sure pieces as now and never a guess. Escape clears both. A taken guess goes in with Undo in the bar,
+like a sure piece. The words are never changed.
+
+**The guesses in this piece, each with where to see it in the Illness Test Graph:**
+1. *A page named in plain words.* A word or two of a page's title or alias, written without brackets, for a page whose
+   tag fits an empty property. Aug 18, "Post-op check with Dr. Patel" (#Consultation, Provider empty): the line offers
+   "Provider: Dr. Raj Patel ?"; a click fills it. "at Northgate" offers Northgate Cancer Center where a hospital
+   property is empty; "the tingling" offers Tingling fingers on a symptom log. Two pages that fit the same words
+   (e.g. "Dr." alone) offer nothing.
+2. *The same line written before.* A line under a tag that reads like an earlier line under that tag (the same words,
+   or nearly) offers the earlier one's values for the empty properties. "Wiped out all day." (#Symptom log, Symptom
+   type empty) offers "Symptom type: Fatigue ?", as the earlier ones have; "Chemo cycle 1 done …" (#Treatment) offers
+   the three agents of cycles 2 and 3. Earlier lines that disagree offer nothing.
+3. *A link to a page with no tag.* Aug 25, "Video call with [[Hannah Reyes]], the dietitian" (#Consultation,
+   Provider empty): offers "Provider: Hannah Reyes ? (gives her #Doctor)". A click fills Provider and tags her
+   page; Undo takes both back. With more than one empty property her page could fill, nothing is offered.
+4. *The parent's values.* A tagged bullet under a tagged bullet offers the parent's values for properties both tags
+   have: a new "#Decision" bullet written under the Oct 7 video call with Dr. Mei Chen offers "Date: Oct 7 ?". Not
+   offered when the child already says otherwise.
+
+**Kept quiet, on purpose:** Jul 17, "Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] together" offers no Provider, sure or
+guessed. A bullet with nothing to offer shows nothing, and typing costs no measurable time (the tour's timings).
+
+**Left out of this piece (my recommendation, for the owner to say):** a tag from the siblings ("Bloods for tomorrow's
+chemo …" has no tagged line like it anywhere in the graph, so there is nothing to learn from; it waits until the
+graph has one); dates in words ("Colonoscopy on Friday", "Operation on the 4th"), which is its own small piece next;
+Topic, which the words rarely say.
+
+**The scorer:** `tools/shadow-check.js` counts guesses apart from sure pieces. Sure pieces: right stays 54 or more,
+wrong stays 0. Guesses: right and wrong counted and each wrong one listed here; the silent count (46 now) must drop.
+I expect most of the 20 silent symptom types and the 3 treatment agents to become right guesses.
+
+**Checks:** each case above becomes a case in the pretend test (`tools/shadow-test.js`); the tour; the four lines
+above tried in the app, each guess taken by a click and undone; the graph check says the graph is as it was.
+
+## 2026-10-20 · The Illness Test Graph rebuilt on the 0.4.199 seed
+
+Made from Logseq's own "Create a new graph" dialog (the name came out exactly "Illness Test Graph"), the app switched
+to Demo, the three parts imported through the command line (no errors), `graph validate` clean (691 entities, no
+errors), the command-line server stopped, the graph opened in the app. The journal opens on Oct 20 with "Bloods at
+Northgate this morning …".
+
+**Tour (12 stops):** rows with the title on every page, 147 to 263 ms on these first visits; nothing moved without
+input (0 on every stop); no console errors or warnings. Seen: Dr. Mei Chen with "decided →" (3) and "provider of →"
+(2); Nausea and Tingling fingers with their symptom logs under the title; Northgate with "works here → Dr. Mei Chen";
+Oxaliplatin with "agent of →" the three cycles, now short lines ("Chemo cycle 3 done. Zoë Müller did the drip, pump
+home for two days."); the tag map in both themes. The plugin counted one warning of its own this session (not read:
+reading it needs the clipboard; most likely the known "block text not found" on the Pages list). The tour reports
+0.4.198: Logseq had not reloaded the plugin since the version bump, which changed only the seed. Fingerprint saved
+after the tour: 690 pages and blocks.
+
+**check.sh:** everything passes on the new graph: two-way rows 24 pages, 40 rows, 76 links as the answer key;
+proposals right 54, wrong 0, silent 46 of 100. The tag map speed failed twice while I was controlling the screen
+(first drawing 2.1 s, changes 0.7 to 1.2 s); with the screen released and the Mac quiet it passed (273 ms, changes
+99 to 126 ms). Lesson: run the speed test with the screen released.
+
 ## 2026-10-20 · The test graph reshaped on the owner's map, expanded by its principle (0.4.198)
 
 **Done means:** the seed has the owner's shape (one to three properties a tag), expanded where the owner's own
