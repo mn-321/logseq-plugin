@@ -260,6 +260,9 @@ function main() {
   takeOverFromEarlierCopy();
   publishCore();
   logseq.provideStyle({ key: 'refinements-dialog', style: window.refinementShared.dialogCss }); // the dialogs' look, before any part (0.4.169)
+  // The main view keeps room for its scroll bar (0.4.182), so a page growing past the window's height, or a list
+  // unfolding, no longer moves everything 8px sideways as the bar comes and goes (seen in the owner's Logseq).
+  logseq.provideStyle({ key: 'refinements-steady-scroll', style: '#main-content-container { scrollbar-gutter: stable; }' });
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
   // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
   // next: provide() gives the core the part's functions and state; start() takes the others' things and
