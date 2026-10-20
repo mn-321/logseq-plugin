@@ -378,12 +378,23 @@ async function openTag(tag, sidebar) {
 
 /* ---------- Look ---------- */
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Markup given as html (icons, a property's kind) is read once and copied after that: reading markup is the
+// slowest part of drawing thousands of rows.
+const parsed = new Map();
+function fromHtml(doc, html) {
+  let t = parsed.get(html);
+  if (!t || t.ownerDocument !== doc) {
+    if (parsed.size > 2000) parsed.clear();
+    t = doc.createElement('template'); t.innerHTML = html; parsed.set(html, t);
+  }
+  return t.content.cloneNode(true);
+}
 function el(doc, tag, props = {}, ...children) {
   const node = doc.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
-    else if (key === 'html') node.innerHTML = value;
+    else if (key === 'html') node.append(fromHtml(doc, value));
     else if (typeof value === 'function') node.addEventListener(key, value);
     else node.setAttribute(key, value === true ? '' : value);
   }
@@ -1053,7 +1064,7 @@ function propRow(view, tag, prop, from) {
     if (others) line.append(el(doc, 'span', { class: 'rtg-small' }, `also on ${plural(others, 'other tag')}`));
     line.append(view.infoButton(infoKey, prop.title));
   }
-  const row = el(doc, 'div', { class: 'rtg-row rtg-prow' + (from ? ' rtg-inh' : '') }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
+  const row = el(doc, 'div', { class: 'rtg-row rtg-prow' + (from ? ' rtg-inh' : ''), 'data-key': `p${prop.id}<${from ? from.id : ''}` }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname')) fold.click(); });
   const nodes = [row];
   if (open) nodes.push(view.propDetails(tag, prop, from));
@@ -1436,7 +1447,7 @@ function draw(view) {
   drawRoots(view, pass, rootList, sections);
   drawLoose(view, pass, sections);
 
-  view.body.replaceChildren(...sections);
+  view.morph(view.body, sections);
   view.count.textContent = plural(tagTotal, 'tag');
   view.inherited.textContent = showInherited ? 'Hide inherited' : 'Show inherited';
   view.drawNewTag();
@@ -1450,6 +1461,48 @@ function draw(view) {
   const again = heldTop != null && view.shown.find(item => item.key === view.cursorKey)?.row;
   const scroller = again?.isConnected && scrollingParent(view.box);
   if (scroller) scroller.scrollTop += again.getBoundingClientRect().top - heldTop;
+}
+
+// Puts the freshly built rows on screen, keeping every row that has not changed as it is (0.4.187). A whole map
+// replaced after each change made the browser lay out every row again (about 2 s for 600 open tags); now only
+// what changed is swapped in. Rows and the boxes holding them are matched by their data-key; a row that differs
+// at all is replaced whole, so its clicks are the new ones, and a kept row's clicks are its own, made from the
+// same tag when it was drawn the same way. view.shown is pointed at the rows actually on screen.
+function morph(view, parent, fresh) {
+  const kept = new Map(); // freshly built row -> the row on screen that stays in its place
+  const sameKids = (a, b) => {
+    const olds = a.querySelectorAll('.rtg-row'), news = b.querySelectorAll('.rtg-row');
+    news.forEach((row, i) => kept.set(row, olds[i]));
+  };
+  const typing = node => node.nodeType === 1 && !!(node.matches('input, textarea') || node.querySelector('input, textarea'));
+  const isBox = node => node.nodeType === 1 && (node.classList.contains('rtg-kids') || node.classList.contains('rtg-section'));
+  const walk = (into, children) => {
+    const old = [...into.childNodes];
+    const byKey = new Map(), loose = [];
+    for (const node of old) { const k = node.nodeType === 1 && node.dataset.key; if (k && !byKey.has(k)) byKey.set(k, node); else loose.push(node); }
+    let li = 0;
+    const chosen = children.map(node => {
+      const k = node.nodeType === 1 && node.dataset.key;
+      const was = k ? byKey.get(k) : loose[li++];
+      if (!was || (k && byKey.get(k) !== was)) return node;
+      if (k) byKey.delete(k);
+      if (was.nodeName !== node.nodeName || typing(node) || typing(was)) return node;
+      if (was.isEqualNode(node)) { sameKids(was, node); if (node.matches?.('.rtg-row')) kept.set(node, was); return was; }
+      if (isBox(node) && isBox(was)) {
+        for (const { name } of [...was.attributes]) if (!node.hasAttribute(name)) was.removeAttribute(name);
+        for (const { name, value } of [...node.attributes]) if (was.getAttribute(name) !== value) was.setAttribute(name, value);
+        walk(was, [...node.childNodes]);
+        return was;
+      }
+      return node;
+    });
+    let ref = into.firstChild;
+    for (const node of chosen) { if (node === ref) ref = ref.nextSibling; else into.insertBefore(node, ref); }
+    const keep = new Set(chosen);
+    for (const node of [...into.childNodes]) if (!keep.has(node)) node.remove();
+  };
+  walk(parent, fresh);
+  for (const item of view.shown) { const onScreen = kept.get(item.row); if (onScreen) item.row = onScreen; }
 }
 
 // The element that actually scrolls the map (in the main view an inner box of Logseq's, not the one named above).
@@ -1501,7 +1554,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
     const nextPath = new Set(path).add(tag.id);
     for (const kid of kids) kidNodes.push(...drawBranch(view, pass, kid, tag, depth + 1, hue, nextPath, key));
   }
-  if (kidNodes.length) nodes.push(el(view.doc, 'div', { class: 'rtg-kids', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null }, ...kidNodes));
+  if (kidNodes.length) nodes.push(el(view.doc, 'div', { class: 'rtg-kids', 'data-key': key + '>', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null }, ...kidNodes));
   return nodes;
 }
 
@@ -1538,7 +1591,7 @@ function drawRoots(view, pass, rootList, sections) {
 // The roots, each with its colour.
 for (const root of rootList) {
   pass.section = 'root:' + root.name;
-  if (root.tag) { if (pass.visible(root.tag)) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, ...drawBranch(view, pass, root.tag, null, 0, root.hue, new Set(), ''))); continue; }
+  if (root.tag) { if (pass.visible(root.tag)) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': pass.section }, ...drawBranch(view, pass, root.tag, null, 0, root.hue, new Set(), ''))); continue; }
   if (pass.q) continue;
   const make = el(view.doc, 'button', { class: 'rtg-make', click: () => view.act(async () => { await makeTag(root.name); }, `#${root.name} could not be made`) }, `Make #${root.name}`);
   const leave = el(view.doc, 'button', { class: 'rtg-make rtg-leave', title: `Stop showing #${root.name} as a root`, click: () => view.setRoots(rootNames().filter(n => n.toLowerCase() !== root.name.toLowerCase())) }, 'Not a root');
@@ -1558,11 +1611,11 @@ const looseHead = el(view.doc, 'h3', { class: 'rtg-group', 'data-drop': 'top' },
 view.dropTarget(looseHead, null);
 pass.section = 'loose';
 const looseNodes = loose.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'loose'));
-if (!pass.q || loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-loose' }, looseHead, ...looseNodes));
+if (!pass.q || loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-loose', 'data-key': 'loose' }, looseHead, ...looseNodes));
 // Tags that extend Logseq's own tags, under those tags.
 const builtIns = [...view.data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && pass.visible(tag)).sort(view.data.byTitle);
 pass.section = 'logseq';
-if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
+if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'logseq' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
 if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
 }
 
@@ -1760,7 +1813,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
