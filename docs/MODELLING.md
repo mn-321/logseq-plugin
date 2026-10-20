@@ -16,8 +16,10 @@ The owner's principle (2026-10-20), in short: **structure is extracted from free
 - **A tag exists only for its properties.** Make a new tag when its nodes need properties the others don't, always,
   or when you need to pull that kind out on its own. Otherwise it is a detail in the words, or a link.
 
-The Illness Test Graph is shaped this way (`test/illness-test-graph.py`): thirteen tags, one to three properties
-each, every record a sentence with its links.
+The Illness Test Graph is shaped this way (`test/illness-test-graph.py`): fifteen tags, one to three properties
+each, every record a sentence with its links. Where the owner's own map had two properties saying one thing
+(Status and Completed), the seed keeps one; where a list would be wanted (treatments by cycle, decisions by who made
+them, symptom severity over time), it has a tag or a property for it.
 
 ## The three ways to connect things
 

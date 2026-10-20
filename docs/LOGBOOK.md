@@ -2,24 +2,34 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
-## 2026-10-20 · The test graph reshaped to the owner's map (0.4.198)
+## 2026-10-20 · The test graph reshaped on the owner's map, expanded by its principle (0.4.198)
 
-**Done means:** the seed has the owner's tags and properties (one to three each), every record a sentence with its
-links, imports without errors, and the checks run on it.
+**Done means:** the seed has the owner's shape (one to three properties a tag), expanded where the owner's own
+principle says so, every record a sentence with its links; imports without errors; the checks run on it.
 
 **What the owner said:** the old graph's nodes carry far more properties than they would ever use (Consultation 10
 with what it inherits). A tag should exist only when its nodes need properties the others don't, on a consistent
 basis, or for sorting; a property only for what one will list or sort by; not every detail belongs in a schema; the
 main bits live in both the words and the properties; and a linked page that already has a tag carries its quality,
-which makes extracting structure from free writing cheap. They sent a screenshot of their own map; "Hospital prop"
-on Hospitalization was a mistake (it is Hospital). Written into `docs/MODELLING.md` as the opening principle.
+which makes extracting structure from free writing cheap. They sent a screenshot of their own map ("Hospital prop"
+on Hospitalization a mistake: it is Hospital), then asked for it expanded, not copied. Written into
+`docs/MODELLING.md` as the opening principle.
 
-**The seed:** `test/illness-test-graph.py` rewritten: 13 tags, 20 properties, 50 pages, 110 journal days, 31 records,
-25 symptom logs, 12 reports; 641 nodes. Imported through the command line into a scratch graph, "Seed Check" (made
-with `graph create`, so the app does not list it), all three parts without errors; `graph validate` clean.
+**The expansion, each by the owner's test:** trimmed Expectation's Completed (Status says it) and Doctor's Location
+(its hospital has one); Symptom Log gets one Date, not "Date & Time" beside it. Added Treatment (Agent, Cycle: a
+chemo cycle that has happened is not an expectation, and one lists treatments by cycle and drug), Decision
+(Decided by, Date: the few lines one would want listed in a year, with who said them), Severity on Symptom Log (the
+one thing worth plotting). Material for the later guesses, on purpose: a post-op check naming Dr. Patel and Riverside
+in plain words with Provider empty; "Bloods before cycle N" as plain lines shaped like their siblings; and the quiet
+cases kept (two doctors in one sentence, the untagged dietitian, logs without a date).
 
-**The checks on it:** two-way rows 21 pages, 35 rows, 64 links, all as the answer key. Proposals: 98 properties
-hidden in turn, right 78, wrong 0, silent 20 (on the old shape: right 22 of 214). The one wrong found on the way:
+**The seed:** `test/illness-test-graph.py` rewritten: 15 tags, 23 properties, 54 pages, 111 journal days, 31 records,
+25 symptom logs, 12 reports, 4 decisions, 3 treatments; 690 entities. Imported through the command line into a scratch
+graph, "Seed Check" (made with `graph create`, so the app does not list it; removed and made again for the second
+shape), all three parts without errors; `graph validate` clean.
+
+**The checks on it:** two-way rows 24 pages, 40 rows, 76 links, all as the answer key. Proposals: 100 properties
+hidden in turn, right 80, wrong 0, silent 20 (on the old shape: right 22 of 214). The one wrong found on the way:
 a note under a conversation ("Rang [[Amara]] and [[Tunde]]") proposed them as the conversation's "spoke with"; now a
 list of people in a note is never a sure piece (a doctor named in a note still is the provider). Case added to the
 pretend test (13).
