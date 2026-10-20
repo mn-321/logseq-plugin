@@ -93,6 +93,13 @@ failed attempts.
 their results, the tour's findings, what could **not** be checked and why, what waits on the owner. At the end of a
 stretch, the entries are gathered on one page for the owner with the pictures.
 
+## Lessons
+
+- Press a test's Undo at once: the plugin's Undo bar lasts a few seconds. Check the result after, with the graph check.
+- Do not type into Logseq's developer console through the screen: a missed click sends the keys to Logseq as
+  shortcuts. Read values with the tour, the troubleshooting tools or the command line instead.
+- Logseq's own Cmd+Z goes back further than the test: undo one step at a time and run the graph check after each.
+
 ## Known limits
 
 - The tour uses the screen. The Mac must be awake and unlocked, with Logseq open on the Illness Test Graph.
