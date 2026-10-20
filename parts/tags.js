@@ -201,6 +201,45 @@ async function setAccepts(prop, ids) {
 }
 const removeTagProp = async (tag, prop) => setTagProps(tag, (await tagPropIds(tag)).filter(id => id !== prop.id));
 // The graph's own properties (made by you or a plugin), for adding to a tag.
+// Choices: each is a small block that belongs to its property. Every change is read back to be sure.
+const CHOICE_TYPES = new Set(['default', 'number', 'url']);
+async function choicesOf(prop) {
+  const rows = await dsQuery(`[:find (pull ?v [:block/uuid :block/title :block/order]) :where [?p :block/uuid #uuid "${prop.uuid}"] [?v :block/closed-value-property ?p]]`);
+  return rows.map(([v]) => ({ uuid: String(pick(v, 'block/uuid') ?? ''), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? '') }))
+    .sort((a, b) => a.order < b.order ? -1 : a.order > b.order ? 1 : 0);
+}
+async function addChoice(prop, title) {
+  const block = await logseq.Editor.appendBlockInPage(prop.uuid, title);
+  if (!block?.uuid) throw new Error('Logseq did not make it');
+  const undo = () => logseq.Editor.removeBlock(block.uuid).catch(() => {});
+  try { await logseq.Editor.addPropertyValueChoices(prop.uuid, [block.uuid]); } catch (error) { await undo(); throw error; }
+  if (!(await choicesOf(prop)).some(c => c.uuid === String(block.uuid))) { await undo(); throw new Error('Logseq did not keep it'); }
+}
+async function renameChoice(prop, choice, title) {
+  await logseq.Editor.updateBlock(choice.uuid, title);
+  if ((await choicesOf(prop)).find(c => c.uuid === choice.uuid)?.title !== title) throw new Error('Logseq kept the old name');
+}
+async function removeChoice(prop, choice) {
+  const used = (await dsQuery(`[:find (count ?b) :where [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v]]`))[0]?.[0] || 0;
+  if (used) throw new Error(`${plural(used, 'node')} still ${used === 1 ? 'has' : 'have'} it. Change ${used === 1 ? 'that node' : 'those nodes'} first, or rename the choice instead`);
+  await logseq.Editor.removeBlock(choice.uuid);
+  if ((await choicesOf(prop)).some(c => c.uuid === choice.uuid)) throw new Error('Logseq kept it');
+}
+async function moveChoice(prop, choice, step) {
+  const list = await choicesOf(prop), at = list.findIndex(c => c.uuid === choice.uuid), next = list[at + step];
+  if (at < 0 || !next) return;
+  await logseq.Editor.moveBlock(choice.uuid, next.uuid, { before: step < 0, children: false });
+  if ((await choicesOf(prop)).findIndex(c => c.uuid === choice.uuid) !== at + step) throw new Error('Logseq kept the old order');
+}
+// A tag's description; empty takes it away.
+const DESCRIPTION = 'logseq.property/description';
+async function setDescription(tag, text) {
+  if (text) await logseq.Editor.upsertBlockProperty(tag.uuid, DESCRIPTION, text);
+  else await logseq.Editor.removeBlockProperty(tag.uuid, DESCRIPTION);
+  const now = (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${tag.uuid}"] [?p :${DESCRIPTION} ?d] [?d :block/title ?t]]`))[0]?.[0] || '';
+  if (String(now).trim() !== text) throw new Error('Logseq did not keep it');
+}
+
 async function loadProps() {
   const rows = await dsQuery('[:find (pull ?p [:db/id :db/ident :block/title :block/uuid :logseq.property/type]) :where [?p :block/tags :logseq.class/Property]]');
   return rows.map(([p]) => ({ ident: String(pick(p, 'db/ident') ?? '').replace(/^:/, ''), title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''), id: idOf(p), type: String(pick(p, 'logseq.property/type') ?? '').replace(/^:/, '') }))
@@ -428,7 +467,7 @@ const css = `
 .refinement-tags .rtg-make { border: 1px dashed var(--rtg-border); border-radius: 6px; padding: 1px 10px; background: none; cursor: pointer; font-size: 13.5px !important; color: var(--rtg-faint) !important; }
 .refinement-tags .rtg-make:hover { border-style: solid; color: var(--ls-primary-text-color) !important; }
 .refinement-tags .rtg-row.rtg-picked { background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 13%, transparent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 70%, transparent); }
-.refinement-tags .rtg-pickbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 8px 6px 12px; border-radius: 8px; background: var(--ls-primary-background-color); box-shadow: inset 0 0 0 1px var(--rtg-border); }
+.refinement-tags .rtg-pickbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 6px 8px 6px 12px; border-radius: 8px; background: var(--rtg-bg); box-shadow: inset 0 0 0 1px var(--rtg-border); }
 .refinement-tags .rtg-pickcount { flex: 1; font-size: 14px; font-weight: 500; }
 .refinement-tags .rtg-pickbar .rtg-pickgo { color: var(--ls-primary-text-color) !important; font-weight: 600; }
 .refinement-tags .rtg-newroot { padding: 14px 8px 0 24px; }
@@ -447,7 +486,11 @@ const css = `
 .refinement-tags .rtg-inh .rtg-pname { font-weight: 400; }
 .refinement-tags .rtg-ptype { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 15px; color: var(--rtg-mid); cursor: pointer; }
 .refinement-tags .rtg-kind { padding: 0 6px; border: 1px solid var(--rtg-border); border-radius: 4px; font-size: 11.5px; line-height: 17px; letter-spacing: .05em; text-transform: uppercase; color: var(--rtg-faint); }
-.refinement-tags .rtg-ptype:hover .rtg-kind { border-color: currentColor; }
+.refinement-tags .rtg-ptype [data-act] { border-radius: 4px; }
+.refinement-tags .rtg-ptype .rtg-kind:hover { border-color: currentColor; color: var(--rtg-mid); }
+.refinement-tags .rtg-ptype .rtg-tv:hover { text-decoration: underline; text-decoration-color: var(--rtg-border); text-underline-offset: 3px; }
+.refinement-tags .rtg-desc { cursor: text; }
+.refinement-tags .rtg-desc:hover { color: var(--rtg-mid); }
 .refinement-tags .rtg-tv { font-style: italic; }
 .refinement-tags .rtg-prow .rtg-small { color: var(--rtg-faint); font-size: 14px; }
 .refinement-tags .rtg-ptype b { font-weight: 500; color: var(--rtg-hue, var(--rtg-plain)); }
@@ -484,35 +527,43 @@ const css = `
 .refinement-tags.rtg-mode-sidebar .rtg-desc { display: none; }
 .refinement-tags.rtg-mode-sidebar .rtg-section { padding-top: 14px; }
 .refinement-tags.rtg-mode-sidebar .rtg-kids { margin-left: 10px; padding-left: 6px; }
-.refinement-tags-menu { position: fixed; z-index: 10001; min-width: 240px; max-width: 340px; padding: 4px; border: 1px solid var(--ls-border-color); border-radius: 8px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 6px 20px rgba(0, 0, 0, .16); font-size: 14.5px; }
-.refinement-tags-menu .rtg-mh { padding: 4px 12px 5px; font-size: 12.5px; color: color-mix(in srgb, var(--ls-primary-text-color) 55%, transparent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refinement-tags-menu { position: fixed; z-index: 10001; min-width: 240px; max-width: 340px; padding: 4px; border: 1px solid var(--rtg-fborder); border-radius: 8px; background: var(--rtg-bg); color: var(--rtg-fg); box-shadow: 0 6px 20px rgba(0, 0, 0, .16); font-size: 14.5px; }
+.refinement-tags-menu .rtg-mh { padding: 4px 12px 5px; font-size: 12.5px; color: color-mix(in srgb, var(--rtg-fg) 55%, transparent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refinement-tags-menu button { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 6px 12px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .refinement-tags-menu button:focus { outline: none; }
-.refinement-tags-menu button:hover, .refinement-tags-menu button:focus-visible, .refinement-tags-menu button.rtg-on { background: color-mix(in srgb, var(--ls-primary-text-color) 7%, transparent); }
+.refinement-tags-menu button:hover, .refinement-tags-menu button:focus-visible, .refinement-tags-menu button.rtg-on { background: color-mix(in srgb, var(--rtg-fg) 7%, transparent); }
 .refinement-tags-menu button kbd { margin-left: auto; font: inherit; font-size: 11px; opacity: .45; }
-.refinement-tags-menu .rtg-mnote { padding: 2px 12px 6px; font-size: 12.5px; line-height: 1.45; color: color-mix(in srgb, var(--ls-primary-text-color) 55%, transparent); }
+.refinement-tags-menu .rtg-mnote { padding: 2px 12px 6px; font-size: 12.5px; line-height: 1.45; color: color-mix(in srgb, var(--rtg-fg) 55%, transparent); }
 .refinement-tags-menu button .rtg-path { margin-left: auto; padding-left: 12px; font-size: 12px; opacity: .5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-tags-menu hr { border: 0; border-top: 1px solid var(--ls-border-color); margin: 4px 6px; }
-.refinement-tags-menu input { width: calc(100% - 8px); margin: 2px 4px 4px; padding: 4px 8px; border: 1px solid var(--ls-border-color); border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 14px; outline: none; box-shadow: none; }
+.refinement-tags-menu hr { border: 0; border-top: 1px solid var(--rtg-fborder); margin: 4px 6px; }
+.refinement-tags-menu input { width: calc(100% - 8px); margin: 2px 4px 4px; padding: 4px 8px; border: 1px solid var(--rtg-fborder); border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 14px; outline: none; box-shadow: none; }
 .refinement-tags-menu .rtg-list { max-height: 300px; overflow-y: auto; }
+.refinement-tags-menu.rtg-choices { width: 320px; }
+.refinement-tags-menu .rtg-crow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+.refinement-tags-menu .rtg-crow input { flex: 1; min-width: 0; margin: 2px 4px; }
+.refinement-tags-menu button.rtg-cb { flex: none; width: 26px; height: 26px; padding: 0; justify-content: center; align-items: center; opacity: .75; }
+.refinement-tags-menu button.rtg-cb:hover { opacity: 1; }
+.refinement-tags-menu button.rtg-cb[disabled] { opacity: .2; cursor: default; background: none; }
+.refinement-tags-menu.rtg-descbox { width: 340px; }
+.refinement-tags-menu textarea { display: block; width: calc(100% - 8px); margin: 2px 4px 4px; padding: 6px 8px; border: 1px solid var(--rtg-fborder); border-radius: 5px; background: transparent; color: inherit; font: inherit; font-size: 14px; line-height: 1.45; resize: vertical; outline: none; box-shadow: none; }
 .refinement-tags-menu .rtg-none { padding: 6px 12px; font-size: 13px; opacity: .55; }
 .refinement-tags .rtg-same { color: var(--rtg-warn) !important; cursor: pointer; }
 .refinement-tags .rtg-same:hover { text-decoration: underline; text-underline-offset: 2px; }
 .refinement-tags-dialog { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 14vh; background: rgba(0, 0, 0, .25); }
-.refinement-tags-dialog > div { width: min(480px, 92vw); padding: 20px 22px 16px; border: 1px solid var(--ls-border-color); border-radius: 10px; background: var(--ls-primary-background-color); color: var(--ls-primary-text-color); box-shadow: 0 10px 32px rgba(0, 0, 0, .2); font-size: 15px; line-height: 1.5; }
+.refinement-tags-dialog > div { width: min(480px, 92vw); padding: 20px 22px 16px; border: 1px solid var(--rtg-fborder); border-radius: 10px; background: var(--rtg-bg); color: var(--rtg-fg); box-shadow: 0 10px 32px rgba(0, 0, 0, .2); font-size: 15px; line-height: 1.5; }
 .refinement-tags-dialog h2 { margin: 0 0 10px; font-size: 17px; font-weight: 600; }
 .refinement-tags-dialog ul { margin: 0 0 12px; padding-left: 18px; }
 .refinement-tags-dialog li { margin: 2px 0; }
-.refinement-tags-dialog p { margin: 0 0 12px; font-size: 14px; color: color-mix(in srgb, var(--ls-primary-text-color) 60%, transparent); }
+.refinement-tags-dialog p { margin: 0 0 12px; font-size: 14px; color: color-mix(in srgb, var(--rtg-fg) 60%, transparent); }
 .refinement-tags-dialog .rtg-btns { display: flex; justify-content: flex-end; gap: 8px; }
-.refinement-tags-dialog button { border: 1px solid var(--ls-border-color); border-radius: 6px; padding: 5px 14px; background: none; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
-.refinement-tags-dialog button.rtg-go { border-color: transparent; background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-weight: 600; }
-.refinement-tags-dialog button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline-offset: 1px; }
+.refinement-tags-dialog button { border: 1px solid var(--rtg-fborder); border-radius: 6px; padding: 5px 14px; background: none; color: inherit; font: inherit; font-size: 14px; cursor: pointer; }
+.refinement-tags-dialog button.rtg-go { border-color: transparent; background: var(--rtg-fg); color: var(--rtg-bg); font-weight: 600; }
+.refinement-tags-dialog button:focus-visible { outline: 2px solid color-mix(in srgb, var(--rtg-fg) 40%, transparent); outline-offset: 1px; }
 .refinement-tags-toast { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px;
-  background: var(--ls-primary-text-color); color: var(--ls-primary-background-color); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+  background: var(--rtg-fg); color: var(--rtg-bg); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
 .refinement-tags-toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-tags-toast button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--ls-primary-background-color) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.refinement-tags-toast button:hover { background: color-mix(in srgb, var(--ls-primary-background-color) 30%, transparent); }
+.refinement-tags-toast button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--rtg-bg) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.refinement-tags-toast button:hover { background: color-mix(in srgb, var(--rtg-bg) 30%, transparent); }
 `;
 
 /* ---------- The tree ---------- */
@@ -554,7 +605,7 @@ function createView(doc, mode) {
     el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Show the picked tags at the top of the tree', click: () => view.rootsFromPicked() }, 'Make them roots'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => view.movePicked(event.currentTarget) }, 'Move to …'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
-  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property to move it up, take it off or open it</span><span>Drag a tag onto another to move it; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
+  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property’s name, kind or choices to change them, or a description to edit it</span><span>Drag a tag onto another to move it; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
   if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton), view.pickBar, view.body);
   else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.count, view.find, view.inherited, view.foldAll, view.openAll, view.moveButton), view.newTag, view.pickBar, view.body, view.footer);
@@ -584,6 +635,21 @@ function createView(doc, mode) {
 /* Menus */
 function closeMenu(view) { view.menu?.remove(); view.menu = null; }
 
+// Menus, dialogs and notes float over the page, so they need a solid background. Logseq's colour variables
+// are not always set (some dark themes leave them empty), so the colours are read from what is on screen.
+const alphaOf = colour => { const m = /rgba?\(([^)]+)\)/.exec(colour || ''); if (!m) return 0; const parts = m[1].split(/[ ,/]+/).filter(Boolean); return parts.length > 3 ? parseFloat(parts[3]) : 1; };
+function paint(view, node) {
+  const win = view.doc.defaultView;
+  const fg = win.getComputedStyle(view.box).color || 'rgb(30, 30, 30)';
+  let bg = '';
+  for (let n = view.box; n && n.nodeType === 1 && !bg; n = n.parentElement) { const c = win.getComputedStyle(n).backgroundColor; if (alphaOf(c) > .6) bg = c; }
+  if (!bg) { const nums = (/rgba?\(([^)]+)\)/.exec(fg)?.[1] || '0,0,0').split(/[ ,/]+/).map(Number); bg = (nums[0] + nums[1] + nums[2]) / 3 > 128 ? 'rgb(28, 28, 30)' : 'rgb(255, 255, 255)'; }
+  node.style.setProperty('--rtg-bg', bg);
+  node.style.setProperty('--rtg-fg', fg);
+  node.style.setProperty('--rtg-fborder', `color-mix(in srgb, ${fg} 22%, transparent)`);
+  return node;
+}
+
 function placeMenu(view, anchor) {
   const r = anchor.getBoundingClientRect(), m = view.menu.getBoundingClientRect();
   const win = view.doc.defaultView;
@@ -611,7 +677,7 @@ function showMenu(view, anchor, header, items) {
     view.menu.append(el(view.doc, 'button', { role: 'menuitem', html: item.html, click: () => { view.closeMenu(); view.box.focus({ preventScroll: true }); item.run(); } }));
   }
   view.menu.addEventListener('keydown', view.menuKeys);
-  view.doc.body.append(view.menu);
+  view.doc.body.append(view.paint(view.menu));
   view.menu.querySelector('button')?.focus({ preventScroll: true });
   view.placeMenu(anchor);
 }
@@ -639,7 +705,7 @@ function pickTag(view, anchor, header, choices, onPick) {
   keepKeys(input);
   view.menu.addEventListener('keydown', event => { if (event.target !== input) view.menuKeys(event); });
   fill();
-  view.doc.body.append(view.menu);
+  view.doc.body.append(view.paint(view.menu));
   input.focus({ preventScroll: true });
   view.placeMenu(anchor);
 }
@@ -654,7 +720,7 @@ function showToast(view, text, undo) {
     button.addEventListener('click', async () => { view.hideToast(); await view.act(undo, 'The change could not be undone'); });
     view.toast.append(button);
   }
-  view.doc.body.append(view.toast);
+  view.doc.body.append(view.paint(view.toast));
   view.toastTimer = setTimeout(view.hideToast, 7000);
 }
 
@@ -828,7 +894,7 @@ async function confirmMerge(view, source, target) {
     await view.act(() => runMerge(plan), `#${source.title} could not be merged into #${target.title}`);
     if (!view.data.tags.has(source.id)) view.showToast(`#${source.title} is merged into #${target.title}`);
   });
-  doc2.body.append(backdrop);
+  doc2.body.append(view.paint(backdrop));
   cancel.focus();
 }
 
@@ -937,13 +1003,13 @@ function hasRows(view, tag) {
 // accepts or offers, then "several" when it takes more than one value.
 const KINDS = { default: 'text', number: 'number', date: 'date', datetime: 'date and time', checkbox: 'checkbox', url: 'web address' };
 function typeHtml(view, prop) {
-  const kind = text => `<span class="rtg-kind">${escapeHtml(text)}</span>`;
+  const kind = text => `<span class="rtg-kind" data-act="kind" title="What kind of value it holds">${escapeHtml(text)}</span>`;
   const several = prop.many ? kind('several') : '';
   if (prop.type === 'node') {
     const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
-    return kind('link') + `<span class="rtg-tv">${to.length ? to.map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') : 'any node'}</span>` + several;
+    return kind('link') + `<span class="rtg-tv" data-act="values" title="Change what it accepts">${to.length ? to.map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') : 'any node'}</span>` + several;
   }
-  if (prop.choices.length) return kind('choice') + `<span class="rtg-tv">${escapeHtml(prop.choices.slice(0, 4).join(' · ') + (prop.choices.length > 4 ? ' · …' : ''))}</span>` + several;
+  if (prop.choices.length) return kind('choice') + `<span class="rtg-tv" data-act="values" title="Edit the choices">${escapeHtml(prop.choices.slice(0, 4).join(' · ') + (prop.choices.length > 4 ? ' · …' : ''))}</span>` + several;
   return kind(KINDS[prop.type] || prop.type) + several;
 }
 // A property as Logseq has it, with what it holds; one the schema read does not know is read as text.
@@ -968,7 +1034,12 @@ function propRow(view, tag, prop, from) {
     click: event => { event.stopPropagation(); flip(propsOpen, key); saveProps(); view.draw(); } });
   const name = el(doc, 'span', { class: 'rtg-pname', title: from ? `${prop.title} comes from #${from.title}` : view.passesDown(tag, prop),
     click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } }, prop.title);
-  const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), title: 'Change it', click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } });
+  const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), click: event => {
+    event.stopPropagation();
+    const piece = event.target.closest('[data-act]');
+    if (piece?.dataset.act === 'values') { if (prop.type === 'node') view.askAccepts(prop, piece); else view.askChoices(prop, piece); }
+    else view.kindMenu(prop, piece || event.currentTarget);
+  } });
   const line = el(doc, 'div', { class: 'rtg-line' }, name, type);
   if (from) line.append(el(doc, 'span', { class: 'rtg-small' }, 'from #' + from.title));
   else {
@@ -990,13 +1061,17 @@ function propDetails(view, tag, prop, from) {
   const tagNames = list => list.map(t => '#' + t.title).join(', ');
   const givers = prop.givenBy?.length ? prop.givenBy : [from || tag];
   line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? el(doc, 'span', { class: 'rtg-note' }, 'and the tags inside them') : null);
-  if (prop.choices.length) line('Choices', el(doc, 'span', { class: 'rtg-val' }, prop.choices.join(' · ')));
+  const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ', from a list of choices' : '');
+  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'),
+    el(doc, 'button', { class: 'rtg-make', title: 'What kind of value it holds, and one or several, are changed in Logseq’s own settings for the property', click: event => { event.stopPropagation(); view.kindMenu(prop, event.currentTarget); } }, 'Change'));
+  if (prop.choices.length || CHOICE_TYPES.has(prop.type)) line('Choices', el(doc, 'span', { class: prop.choices.length ? 'rtg-val' : 'rtg-note' }, prop.choices.length ? prop.choices.join(' · ') : 'none, anything can be typed'),
+    el(doc, 'button', { class: 'rtg-make', title: prop.choices.length ? 'Add, rename, reorder or remove choices' : 'Give it a list to pick from', click: event => { event.stopPropagation(); view.askChoices(prop, event.currentTarget); } }, prop.choices.length ? 'Edit' : 'Add choices'));
   if (prop.type !== 'node') return box;
   const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
   const inside = new Set(to.flatMap(t => [...below(t)]));
   line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? tagNames(to) : 'any node'),
     el(doc, 'button', { class: 'rtg-make', title: 'Choose the tags this link accepts', click: event => { event.stopPropagation(); view.askAccepts(prop, event.currentTarget); } }, 'Change'),
-    to.length && inside.size ? el(doc, 'span', { class: 'rtg-note' }, `and the ${plural(inside.size, 'tag')} inside`) : null, el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'));
+    to.length && inside.size ? el(doc, 'span', { class: 'rtg-note' }, `and the ${plural(inside.size, 'tag')} inside`) : null);
   const tw = twoWay();
   if (!tw) return box;
   const input = el(doc, 'input', { class: 'rtg-words', type: 'text', spellcheck: 'false', value: tw.backwardsLabel(prop.title), 'aria-label': `How ${prop.title} reads on the other page`,
@@ -1086,7 +1161,8 @@ function propMenu(view, tag, prop, from, anchor) {
   tag = view.fresh(tag);
   const items = [{ html: 'Rename …', run: () => view.askRenameProp(prop, anchor) }];
   if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
-  items.push({ html: 'Type, choices, one or several: on its page', run: () => openTag(prop) }, '-');
+  if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
+  items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) }, '-');
   if (from) {
     items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = view.shown.find(i => i.tag.id === from.id); if (at) view.setCursor(at.key); } });
     if (!from.builtIn) items.push({ html: `Take it off #${escapeHtml(from.title)}`, run: () => view.takePropOff(from, prop) });
@@ -1118,7 +1194,7 @@ function askRenameProp(view, prop, anchor) {
     }, `${old} could not be renamed`);
     if (done) view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
   });
-  view.doc.body.append(view.menu);
+  view.doc.body.append(view.paint(view.menu));
   input.focus(); input.select();
   view.placeMenu(anchor);
 }
@@ -1134,6 +1210,93 @@ function askAccepts(view, prop, anchor) {
     const done = await view.act(() => setAccepts(prop, next), `What ${prop.title} accepts could not be changed`);
     if (done) view.showToast(next.length ? `${prop.title} accepts ${next.map(id => '#' + (view.data.tags.get(id)?.title || '?')).join(', ')}` : `${prop.title} accepts any node`, () => setAccepts(prop, before));
   });
+}
+
+// What kind of value a property holds, and one or several: Logseq lets plugins change these only for their own
+// properties, so this opens Logseq's own settings for it in the right sidebar, next to the map.
+function kindMenu(view, prop, anchor) {
+  const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ' from a list of choices' : '');
+  const items = [];
+  if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
+  if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
+  items.push({ html: `Open ${escapeHtml(prop.title)}’s settings in the sidebar`, run: () => logseq.Editor.openInRightSidebar(prop.uuid) });
+  view.showMenu(anchor, `${prop.title} holds ${holds}, ${prop.many ? 'several at once' : 'one at a time'}`, items);
+  view.menu.append(el(view.doc, 'div', { class: 'rtg-mnote' }, 'To make it hold another kind of value, or one instead of several, use its settings: Logseq lets only itself change those. They open in the right sidebar, so this map stays where it is.'));
+  view.placeMenu(anchor);
+}
+
+// The choices of a property, edited in a small panel: rename in place, move up or down, remove, add.
+function askChoices(view, prop, anchor, at) {
+  const doc = view.doc;
+  const where = at || (() => { const r = anchor.getBoundingClientRect(); return { left: r.left, top: r.bottom + 4 }; })();
+  view.closeMenu();
+  const panel = el(doc, 'div', { class: 'refinement-tags-menu rtg-choices', role: 'dialog', 'aria-label': `Choices for ${prop.title}` }, el(doc, 'div', { class: 'rtg-mh' }, `Choices for ${prop.title}`));
+  view.menu = panel;
+  const again = () => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where); };
+  const run = async (job, failText, said) => { if (await view.act(job, failText) && said) view.showToast(said); again(); };
+  const box = el(doc, 'div', { class: 'rtg-list' }, el(doc, 'div', { class: 'rtg-none' }, 'Reading the choices …'));
+  const add = el(doc, 'input', { type: 'text', placeholder: 'Add a choice', spellcheck: 'false', 'aria-label': 'Add a choice' });
+  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, 'Enter saves. A choice that nodes still use can be renamed, not removed.'));
+  const keys = (input, onEnter, reset) => {
+    keepKeys(input);
+    input.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Escape') { event.preventDefault(); if (reset && input.value !== reset()) { input.value = reset(); return; } view.closeMenu(); view.box.focus({ preventScroll: true }); }
+      if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); onEnter(); }
+    });
+  };
+  keys(add, () => {
+    const title = add.value.trim();
+    if (!title) return;
+    if ([...box.querySelectorAll('input')].some(i => i.defaultValue.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
+    run(() => addChoice(prop, title), `“${title}” could not be added`, `${prop.title} can now be “${title}”`);
+  });
+  choicesOf(prop).then(list => {
+    if (view.menu !== panel) return;
+    box.replaceChildren(...(list.length ? [] : [el(doc, 'div', { class: 'rtg-none' }, 'No choices yet: anything can be typed.')]));
+    list.forEach((choice, i) => {
+      const input = el(doc, 'input', { type: 'text', value: choice.title, spellcheck: 'false', 'aria-label': `Rename ${choice.title}` });
+      keys(input, () => {
+        const title = input.value.trim();
+        if (!title || title === choice.title) return;
+        if (list.some(c => c !== choice && c.title.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
+        run(() => renameChoice(prop, choice, title), `“${choice.title}” could not be renamed`, `“${choice.title}” is now “${title}” everywhere`);
+      }, () => choice.title);
+      const button = (label, text, enabled, job) => el(doc, 'button', { class: 'rtg-cb', title: text, 'aria-label': text, disabled: enabled ? null : '', click: event => { event.stopPropagation(); if (enabled) job(); } }, label);
+      box.append(el(doc, 'div', { class: 'rtg-crow' }, input,
+        button('↑', 'Move up', i > 0, () => run(() => moveChoice(prop, choice, -1), `“${choice.title}” could not be moved`)),
+        button('↓', 'Move down', i < list.length - 1, () => run(() => moveChoice(prop, choice, 1), `“${choice.title}” could not be moved`)),
+        button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
+    });
+  }).catch(error => { warnOnce('the choices could not be read', error); box.replaceChildren(el(doc, 'div', { class: 'rtg-none' }, 'The choices could not be read.')); });
+  doc.body.append(view.paint(panel));
+  const win = doc.defaultView;
+  panel.style.left = Math.max(8, Math.min(where.left, win.innerWidth - 340)) + 'px';
+  panel.style.top = Math.max(8, Math.min(where.top, win.innerHeight - 320)) + 'px';
+  add.focus({ preventScroll: true });
+}
+
+// A tag's description, the line under its name.
+function askDescription(view, tag, anchor) {
+  view.closeMenu();
+  const input = el(view.doc, 'textarea', { rows: '3', spellcheck: 'true', 'aria-label': 'Description' });
+  input.value = tag.desc || '';
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu rtg-descbox', role: 'dialog' }, el(view.doc, 'div', { class: 'rtg-mh' }, `What #${tag.title} is for`), input,
+    el(view.doc, 'div', { class: 'rtg-mnote' }, 'Enter saves, Shift-Enter starts a new line, Esc leaves it. Empty removes it.'));
+  keepKeys(input);
+  input.addEventListener('keydown', async event => {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); return; }
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    const text = input.value.trim(), old = tag.desc || '';
+    view.closeMenu();
+    if (text === old) return;
+    if (await view.act(() => setDescription(tag, text), `#${tag.title}’s description could not be saved`)) view.showToast(text ? `#${tag.title} has a new description` : `#${tag.title} has no description now`, () => setDescription(tag, old));
+  });
+  view.doc.body.append(view.paint(view.menu));
+  input.focus();
+  view.placeMenu(anchor);
 }
 
 async function addProp(view, tag, prop) {
@@ -1197,7 +1360,7 @@ async function askProperty(view, tag, anchor) {
   keepKeys(input);
   view.menu.addEventListener('keydown', event => { if (event.target !== input) view.menuKeys(event); });
   fill();
-  view.doc.body.append(view.menu);
+  view.doc.body.append(view.paint(view.menu));
   input.focus({ preventScroll: true });
   view.placeMenu(anchor);
 }
@@ -1223,6 +1386,7 @@ function rowMenu(view, item, anchor) {
     } else if (!tag.parents.length) items.push({ html: 'Make it a root', run: () => view.makeRoot(tag) });
     items.push('-', { html: 'Add a property …<kbd>p</kbd>', run: () => view.askProperty(tag, anchor) },
       { html: 'Rename<kbd>r</kbd>', run: () => { view.renaming = item.key; view.draw(); } },
+      { html: tag.desc ? 'Change the description …' : 'Add a description …', run: () => view.askDescription(tag, anchor) },
       { html: 'Merge into …<kbd>j</kbd>', run: () => view.askMerge(tag, parent, anchor) });
   } else if (item.root) items.push('-', { html: 'Stop showing it as a root', run: () => view.unRoot(tag) });
   if (view.picked.size > 1 && view.picked.has(tag.id)) items.unshift({ html: `Make the ${view.picked.size} picked tags roots`, run: () => view.rootsFromPicked() }, { html: `Move the ${view.picked.size} picked tags to …`, run: () => view.movePicked(anchor) }, '-');
@@ -1241,6 +1405,7 @@ function highlight(view, node, title, q) {
 function draw(view) {
   if (!view.box.isConnected && view.shown.length) return;
   if (!view.loaded) { view.body.replaceChildren(el(view.doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); return; }
+  view.paint(view.box); // for the bar that stays at the top while picking
   const q = view.find.value.trim().toLowerCase();
   // With a search, only matching tags and the tags above them are shown, unfolded.
   const keep = new Set();
@@ -1300,7 +1465,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   }
   rowLabels(view, line, tag, parent, key, open, kids, isRoot);
   main.append(line);
-  if (tag.desc) main.append(el(view.doc, 'div', { class: 'rtg-desc' }, tag.desc));
+  if (tag.desc) main.append(el(view.doc, 'div', { class: 'rtg-desc', title: 'Change the description', click: event => { event.stopPropagation(); view.setCursor(key); view.askDescription(tag, event.currentTarget); } }, tag.desc));
   const acts = el(view.doc, 'span', { class: 'rtg-acts' });
   if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) acts.append(el(view.doc, 'button', { class: 'rtg-act', tabindex: '-1', title: `New tag inside #${tag.title} (n)`, html: PLUS, click: event => { event.stopPropagation(); view.setCursor(key); view.startAdd(tag, key); } }));
   acts.append(el(view.doc, 'button', { class: 'rtg-act rtg-more', tabindex: '-1', title: 'More', html: DOTS, click: event => { event.stopPropagation(); view.setCursor(key); view.rowMenu(item, event.currentTarget); } }));
@@ -1540,9 +1705,28 @@ function onKey(view, event) {
 function onDown(view, event) { if (view.menu && !view.menu.contains(event.target)) view.closeMenu(); }
 
 async function refresh(view) {
+  const t0 = performance.now();
   try { view.data = await loadTags(); view.loaded = true; }
   catch (error) { warnOnce('the tags could not be read', error); }
+  const t1 = performance.now();
   view.draw();
+  stopwatch(view, t0, t1, performance.now());
+}
+
+// A stopwatch for the map: how long each refresh took to read the tags, to build the rows, and until the
+// browser had them on screen. Kept (the last 50) on Logseq's own window, where its developer console reads
+// it: refinementTagTimes, or console.table(refinementTagTimes).
+function stopwatch(view, t0, t1, t2) {
+  const win = view.doc.defaultView;
+  if (!win || !view.box.isConnected) return;
+  win.requestAnimationFrame(() => win.setTimeout(() => {
+    try {
+      const list = (win.refinementTagTimes ||= []);
+      list.push({ at: new Date().toLocaleTimeString(), rows: view.box.querySelectorAll('.rtg-row').length,
+        readMs: Math.round(t1 - t0), buildMs: Math.round(t2 - t1), onScreenMs: Math.round(performance.now() - t0) });
+      if (list.length > 50) list.shift();
+    } catch (error) { /* the stopwatch never gets in the way */ }
+  }));
 }
 
 function destroy(view) {
@@ -1555,7 +1739,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
