@@ -364,10 +364,10 @@ async function runMerge(plan) {
   await logseq.Editor.deletePage(source.uuid);
   void tags;
 }
-/* A choice made its own child tag (0.4.188), e.g. procedure type “Imaging” on #Procedure becomes #Imaging inside
+/* A choice made its own child tag (0.4.190), e.g. procedure type “Imaging” on #Procedure becomes #Imaging inside
    #Procedure: the nodes tagged #Procedure with that choice get #Imaging instead (they keep every value, since
    #Imaging gets all of #Procedure's properties), and the choice is cleared on them. The choice itself stays in
-   the property's list, for you to remove from the map when nothing needs it (0.4.190, the owner's pick): Logseq
+   the property's list, for you to remove from the map when nothing needs it (0.4.191, the owner's pick): Logseq
    2.0.2 does not let a plugin make a choice again once it is gone, so removing it here would leave Undo unable to
    bring it back. Every step is noted as it is made, so a failure puts back what was done and Undo puts back the
    whole of it (docs/MODELLING.md: child tags for short lists of broad kinds). */
@@ -455,13 +455,16 @@ function fromHtml(doc, html) {
   }
   return t.content.cloneNode(true);
 }
+// Elements given a handler here (a click, a key), so the redraw knows which old elements would act on old data.
+const acting = new WeakSet();
+const acts = node => node.nodeType === 1 && (acting.has(node) || [...node.querySelectorAll('*')].some(child => acting.has(child)));
 function el(doc, tag, props = {}, ...children) {
   const node = doc.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
     else if (key === 'html') node.append(fromHtml(doc, value));
-    else if (typeof value === 'function') node.addEventListener(key, value);
+    else if (typeof value === 'function') { node.addEventListener(key, value); acting.add(node); }
     else node.setAttribute(key, value === true ? '' : value);
   }
   node.append(...children.filter(child => child != null && child !== false));
@@ -1316,16 +1319,26 @@ function kindMenu(view, prop, anchor) {
 }
 
 // The choices of a property, edited in a small panel: rename in place, move up or down, remove, add.
-function askChoices(view, prop, anchor, at) {
+function askChoices(view, prop, anchor, at, focusAt = 0) {
   const doc = view.doc;
   const where = at || (() => { const r = anchor.getBoundingClientRect(); return { left: r.left, top: r.bottom + 4 }; })();
   view.closeMenu();
   const panel = el(doc, 'div', { class: 'refinement-tags-menu rtg-choices', role: 'dialog', 'aria-label': `Choices for ${prop.title}` }, el(doc, 'div', { class: 'rtg-mh' }, `Choices for ${prop.title}`));
   view.menu = panel;
-  const again = () => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where); };
-  const run = async (job, failText, said) => { if (await view.act(job, failText) && said) view.showToast(said); again(); };
+  const again = index => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
+  const run = async (job, failText, said) => {
+    const index = Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement));
+    if (await view.act(job, failText) && said) view.showToast(said);
+    again(index);
+  };
+  // Keys pressed anywhere in the panel stay out of Logseq's shortcuts, and Escape closes it.
+  panel.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); }
+  });
+  for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
   const box = el(doc, 'div', { class: 'rtg-list' }, el(doc, 'div', { class: 'rtg-none' }, 'Reading the choices …'));
-  // A new choice is added in the property's own settings (0.4.190): Logseq 2.0.2 lets only itself make one.
+  // A new choice is added in the property's own settings (0.4.191): Logseq 2.0.2 lets only itself make one.
   const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add a choice in its settings ⇥');
   panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote' }, 'Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added in the property’s own settings, in the right sidebar: Logseq lets only itself make them.'));
   const keys = (input, onEnter, reset) => {
@@ -1353,7 +1366,8 @@ function askChoices(view, prop, anchor, at) {
         button('↓', 'Move down', i < list.length - 1, () => run(() => moveChoice(prop, choice, 1), `“${choice.title}” could not be moved`)),
         button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
     });
-    (box.querySelector('input') || add).focus({ preventScroll: true });
+    const inputs = box.querySelectorAll('input');
+    (inputs[Math.min(focusAt, inputs.length - 1)] || add).focus({ preventScroll: true });
   }).catch(error => { warnOnce('the choices could not be read', error); box.replaceChildren(el(doc, 'div', { class: 'rtg-none' }, 'The choices could not be read.')); });
   doc.body.append(view.paint(panel));
   const win = doc.defaultView;
@@ -1420,6 +1434,8 @@ async function confirmChildTag(view, tag, prop, choice) {
   });
   input.addEventListener('input', () => { fill().catch(() => {}); });
   go.addEventListener('click', async () => {
+    if (go.disabled) return;
+    go.disabled = true; // a second press while the name is checked does nothing
     const name = input.value.trim().replace(/^#/, '').trim();
     check = await childTagName(plan, name);
     if (check.problem) { fill(); return; }
@@ -1607,7 +1623,7 @@ function draw(view) {
   if (scroller) scroller.scrollTop += again.getBoundingClientRect().top - heldTop;
 }
 
-// Puts the freshly built rows on screen, keeping every row that has not changed as it is (0.4.187). A whole map
+// Puts the freshly built rows on screen, keeping every row that has not changed as it is (0.4.190). A whole map
 // replaced after each change made the browser lay out every row again (about 2 s for 600 open tags); now only
 // what changed is swapped in. Rows and the boxes holding them are matched by their data-key; a row that differs
 // at all is replaced whole, so its clicks are the new ones, and a kept row's clicks are its own, made from the
@@ -1640,6 +1656,9 @@ function morph(view, parent, fresh) {
       if (!was || (k && byKey.get(k) !== was)) return node;
       if (k) byKey.delete(k);
       if (was.nodeName !== node.nodeName || typing(node) || typing(was)) return node;
+      // Without a key, an old element is matched only by its place: one that acts (a property's box with its Change
+      // button) could belong to another property that now stands there, so it is replaced (0.4.192, second reading).
+      if (!k && !isBox(node) && acts(was)) return node;
       if (was.isEqualNode(node)) { sameKids(was, node); if (node.matches?.('.rtg-row')) keep(node, was); return was; }
       if (isBox(node) && isBox(was)) {
         for (const { name } of [...was.attributes]) if (!node.hasAttribute(name)) was.removeAttribute(name);

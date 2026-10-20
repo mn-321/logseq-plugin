@@ -99,6 +99,10 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - Do not type into Logseq's developer console through the screen: a missed click sends the keys to Logseq as
   shortcuts. Read values with the tour, the troubleshooting tools or the command line instead.
 - Logseq's own Cmd+Z goes back further than the test: undo one step at a time and run the graph check after each.
+- Take a screenshot before every click on a dialog: a changed wording moves its buttons, and a missed click looks like
+  "nothing happened". A graph that is unchanged after a test only proves something if the action is seen to happen.
+- Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
+  added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 
 ## Known limits
 

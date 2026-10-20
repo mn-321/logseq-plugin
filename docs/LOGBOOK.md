@@ -2,6 +2,26 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Faster map and choices within Logseq's limits (0.4.190, 0.4.191)
+
+**Done means:** the faster tag map on main; making a choice its own child tag keeps the old choice and Undo puts the
+graph back exactly; "Add a choice" leads to Logseq's own settings instead of failing.
+
+**Owner's pick:** keep the old choice in the list when it becomes a child tag; the owner removes it when nothing needs it.
+
+**Checks:** `check.sh` passed; the tag map redraw on the pretend 600-tag graph shows a change in 105 to 124 ms, nothing
+moved, with the limit back at 0.4 s.
+
+**Seen in Logseq (0.4.191):** the dialog for "Pathology" on #Report says the choice stays. Making it moved both
+pathology reports (28 tags, 23 reports), the message read "2 nodes moved to #Pathology; “Pathology” is still a choice
+of kind", and Undo brought back 27 tags and 25 reports; the graph check matched the fingerprint exactly. The choices
+panel shows "Add a choice in its settings ⇥", which opens the kind property in the right sidebar.
+
+**On the way:** the dialog had grown a line, so two clicks at the old place of its button missed (nothing happened,
+the graph check agreed). Opening the kind property's page made Logseq save an "All" view; removed.
+
+**Not checked:** renaming a tag, changing what a link accepts, renaming or moving a choice, description editing.
+
 ## 2026-10-20 · Second reading, tour fixes, merged (0.4.189)
 
 **Second reader:** nothing serious; three small faults in the tour (a logged value that cannot become text could break
