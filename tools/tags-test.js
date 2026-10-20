@@ -53,7 +53,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   pretendLogseq(window);
   const source = fs.readFileSync(path.join(root, 'parts/tags.js'), 'utf8');
   const exposed = source.replace(/\}\)\(\);\s*$/, 'window.__createView = createView; })();');
-  if (exposed === source) { console.log('PROBLEM: the end of parts/tags.js changed; tools/tags-test.js cannot reach the map'); process.eit(1); }
+  if (exposed === source) { console.log('PROBLEM: the end of parts/tags.js changed; tools/tags-test.js cannot reach the map'); process.exit(1); }
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
   window.eval(exposed);
   const doc = window.document;

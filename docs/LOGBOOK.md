@@ -2,6 +2,52 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Every edit on the tag map tried in Logseq (0.4.193, 0.4.194)
+
+**Done means:** each map edit never tried in the real app is made once in the Illness Test Graph, seen, undone, and
+the graph check matches after each; whatever fails is fixed with a check first.
+
+**Seen in Logseq (0.4.192, on #Report):**
+- *Renaming a property* (summary → "summary test"): renamed on the map with Undo; Undo put it back. Graph matched.
+- *Renaming a tag* (#Report → "Report test", with r): renamed with Undo; Undo put it back. Graph matched.
+- *Changing what a link accepts* (ordered by: added #Appointment): showed "#Doctor, #Appointment" with Undo; Undo put
+  it back. Graph matched.
+- *Renaming a choice* (Unclear on result): renamed everywhere, but the message had no Undo (the only map edit
+  without one); renamed back by hand. Graph matched. **Fixed in 0.4.194**: the message has Undo; seen working.
+- *Moving a choice*: **failed.** Up: Logseq refused ("DB write failed with invalid data"). Down (Normal): Normal
+  went last with the same place number as Unclear, and Logseq wrote "result: Normal" on the result property's own
+  page. Put back: Logseq's Cmd+Z once (the order came back, with another place number), the stray value removed with
+  `logseq upsert page --id … --remove-properties`, the place number set back with `logseq upsert block --id …
+  --update-properties '{:block/order "b1A"}'` (the command line does write `:block/order`). Graph matched.
+  **Fixed in 0.4.193**: no ↑/↓ in the choices panel; "Add or reorder in its settings ⇥" opens the property in the
+  right sidebar, and the note says where Logseq's own list is (the column headed with the property's name →
+  Available choices, where choices have drag handles; seen, not dragged).
+- *A tag's description* (Add a description … on #Report): shown under the tag with Undo; Undo took it away. Graph matched.
+- *Two-way wording* (ordered by → "ordered test"): Undo worked; done again, Dr. Mei Chen's page read
+  "ordered test → 7 Reports"; emptied again, the settings back exactly as before.
+- *Turning a row off* (ordered by): the map said "not shown there", Dr. Mei Chen's page lost the row; Turn on put it
+  back; settings exactly as before.
+
+**The error after renaming (item 2):** Logseq's own title editing (Nausea → "Nause testa" → Nausea) logs no error;
+each rename through the plugin call (`logseq.Editor.renamePage`, tag or property, and its Undo) logs Logseq's
+`TypeError … 'toLowerCase'` for `:page/renamed`. Logseq's own fault in its plugin rename; the rename itself is done. Moving on.
+
+**Checks:** `check.sh` passes. New `tools/tags-test.js` (pretend window): an open property box stays with its own
+property after a redraw (fails with the 0.4.192 line taken out; the missing ratchet from that reading), the choices
+panel offers no moving, a renamed choice can be undone. One `check.sh` run failed while Logseq was busy (that run's
+map timings were 2 to 3 times the usual); three runs after it passed.
+
+**Tour (0.4.194):** all 12 stops; rows came with the title (53 to 107 ms); only Logseq's own blocks moved (Appointment
+0.28 on its first visit, as known); no console errors; the plugin's warnings 0. Graph check after: as it was (922).
+
+**On the way:** opening the result property in the sidebar made Logseq save "All" views for result and kind; removed
+only after closing them in the sidebar (removed while open, Logseq made them again at once).
+
+**Second reading:** nothing wrong in the plugin; one misspelt call in the new test's failure path and a stray blank line, both fixed.
+
+**Not checked:** removing a choice (every choice in the graph is in use; removing has no Undo, by Logseq's limit);
+dragging choices in Logseq's own list.
+
 ## 2026-10-20 · Faster map and choices within Logseq's limits (0.4.190, 0.4.191)
 
 **Done means:** the faster tag map on main; making a choice its own child tag keeps the old choice and Undo puts the

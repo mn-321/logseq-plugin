@@ -1358,7 +1358,6 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
         if (list.some(c => c !== choice && c.title.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
         run(() => renameChoice(prop, choice, title), `“${choice.title}” could not be renamed`, `“${choice.title}” is now “${title}” everywhere`,
           () => renameChoice(prop, choice, choice.title)); // a rename can be undone (0.4.194); a removal cannot: Logseq lets only itself make a choice
-
       }, () => choice.title);
       const button = (label, text, enabled, job) => el(doc, 'button', { class: 'rtg-cb', title: text, 'aria-label': text, disabled: enabled ? null : '', click: event => { event.stopPropagation(); if (enabled) job(); } }, label);
       box.append(el(doc, 'div', { class: 'rtg-crow' }, input,

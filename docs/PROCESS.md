@@ -102,6 +102,9 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - Logseq's own Cmd+Z goes back further than the test: undo one step at a time and run the graph check after each.
 - Take a screenshot before every click on a dialog: a changed wording moves its buttons, and a missed click looks like
   "nothing happened". A graph that is unchanged after a test only proves something if the action is seen to happen.
+- Logseq re-makes an "All" view at once while its page is open in the sidebar: close it there first, then remove it.
+- The command line can put a block's hidden place back (`logseq upsert block --id … --update-properties '{:block/order "…"}'`)
+  and take a value off a page (`logseq upsert page --id … --remove-properties '[:user.property/…]'`).
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
   added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 
