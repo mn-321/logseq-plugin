@@ -5,8 +5,8 @@
    points to, Logseq lists the record under a tab named after the record's tag ("Appointment"), below the
    page's own blocks, so nothing there says how the two belong together. This part draws the far end as a
    row in the page's own property list, with grey names like any property's (0.4.141), read-only:
-     ← report of    Chest X-ray Aug 3 · Appointment
-     ← doctor of    9 Appointments · next Nov 12 ▾   (opens into the list of those records)
+     report of →    Chest X-ray Aug 3 · Appointment
+     doctor of →    9 Appointments · next Nov 12 ▾   (opens into the list of those records)
    One row per field that points here, named by the field read backwards ("doctor" → "doctor of", "prescribed
    by" → "prescribed", or a name from the twoWayNames setting). Up to three records show inline; more become
    a count with the nearest date, which opens into the list (open to begin with, as asked: "the details …
@@ -21,10 +21,10 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
     legend: 'Records that point at this page, as rows in its own properties',
-    zone: '<div><span class="m">← doctor of</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
+    zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow before its name: “← doctor of   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). A link is not removed from here: change it on the record that holds the field.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). A link is not removed from here: change it on the record that holds the field.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -240,7 +240,7 @@ const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" hr
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
   const tip = `“${esc(group.name)}” on the records listed here points to this page. Change it on the record.`;
-  const label = `<span class="rf-tw-arrow">←</span>${esc(group.label)}`;
+  const label = `${esc(group.label)}<span class="rf-tw-arrow">→</span>`;
   const name = group.fieldUuid
     ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
@@ -582,11 +582,11 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
 
 const twoWayCss = `
 /* Under the page's own properties, on the same light field: these rows are the far end of a field held by other
-   records, so they read like properties but are not this page's own; the ← before the name says so. The names are
+   records, so they read like properties but are not this page's own; the → after the name, pointing at the records that hold the field, says so (a ← before the name until 0.4.186). The names are
    the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box).
    Sizes and columns are Logseq's own property rows above, as measured in 2.0.2 (0.4.144): the text at the page's
    size (the names .94 of it, as theirs), a 150px name column, a 12px gap, the values 22px in where theirs start
-   after their bullet, 28px rows; the ← sits where their property icon does, 15px and a 4px gap before the name. */
+   after their bullet, 28px rows; the name starts where theirs does, after the room of their property icon (15px and a 4px gap), and the → follows it. */
 .refinement-two-way {
   --rf-tw-accent: var(--ls-secondary-text-color, currentColor);
   margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .6rem -.5rem; padding: .3rem .9rem .3rem .5rem;
@@ -597,7 +597,8 @@ const twoWayCss = `
 .refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; padding: 0; background: none; }
 .refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
 .refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; }
-.refinement-two-way .rf-tw-arrow { display: inline-block; width: 19px; opacity: .85; }
+.refinement-two-way .rf-tw-name { padding-left: 19px; }
+.refinement-two-way .rf-tw-arrow { display: inline-block; margin-left: .35em; opacity: .85; }
 .refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
 .refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }

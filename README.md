@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.185.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.186.
 
 **For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -123,7 +123,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The link box lists your pages | `linkBoxList` | on | Links and references |
 | The link box opens beside the words | `linkBoxBeside` | on | Links and references |
 | The link box lists blocks too | `linkBoxNodes` | on | Links and references |
-| Links read the same from both ends (a row “← doctor of …” on the page a field points to, grey names, lines open on a click, a card on hover, kinds to filter by, a + to add a linked record) | `twoWayRows` | on | Two-way links |
+| Links read the same from both ends (a row “doctor of → …” on the page a field points to, grey names, lines open on a click, a card on hover, kinds to filter by, a + to add a linked record) | `twoWayRows` | on | Two-way links |
 | Fields read backwards (names for those rows) | `twoWayNames` | a few pairs | Two-way links |
 | Fields shown from one end only (no row on the page they point to; set from the tag tree too) | `twoWayOneEnd` | empty | Two-way links |
 | Leave out Logseq's tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |

@@ -1100,7 +1100,7 @@ function propDetails(view, tag, prop, from) {
     : 'On: the page it points to lists these at the top again.',
     click: event => { event.stopPropagation(); tw.setShownAtOtherEnd(prop.title, !shown); view.showToast(shown ? `${prop.title} no longer shows on the other page; the links stay` : `${prop.title} shows on the other page again`, () => tw.setShownAtOtherEnd(prop.title, shown)); } },
     shown ? 'Turn off' : 'Turn on');
-  line('On the other page', el(doc, 'span', { class: 'rtg-note' }, '←'), input, shown ? null : el(doc, 'span', { class: 'rtg-off rtg-note' }, 'not shown there'), turn);
+  line('On the other page', input, el(doc, 'span', { class: 'rtg-note' }, '→'), shown ? null : el(doc, 'span', { class: 'rtg-off rtg-note' }, 'not shown there'), turn);
   return box;
 }
 // The links that point at a tag from elsewhere, as the tag's page shows them.
@@ -1109,7 +1109,7 @@ function pointerRow(view, tag) {
   const row = el(doc, 'div', { class: 'rtg-pointrow' }, el(doc, 'span', { class: 'rtg-note' }, 'Shows up here as'));
   for (const prop of tag.pointers) {
     const on = tw ? tw.shownAtOtherEnd(prop.title) : true;
-    row.append(el(doc, 'span', {}, '← ', el(doc, 'span', { class: 'rtg-val' }, tw ? tw.backwardsLabel(prop.title) : prop.title),
+    row.append(el(doc, 'span', {}, el(doc, 'span', { class: 'rtg-val' }, tw ? tw.backwardsLabel(prop.title) : prop.title), ' →',
       prop.givenBy?.length ? el(doc, 'span', { class: 'rtg-note' }, ` filled in on ${prop.givenBy.map(t => '#' + t.title).join(', ')}`) : '', on ? '' : el(doc, 'span', { class: 'rtg-off rtg-note' }, ' (turned off)')));
   }
   return row;
