@@ -123,7 +123,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | The link box lists your pages | `linkBoxList` | on | Links and references |
 | The link box opens beside the words | `linkBoxBeside` | on | Links and references |
 | The link box lists blocks too | `linkBoxNodes` | on | Links and references |
-| Links read the same from both ends (a row “→ doctor of …” on the page a field points to, grey names, lines open on a click, a card on hover, kinds to filter by, a + to add a linked record) | `twoWayRows` | on | Two-way links |
+| Links read the same from both ends (a row “doctor of → …” on the page a field points to, grey names, lines open on a click, a card on hover, kinds to filter by, a + to add a linked record) | `twoWayRows` | on | Two-way links |
 | Fields read backwards (names for those rows) | `twoWayNames` | a few pairs | Two-way links |
 | Fields shown from one end only (no row on the page they point to; set from the tag tree too) | `twoWayOneEnd` | empty | Two-way links |
 | Leave out Logseq's tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
