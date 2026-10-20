@@ -145,7 +145,7 @@ async function main() {
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
-  const wantTools = ['check-what-is-found', 'copy-perf-report', 'copy-styling-details', 'copy-warnings', 'toggle-perf',
+  const wantTools = ['check-what-is-found', 'copy-perf-report', 'copy-styling-details', 'copy-warnings', 'take-the-tour', 'toggle-perf',
     ...(has('links') ? ['check-link-labels'] : []), ...(has('properties') ? ['copy-fold-log'] : []), ...(has('pages') ? ['copy-header-details'] : [])].sort();
   if (toolKeys.join() !== wantTools.join())
     problem('troubleshooting tools: ' + toolKeys.join(', '));
@@ -229,7 +229,7 @@ async function main() {
   const keys4 = logseq4.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0].key).sort();
   if (keys4.join() !== 'show-settings,troubleshooting') problem('palette commands with Foundation only on: ' + keys4.join(', '));
   const tools4 = logseq4.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
-  if (tools4.join() !== 'check-what-is-found,copy-perf-report,copy-styling-details,copy-warnings,toggle-perf') problem('troubleshooting tools with Foundation only on: ' + tools4.join(', '));
+  if (tools4.join() !== 'check-what-is-found,copy-perf-report,copy-styling-details,copy-warnings,take-the-tour,toggle-perf') problem('troubleshooting tools with Foundation only on: ' + tools4.join(', '));
   if (!logseq4.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinements-dialog')) problem('the dialogs’ look was not sent with Foundation only on');
   console.log(`foundation only: ${keys4.length} palette commands (${keys4.join(', ')}), nothing drawn`);
   await logseq4._unload();
