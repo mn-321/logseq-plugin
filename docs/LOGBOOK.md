@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · A page's tag written after its link (0.4.209)
+
+**The owner:** "create a new page in the bullet `[[example]]#tag1` and if one of the properties is connected to
+`#tag1`, then it should pop up in the proposal"; agreed: no space means the page's tag, filling in tags the page and
+takes the tag off the bullet. **Found on screen first:** typed as is, Logseq makes the bullet the #Doctor; picked from
+Logseq's own tag list with Enter right after a link, Logseq already gives the tag to the page (the proposal then shows
+the linked doctor as usual). **Seen after:** "Phone call with [[Dr Other Test]]#Doctor today" #Consultation showed
+"Provider: Dr Other Test #Doctor"; Enter gave the page #Doctor, filled Provider, took #Doctor off the bullet and its
+words; Undo put all of it back. Second reading's fixes (the bullet's own tag kept, Enter between link and tag moves
+nothing, Undo keeps later words, no spill into "with") are pretend-checked; the main path was seen again after them.
+Test bullets and pages removed with the command line; the owner's empty bullet on Oct 20 put back as it was.
+
 ## 2026-10-20 · Option-Enter on capsules and rows, every kind but dates (0.4.205)
 
 **The owner:** "test this on bullets with completely empty properties, both capsules and bullet style". Two test

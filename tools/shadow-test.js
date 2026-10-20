@@ -26,15 +26,15 @@ const { piecesFor, addHistory } = window.refinementShadowInner;
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
 const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10 };
 const prop = (id, title, type, classes = [], many = false) => ({ id, ident: 'user.property/' + title.replace(/\W/g, '-').toLowerCase(), title, lower: title.toLowerCase(), type, many, classes: classes.map(c => ({ id: c, uuid: 'tag-' + c, title: 'Tag ' + c })) });
-const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true)];
+const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default')];
 const schema = { props, byId: new Map(props.map(p => [p.id, p])),
-  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]]]),
+  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]]]),
   parentsOf: new Map([[T.person, [T.entity]], [T.doctor, [T.person]], [T.place, [T.entity]], [T.hospital, [T.place]], [T.appointment, [T.occurrence]], [T.consultation, [T.appointment]]]) };
 const page = (id, title, tags, extra = {}) => ({ id, uuid: 'page-' + id, title, lower: title.toLowerCase(), tags: tags.map(t => ({ id: t, title: 'Tag ' + t, ident: 'user.class/t' + t })), isTag: false, ...extra });
 const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel', [T.doctor]), page(102, 'Ruth Okoro', [T.person]), page(103, 'Hannah Reyes', [], { tags: [{ id: 999, title: 'Page', ident: 'logseq.class/Page' }] }),
   page(104, 'Northgate Cancer Center', [T.hospital]), page(105, 'Nausea', [T.symptom]), page(106, 'Northgate', []), page(107, 'Fatigue', [T.symptom]),
   page(108, 'Tingling fingers', [T.symptom]), page(109, 'Cold sensitivity', [T.symptom]), { id: 200, uuid: 'tag-8', title: 'Consultation', lower: 'consultation', tags: [], isTag: true },
-  { id: T.log, uuid: 'tag-9', title: 'Symptom log', lower: 'symptom log', tags: [], isTag: true }, { id: T.symptom, uuid: 'tag-10', title: 'Symptom', lower: 'symptom', tags: [], isTag: true }];
+  { id: T.log, uuid: 'tag-9', title: 'Symptom log', lower: 'symptom log', tags: [], isTag: true }, { id: T.doctor, uuid: 'tag-3', title: 'Doctor', lower: 'doctor', tags: [], isTag: true }, { id: T.symptom, uuid: 'tag-10', title: 'Symptom', lower: 'symptom', tags: [], isTag: true }];
 const byKey = new Map(), byId = new Map();
 for (const p of pages) { byKey.set(p.lower, p); byKey.set(p.uuid, p); byId.set(p.id, p); }
 const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }]]),
@@ -52,6 +52,7 @@ const bullet = (title, tags, on, extra = {}) => ({ 'db/id': 1000 + Math.floor(Ma
 // A guess (piece 2, taken only with Enter) is shown with a "?".
 const shown = pieces => pieces.map(p => `${p.prop.title}=${p.shown}${p.guess ? '?' : ''}${p.note ? ' (' + p.note + ')' : ''}`).join(' · ') || '(nothing)';
 let cases = 0;
+const pickTitle = node => node?.['block/title'];
 function expect(name, { record, pieces }, want) {
   cases++;
   const got = shown(pieces);
@@ -109,6 +110,50 @@ expect('same line before', piecesFor(bullet('x', [T.log], journal), 'Wiped out a
 expect('same line before, disagreeing', piecesFor(bullet('x', [T.log], journal), 'Bad day.', ctx), 'Date=Oct 20');
 // 12. Two doctors linked keep the doctor quiet: no guess either (Jul 17 in the Illness Test Graph).
 expect('two doctors, no guess', piecesFor(bullet('x', [T.consultation], journal), 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] with Dr. Patel', ctx), '(nothing)');
+
+// 21. A tag written right after a link, with no space, is the page's (0.4.209, at the owner's word): Logseq tags the
+//     bullet #Doctor, but the page goes in the property that takes #Doctor, sure, saying the tag it will get; Doctor's
+//     own properties on the bullet are skipped by Option-Enter. With a space, the tag is the bullet's, as in Logseq.
+const newDoc = piecesFor(bullet('x', [T.consultation, T.doctor], journal), 'Call with [[Dr. Test New]]#Doctor', ctx);
+expect('page tagged in the words, new page', newDoc, 'doctor=Dr. Test New #Doctor');
+cases++;
+if (newDoc.skip?.join() !== 'specialty') problem(`page tagged in the words: Option-Enter would go to ${newDoc.skip?.join() ? 'all but ' + newDoc.skip.join() : 'Doctor\'s own properties'}`);
+expect('page tagged in the words, already a doctor', piecesFor(bullet('x', [T.consultation, T.doctor], journal), 'Saw [[Dr. Mei Chen]]#Doctor', ctx), 'doctor=Dr. Mei Chen');
+expect('page tagged in the words, page with no tag', piecesFor(bullet('x', [T.appointment, T.doctor], journal), 'Call with [[Hannah Reyes]]#Doctor', ctx), 'doctor=Hannah Reyes #Doctor');
+expect('page tagged in the words, with a space', piecesFor(bullet('x', [T.consultation, T.doctor], journal), 'Call with [[Dr. Test New]] #Doctor', ctx), '(nothing)');
+const tagNote = piecesFor(bullet('x', [T.doctor], journal, { 'block/parent': bullet('Visit', [T.appointment], journal) }), 'Rang [[Dr. Test New]]#Doctor', ctx);
+expect('page tagged in the words, in a note', tagNote, 'doctor=Dr. Test New #Doctor');
+cases++;
+if (pickTitle(tagNote.record) !== 'Visit') problem('page tagged in the words, in a note: the pieces are not for the record above');
+// A tag no property of the record takes stays the bullet's (a symptom log has no doctor): nothing moved.
+const noPlace = piecesFor(bullet('x', [T.log, T.doctor], journal), 'Rang [[Dr. Test New]]#Doctor', ctx);
+expect('page tagged in the words, no place for it', noPlace, 'Date=Oct 20');
+cases++;
+if (noPlace.skip?.length) problem('page tagged in the words, no place for it: Doctor\'s properties are skipped though the bullet keeps the tag');
+// From the second reading: the bullet's own tag is never set aside; a doctor linked beside the tagged page does not
+// spill into "with"; a filled doctor, or two pages for one doctor, leave the tag to Logseq; "#Doctor's" is not #Doctor.
+const ownKept = piecesFor(bullet('x', [T.appointment, T.doctor], journal), 'Call with [[Dr. Test New]]#Doctor', ctx, new Set([T.doctor]));
+expect('page tagged in the words, the bullet\'s own tag', ownKept, '(nothing)');
+cases++;
+if (ownKept.skip?.length) problem('page tagged in the words, the bullet\'s own tag: its properties are skipped');
+expect('page tagged in the words, no spill', piecesFor(bullet('x', [T.appointment, T.doctor], journal), 'Saw [[Dr. Mei Chen]] and [[Dr. Test New]]#Doctor', ctx), 'doctor=Dr. Test New #Doctor');
+expect('page tagged in the words, doctor filled', piecesFor(bullet('x', [T.appointment, T.doctor], journal, { 'user.property/doctor': { 'db/id': 101 } }), 'Saw [[Dr. Test New]]#Doctor', ctx), '(nothing)');
+expect('page tagged in the words, two for one doctor', piecesFor(bullet('x', [T.appointment, T.doctor], journal), 'Saw [[Ann New]]#Doctor and [[Bo New]]#Doctor', ctx), '(nothing)');
+expect('page tagged in the words, a longer word', piecesFor(bullet('x', [T.appointment], journal), 'Saw [[Dr. Test New]]#Doctor\'s nurse', ctx), '(nothing)');
+// Filling in takes the tag out of the words, whichever way Logseq saved it.
+const { withoutPageTag } = window.refinementShadowInner;
+const drNew = { uuid: 'aaaa-1', title: 'Dr. Test New' };
+for (const [title, tag, want] of [['Call with [[aaaa-1]]#Doctor today', { lower: 'doctor' }, 'Call with [[aaaa-1]] today'],
+  ['Call with [[Dr. Test New]]#[[bbbb-2]]', { lower: 'doctor' }, 'Call with [[Dr. Test New]]'],
+  ['[[aaaa-1]]#Symptom log, bad', { lower: 'symptom log' }, '[[aaaa-1]], bad'],
+  ['Saw [[aaaa-1]] #Doctor', { lower: 'doctor' }, 'Saw [[aaaa-1]] #Doctor']]) {
+  cases++;
+  const got = withoutPageTag(title, drNew, tag);
+  if (got !== want) problem(`page tagged in the words, filling in: "${title}" became "${got}"; wanted "${want}"`);
+}
+cases++;
+const back = window.refinementShadowInner.withPageTag('Call with [[aaaa-1]] today, and more', drNew, '#Doctor');
+if (back !== 'Call with [[aaaa-1]]#Doctor today, and more') problem(`page tagged in the words, Undo after more was written: "${back}"`);
 
 const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
 // 13. Enter takes the guesses (the owner: "enter confirms"; 0.4.202). A click on a proposed value does nothing, and
