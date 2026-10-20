@@ -241,6 +241,8 @@ function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
   const tip = `“${esc(group.name)}” on the records listed here points to this page. Change it on the record.`;
   const label = `${esc(group.label)}<span class="rf-tw-arrow">→</span>`;
+  // A row that folds has its chevron just before its list, in the room left of the values (0.4.195, the owner's ask).
+  const fold = group.items.length > INLINE ? `<a class="rf-tw-fold" data-key="${esc(key)}" href="#" title="${isOpen(key) ? 'Fold the list' : 'Open the list'}" aria-label="${isOpen(key) ? 'Fold' : 'Open'} ${esc(group.label)}"><span class="rf-tw-chevron"></span></a>` : '';
   const name = group.fieldUuid
     ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
@@ -267,7 +269,7 @@ function rowHtml(group) {
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
   }
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value"><a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}<span class="rf-tw-chevron"></span></a>${addLink(group)}</div>${list}</div>`;
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}</div>`;
 }
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
 const OPEN_KEY = 'refinementTwoWayOpen';
@@ -474,7 +476,7 @@ function onClick(event) {
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
   if (target.matches('.rf-tw-add')) return openAdd(target).catch(error => { warnOnce('could not open the new record box', error); });
   const key = target.dataset.key;
-  if (target.matches('.rf-tw-toggle')) setOpen(key, !isOpen(key));
+  if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
   else if (target.matches('.rf-tw-chip, .rf-tw-tag')) {
     const tag = target.dataset.tag || '';
@@ -607,8 +609,12 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
 .refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }
-.refinement-two-way .rf-tw-chevron { display: inline-block; width: 7px; height: 8px; margin-left: .45em; background: currentColor; opacity: var(--rf-faint, .5);
+.refinement-two-way .rf-tw-value { position: relative; }
+.refinement-two-way .rf-tw-fold { position: absolute; left: 3px; top: .75em; width: 16px; height: 16px; margin-top: -8px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--ls-secondary-text-color); }
+.refinement-two-way .rf-tw-fold:hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
+.refinement-two-way .rf-tw-chevron { display: inline-block; width: 7px; height: 8px; background: currentColor; opacity: var(--rf-faint, .5);
   clip-path: polygon(0 0, 100% 50%, 0 100%); transition: transform .16s ease; }
+.refinement-two-way .rf-tw-fold:hover .rf-tw-chevron { opacity: 1; }
 .refinement-two-way .rf-tw-row[data-open] .rf-tw-chevron { transform: rotate(90deg); }
 /* The list a count opens into: date, record, tag, one per line, under the value. */
 .refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 22px; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: .6rem; }
