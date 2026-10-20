@@ -120,7 +120,8 @@ stretch, the entries are gathered on one page for the owner with the pictures.
   "Linked references" block for the day; remove it after leaving the page, like the "All" view.
 - Deleting a graph in Logseq 2.0.2 only unlinks it: its folder moves to `~/logseq/graphs/Unlinked graphs`, and a new graph
   of the same name becomes "Name-1" until that folder is gone. Rebuilding: delete in the app, the owner trashes the
-  unlinked folder, create in the app, switch to another graph, import, `server stop`, open.
+  unlinked folder, create in the app, switch to another graph, import, `server stop`, open, then Logseq's **Rebuild search
+  index** (palette): an imported graph has none, and `[[ ]]` and search then find no page that exists.
 - A freshly imported graph saves a view block ("All", "Linked references") the first time each page is opened: run the tour
   once, then save the fingerprint.
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
