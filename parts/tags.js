@@ -460,6 +460,8 @@ const css = `
 .refinement-tags .rtg-addrow { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 24px; }
 .refinement-tags .rtg-addrow::before { content: '#'; color: var(--rtg-hue, var(--rtg-plain)); }
 .refinement-tags .rtg-input { flex: 1; min-width: 0; padding: 2px 8px; border: 1px solid var(--rtg-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
+/* Renaming in place keeps the row's height (0.4.182): the box's padding and border sit in the row's own spacing. */
+.refinement-tags .rtg-line > .rtg-input { box-sizing: border-box; height: 1.5em; margin-block: 0; padding-block: 0; line-height: 1; }
 .refinement-tags .rtg-addrow .rtg-small { white-space: normal; }
 .refinement-tags .rtg-missing { display: flex; align-items: baseline; gap: 12px; padding: 5px 8px 5px 24px; }
 .refinement-tags .rtg-missing .rtg-ghost { font-size: 19px; font-weight: 600; color: var(--rtg-faint); }
@@ -1420,6 +1422,10 @@ function draw(view) {
   const pass = { q, keep, visible: tag => !q || keep.has(tag.id), rootIds: null, section: '' }; // what every piece of the drawing reads
   const scrollKeep = view.box.closest('.sidebar-item-list, .cp__sidebar-main-content, #main-content-container') || view.doc.scrollingElement;
   const top = scrollKeep?.scrollTop;
+  // The row with the cursor stays where it is on screen (0.4.182): a renamed tag that sorts elsewhere, or a tag
+  // moved under another, brings the map along with it instead of jumping away from under the eye.
+  const held = view.cursorTag != null && (view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag));
+  const heldTop = held?.row?.isConnected ? held.row.getBoundingClientRect().top : null;
   view.shown = [];
   const rootList = view.roots();
   pass.rootIds = new Set(rootList.filter(r => r.tag).map(r => r.tag.id));
@@ -1441,6 +1447,17 @@ function draw(view) {
   }
   view.mark(false);
   if (scrollKeep && top != null) scrollKeep.scrollTop = top;
+  const again = heldTop != null && view.shown.find(item => item.key === view.cursorKey)?.row;
+  const scroller = again?.isConnected && scrollingParent(view.box);
+  if (scroller) scroller.scrollTop += again.getBoundingClientRect().top - heldTop;
+}
+
+// The element that actually scrolls the map (in the main view an inner box of Logseq's, not the one named above).
+function scrollingParent(node) {
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    if (el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(el.ownerDocument.defaultView.getComputedStyle(el).overflowY)) return el;
+  }
+  return node.ownerDocument.scrollingElement;
 }
 
 // One tag's row and, unless folded, the rows of the tags inside it.
