@@ -194,6 +194,68 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadowInner.drawInPlace(doc);
   cases++;
   if (doc.querySelector('[data-refinement-proposal]')) problem('a marked pill with nothing of ours in it keeps hiding Logseq\'s empty value');
+
+// 17. Option-Enter (0.4.204): from the words, Logseq's own list opens for the first property that is empty and has
+//     nothing proposed; Tab goes on to the next; Escape in the list comes back to the end of the words.
+{
+  const doc = window.document, edited = [];
+  window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push([uuid, opts?.pos]); };
+  const pill = (name, inner) => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content">${inner}</span></div>`;
+  const empty = id => `<div class="empty-value" data-type="node"><div class="jtrigger" id="${id}">—</div></div>`;
+  doc.body.innerHTML = '<div class="ls-block" blockid="b-opt"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
+    + '<textarea>Post-op check with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
+    + pill('doctor', empty('t-doctor')) + pill('with', empty('t-with')) + pill('hospital', empty('t-hospital')) + '</div></div></div></div></div></div>';
+  const box = doc.querySelector('textarea');
+  box.focus();
+  const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
+  window.refinementShadow.live = { uuid: 'b-opt', recordUuid: 'b-opt', text: box.value, pieces: [guess] };
+  window.refinementShadowInner.drawInPlace(doc);
+  const pressed = [];
+  for (const id of ['t-doctor', 't-with', 't-hospital']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
+  cases++;
+  if (pressed.join() !== 't-with') problem(`Option-Enter: opened ${pressed.join() || 'nothing'}; wanted the first empty property with nothing proposed ("with")`);
+  // Logseq's list, as it opens: its own box, which takes the keys.
+  const list = doc.createElement('div'); list.className = 'cp__select'; list.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list);
+  list.querySelector('input').focus();
+  list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 120));
+  cases++;
+  if (pressed.join() !== 't-with,t-hospital') problem(`Tab in the list: opened ${pressed.join()}; wanted "hospital" next`);
+  list.querySelector('input').focus(); // the next list, as Logseq opens it, takes the keys
+  await new Promise(resolve => setTimeout(resolve, 150));
+  list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  list.remove(); box.blur();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  cases++;
+  if (edited.map(e => e.join(':')).join() !== `b-opt:${box.value.length}`) problem(`Escape in the list: went back to ${edited.map(e => e.join(':')).join() || 'nothing'}; wanted the end of the words`);
+  // A press that opens nothing (no list takes the focus): nothing is taken, the bullet stays as it was (second reading).
+  cases++;
+  edited.length = 0;
+  box.focus();
+  const before = window.refinementShadow.live;
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 800));
+  if (window.refinementShadow.picking.uuid || before?.left || edited.length) problem('Option-Enter that opens nothing: it took the values, went somewhere, or stayed waiting');
+  window.refinementShadow.live = null;
+  window.refinementShadowInner.drawInPlace(doc);
+}
+// 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
+{
+  const doc = window.document;
+  doc.body.innerHTML = '<div class="ls-block" blockid="b-hush"><textarea>Wiped out all day.</textarea></div>';
+  const box = doc.querySelector('textarea');
+  box.focus();
+  window.refinementShadow.live = { uuid: 'b-hush', recordUuid: 'b-hush', text: box.value, pieces: [] };
+  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  cases++;
+  if (window.refinementShadow.hushed.uuid !== 'b-hush') problem('Escape: the proposals are not cleared for the bullet');
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
+  box.blur();
+  await new Promise(resolve => setTimeout(resolve, 200));
+  cases++;
+  if (window.refinementShadow.hushed.uuid) problem('Escape: the bullet stays cleared after it is left, so its proposals never come back');
+}
 if (problems.length) { console.log(`proposals rules: FAILED (${problems.length})`); process.exit(1); }
 console.log(`proposals rules: OK (${cases} cases on a pretend graph)`);
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

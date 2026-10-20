@@ -104,6 +104,9 @@ stretch, the entries are gathered on one page for the owner with the pictures.
   shortcuts. Read values with the tour, the troubleshooting tools or the command line instead.
 - Before typing into a bullet, zoom in and see the caret: a click beside the words can leave Logseq out of edit, and
   the letters then go in as shortcuts. On a Mac, End scrolls the page; Cmd+Right moves the caret to the line's end.
+- Taking a value off with `logseq upsert block --remove-properties` leaves Logseq's link records (`block/refs`) behind, so
+  the bullet still shows in the old value's Linked references: re-save its words with `--content "<the same words>"`,
+  then run the graph check.
 - The Undo bar lasts 7 seconds: press Undo in the same batch as the action that shows it, or take the test values off
   with the command line.
 - Run the tag map speed test with the screen released: while Claude controls the screen it ran six times slower and failed.

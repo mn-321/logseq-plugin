@@ -5,8 +5,8 @@
 
    While you write a bullet, what the plugin is sure of shows faintly in the bullet's own properties (since 0.4.201;
    it was a line under the bullet), and is filled in when you leave the bullet (Enter, a click elsewhere, the
-   arrows): nothing is written before that, and the bar at the bottom offers Undo after. Escape clears it, and that
-   bullet is left alone for good. The words typed are never changed.
+   arrows): nothing is written before that, and the bar at the bottom offers Undo after. Escape clears it until the
+   bullet is next edited (0.4.204; for good before). The words typed are never changed.
 
    The record a bullet belongs to is the bullet itself when its tags give it properties, else its parent when the
    parent's do (notes under an appointment belong to the appointment). The sure pieces, for the record's empty
@@ -39,7 +39,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them, and that bullet is then left alone. Your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens Logseq’s own list for the first link property that is empty and has nothing proposed; Tab goes on to the next, and Enter or Escape there comes back to the words. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -350,14 +350,12 @@ const ENTER_LEAVES = 500;
 const state = window.refinementShadow = { live: null, times: [], taken: { uuid: '', keys: new Set() } };
 const guessKey = piece => `${piece.ident} ${piece.ids.join(',')}`;
 const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set();
+// Escape clears the proposals until the bullet is next edited (0.4.204, at the owner's word; before, for good, kept
+// in Logseq's window storage, which is emptied at start so bullets cleared then show their proposals again).
 const OFF_KEY = 'refinementShadowOff';
-let off = new Set();
-const readOff = () => { try { off = new Set(JSON.parse(host().defaultView.localStorage.getItem(OFF_KEY) || '[]')); } catch { off = new Set(); } };
-function dismiss(uuid) {
-  off.add(uuid);
-  while (off.size > 500) off.delete(off.values().next().value);
-  try { host().defaultView.localStorage.setItem(OFF_KEY, JSON.stringify([...off])); } catch { /* kept for this session */ }
-}
+const forgetOld = () => { try { host().defaultView.localStorage.removeItem(OFF_KEY); } catch { /* nothing kept */ } };
+const hushed = state.hushed = { uuid: '' };
+function dismiss(uuid) { hushed.uuid = uuid; }
 const editingBox = el => (el?.matches?.('textarea') && el.closest('.ls-block[blockid]')) ? el : null;
 const uuidOf = box => box.closest('.ls-block[blockid]')?.getAttribute('blockid') || '';
 let liveTimer = 0, liveVersion = 0;
@@ -368,7 +366,7 @@ async function allowed() {
 function clearLive() { state.live = null; state.taken = { uuid: '', keys: new Set() }; hide(); }
 async function compute(box) {
   const uuid = uuidOf(box);
-  if (!uuid || off.has(uuid)) { clearLive(); return; }
+  if (!uuid || hushed.uuid === uuid) { clearLive(); return; }
   const version = ++liveVersion, text = box.value, t0 = performance.now();
   try {
     if (!await allowed()) { clearLive(); return; }
@@ -402,6 +400,10 @@ function onFocusOut(event) {
   const box = editingBox(event.target);
   if (!box) return;
   const uuid = uuidOf(box);
+  // Leaving a bullet whose proposals Escape cleared: they come back the next time it is edited.
+  if (hushed.uuid === uuid) setTimeout(() => { const now = editingBox(host().activeElement); if (!(now && uuidOf(now) === uuid) && picking.uuid !== uuid && picking.returning !== uuid) hushed.uuid = ''; }, 120);
+  // Into a property's list with Option-Enter, or coming back from it: the proposals wait for the words.
+  if (picking.uuid === uuid || picking.returning === uuid) return;
   if (!state.live || state.live.uuid !== uuid) { if (state.taken.uuid === uuid) state.taken = { uuid: '', keys: new Set() }; return; }
   // Enter's taking counts only when the bullet is left right after it: an Enter that kept the bullet in edit (at the
   // very start of its words, or in document mode) must not let a later click away fill in guesses (second reading).
@@ -418,7 +420,7 @@ function onFocusOut(event) {
     takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
   }, 120);
 }
-// Escape clears the shadow, and the bullet is left alone from then on; the caret stays (a second Escape is Logseq's).
+// Escape clears the proposals until the bullet is next edited; the caret stays (a second Escape is Logseq's).
 // Enter (plain, with no list of Logseq's open) takes the guesses too: the bullet is then left as usual, and everything
 // shown is filled in (the owner: "enter confirms I like things"; 0.4.202). Leaving any other way takes the sure values
 // only. Nothing of Enter is held back: Logseq still makes the next bullet.
@@ -447,12 +449,130 @@ function onGuessPress(event) {
   event.stopImmediatePropagation();
   if (event.type !== 'pointerdown') event.preventDefault();
 }
+/* Option-Enter (0.4.204, at the owner's word: "option enter just goes to the empty property that didn't have anything
+   guessed or proposed"): from the words of a bullet, open Logseq's own list for the first of the record's properties
+   that is empty and has nothing proposed (the "Set Topic" list a click on its empty value opens). Tab in that list
+   goes on to the next such property, Shift-Tab back; past either end, back to the words. Enter or Escape in the list
+   (Logseq picks or closes) also comes back to the end of the words, with the proposals still shown; Enter there then
+   fills them in as usual. Leaving the list any other way (a click elsewhere) is leaving the bullet: what is sure is
+   filled in. Logseq has no key of its own into the properties shown under a bullet (tried on screen: Escape and Down
+   go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does. */
+const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, timer: 0, moving: 0, tab: 0, returning: '' };
+const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
+// Only a property whose empty value opens Logseq's list (a link, data-type "node"): a text property opens a block of
+// its own and a date a calendar, which the keys here do not follow (second reading).
+const emptyTrigger = pill => pill.querySelector('.bottom-property-content .empty-value[data-type="node"] .jtrigger');
+// The record's properties that are empty and have nothing proposed, in the order they show, by name: taken once, at
+// Option-Enter, since the proposals may go from the screen while a list is open (found by the pretend check).
+function emptyNames(doc, rowUuid) {
+  const row = recordRow(doc, rowUuid);
+  return row ? pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !p.querySelector('.rfs-ghost') && emptyTrigger(p)).map(pillName) : [];
+}
+// The trigger of the i-th of them, if it is still empty (one picked meanwhile is passed over).
+function triggerAt(doc, i, step) {
+  const row = recordRow(doc, picking.rowUuid);
+  for (; i >= 0 && i < picking.names.length; i += step) {
+    const pill = row && pillsOf(row).find(p => pillName(p) === picking.names[i]);
+    const trigger = pill && emptyTrigger(pill);
+    if (trigger) return { i, trigger };
+  }
+  return null;
+}
+// Presses a trigger as the mouse does: Logseq opens its list on the press, not on a click alone (found in the app).
+function press(el) {
+  const win = el.ownerDocument.defaultView;
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
+    el.dispatchEvent(new (type.startsWith('pointer') && win.PointerEvent ? win.PointerEvent : win.MouseEvent)(type, { bubbles: true, cancelable: true, button: 0, buttons: type.endsWith('down') ? 1 : 0, pointerType: 'mouse', isPrimary: true }));
+}
+// In Logseq's list for a property ("Set Topic"): its own box and results, nothing else (second reading: any input
+// counted before, so the search box kept the keys here).
+const inPicker = el => !!el?.closest?.('.cp__select');
+const OPEN_WAIT = 600, KEY_CLOSES = 400;
+function openAt(doc, i, step = 1) {
+  const found = triggerAt(doc, i, step);
+  if (!found) return backToWords();
+  picking.at = found.i;
+  picking.keyAt = 0;
+  picking.moving = Date.now();
+  press(found.trigger);
+  watchPicker();
+}
+// Watches the focus while a list is meant to be open. The list closed: right after Enter or Escape in it, back to the
+// words; back in the bullet's own words (a click there), simply done; anything else is leaving the bullet, and what
+// is sure is filled in. A press that opened nothing within a moment ends it with nothing taken (second reading).
+function watchPicker() {
+  clearInterval(picking.timer);
+  picking.timer = setInterval(() => {
+    const active = host().activeElement;
+    if (inPicker(active)) { picking.moving = 0; return; }
+    if (picking.moving && Date.now() - picking.moving < OPEN_WAIT) return;
+    const opened = !picking.moving;
+    const box = editingBox(active);
+    if (box && uuidOf(box) === picking.uuid) return endPicking(false);
+    if (!opened) return endPicking(false); // nothing opened
+    if (picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) return backToWords();
+    endPicking(true);
+  }, 100);
+}
+async function backToWords() {
+  const { uuid, text } = picking;
+  endPicking(false);
+  // Coming back is not leaving: the focus-out it may cause takes nothing (second reading).
+  picking.returning = uuid;
+  const box = editingBox(host().activeElement);
+  try {
+    if (!(box && uuidOf(box) === uuid)) await logseq.Editor.editBlock(uuid, { pos: text.length });
+  } catch (error) { warnOnce('could not go back to the words', error); }
+  setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
+}
+function endPicking(left) {
+  const live = picking.live;
+  clearInterval(picking.timer); clearTimeout(picking.tab);
+  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, moving: 0, tab: 0 });
+  if (!left || !live || live.left) return;
+  // Left from the list: as leaving the words, the sure values only.
+  live.left = true;
+  live.taken = new Set();
+  if (state.live === live) { state.live = null; hide(); }
+  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+}
+function onPickKey(event) {
+  if (event.isComposing) return;
+  // Option-Enter in the words (only while the proposals are on).
+  if (event.key === 'Enter' && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+    const box = editingBox(event.target);
+    if (!box || !setting('shadowProposals')) return;
+    const uuid = uuidOf(box), doc = box.ownerDocument;
+    const rowUuid = state.live?.uuid === uuid ? state.live.recordUuid : uuid;
+    const names = emptyNames(doc, rowUuid);
+    if (!names.length) return; // nothing to go to: the key is Logseq's
+    event.preventDefault(); event.stopImmediatePropagation();
+    endPicking(false);
+    Object.assign(picking, { uuid, text: box.value, live: state.live?.uuid === uuid ? state.live : null, rowUuid, names });
+    openAt(doc, 0);
+    return;
+  }
+  if (!picking.uuid || !inPicker(event.target)) return;
+  if (event.key === 'Tab') {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (picking.tab) return; // one move at a time
+    const doc = event.target.ownerDocument, step = event.shiftKey ? -1 : 1, next = picking.at + step;
+    picking.moving = Date.now();
+    picking.ownKey = true; // the Escape that closes this list is the plugin's, not a way back to the words
+    event.target.dispatchEvent(new doc.defaultView.KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+    picking.ownKey = false;
+    picking.tab = setTimeout(() => { picking.tab = 0; if (picking.uuid) openAt(doc, next, step); }, 60);
+    return;
+  }
+  if ((event.key === 'Enter' || event.key === 'Escape') && !picking.ownKey) picking.keyAt = Date.now();
+}
+
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
 const linksOut = text => { const found = String(text || '').match(LINK) || []; return { n: found.length, words: plainWords(String(text || '').replace(LINK, ' ')) }; };
 const sameWords = (saved, text) => { const a = linksOut(saved), b = linksOut(text); return a.n === b.n && a.words === b.words; };
 async function takeShadow(live) {
-  if (!await allowed() || off.has(live.uuid)) return;
+  if (!await allowed() || hushed.uuid === live.uuid) return;
   const ctx = await guessDataFor(await daysFor(await contextFor()), { wait: false });
   let b = null;
   let saved = false;
@@ -593,17 +713,18 @@ function start() {
   ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly']));
   void titleOf;
   applyStyles();
-  readOff();
+  forgetOld();
   const win = host().defaultView;
   listen(win, ['input'], onInput);
   listen(win, ['focusin'], onFocusIn);
   listen(win, ['focusout'], onFocusOut);
+  listen(win, ['keydown'], onPickKey);
   listen(win, ['keydown'], onKey);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
-  onUnload(() => { clearTimeout(liveTimer); clearLive(); });
+  onUnload(() => { clearTimeout(liveTimer); endPicking(false); clearLive(); });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.

@@ -2,7 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
-## 2026-10-20 · Option-Enter to the empty property (done list proposed, not started)
+## 2026-10-20 · Option-Enter built (0.4.204)
+
+**Against the done list:** 1 seen (Option-Enter opened "Set Topic", the Provider proposal still shown); 2 seen for
+Tab past the last, pretend only for Tab onward and Shift-Tab (the graph's consultations have one empty property with
+nothing proposed); 3 seen (after picking Colon cancer the caret was at the end of the words, proposals shown); 4 seen
+(Enter filled Provider and made the next bullet); 5 pretend only. Escape now clears until the next edit (seen).
+How it opens Logseq's list: the plugin presses the empty value's trigger as the mouse does (a plain click on the
+value's outer box opened nothing; found with a temporary probe, removed). The owner was editing the graph meanwhile;
+their edits are left as they are and my test values taken off.
+
+## 2026-10-20 · Option-Enter to the empty property (done list)
 
 **Tried on screen first:** Logseq has no keyboard way into the properties shown under a bullet: Escape selects the
 bullet, Down goes to the next bullet, and Cmd+J did nothing (its property navigation is for properties shown as rows
