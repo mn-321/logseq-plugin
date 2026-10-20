@@ -2,6 +2,26 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Proposals drawn where the value goes (0.4.201)
+
+**The owner, after looking:** Hannah Reyes offered for two places is reasonable; "about the tingling" guessing
+Tingling fingers as Topic is useful. But the line under the bullet takes the whole line: "all that is necessary is
+the name to appear in dotted line where it would be. don't add the extra text about enter, etc".
+
+**Done means:** no line of its own and no keys; the value written faintly in the bullet's own property where Logseq
+shows the empty value; a guess with a dotted line, taken by a click; nothing left behind when the bullet is left.
+
+**Seen in the app:** the Aug 18 post-op check in edit read "Provider: Dr. Raj Patel" faint and dotted in its own
+pill, nothing else; a click took the dots away, leaving filled it. A new "Wiped out all day. #Symptom Log" read
+"Symptom type: Fatigue" (dotted) and "Date: Oct 20" (no dots) in its pills; Escape emptied both, leaving wrote
+nothing. Not seen: a property with no pill (the made pill), a note under a record (values in the parent's pills).
+
+**The owner's own edits** were in the graph when I came to test (Aug 25 Provider and Topic, Hannah Reyes #Doctor, a
+new consultation "Spoke with Dr. Mei Chen about fatigue" and a symptom log "Severe Fatigue", and Logseq's view
+blocks). Left as they are; the graph check was compared against that list instead of the fingerprint, and after my
+tests only those remained. The scorer now counts 107 filled properties (the owner's new ones in): sure right 57,
+wrong 0; guesses right 23, wrong 1; silent 26.
+
 ## 2026-10-20 · Proposals, piece 2 built (0.4.200)
 
 **Against the done list (agreed with the owner today):**

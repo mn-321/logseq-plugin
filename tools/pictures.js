@@ -116,47 +116,34 @@ async function scenes(page) {
       },
       arg: TWO_WAY_GROUPS,
     },
-    // The shadow under a bullet being written (parts/shadow.js): the bullet is a pretend text box, the shadow the plugin's own line.
+    // Proposals (parts/shadow.js): the values written faintly in the bullet's own properties, a guess with a dotted
+    // line, a taken guess without; the bullets are pretend ones shaped as Logseq draws them.
     'shadow': {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'), read('parts/shadow.js')],
       draw: async () => {
         const inner = window.refinementShadowInner;
-        const style = document.createElement('style'); style.textContent = inner.css + ' .bullet { display: flex; gap: 8px; align-items: flex-start; } .bullet i { width: 6px; height: 6px; margin-top: 9px; border-radius: 50%; background: currentColor; opacity: .5; flex: none; } .bullet textarea { width: 100%; font: inherit; color: inherit; background: none; border: 0; outline: none; resize: none; padding: 0; line-height: 1.5; }'; document.head.append(style);
+        const style = document.createElement('style');
+        style.textContent = inner.css + ' .ls-block { margin-bottom: 14px; } .block-main-container > .flex-col > .flex-col { display: flex; flex-direction: column; gap: 2px; } .bullet { display: flex; gap: 8px; align-items: flex-start; } .bullet i { width: 6px; height: 6px; margin-top: 9px; border-radius: 50%; background: currentColor; opacity: .5; flex: none; } .bottom-properties-row { display: flex; gap: 18px; margin-left: 14px; font-size: 13px; } .bottom-property-pill { display: flex; gap: 4px; } .bottom-property-pill > span:first-child { opacity: .8; } .empty-value { opacity: .4; }';
+        document.head.append(style);
         const stage = document.getElementById('stage');
-        stage.style.height = '120px';
-        stage.innerHTML = '<div class="bullet"><i></i><textarea rows="1">Saw [[Dr. Mei Chen]] about the tingling, bloods first #Consultation</textarea></div>';
-        const box = stage.querySelector('textarea');
-        const live = { forWords: '', pieces: [
-          { prop: { title: 'doctor' }, shown: 'Dr. Mei Chen' },
-          { prop: { title: 'hospital' }, shown: 'Northgate Cancer Center' },
-          { prop: { title: 'Date' }, shown: 'Oct 19' },
-        ] };
-        const el = document.createElement('div'); el.className = 'refinement-shadow'; el.innerHTML = inner.shadowHtml(live);
-        document.body.append(el);
-        const at = box.getBoundingClientRect();
-        el.style.position = 'absolute'; el.style.left = at.left + 'px'; el.style.top = (at.bottom + 2) + 'px';
-        const under = document.createElement('div'); under.className = 'bullet'; under.style.marginTop = '28px';
-        under.innerHTML = '<i></i><div>Notes under an appointment: the shadow names the appointment.</div>';
-        stage.append(under);
-        const el2 = document.createElement('div'); el2.className = 'refinement-shadow';
-        el2.innerHTML = inner.shadowHtml({ forWords: 'Dietitian', pieces: [{ prop: { title: 'doctor' }, shown: 'Dr. Mei Chen' }] });
-        document.body.append(el2);
-        const at2 = under.getBoundingClientRect();
-        el2.style.position = 'absolute'; el2.style.left = (at2.left + 14) + 'px'; el2.style.top = (at2.bottom + 2) + 'px';
-        // Guesses (piece 2): one still to take, with its "?", and one taken by a click.
         stage.style.height = '170px';
-        const third = document.createElement('div'); third.className = 'bullet'; third.style.marginTop = '28px';
-        third.innerHTML = '<i></i><div>Post-op check with Dr. Patel. Wounds fine.</div>';
-        stage.append(third);
-        const el3 = document.createElement('div'); el3.className = 'refinement-shadow';
-        el3.innerHTML = inner.shadowHtml({ forWords: '', pieces: [
-          { prop: { title: 'Date' }, shown: 'Aug 18' },
-          { prop: { title: 'Provider' }, ident: 'provider', ids: [1], shown: 'Dr. Raj Patel', guess: true },
-          { prop: { title: 'Topic' }, ident: 'topic', ids: [2], shown: 'Colon cancer', guess: true },
-        ] }, new Set(['topic 2']));
-        document.body.append(el3);
-        const at3 = third.getBoundingClientRect();
-        el3.style.position = 'absolute'; el3.style.left = (at3.left + 14) + 'px'; el3.style.top = (at3.bottom + 2) + 'px';
+        const block = (uuid, words, pills) => `<div class="ls-block" blockid="${uuid}"><div class="block-main-container"><div class="flex-col"><div class="flex-col">`
+          + `<div class="bullet"><i></i><div>${words}</div></div><div class="positioned-properties block-below"><div class="bottom-properties-row">`
+          + pills.map(([name, value]) => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content">${value || '<span class="empty-value">—</span>'}</span></div>`).join('')
+          + '</div></div></div></div></div></div>';
+        stage.innerHTML = block('a', 'Post-op check with Dr. Patel. Wounds fine.', [['Provider'], ['Topic'], ['Date']])
+          + block('b', 'Wiped out all day.', [['Symptom type'], ['Severity'], ['Date']]);
+        const piece = (title, shown, guess, id) => ({ prop: { title, lower: title.toLowerCase() }, ident: title.toLowerCase(), ids: [id], shown, guess });
+        const draw = (uuid, pieces, taken = []) => { window.refinementShadow.live = { uuid, recordUuid: uuid, pieces }; window.refinementShadow.taken = { uuid, keys: new Set(taken) }; inner.drawInPlace(document); };
+        // One guess still to take (Provider) and a sure value (Date) on the first; a taken guess on the second.
+        draw('a', [piece('Provider', 'Dr. Raj Patel', true, 1), piece('Date', 'Aug 18', false, 2)]);
+        const first = [...document.querySelectorAll('.rfs-ghost')];
+        window.refinementShadow.live = null;
+        draw('b', [piece('Symptom type', 'Fatigue', true, 3), piece('Date', 'Oct 20', false, 4)], ['symptom type 3']);
+        // drawInPlace keeps only the live bullet's values; put the first bullet's back for the picture.
+        const pills = document.querySelectorAll('.ls-block[blockid="a"] .bottom-property-content');
+        pills[0].replaceChildren(first[0]); pills[2].replaceChildren(first[1]);
+        for (const p of [pills[0], pills[2]]) p.closest('.bottom-property-pill').setAttribute('data-refinement-proposal', '');
       },
     },
     // A dialog of the plugin's own (the troubleshooting box) over a page full of words, so a see-through box shows.

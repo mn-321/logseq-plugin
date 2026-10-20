@@ -18,7 +18,7 @@ window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
 window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
-window.refinementCore = { dsQuery: async () => [], UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
+window.refinementCore = { watchDomEarly() {}, dsQuery: async () => [], UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {} };
 window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
@@ -115,14 +115,21 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
 //     the mouse press the click is read from (found in the app: the click did nothing).
 (async () => {
   const doc = window.document;
-  doc.body.innerHTML = '<div class="ls-block" blockid="b-click"><textarea>Post-op check with Dr. Patel</textarea></div>';
+  // A bullet as Logseq draws it, with its property row: "doctor:" and an empty value.
+  doc.body.innerHTML = '<div class="ls-block" blockid="b-click"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
+    + '<textarea>Post-op check with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
+    + '<div class="bottom-property-pill"><span>doctor:</span><span class="bottom-property-content"><span class="empty-value">—</span></span></div></div></div></div></div></div></div>';
   const box = doc.querySelector('textarea');
-  box.getBoundingClientRect = () => ({ left: 40, top: 40, right: 400, bottom: 60, width: 360, height: 20 }); // jsdom lays nothing out
   box.focus();
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
-  window.refinementShadow.live = { uuid: 'b-click', text: box.value, pieces: [guess], forWords: '' };
-  window.refinementShadowInner.draw(box);
-  const el = doc.querySelector('.refinement-shadow [data-guess]');
+  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
+  window.refinementShadowInner.drawInPlace(doc);
+  // The guess is written where the value goes, and nothing else is drawn (the owner: no line of its own, no keys).
+  cases++;
+  const inPill = doc.querySelector('.bottom-property-pill .bottom-property-content .rfs-ghost.rfs-guess');
+  if (!inPill || inPill.textContent !== 'Dr. Raj Patel') problem(`guess in place: wanted "Dr. Raj Patel" in the doctor property; found ${inPill ? '"' + inPill.textContent + '"' : 'nothing'}`);
+  if (doc.querySelector('.refinement-shadow, kbd')) problem('guess in place: a line or keys of its own are drawn');
+  const el = doc.querySelector('.rfs-ghost[data-guess]');
   cases++;
   if (!el) problem('click on a guess: no guess drawn');
   else {
@@ -130,19 +137,34 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
     if (press('pointerdown').defaultPrevented) problem('click on a guess: the pointer press is held back, so no mouse press follows');
     if (!press('mousedown').defaultPrevented) problem('click on a guess: the mouse press is not held back, so the bullet would leave edit');
     if (!window.refinementShadow.taken.keys.size) problem('click on a guess: the guess was not taken');
-    if (!doc.querySelector('.refinement-shadow .rfs-taken')) problem('click on a guess: the taken guess is not drawn solid');
+    if (!doc.querySelector('.rfs-ghost.rfs-taken')) problem('click on a guess: the taken guess does not lose its dotted line');
   }
   // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what was
   //     taken in the bullet left must still be filled in (second reading).
   const left = window.refinementShadow.live;
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
-  window.refinementShadow.live = { uuid: 'b-next', text: '', pieces: [], forWords: '' };
+  window.refinementShadow.live = { uuid: 'b-next', recordUuid: 'b-next', text: '', pieces: [] };
   window.refinementShadow.taken = { uuid: 'b-next', keys: new Set() };
   await new Promise(resolve => setTimeout(resolve, 200));
   cases++;
   if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
   window.refinementShadow.live = null;
+  window.refinementShadowInner.drawInPlace(doc);
+  cases++;
+  if (doc.querySelector('.rfs-ghost, [data-refinement-proposal]')) problem('bullet left: the faint value stays in the property');
+  // 15. A record whose row is not on screen (a note zoomed into): nothing is drawn, so nothing may be taken (second reading).
+  const unseen = { uuid: 'b-click', recordUuid: 'not-on-screen', text: box.value, pieces: [guess] };
+  window.refinementShadow.live = unseen;
+  window.refinementShadowInner.drawInPlace(doc);
+  cases++;
+  if (unseen.drawn?.size) problem('record not on screen: values counted as shown, so leaving would fill them unseen');
+  // 16. A pill marked by a copy cut short, with nothing of ours in it, is given back to Logseq (second reading).
+  window.refinementShadow.live = null;
+  doc.querySelector('.bottom-property-pill').setAttribute('data-refinement-proposal', '');
+  window.refinementShadowInner.drawInPlace(doc);
+  cases++;
+  if (doc.querySelector('[data-refinement-proposal]')) problem('a marked pill with nothing of ours in it keeps hiding Logseq\'s empty value');
 if (problems.length) { console.log(`proposals rules: FAILED (${problems.length})`); process.exit(1); }
 console.log(`proposals rules: OK (${cases} cases on a pretend graph)`);
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

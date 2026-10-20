@@ -1,12 +1,12 @@
 /* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
 (() => {
-/* Proposals, piece 1 (0.4.197): the shadow under the bullet being written. Rebuilt on the foundation and the
+/* Proposals, piece 1 (0.4.197): what the plugin is sure of while a bullet is written. Rebuilt on the foundation and the
    model; the old proposals part (parts/proposals.js, resting) pencilled values into the pills and took them with Tab.
 
-   While you write a bullet, a faint line under it shows what the plugin is sure of and would fill in when you
-   leave the bullet (Enter, a click elsewhere, the arrows): nothing is written before that, and the bar at the
-   bottom offers Undo after. Escape clears the shadow, and that bullet is left alone for good. The words typed
-   are never changed.
+   While you write a bullet, what the plugin is sure of shows faintly in the bullet's own properties (since 0.4.201;
+   it was a line under the bullet), and is filled in when you leave the bullet (Enter, a click elsewhere, the
+   arrows): nothing is written before that, and the bar at the bottom offers Undo after. Escape clears it, and that
+   bullet is left alone for good. The words typed are never changed.
 
    The record a bullet belongs to is the bullet itself when its tags give it properties, else its parent when the
    parent's do (notes under an appointment belong to the appointment). The sure pieces, for the record's empty
@@ -17,8 +17,8 @@
    - the journal day, for an empty "date" of a record written on a journal page.
 
    Piece 2 (0.4.200): guesses, for empty properties the sure pieces leave empty (and not one kept quiet by two names).
-   They show in the same line with a "?", and only a click takes one (it turns solid and is filled in with the rest
-   when the bullet is left, under the same Undo). A guess is made when every rule that speaks agrees:
+   They show in the same place with a dotted line under them, and only a click takes one (the dots go, and it is
+   filled in with the rest when the bullet is left, under the same Undo). A guess is made when every rule that speaks agrees:
    - plain words: a page named without brackets, by its whole title or alias ("Northgate") or by a word of its title
      that no other page of the right tag shares ("Dr. Patel", "the tingling"); a tie names no one;
    - the same line written before: an earlier node under the same tag with nearly the same words gives its values,
@@ -29,17 +29,17 @@
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.refinement-shadow' } });
-let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf;
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal'] } });
+let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
   { key: 'shadowHeading', type: 'heading', group: 'writing', rank: 1, title: 'Proposals', default: null,
-    legend: 'What the plugin is sure of, shown under the bullet you write and filled in when you leave it',
-    zone: '<div><span class="m">doctor:</span> Dr. Mei Chen <span class="m">· date:</span> Oct 20 <span class="m">· provider:</span> <u>Dr. Raj Patel?</u> <span class="m"><span class="cap">enter</span> takes · <span class="cap">esc</span> clears</span></div>',
+    legend: 'What the plugin is sure of, shown faintly in the bullet’s own properties and filled in when you leave it',
+    zone: '<div><span class="m">Provider:</span> <span class="m"><u style="text-decoration-style: dotted">Dr. Raj Patel</u></span> <span class="m">· Date: Oct 20</span></div>',
     description: 'Changes here apply right away.' },
-  { key: 'shadowProposals', type: 'boolean', title: 'Proposals under the bullet', default: true,
-    description: 'While you write a bullet, a faint line under it shows what the plugin is sure of from your words, the page, the record a note is written under and the journal day: a linked doctor for the doctor property, the day for the date. Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. Guesses show fainter, with a “?”: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Only a click takes a guess; it is then filled in with the rest. Escape clears the line, and that bullet is then left alone. Your words are never changed. Applies at once.' },
+  { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. A guess has a dotted line under it: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet. Only a click takes a guess; it is then filled in with the rest. Escape clears them, and that bullet is then left alone. Your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -342,9 +342,10 @@ function datedWhenWritten(tagIds, ctx) {
 }
 
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the
-   block, drawn under the text box, and taken when the bullet is left unless Escape cleared it. */
+   block, drawn in the record's own properties, and taken when the bullet is left unless Escape cleared it. Only what
+   was shown is taken: a record whose row is not on screen (a note zoomed into) gets nothing (second reading). */
 // taken: the guesses clicked in the bullet being written ({ uuid, keys }), filled in with the rest when it is left.
-const state = window.refinementShadow = { live: null, el: null, times: [], taken: { uuid: '', keys: new Set() } };
+const state = window.refinementShadow = { live: null, times: [], taken: { uuid: '', keys: new Set() } };
 const guessKey = piece => `${piece.ident} ${piece.ids.join(',')}`;
 const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set();
 const OFF_KEY = 'refinementShadowOff';
@@ -377,8 +378,8 @@ async function compute(box) {
     state.times.push(Math.round(performance.now() - t0)); if (state.times.length > 50) state.times.shift();
     if (!pieces.length) { clearLive(); return; }
     if (state.taken.uuid !== uuid) state.taken = { uuid, keys: new Set() };
-    state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), forWords: record === b ? '' : cleanWords(String(pick(record, 'block/title') ?? '')), pieces, at: Date.now() };
-    draw(box);
+    state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), pieces, at: Date.now() };
+    drawInPlace(box.ownerDocument);
   } catch (error) { warnOnce('the shadow could not be worked out', error); }
 }
 function onInput(event) {
@@ -429,12 +430,13 @@ function onKey(event) {
 // never hears of the press, and the mouse press is held back so the bullet stays in edit. The pointer press is not
 // held back: that would stop the mouse press from coming at all (found in the app: the click did nothing).
 function onGuessPress(event) {
-  const el = event.target?.closest?.('.refinement-shadow [data-guess]');
+  // A sure value is ours too: a click on it must not open Logseq's value editor under it (second reading).
+  const el = event.target?.closest?.('.rfs-ghost');
   if (!el) return;
   event.stopImmediatePropagation();
   if (event.type === 'pointerdown') return;
   event.preventDefault();
-  if (event.type !== 'mousedown' || !state.live) return;
+  if (event.type !== 'mousedown' || !state.live || !el.dataset.guess) return;
   const piece = state.live.pieces.find(p => p.guess && guessKey(p) === el.getAttribute('data-guess'));
   if (!piece) return;
   if (state.taken.uuid !== state.live.uuid) state.taken = { uuid: state.live.uuid, keys: new Set() };
@@ -444,8 +446,7 @@ function onGuessPress(event) {
     if (piece.group) for (const other of state.live.pieces) if (other !== piece && other.group === piece.group) keys.delete(guessKey(other));
     keys.add(key);
   }
-  const box = editingBox(host().activeElement);
-  if (box && uuidOf(box) === state.live.uuid) draw(box);
+  drawInPlace(el.ownerDocument);
 }
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
@@ -464,7 +465,8 @@ async function takeShadow(live) {
   }
   if (!saved) return; // the words changed after the shadow was drawn, or never got saved: nothing is written (second reading)
   const { record, pieces: found } = piecesFor(b, live.text, ctx);
-  const taken = live.taken || new Set(), pieces = found.filter(piece => !piece.guess || taken.has(guessKey(piece)));
+  const taken = live.taken || new Set(), shown = live.drawn || new Set();
+  const pieces = found.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || taken.has(guessKey(piece))));
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
   if (!pieces.length || !UUID.test(recordUuid)) return;
   const written = [];
@@ -494,60 +496,101 @@ async function takeShadow(live) {
     error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
 }
 
-/* Drawing: one faint line under the text box, in Logseq's own window, placed by the box's edges; it follows the box
-   as the words wrap and goes when the box does. Nothing of Logseq's is touched. */
-function shadowHtml(live, taken = takenIn(live.uuid)) {
-  const head = live.forWords ? `<span class="rfs-for">${esc(live.forWords.length > 32 ? live.forWords.slice(0, 31) + '…' : live.forWords)} ·</span>` : '';
-  const pieces = live.pieces.map(piece => {
-    const guess = piece.guess && !taken.has(guessKey(piece));
-    const attrs = piece.guess ? ` data-guess="${esc(guessKey(piece))}" title="${guess ? 'Click to take this guess' : 'Taken: filled in when you leave the bullet. Click to put it back'}"` : '';
-    return `<span class="rfs-piece${piece.guess ? ' rfs-guess' : ''}${guess ? '' : piece.guess ? ' rfs-taken' : ''}"${attrs}><span class="rfs-name">${esc(piece.prop.title)}:</span> ${esc(piece.shown)}${guess ? '<span class="rfs-q">?</span>' : ''}${piece.note ? ` <span class="rfs-note">(${esc(piece.note)})</span>` : ''}</span>`;
-  }).join('<span class="rfs-dot">·</span>');
-  const open = live.pieces.some(piece => piece.guess && !taken.has(guessKey(piece)));
-  return `${head}${pieces}<span class="rfs-keys"><kbd>enter</kbd> takes${open ? ' · click a <b>?</b> to take it' : ''} · <kbd>esc</kbd> clears</span>`;
+/* Drawing (0.4.201, at the owner's word: "all that is necessary is the name to appear in dotted line where it would
+   be"): each proposed value is written faintly into the record's own property, where Logseq shows the empty value,
+   and nothing else: no line of its own, no keys. A sure value is faint; a guess is faint with a dotted underline and
+   is taken by a click (then it looks like a sure one: both are filled in when the bullet is left). A property Logseq
+   shows no pill for gets one made for the value, in the record's own pill row (made too when there is none), as the
+   resting proposals part did (0.4.122). Drawn again on the foundation's early pass, so Logseq's redraw of the row
+   cannot lose it; only the plugin's own elements are added, and they go with the proposal. */
+const pillName = pill => (pill.firstElementChild?.textContent || '').trim().replace(/:$/, '').toLowerCase();
+const ownRow = row => el => el.closest('.ls-block[blockid]') === row;
+const pillsOf = row => [...row.querySelectorAll('.positioned-properties.block-below .bottom-property-pill')].filter(ownRow(row));
+// A pill for a property Logseq shows none for, in the record's own pill row; the row is made too when there is none.
+// Logseq's shape (read 2026-10-18): block-main-container > div.flex-col > div.flex-col > [the content, positioned-properties.block-below > bottom-properties-row > pills].
+function makePill(doc, row, piece) {
+  const main = [...row.querySelectorAll('.block-main-container')].find(ownRow(row));
+  if (!main) return null;
+  let rowEl = [...main.querySelectorAll('.positioned-properties.block-below')].find(ownRow(row));
+  if (!rowEl) {
+    const inner = [...main.querySelectorAll(':scope > .flex-col > .flex-col')].find(ownRow(row)) || main.querySelector(':scope > .flex-col') || main;
+    rowEl = doc.createElement('div');
+    rowEl.className = 'positioned-properties block-below flex flex-col gap-1 text-sm rfs-made';
+    rowEl.innerHTML = '<div class="bottom-properties-row"></div>';
+    inner.appendChild(rowEl);
+  }
+  const pill = doc.createElement('div');
+  pill.className = 'bottom-property-pill rfs-made rfs-made-pill';
+  pill.setAttribute('contenteditable', 'false');
+  pill.innerHTML = `<span class="rfs-made-name">${esc(piece.prop.title)}:</span><span class="bottom-property-content"></span>`;
+  (rowEl.querySelector('.bottom-properties-row') || rowEl).appendChild(pill);
+  return pill;
 }
-function draw(box) {
-  const doc = box.ownerDocument;
-  if (!state.el || state.el.ownerDocument !== doc || !state.el.isConnected) { state.el?.remove(); state.el = doc.createElement('div'); state.el.className = 'refinement-shadow'; state.el.setAttribute('role', 'status'); doc.body.appendChild(state.el); }
-  state.el.innerHTML = shadowHtml(state.live);
-  place(box);
+// What one value looks like and says when pointed at; the page that gets a tag is named only there.
+function ghostLook(piece, taken) {
+  const guess = piece.guess && !taken.has(guessKey(piece));
+  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}${piece.guess && !guess ? ' rfs-taken' : ''}`,
+    title: guess ? `A guess: click to take it${piece.note ? ` (${piece.tagPage ? `${piece.shown} ${piece.note}` : piece.note})` : ''}`
+      : piece.guess ? 'Taken: filled in when you leave the bullet. Click to put it back' : 'Filled in when you leave the bullet' };
 }
-function place(box) {
-  if (!state.el || !state.live) return;
-  const at = box.getBoundingClientRect(), win = box.ownerDocument.defaultView;
-  if (!at.width && !at.height) { hide(); return; }
-  state.el.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - 420)))}px`;
-  state.el.style.top = `${Math.round(at.bottom + 2)}px`;
-  state.el.style.maxWidth = `${Math.round(Math.max(240, win.innerWidth - at.left - 16))}px`;
+function drawInPlace(doc = host()) {
+  const live = state.live, taken = live ? takenIn(live.uuid) : new Set();
+  const want = new Map(), rows = live?.recordUuid ? [...doc.querySelectorAll(`.ls-block[blockid="${live.recordUuid}"]`)] : [];
+  for (const piece of live?.pieces || []) want.set(piece.ident, piece);
+  // Out with what is no longer proposed (another bullet, a value changed, the bullet left).
+  for (const g of doc.querySelectorAll('.rfs-ghost')) {
+    const piece = want.get(g.dataset.rfsIdent);
+    if (piece && rows.includes(g.closest('.ls-block[blockid]')) && g.dataset.rfsKey === guessKey(piece)) continue;
+    g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal');
+    g.remove();
+  }
+  for (const el of doc.querySelectorAll('.rfs-made-pill')) if (!el.querySelector('.rfs-ghost')) el.remove();
+  for (const el of doc.querySelectorAll('.positioned-properties.rfs-made')) if (!el.querySelector('.bottom-property-pill')) el.remove();
+  for (const row of rows) {
+    const pills = pillsOf(row);
+    for (const piece of want.values()) {
+      const pill = pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
+      const target = pill && (pill.querySelector('.bottom-property-content') || pill);
+      if (!target) continue;
+      const look = ghostLook(piece, taken);
+      let g = [...target.querySelectorAll(':scope > .rfs-ghost')].find(el => el.dataset.rfsIdent === piece.ident);
+      if (!g) {
+        g = doc.createElement('span');
+        g.setAttribute('contenteditable', 'false');
+        g.dataset.rfsIdent = piece.ident;
+        g.dataset.rfsKey = guessKey(piece);
+        if (piece.guess) g.dataset.guess = guessKey(piece);
+        g.textContent = piece.shown;
+        target.appendChild(g);
+      }
+      if (g.className !== look.cls) g.className = look.cls;
+      if (g.title !== look.title) g.title = look.title;
+      if (!pill.hasAttribute('data-refinement-proposal')) pill.setAttribute('data-refinement-proposal', '');
+      (live.drawn ||= new Set()).add(guessKey(piece));
+    }
+  }
+  // A pill marked with nothing of ours left in it (a copy cut short) is given back to Logseq (second reading).
+  for (const pill of doc.querySelectorAll('[data-refinement-proposal]')) if (!pill.querySelector('.rfs-ghost')) pill.removeAttribute('data-refinement-proposal');
 }
-function hide() { state.el?.remove(); state.el = null; }
-function onMove() {
-  if (!state.live) return;
-  const box = editingBox(host().activeElement);
-  if (box && uuidOf(box) === state.live.uuid) place(box); else hide();
-}
+function hide() { drawInPlace(); }
+const drawEarly = (doc, records) => { if (!state.live && !doc.querySelector('.rfs-ghost, .rfs-made, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made')))) drawInPlace(doc); };
 
 const css = `
-/* The shadow (0.4.197): a faint line under the bullet being written, in the quiet colour, no box; the keys smaller still. */
-.refinement-shadow { position: fixed; z-index: 998; pointer-events: none; padding: 1px 6px 2px; margin-left: -6px; border-radius: 4px;
-  font-size: .85em; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  color: var(--ls-primary-text-color, currentColor); background: hsl(var(--background, 0 0% 100%)); }
-.refinement-shadow .rfs-for, .refinement-shadow .rfs-name, .refinement-shadow .rfs-note, .refinement-shadow .rfs-dot { color: var(--ls-secondary-text-color, currentColor); opacity: .75; }
-.refinement-shadow .rfs-for { margin-right: .4em; }
-.refinement-shadow .rfs-dot { margin: 0 .5em; }
-.refinement-shadow .rfs-note { font-style: italic; }
-.refinement-shadow .rfs-keys { margin-left: 1em; font-size: .9em; color: var(--ls-secondary-text-color, currentColor); opacity: .55; }
-.refinement-shadow .rfs-guess { pointer-events: auto; cursor: pointer; opacity: .6; text-decoration: underline dotted; text-underline-offset: 3px; }
-.refinement-shadow .rfs-guess:hover { opacity: 1; }
-.refinement-shadow .rfs-taken { opacity: 1; text-decoration: none; }
-.refinement-shadow .rfs-q { margin-left: .1em; font-weight: 600; }
-.refinement-shadow .rfs-keys b { font-weight: 600; }
-.refinement-shadow kbd { font: inherit; font-size: .9em; padding: 0 .3em; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 3px; }
+/* A proposed value (0.4.201): faint, in the record's own property where the value goes. A guess has a dotted line
+   under it and takes a click; taken, it looks like a sure one. Greys mixed from the text colour (dark mode). */
+.ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
+.bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
+.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); white-space: nowrap; }
+.rfs-ghost.rfs-guess { cursor: pointer; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.rfs-ghost.rfs-guess:hover { color: color-mix(in srgb, currentColor 80%, transparent); }
+.rfs-ghost.rfs-taken { text-decoration: none; }
+.rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
+.rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 `;
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
 function start() {
-  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf']));
+  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly']));
   void titleOf;
   applyStyles();
   readOff();
@@ -557,12 +600,12 @@ function start() {
   listen(win, ['focusout'], onFocusOut);
   listen(win, ['keydown'], onKey);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
-  listen(win, ['scroll', 'resize'], onMove);
+  watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
-  onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); hide(); state.live = null; } }));
-  onUnload(() => { clearTimeout(liveTimer); hide(); state.live = null; state.taken = { uuid: '', keys: new Set() }; });
+  onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
+  onUnload(() => { clearTimeout(liveTimer); clearLive(); });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, shadowHtml, css, draw };
+window.refinementShadowInner = { piecesFor, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, drawInPlace, css };
 })();
