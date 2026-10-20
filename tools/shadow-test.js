@@ -302,6 +302,35 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   cases++;
   if (inserted.length !== 1) problem(`Option-Enter in a list: made ${inserted.length} next bullets; wanted one`);
 }
+// 20. Into the bullet's own properties with Logseq's keys (Down, then Left/Right): not leaving it; the proposals wait.
+//     Leaving them for somewhere else is leaving the bullet (0.4.208).
+{
+  const doc = window.document;
+  doc.body.innerHTML = '<div class="ls-block" blockid="b-visit"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
+    + '<textarea id="edit-block-b-visit">Phone call with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
+    + '<div class="bottom-property-pill" tabindex="-1"><span>doctor:</span><span class="bottom-property-content"><span class="empty-value">—</span></span></div>'
+    + '<div class="bottom-property-pill" tabindex="-1" id="p-hosp"><span>hospital:</span><span class="bottom-property-content"><span class="empty-value">—</span></span></div>'
+    + '</div></div></div></div></div></div><div id="elsewhere" tabindex="-1">elsewhere</div>';
+  const box = doc.querySelector('textarea');
+  box.focus();
+  await new Promise(resolve => setTimeout(resolve, 100)); // the pretend window works out nothing on focus: let it pass
+  const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
+  const visit = { uuid: 'b-visit', recordUuid: 'b-visit', text: box.value, pieces: [guess] };
+  window.refinementShadow.live = visit;
+  window.refinementShadowInner.drawInPlace(doc);
+  doc.getElementById('p-hosp').focus(); // Logseq's Down puts the focus on a capsule
+  await new Promise(resolve => setTimeout(resolve, 400));
+  cases++;
+  if (visit.left || !doc.querySelector('.rfs-ghost')) problem('into the bullet\'s own properties: the proposals were taken or went');
+  // Another bullet's proposals come up as the focus goes there: the visited bullet is still left, and filled.
+  window.refinementShadow.live = { uuid: 'b-other', recordUuid: 'b-other', text: '', pieces: [] };
+  doc.getElementById('elsewhere').focus();
+  await new Promise(resolve => setTimeout(resolve, 500));
+  cases++;
+  if (!visit.left) problem('out of the properties into another bullet with proposals: the visited bullet is not left');
+  window.refinementShadow.live = null;
+  window.refinementShadowInner.drawInPlace(doc);
+}
 // 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
 {
   const doc = window.document;

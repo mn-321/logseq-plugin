@@ -412,9 +412,12 @@ function onFocusOut(event) {
   // very start of its words, or in document mode) must not let a later click away fill in guesses (second reading).
   const live = state.live, taken = Date.now() - (state.taken.at || 0) < ENTER_LEAVES ? new Set(takenIn(uuid)) : new Set();
   setTimeout(() => {
-    const now = editingBox(host().activeElement);
+    const active = host().activeElement, now = editingBox(active);
     if (now && uuidOf(now) === live.uuid) return;
     if (live.left) return;
+    // Into the bullet's own properties (Logseq's Down from the words, then Left/Right, Enter): not leaving it. The
+    // proposals stay shown and wait (0.4.208, at the owner's word).
+    if (inOwnProperties(active, live.recordUuid)) return visitProperties(live);
     live.left = true;
     live.taken = taken;
     state.left = live; // for tools/shadow-test.js
@@ -423,6 +426,45 @@ function onFocusOut(event) {
     takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
   }, 120);
 }
+/* Moving about the bullet's own properties with Logseq's keys (Down from the end of the words goes into its capsules;
+   Left and Right move between them; Enter opens one; Up goes back to the words): the proposals stay shown while you
+   are there, and are dealt with when the bullet is really left: back in the words, as usual; anywhere else (a click
+   away), what is sure is filled in, as leaving the words does. */
+function inOwnProperties(el, rowUuid) {
+  if (!el?.closest || !rowUuid) return false;
+  if (el.closest('.cp__select')) return true; // a list Logseq opened from one of them
+  const place = el.closest('.bottom-property-pill, .property-pair, .bottom-properties-row, .positioned-properties');
+  return !!place && [...el.ownerDocument.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].some(row => ownRow(row)(place));
+}
+const visiting = state.visiting = { live: null, timer: 0, out: 0 };
+// The bullet visited is left: what is sure is filled in, as leaving the words does.
+function leaveVisited(live) {
+  if (live.left) return;
+  live.left = true;
+  live.taken = new Set();
+  state.left = live; // for tools/shadow-test.js
+  if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
+  if (state.live === live) { state.live = null; hide(); }
+  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+}
+function visitProperties(live) {
+  // A visit still going for another bullet ends as leaving it (second reading: it was dropped unfilled).
+  if (visiting.live && visiting.live !== live) leaveVisited(visiting.live);
+  clearInterval(visiting.timer);
+  Object.assign(visiting, { live, out: 0 });
+  visiting.timer = setInterval(() => {
+    const active = host().activeElement, box = editingBox(active);
+    // Another bullet's proposals coming up does not end this visit unfilled (second reading): only leaving does.
+    if (live.left) return stopVisiting();
+    if (box && uuidOf(box) === live.uuid) return stopVisiting(); // back in the words: they take it from here
+    if (inOwnProperties(active, live.recordUuid) || picking.rowUuid === live.recordUuid) { visiting.out = 0; return; }
+    if (++visiting.out < 2) return; // a moment on nothing, as a list closes, is not leaving
+    stopVisiting();
+    leaveVisited(live);
+  }, 150);
+}
+function stopVisiting() { clearInterval(visiting.timer); Object.assign(visiting, { live: null, timer: 0, out: 0 }); }
+
 // Escape clears the proposals until the bullet is next edited; the caret stays (a second Escape is Logseq's).
 // Enter (plain, with no list of Logseq's open) takes the guesses too: the bullet is then left as usual, and everything
 // shown is filled in (the owner: "enter confirms I like things"; 0.4.202). Leaving any other way takes the sure values
@@ -776,7 +818,8 @@ function drawInPlace(doc = host()) {
   // Out with what is no longer proposed (another bullet, a value changed, the bullet left).
   for (const g of doc.querySelectorAll('.rfs-ghost')) {
     const piece = want.get(g.dataset.rfsIdent);
-    if (piece && rows.includes(g.closest('.ls-block[blockid]')) && g.dataset.rfsKey === guessKey(piece)) continue;
+    const filled = !g.closest('.rfs-made') && !g.parentElement?.querySelector('.empty-value');
+    if (piece && !filled && rows.includes(g.closest('.ls-block[blockid]')) && g.dataset.rfsKey === guessKey(piece)) continue;
     g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal');
     g.remove();
   }
@@ -787,6 +830,8 @@ function drawInPlace(doc = host()) {
     for (const piece of want.values()) {
       const pill = pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
       const target = pill && (pill.querySelector('.bottom-property-content') || pill);
+      // Filled meanwhile in Logseq's own way (from the properties): the proposal for it goes.
+      if (target && !pill.classList.contains('rfs-made') && !target.querySelector('.empty-value')) continue;
       if (!target) continue;
       const look = ghostLook(piece);
       let g = [...target.querySelectorAll(':scope > .rfs-ghost')].find(el => el.dataset.rfsIdent === piece.ident);
@@ -843,7 +888,7 @@ function start() {
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
-  onUnload(() => { clearTimeout(liveTimer); endPicking(false); clearLive(); });
+  onUnload(() => { clearTimeout(liveTimer); endPicking(false); stopVisiting(); clearLive(); });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
