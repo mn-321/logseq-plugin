@@ -561,8 +561,8 @@ function drawInPlace(doc = host()) {
         g.dataset.rfsIdent = piece.ident;
         g.dataset.rfsKey = guessKey(piece);
         if (piece.guess) g.dataset.guess = guessKey(piece);
-        // A page that would get a tag says so where it shows (the owner: "add ...as #tag"; 0.4.202).
-        g.textContent = piece.tagPage ? `${piece.shown} as #${piece.tagPage.tag.title}` : piece.shown;
+        // A page that would get a tag says so where it shows ("Hannah Reyes #Doctor"; the owner, 0.4.202–0.4.203).
+        g.textContent = piece.tagPage ? `${piece.shown} #${piece.tagPage.tag.title}` : piece.shown;
         target.appendChild(g);
       }
       if (g.className !== look.cls) g.className = look.cls;

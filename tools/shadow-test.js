@@ -171,14 +171,14 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadowInner.drawInPlace(doc);
   cases++;
   if (doc.querySelector('.rfs-ghost, [data-refinement-proposal]')) problem('bullet left: the faint value stays in the property');
-  // 14b. A page that would get a tag says so where it shows (the owner: "add ...as #tag").
+  // 14b. A page that would get a tag says so where it shows ("Hannah Reyes #Doctor", the owner's words).
   {
     const loose = onePlace.pieces[0];
     window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: '', pieces: [loose] };
     window.refinementShadowInner.drawInPlace(doc);
     cases++;
     const shownAs = doc.querySelector('.rfs-ghost')?.textContent;
-    if (shownAs !== 'Hannah Reyes as #Tag 3') problem(`untagged page: shows "${shownAs}"; wanted "Hannah Reyes as #Tag 3"`);
+    if (shownAs !== 'Hannah Reyes #Tag 3') problem(`untagged page: shows "${shownAs}"; wanted "Hannah Reyes #Tag 3"`);
     window.refinementShadow.live = null;
     window.refinementShadowInner.drawInPlace(doc);
   }
