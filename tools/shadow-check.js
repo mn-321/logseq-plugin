@@ -18,8 +18,10 @@ const { execFile } = require('child_process');
 const GRAPH = process.env.GRAPH || 'Illness Test Graph';
 const CLI = path.join(os.homedir(), '.local/bin/logseq');
 const root = path.resolve(__dirname, '..');
-// On the reshaped Illness Test Graph (2026-10-20) the rules are right 80 times of 100; RIGHT_LEAST catches them going quiet.
-const WRONG_LIMIT = 0, RIGHT_LEAST = 70;
+// On the Illness Test Graph written as ordinary journal lines (2026-10-20) the rules are right 54 times of 100; the
+// silent ones are mostly words with no link ("dull ache on the right"), for the plain-words piece. RIGHT_LEAST catches
+// the rules going quiet.
+const WRONG_LIMIT = 0, RIGHT_LEAST = 50;
 const all = process.argv.includes('--all');
 let JSDOM;
 try { ({ JSDOM } = require('jsdom')); } catch { console.log('proposals check skipped (needs jsdom)'); process.exit(0); }

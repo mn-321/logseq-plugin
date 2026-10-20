@@ -5,7 +5,7 @@ A fictional person, Daniel Okoro, 58, through a colon cancer diagnosis, surgery 
 2026-06-22 to 2026-10-20 with appointments booked into December.
 
 Shaped on the owner's own map (2026-10-20), expanded by its own principle: a few tags, one to three properties each, and every record a
-sentence written freely with its links. The structure is extracted from the words: a link to a page that
+line written the way one writes a journal, first person and short, a link only where one would naturally make one. The structure is extracted from the words: a link to a page that
 has a tag already carries its quality (Dr. Chen is a #Doctor, Nausea a #Symptom), so the sentence says which
 property the link belongs in, and the main bits live in both the words and the properties. A tag exists only
 where its nodes need properties the others don't; a property only for what one would list or sort by.
@@ -279,79 +279,79 @@ def log(d, words, symptom, severity, dated=True):
 
 # --- June: first signs
 add('2026-06-22', B('Blood again this morning. Third time this month. Not telling Ruth yet.'))
-log('2026-06-22', 'Tired by 3pm every day lately, and [[Blood in stool]] again', 'Blood in stool', 2)
+log('2026-06-22', '[[Blood in stool]] again this morning. Third time this month.', 'Blood in stool', 2)
 add('2026-06-23', B('Told [[Ruth Okoro]]. She made me promise to ring the surgery.'), T('Ring Elm Street for a GP appointment', 'done', 'high'))
 add('2026-06-24', B('Got an appointment for tomorrow with [[Dr. Helen Brooks]].'))
-rec('gp-0625', '2026-06-25', 'Saw [[Dr. Helen Brooks]] at [[Elm Street Medical Centre]] about the [[Blood in stool]]. Blood test tomorrow and a two-week referral to gastroenterology.',
+rec('gp-0625', '2026-06-25', 'Saw [[Dr. Helen Brooks]] about the bleeding. Blood test tomorrow, and she\'s referring me to gastro.',
     'Consultation', {'date': day(D('2026-06-25')), 'provider': R('brooks'), 'topic': R('sym:Blood in stool')},
     [B('She examined me and said she wants it looked at properly.')])
 add('2026-06-26', B('Blood test at [[Medlab Diagnostics]] first thing. Result: [[Blood count 2026-06-26]].'))
-rec('brooks-call', '2026-06-29', 'Dr. Brooks rang: haemoglobin low, so [[Anaemia]]. Iron tablets for now, colonoscopy being booked.',
+rec('brooks-call', '2026-06-29', '[[Dr. Helen Brooks]] rang. Haemoglobin\'s low, so iron tablets for now, and they\'re booking a colonoscopy.',
     'Conversation', {'date': day(D('2026-06-29')), 'spoke-with': who('brooks'), 'topic': R('anaemia')})
 add('2026-06-29', T('Pick up the iron tablets from [[Lakeside Pharmacy]]', 'done'))
-rec('booking', '2026-06-30', 'Riverside rang to book the colonoscopy for Jul 3; bowel prep instructions by post.',
+rec('booking', '2026-06-30', 'Riverside rang: colonoscopy on Friday. Prep instructions in the post.',
     'Conversation', {'date': day(D('2026-06-30'))})
-rec('x-colo', '2026-06-30', 'Colonoscopy at [[Riverside]] on Jul 3', 'Expectation', {'date': day(D('2026-07-03')), 'status': ch('status', 'Done')})
+rec('x-colo', '2026-06-30', 'Colonoscopy on Friday', 'Expectation', {'date': day(D('2026-07-03')), 'status': ch('status', 'Done')})
 add('2026-07-01', B('Prep letter came. Low-fibre diet from today.'))
 add('2026-07-02', B('Prep day. Not pleasant. [[Graham Whitlock]] will drive tomorrow.'))
-rec('colo', '2026-07-03', 'Colonoscopy with [[Dr. Sofia Alvarez]] at [[Riverside]], under sedation. She said there is "something that needs a biopsy". Report: [[Colonoscopy report 2026-07-03]].',
+rec('colo', '2026-07-03', 'Colonoscopy with [[Dr. Sofia Alvarez]]. She found something she wants to biopsy.',
     'Consultation', {'date': day(D('2026-07-03')), 'provider': R('alvarez')},
     [B('Her face said more than she did. [[Ruth Okoro]] and [[Graham Whitlock]] waited outside.')])
 add('2026-07-04', B('Couldn\'t sleep. Read about colon cancer until 2am, which was a mistake.'))
-log('2026-07-06', 'Low day, no energy at all, [[Fatigue]]', 'Fatigue', 3)
+log('2026-07-06', 'Low day. No energy at all.', 'Fatigue', 3)
 add('2026-07-07', B('[[Amara Okoro]] called. I didn\'t tell her yet. I will once I know.'))
-rec('biopsy-call', '2026-07-08', '[[Dr. Sofia Alvarez]] rang with the biopsy: it is cancer, [[Colon cancer]]. Adenocarcinoma. She was kind about it. Referred to the colorectal team.',
+rec('biopsy-call', '2026-07-08', '[[Dr. Sofia Alvarez]] rang with the biopsy. It\'s cancer. She was kind about it.',
     'Conversation', {'date': day(D('2026-07-08')), 'spoke-with': who('alvarez'), 'topic': R('crc')},
     [B('Rang [[Amara Okoro]] and [[Tunde Okoro]] in the evening.')])
-rec('patel-0709', '2026-07-09', 'First visit with the surgeon, [[Dr. Raj Patel]], at [[Riverside]], about the [[Colon cancer]]. CT scan first, then probably keyhole surgery.',
+rec('patel-0709', '2026-07-09', 'Met the surgeon, [[Dr. Raj Patel]]. CT first, then most likely keyhole surgery.',
     'Consultation', {'date': day(D('2026-07-09')), 'provider': R('patel'), 'topic': R('crc')},
     [B('He drew the colon on a napkin. Right side, which he says is the easier side.'), B('Asked about a stoma: no, the bowel can be joined straight away.')])
 add('2026-07-10', B('Told my book group. More hugs than I knew what to do with.'))
-log('2026-07-11', 'Morning: dull [[Abdominal pain]] on the right', 'Abdominal pain', 2, dated=False)  # no date on purpose
-rec('x-ct', '2026-07-11', 'CT scan at [[Riverside]] on Jul 14, nil by mouth from midnight', 'Expectation', {'date': day(D('2026-07-14')), 'status': ch('status', 'Done')},
+log('2026-07-11', 'Dull ache on the right side this morning.', 'Abdominal pain', 2, dated=False)  # no date on purpose
+rec('x-ct', '2026-07-11', 'CT scan on Tuesday. Nothing to eat from midnight.', 'Expectation', {'date': day(D('2026-07-14')), 'status': ch('status', 'Done')},
     [B('Report: [[CT chest abdomen pelvis 2026-07-14]]. The contrast makes you feel like you\'ve wet yourself. Nobody warns you.')])
-log('2026-07-15', 'Better. Gardened. Still [[Fatigue]] by the afternoon', 'Fatigue', 1)
+log('2026-07-15', 'Better day. Gardened, then flagged by mid-afternoon.', 'Fatigue', 1)
 # two doctors in the words, Provider empty: the plugin must stay quiet (on purpose)
-rec('mdt', '2026-07-17', 'Results of the team meeting at [[Riverside]]: saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] together. Surgery on Aug 4, then chemo depending on the lymph nodes.',
+rec('mdt', '2026-07-17', 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] together about the results. Surgery first, then chemo depending on the lymph nodes.',
     'Consultation', {'date': day(D('2026-07-17')), 'topic': R('crc')},
     [B('[[Ruth Okoro]] and [[Amara Okoro]] came. Amara took notes.'), B('Decided: [[Surgery first, then chemotherapy depending on the lymph nodes]].')])
 add('2026-07-18', B('Amara stayed the night. We watched old films and didn\'t talk about it.'))
 add('2026-07-20', B('Before surgery', collapsed=True, children=[
     T('Pre-op assessment Jul 21', 'done'), T('Sort out power of attorney with Ruth', 'todo', 'medium', '2026-08-01'),
     T('Freeze some meals', 'done'), T('Ask the library to cover my Thursday shift', 'canceled')]))
-rec('preop', '2026-07-21', 'Pre-op assessment at [[Riverside]] with [[Marcus Bell]]: ECG, bloods, the questionnaire, swabs for MRSA.',
+rec('preop', '2026-07-21', 'Pre-op with [[Marcus Bell]]. ECG, bloods and a lot of questions.',
     'Conversation', {'date': day(D('2026-07-21')), 'spoke-with': who('marcus')})
 for d, text in [('2026-07-23', 'Long walk by the river with Ruth.'), ('2026-07-24', 'Bad night. Scared about the anaesthetic.'),
                 ('2026-07-27', 'Tunde video call from Lagos. He wants to fly over; I told him to wait for chemo.'),
                 ('2026-07-29', 'Bought loose trousers for after the operation.'), ('2026-07-31', 'Hair cut. Silly thing to do but I wanted to.')]:
     add(d, B(text))
 # the person is named only in the words, Spoke with empty (on purpose)
-rec('anaes', '2026-07-30', 'The anaesthetist rang, [[Dr. Kenji Watanabe]]: allergies and the spinal block. Very calm voice.',
+rec('anaes', '2026-07-30', 'The anaesthetist rang, [[Dr. Kenji Watanabe]]. Very calm voice.',
     'Conversation', {'date': day(D('2026-07-30'))})
-rec('x-surgery', '2026-07-30', 'Operation at [[Riverside]] on Aug 4, in at 7', 'Expectation', {'date': day(D('2026-08-04')), 'status': ch('status', 'Done')})
+rec('x-surgery', '2026-07-30', 'Operation on the 4th. In at 7.', 'Expectation', {'date': day(D('2026-08-04')), 'status': ch('status', 'Done')})
 add('2026-08-03', T('Pack the hospital bag', 'done', 'high', '2026-08-03'), B('Shower with the pink antiseptic. Bed early.'))
-rec('stay', '2026-08-04', 'In [[Riverside]] for the operation, ward 6B bed 14. [[Dr. Raj Patel]] says it went well: laparoscopic right hemicolectomy. Home on Aug 8.',
+rec('stay', '2026-08-04', 'In for the operation. Ward 6B, bed 14.',
     'Hospitalization', {'date': day(D('2026-08-04')), 'hospital': R('riverside'), 'end': day(D('2026-08-08'))},
     [B('In at 7, theatre at 9:30, awake by 2.'), B('Day 1: walked to the window and back. [[Marcus Bell]] cheered.'),
      B('Day 2: first cup of tea. Best tea of my life.'), B('Day 4: home. Report: [[Discharge summary 2026-08-08]].')])
-log('2026-08-05', 'Day 1 after: [[Abdominal pain]] bad, on the paracetamol and oxycodone', 'Abdominal pain', 5)
-log('2026-08-06', 'Day 2 after: [[Abdominal pain]] easing', 'Abdominal pain', 3)
+log('2026-08-05', 'Day 1 after. Very sore, on the oxycodone.', 'Abdominal pain', 5)
+log('2026-08-06', 'Day 2. The pain is easing.', 'Abdominal pain', 3)
 add('2026-08-08', T('Book the post-op check for Aug 18', 'done'))
 for d, text in [('2026-08-09', 'Sleeping a lot. Ruth keeps checking I\'m breathing.'), ('2026-08-10', 'Short walk to the end of the road.')]:
     add(d, B(text))
-rec('path-call', '2026-08-11', '[[Dr. Raj Patel]] rang with the pathology, [[Surgical pathology 2026-08-11]]: three lymph nodes, so chemo after all. Stage IIIB [[CRC]]. Referred to oncology.',
+rec('path-call', '2026-08-11', '[[Dr. Raj Patel]] rang with the pathology. Three lymph nodes, so chemo after all.',
     'Conversation', {'date': day(D('2026-08-11')), 'spoke-with': who('patel'), 'topic': R('crc')})
 for d in ['2026-08-12', '2026-08-13', '2026-08-15', '2026-08-16']:
     add(d, B(random.choice(['Wound healing well.', 'Walked to the park bench and back.', 'Read in the garden.', 'Tired, but less sore.'])))
-    log(d, random.choice(['Evening: tired, [[Fatigue]]', 'Still some [[Fatigue]] by evening']), 'Fatigue', random.choice([1, 2]), dated=d != '2026-08-15')  # one no date on purpose
+    log(d, random.choice(['Tired by evening.', 'Flagging again by teatime.']), 'Fatigue', random.choice([1, 2]), dated=d != '2026-08-15')  # one no date on purpose
 add('2026-08-14', B('[[Amara Okoro]] went back to Leeds. House very quiet.'))
 # the doctor and the hospital in plain words, no links, Provider empty (on purpose: a guess for a later piece, not a sure piece)
-rec('postop', '2026-08-18', 'Post-op check with Dr. Patel at Riverside. Wounds fine. Allowed to drive in two weeks.',
+rec('postop', '2026-08-18', 'Post-op check with Dr. Patel. Wounds fine, I can drive in two weeks.',
     'Consultation', {'date': day(D('2026-08-18'))})
 add('2026-08-19', B('Stopped the oxycodone. Paracetamol is enough now.'))
-rec('chen-0820', '2026-08-20', 'First oncology appointment with [[Dr. Mei Chen]] at [[Northgate]] about the [[Colon cancer]]: eight cycles of FOLFOX, every two weeks, from Sep 2. Her letter: [[Letter from Dr. Chen 2026-08-20]].',
+rec('chen-0820', '2026-08-20', 'First appointment with my oncologist, [[Dr. Mei Chen]]. Eight cycles of chemo, every two weeks from Sep 2.',
     'Consultation', {'date': day(D('2026-08-20')), 'provider': R('chen'), 'topic': R('crc')},
-    [B('Drugs: [[Oxaliplatin]], [[Fluorouracil (5-FU)]], [[Leucovorin]]. Blood test the day before each cycle.'),
+    [B('The drugs are [[Oxaliplatin]], [[Fluorouracil (5-FU)]] and [[Leucovorin]]. Bloods the day before each one.'),
      B('Why chemo if the surgery got it all? To mop up cells that may have spread through the lymph nodes.'), B('Decided: [[Eight cycles of FOLFOX, every two weeks from Sep 2]].'),
      T('Get a thermometer', 'done'), T('Dentist check before chemo', 'done', deadline='2026-08-28')])
 for d, text in [('2026-08-21', 'Told the library I\'ll be off until the new year.'), ('2026-08-22', 'Ruth and I had a proper dinner out.'),
@@ -359,7 +359,7 @@ for d, text in [('2026-08-21', 'Told the library I\'ll be off until the new year
                 ('2026-08-27', 'Read the chemo booklet twice.'), ('2026-08-29', 'Weekend by the sea with Ruth.'), ('2026-08-30', 'Sea air. Slept ten hours.')]:
     add(d, B(text))
 # a link to a page with no tag, Provider empty (on purpose): the plugin cannot know Hannah's quality
-rec('diet', '2026-08-25', 'Video call with the dietitian, [[Hannah Reyes]], about eating through chemo. Little and often; ginger for the nausea.',
+rec('diet', '2026-08-25', 'Video call with [[Hannah Reyes]], the dietitian. Little and often, and ginger for the nausea.',
     'Consultation', {'date': day(D('2026-08-25'))})
 
 # --- Chemo cycles: an expectation each, done or planned; a blood count the day before; a rough few days after.
@@ -370,18 +370,18 @@ for n, when in CYCLES:
     past = w <= TODAY
     if past:
         # the day before: a plain line shaped like its siblings (on purpose: material for the tag-from-siblings guess)
-        add(w - dt.timedelta(days=1), B(f'Bloods before cycle {n} at [[Northgate]]: [[{ {1: "Blood count 2026-09-01", 2: "Blood count 2026-09-15", 3: "Blood count 2026-09-29"}[n] }]].'))
-        rec(f'c{n}', w, f'Chemo cycle {n} at [[Northgate]]: [[Oxaliplatin]], [[Fluorouracil (5-FU)]] and [[Leucovorin]], [[Zoë Müller]] on the drip. Cold cap on, pump home for 46 hours.',
+        add(w - dt.timedelta(days=1), B(f'Bloods for tomorrow\'s chemo. Results: [[{ {1: "Blood count 2026-09-01", 2: "Blood count 2026-09-15", 3: "Blood count 2026-09-29"}[n] }]].'))
+        rec(f'c{n}', w, f'Chemo cycle {n} done. [[Zoë Müller]] did the drip, pump home for two days.',
             'Treatment', {'date': day(w), 'agent': who('oxali', 'fu', 'leuco'), 'cycle': n})
-        for k, (sym, text) in enumerate([('Nausea', 'After chemo: [[Nausea]] all evening'), ('Fatigue', 'Flat out, [[Fatigue]]'),
-                                         ('Cold sensitivity', '[[Cold sensitivity]]: the fridge door is an enemy'), ('Fatigue', 'Better, a little [[Fatigue]]')], start=1):
+        for k, (sym, text) in enumerate([('Nausea', '[[Nausea]] all evening.'), ('Fatigue', 'Wiped out all day.'),
+                                         ('Cold sensitivity', 'Cold hurts my fingers, even the fridge door.'), ('Fatigue', 'A bit better. Still tired.')], start=1):
             dd = w + dt.timedelta(days=k)
             if dd > TODAY:
                 break
             undated = (n == 2 and k in (1, 3)) or (n == 3 and k == 2)  # no date on purpose
             log(dd.isoformat(), text, sym, [3, 3, 2, 1][k - 1] + (1 if n == 2 else 0), dated=not undated)
     else:
-        rec(f'c{n}', D(BOOKED_ON[n]), f'Chemo cycle {n} at [[Northgate]]' + (', pump bag back the Friday after' if n == 4 else ''),
+        rec(f'c{n}', D(BOOKED_ON[n]), f'Chemo cycle {n}' + ('. Bring the pump bag back.' if n == 4 else ''),
             'Expectation', {'date': day(w), 'status': ch('status', 'Planned')})
 add('2026-09-01', B('Nervous about tomorrow. [[Amara Okoro]] drove down.'))
 add('2026-09-02', T('Take dexamethasone with breakfast days 1 to 3', 'done'))
@@ -390,37 +390,37 @@ add('2026-09-06', B('Good day. Walked into town.'))
 add('2026-09-08', B('Amara left. Ruth and I back to normal routine, sort of.'))
 add('2026-09-10', B('Best day since the operation.'))
 add('2026-09-12', B('Weekend. [[Graham Whitlock]] came for lunch.'))
-rec('acute', '2026-09-17', 'Rang the acute line about the [[Diarrhoea]] after cycle 2; [[Zoë Müller]] said [[Loperamide]] and three litres a day.',
+rec('acute', '2026-09-17', 'Rang the acute line about the [[Diarrhoea]]. [[Zoë Müller]] said loperamide and lots of water.',
     'Conversation', {'date': day(D('2026-09-17')), 'spoke-with': who('zoe'), 'topic': R('sym:Diarrhoea')})
 add('2026-09-18', T('Drink three litres a day', 'doing'))
 add('2026-09-22', B('Picked up again. Cooked for Ruth.'))
 add('2026-09-24', B('Haircut number two. Thinning a bit at the front.'))
 add('2026-09-26', B('Long talk with [[Tunde Okoro]]. He\'s coming at Christmas.'))
 add('2026-10-01', B('Fingers tingle when I take milk from the fridge. Gloves on the fridge door now.'))
-log('2026-10-03', '[[Tingling fingers]] worse. Ruth says I should mention it', 'Tingling fingers', 2)
+log('2026-10-03', '[[Tingling fingers]] worse today. Ruth says I should mention it.', 'Tingling fingers', 2)
 add('2026-10-03', T('Tell Dr. Chen about the tingling', 'done', 'high'))
 add('2026-10-05', B('Walked the river loop again, slowly.'))
-rec('chen-1007', '2026-10-07', 'Video review with [[Dr. Mei Chen]] about the [[Tingling fingers]]: grade 1 [[Peripheral neuropathy]], oxaliplatin down by a quarter from cycle 4. CT after cycle 6. Letter: [[Clinic letter 2026-10-07]].',
+rec('chen-1007', '2026-10-07', 'Video call with [[Dr. Mei Chen]] about the tingling. She\'s cutting the oxaliplatin by a quarter.',
     'Consultation', {'date': day(D('2026-10-07')), 'provider': R('chen'), 'topic': R('neuropathy')},
     [B('She thinks the tingling will mostly fade, but not always fully.'), B('Decided: [[Oxaliplatin reduced by a quarter from cycle 4]].')])
-rec('x-ct2', '2026-10-07', 'CT scan at [[Riverside]] on Nov 12, after six cycles', 'Expectation', {'date': day(D('2026-11-12')), 'status': ch('status', 'Planned')},
+rec('x-ct2', '2026-10-07', 'CT scan after six cycles', 'Expectation', {'date': day(D('2026-11-12')), 'status': ch('status', 'Planned')},
     [T('Book the patient transport', 'todo', 'medium', '2026-11-05'), T('Nil by mouth from midnight', 'todo')], collapsed=True)
 add('2026-10-08', B('Library sent flowers.'))
-log('2026-10-09', 'Evening: [[Tingling fingers]] and tired', 'Tingling fingers', 2, dated=False)  # no date on purpose
+log('2026-10-09', '[[Tingling fingers]] again tonight, and tired.', 'Tingling fingers', 2, dated=False)  # no date on purpose
 add('2026-10-12', T('Ask [[Dr. Helen Brooks]] about the flu jab', 'done'))
 add('2026-10-13', B('Bloods for cycle 4 today: [[Blood count 2026-10-13]].'))
-rec('moved', '2026-10-14', 'Northgate rang, [[Zoë Müller]]: neutrophils too low, [[Neutropenia]], cycle 4 moved to Oct 21.',
+rec('moved', '2026-10-14', '[[Zoë Müller]] rang. Neutrophils too low, so cycle 4 moves to the 21st.',
     'Conversation', {'date': day(D('2026-10-14')), 'spoke-with': who('zoe'), 'topic': R('neutropenia')},
     [B('Annoyed and relieved at the same time. A free week.'), B('Decided: [[Cycle 4 delayed a week]].')])
-rec('x-flu', '2026-10-14', 'Flu jab with [[Dr. Helen Brooks]] at [[Elm Street Medical Centre]] on Nov 6', 'Expectation', {'date': day(D('2026-11-06')), 'status': ch('status', 'Planned')})
+rec('x-flu', '2026-10-14', 'Flu jab with [[Dr. Helen Brooks]]', 'Expectation', {'date': day(D('2026-11-06')), 'status': ch('status', 'Planned')})
 add('2026-10-15', B('Free week. Went to the library to see everyone.'))
 add('2026-10-16', B('Long lunch with [[Graham Whitlock]]. Talked about anything but this.'))
-log('2026-10-17', 'Good energy. Only the [[Tingling fingers]]', 'Tingling fingers', 1)
+log('2026-10-17', 'Good energy today. Just the [[Tingling fingers]].', 'Tingling fingers', 1)
 add('2026-10-18', B('Sunday. Made a list for the week.'), B(f'Rereading the first visit with the surgeon: [[{REC["patel-0709"]}]]'))
 add('2026-10-19', B('Back on track for Wednesday. Feeling strong.'),
     B('This week', children=[T('Bloods tomorrow at Northgate', 'todo', 'high', '2026-10-20'), T('Charge the tablet for the chemo chair', 'todo'),
                              T('Order more [[Loperamide]]', 'todo', 'low', '2026-10-23')], collapsed=True))
-rec('x-review', '2026-10-19', 'Review with [[Dr. Mei Chen]] at [[Northgate]] on Nov 25, after cycle 6', 'Expectation', {'date': day(D('2026-11-25')), 'status': ch('status', 'Planned')})
+rec('x-review', '2026-10-19', 'Review with [[Dr. Mei Chen]] after cycle 6', 'Expectation', {'date': day(D('2026-11-25')), 'status': ch('status', 'Planned')})
 # today
 add('2026-10-20', B('Bloods at [[Northgate]] this morning for cycle 4 tomorrow. Fingers crossed for the neutrophils.'))
 
