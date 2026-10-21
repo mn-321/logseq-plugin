@@ -2,6 +2,11 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · "Remove “Dr. Mei Chen”" in place of "Unlink" (0.4.234)
+
+**The owner:** "Yes, rename Unlink to Remove “Dr. Mei Chen” the same way." **Built:** the button and Undo text in
+`parts/two-way.js`. **Tests:** `tools/check.sh`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · "Change “Dr. Mei Chen” to…" in place of "Point to…" (0.4.233)
 
 **The owner:** "what does point to mean?", then "make it clear like change \"Dr. Mei Chen\" to X". **Built:** the bar

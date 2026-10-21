@@ -546,7 +546,7 @@ function barHtml() {
   const b = (act, text, title) => `<button type="button" data-act="${act}" title="${esc(title)}">${text}</button>`;
   return `<div class="rf-tw-bar"><button type="button" data-act="clear" class="rf-tw-bar-count" title="Clear the picks (Escape)"><span class="rf-tw-pick" data-on=""></span>Picked: ${state.picked.size}</button>${
     b('sidebar', 'Sidebar', 'Open them in the sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one')}${
-    b('unlink', 'Unlink', 'Take this page out of their field')}${b('tag', '#', 'Add a tag')}${b('copy', 'Copy', 'Copy them as references')}${
+    b('unlink', `Remove “${esc(pageTitle())}”`, 'Take this page out of their field')}${b('tag', '#', 'Add a tag')}${b('copy', 'Copy', 'Copy them as references')}${
     b('set', 'Set property', 'Give them all one value')}${b('unset', 'Unset property', 'Clear a property on them all')}${b('delete', TRASH, 'Delete them')}</div>`;
 }
 // The page's own name, for the bar's "Change “Dr. Mei Chen” to…" (0.4.233, the owner: "make it clear"), read once per page.
@@ -644,7 +644,7 @@ async function act(what) {
         target = await pageNamed(name, fields[0]);
         if (!target) return notify(`There is no page named “${name}”, so nothing was changed`, 'warning');
       }
-      return writeAll(`${what === 'point' ? `Changed “${pageTitle()}” to “${target.title}” on ${counted(chosen.length)}` : `Unlinked ${counted(chosen.length)}`}`, chosen.map(({ uuid, group }) => async () => {
+      return writeAll(`${what === 'point' ? `Changed “${pageTitle()}” to “${target.title}” on ${counted(chosen.length)}` : `Removed “${pageTitle()}” from ${counted(chosen.length)}`}`, chosen.map(({ uuid, group }) => async () => {
         const prop = schema.props.find(p => p.ident === group.ident);
         if (!prop) return null;
         const had = await provided.valuesOf(uuid, prop.ident);
