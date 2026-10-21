@@ -28,7 +28,9 @@ const { runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (alike): ' })
 // wrong one; .2 let lines sharing only "day" or "this morning" vote, and three wrong guesses in.
 // The tag's own (stage D, picked 2026-10-20 by a sweep of 36 settings): the nearest node at least .6 alike gave 22 tags
 // right of 56 and none wrong; looser settings mistook a planned operation for a hospital stay and a call for a visit.
-const limits = { k: 5, nearLeast: .3, lead: .7, stem: true, tagNearLeast: .6, tagLead: .7, tagLeast: 1 };
+// The tag is voted by the words alone (tagLinks false, the stress test of 2026-10-21: "[[Dr. X]] rang" was voted a
+// consultation because that doctor is mostly seen in consultations; a link says who, the words what kind of thing).
+const limits = { k: 5, nearLeast: .3, lead: .7, stem: true, tagNearLeast: .6, tagLead: .7, tagLeast: 1, tagLinks: false };
 const WORD = /[\p{L}\p{N}]+/gu;
 // A light stem: a trailing s (not ss), ed or ing taken off words of five letters or more, so "flagged", "flagging"
 // and "flags" meet at "flagg". Crude on purpose: it is the same on both sides, which is all the cosine needs.

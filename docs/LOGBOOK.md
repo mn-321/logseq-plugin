@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The proposals stress tested on a large graph (0.4.216)
+
+**The owner:** "stress test them, both if they can work and timing", then "stress test on large graph". **Built:**
+`test/stress-graph.py` (seed + 2020-01 to 2026-06, a month per EDN file: a year per file timed out the import after
+4 min), imported into the command-line scratch graph "Stress Check" (17 min); `tools/shadow-stress.js` (tricky words,
+fuzz, 20k-page pretend graph); `tools/shadow-check.js --honest` (index from earlier days only, one at a time, records
+sorted by day) and `--timing` (worker times from the command line's `--profile`, `transport.invoke`, floor 22 ms).
+**Found and fixed:** one-word naming by chance (1,381/1,388 wrong; `wordsEarned`), dates in a consultation's words
+(`datedAhead`), one outlier taking every consultation's sure date (`DATED_GUESS_SHARE` .8), links outvoting words in
+the tag vote (`tagLinks` false) and plain notes tagged (plain lines in the index vote 0), five misreadings in the date
+and number readers, the index rebuilt every 30 s (`data.index`), the dated counts waited for every 30 s (`daysCache`).
+**Scores:** in the CHANGELOG line. **Seen:** in the app before fixes 1 to 4, a temporary probe: 21 ms per key, 204 ms
+the first; removed, its settings key taken out. After the fixes: not on screen (the owner was in Logseq). Learned:
+zsh does not split `$v` (my first combined sweep ran with defaults); a worktree of HEAD is the clean way to score
+yesterday's version.
+
 ## 2026-10-21 · Option-Enter into dates, stage F (0.4.215)
 
 **The owner:** "build Option-Enter into dates next, the same systematic way". **Seen first:** an empty Date opens

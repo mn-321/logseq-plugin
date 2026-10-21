@@ -351,18 +351,40 @@ function namesFor(ctx) {
 // The one page of the property's tags the words name, or null: a whole name counts more than a word of it, and a tie
 // names no one.
 function namedIn(words, classIds, ctx, spoken) {
-  const { byWord, whole } = namesFor(ctx), score = new Map();
-  const bump = (page, n) => { if (!spoken.has(page) && fits(page, classIds, ctx.schema)) score.set(page, (score.get(page) || 0) + n); };
-  for (const word of new Set(words)) for (const page of byWord.get(word) || []) bump(page, 1);
+  const { byWord, whole } = namesFor(ctx), score = new Map(), by = new Map();
+  const bump = (page, n, word) => { if (!spoken.has(page) && fits(page, classIds, ctx.schema)) { score.set(page, (score.get(page) || 0) + n); if (word) by.set(page, [...by.get(page) || [], word]); } };
+  for (const word of new Set(words)) for (const page of byWord.get(word) || []) bump(page, 1, word);
   words.forEach((word, i) => { for (const { page, words: name } of whole.get(word) || []) if (name.every((w, k) => words[i + k] === w)) bump(page, 10); });
   let best = null, top = 0, tie = false;
   for (const [page, n] of score) { if (n > top) { best = page; top = n; tie = false; } else if (n === top) tie = true; }
-  return tie ? null : best;
+  if (tie || !best) return null;
+  // A page named only by a word of its title ("the tingling", "Dr. Patel") must have earned that word: when earlier
+  // lines hold the word, most of them must be about that page (linking it, or holding it as a value). The stress test
+  // (2026-10-21, 3,000 pages): one word shared by chance named a page 1,381 times wrong in 1,388.
+  if (top < 10 && !wordsEarned(by.get(best) || [], best, ctx)) return null;
+  return best;
+}
+const EARNED_LINES = 1, EARNED_SHARE = .5;
+function wordsEarned(words, page, ctx) {
+  const index = ctx.alike;
+  if (!index || !alike) return true; // nothing read yet: as before
+  const link = 'link:' + page.id;
+  for (const word of words) {
+    const lines = index.postings.get(alike.stem(word)) || [];
+    if (lines.length < EARNED_LINES) continue;
+    let about = 0;
+    for (const i of lines) { const e = index.entries[i]; if (e.tokens.includes(link) || [...e.values.values()].some(ids => ids.includes(page.id))) about++; }
+    if (about / lines.length < EARNED_SHARE) return false;
+  }
+  return true;
 }
 /* The plain-language reader (stage E): what is literally in the words, read the same in every graph. */
 const WEEKDAY = '(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?';
-const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*';
+// Whole month names only (the stress test, 2026-10-21: "5 marathons" was read as March 5, "3 junior doctors" as June 3).
+const MONTH = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?=\\s)';
 const SMALL = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+// After a bare "the 4th", only the end of the words, a time, or a small joining word: "on the 2nd floor" is a floor.
+const AFTER_DAY = '(?=\\s*$|\\s+(?:at|in|and|then|for|so|but|or|to|when|with|please|until|till|\\d))';
 const asDate = day => new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100);
 // The days the words name, as day numbers, each once, counted from `base` (the journal day the bullet is written on,
 // else today): a weekday is the coming one; "the 4th" the next 4th; a day and month the next such day; "in two weeks".
@@ -371,16 +393,18 @@ function daysInWords(text, base) {
   const add = date => { if (date && !Number.isNaN(date.getTime())) found.add(dayNumber(date)); };
   for (const [, word] of words.matchAll(/\s(today|tomorrow|tmr|yesterday)\s/g)) add(parseDay(word, today));
   for (const [, next, day] of words.matchAll(new RegExp(`\\s(?:(next)\\s+|(?:on|this|by|until|till)\\s+)?(${WEEKDAY})\\s`, 'g'))) add(parseDay(`${next ? 'next ' : ''}${day}`, today));
-  for (const [, n] of words.matchAll(/\s(?:on|by|until|till)?\s*the\s+(\d{1,2})(?:st|nd|rd|th)\s/g)) {
+  for (const [, n] of words.matchAll(new RegExp(`\\s(?:on|by|until|till|from|before|after|for|${WEEKDAY})\\s+the\\s+(\\d{1,2})(?:st|nd|rd|th)${AFTER_DAY}`, 'g'))) {
     const d = Number(n);
     if (d < 1 || d > 31) continue;
     let date = new Date(today.getFullYear(), today.getMonth(), d);
     if (date.getDate() !== d || date < today) date = new Date(today.getFullYear(), today.getMonth() + 1, d);
     if (date.getDate() === d) add(date);
   }
-  for (const [, d, month] of words.matchAll(new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH})\\s`, 'g'))) add(parseDay(`${d} ${month.slice(0, 3)}`, today));
-  for (const [, month, d] of words.matchAll(new RegExp(`\\s(${MONTH})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s`, 'g'))) add(parseDay(`${month.slice(0, 3)} ${d}`, today));
-  for (const [, n, unit] of words.matchAll(/\sin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(day|days|week|weeks)\s/g)) add(dayAfter(today, (SMALL[n] ?? Number(n)) * (unit.startsWith('week') ? 7 : 1)));
+  // A day and a month, either way round ("4 Aug", "the 4th of December", "Aug 4th"); a day that does not exist (Feb 30) is none.
+  const dayMonth = (d, month) => { const date = parseDay(`${d} ${month.slice(0, 3)}`, today); if (date && date.getDate() === Number(d)) add(date); };
+  for (const [, d, month] of words.matchAll(new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH})`, 'g'))) dayMonth(d, month);
+  for (const [, month, d] of words.matchAll(new RegExp(`\\s(${MONTH})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?=\\s)`, 'g'))) dayMonth(d, month);
+  for (const [, n, unit] of words.matchAll(/\sin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|fortnights?)(?=\s)/g)) add(dayAfter(today, (SMALL[n] ?? Number(n)) * (unit.startsWith('fortnight') ? 14 : unit.startsWith('week') ? 7 : 1)));
   for (const [, iso] of words.matchAll(/\s(\d{4}-\d{1,2}-\d{1,2})\s/g)) add(parseDay(iso, today));
   return [...found];
 }
@@ -390,7 +414,8 @@ function numberInWords(text, prop) {
   const name = prop.lower.replace(/[^\p{L}\p{N} ]/gu, ' ').trim();
   if (!name) return null;
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-  for (const [, n] of words.matchAll(new RegExp(`\\s${esc}s?\\s+(?:no\\.?\\s*|#)?(\\d+(?:\\.\\d+)?)\\s`, 'g'))) found.add(Number(n));
+  // "cycles 3 and 4" names two (the stress test): a number followed by another one is no answer.
+  for (const [, n] of words.matchAll(new RegExp(`\\s${esc}s?\\s+(?:no\\.?\\s*|#)?(\\d+(?:\\.\\d+)?)(?=\\s)(?!\\s+(?:and|or|to|&|-)\\s+\\d)`, 'g'))) found.add(Number(n));
   for (const [, n] of words.matchAll(new RegExp(`\\s(\\d+(?:\\.\\d+)?)\\s+${esc}s?\\s`, 'g'))) found.add(Number(n));
   return found.size === 1 ? [...found][0] : null;
 }
@@ -402,12 +427,14 @@ const dayIdFor = (ctx, day) => (ctx.dayIds ||= new Map([...(ctx.days || [])].map
 function tagFor(b, text, ctx) {
   if (!ctx.alike || !alike) return null;
   const { links } = inWords(text, ctx);
-  const tokens = alike.tokensOf(shownWords(text, ctx), links.map(p => p.id), []);
+  const tokens = alike.tokensOf(shownWords(text, ctx), alike.limits.tagLinks === false ? [] : links.map(p => p.id), []);
   if (tokens.length < 2) return null;
+  // Ordinary lines with no tag vote too, for none (0): a line like twenty earlier plain notes gets no tag (the stress
+  // test, 2026-10-21: repeated plain notes were offered #Expectation by one rare word they shared with a scan).
   const near = alike.neighbours(ctx.alike, tokens, { skip: new Set([idOf(b)]), keep: entry => entry.values.get('block/tags')?.length > 0 });
   const { tagNearLeast: nearLeast, tagLead: lead, tagLeast: least } = alike.limits;
   const voted = alike.vote(near, 'block/tags', { nearLeast, lead, least });
-  if (!voted || voted.ids.length !== 1) return null;
+  if (!voted || voted.ids.length !== 1 || voted.ids[0] === 0) return null;
   const page = ctx.byId.get(voted.ids[0]);
   return page?.isTag && page.uuid && (!ctx.knownTags || ctx.knownTags.has(page.id)) ? page : null;
 }
@@ -453,7 +480,7 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
     // a treatment had 3). A tag whose nodes are dated other days (an expectation, written ahead) still gets nothing.
     if (isDate && !said.length && prop.lower === 'date' && journalDay && fewDatedAllSameDay(recordTags, ctx)) said.push({ ids: [idOf(pick(b, 'block/page'))], how: 'day' });
     // Stage E: a date written in the words, counted from the day the bullet is written on (else today); one, or nothing.
-    if (isDate && own && prop.lower === 'date') {
+    if (isDate && own && prop.lower === 'date' && datedAhead(recordTags, ctx)) {
       const days = daysInWords(text, journalDay || dayNumber(new Date()));
       if (days.length === 1) { const id = dayIdFor(ctx, days[0]); said.push({ ids: [id ?? -days[0]], day: days[0], how: 'words-day' }); }
     }
@@ -496,7 +523,7 @@ function addHistory(ctx, entries) {
     const words = entry.words || shownWords(entry.title, ctx);
     if (words.size < 2) continue;
     const values = new Map(entry.values);
-    if (entry.tags?.length) values.set('block/tags', entry.tags);
+    values.set('block/tags', entry.tags?.length ? entry.tags : [0]); // 0: a plain line, no tag
     kept.push({ id: entry.id, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values });
   }
   ctx.alike = alike ? alike.buildIndex(kept) : null;
@@ -518,7 +545,13 @@ async function guessDataFor(ctx, { wait = true } = {}) {
   ctx.aliases = data.aliases;
   ctx.knownTags = new Set(data.tagIds || []);
   ctx.names = null;
-  return addHistory(ctx, data.entries);
+  // The index is built once for each reading of the earlier lines, not again for every new context: the page list
+  // is read again every 30 s while you write, and on 50,000 lines a new index took 0.2 s, a pause in the typing (the
+  // stress test, 2026-10-21).
+  if (!data.index) data.index = addHistory({ ...ctx }, data.entries).alike;
+  ctx.history = true;
+  ctx.alike = data.index;
+  return ctx;
 }
 async function loadGuessData(ctx) {
   const { schema } = ctx;
@@ -527,23 +560,41 @@ async function loadGuessData(ctx) {
   // the schema knows too; before 0.4.213 only the tags with link properties.
   const tagIds = (await dsQuery('[:find ?t ?i :where [?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]]').catch(() => []))
     .filter(([, ident]) => /^:?user\.class\//.test(String(ident))).map(([t]) => Number(t));
-  const [rows, aliases] = await Promise.all([
+  const [rows, aliases, plain] = await Promise.all([
     tagIds.length ? dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${nodeProps.map(p => `{:${p.ident} [:db/id]}`).join(' ')}])
       :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }) : [],
-    dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])]);
+    dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => []),
+    // Plain lines (no tag at all), for the tag's vote: they say "no tag" (the stress test, 2026-10-21).
+    dsQuery('[:find ?b ?t :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :block/tags _]) (not [?b :logseq.property/deleted-at _])]').catch(() => [])]);
   return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]), tagIds,
-    entries: rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
-      values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) })) };
+    entries: [...plain.map(([id, title]) => ({ id: Number(id), words: shownWords(String(title), ctx), links: linkIdsIn(String(title), ctx), tags: [], values: new Map() })), ...rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
+      values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) }))] };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
 // page carry that page's day (a small look-up kept with the context).
-async function daysFor(ctx) {
+// Kept with the earlier lines, read again at most every five minutes (the stress test, 2026-10-21: read with every new
+// context, every 30 s, the count took 0.2 s on a large graph, and the key that met it waited); only the first reading
+// is waited for, as before.
+const daysCache = { graph: null, at: 0, data: null, loading: null };
+async function daysFor(ctx, { wait = true } = {}) {
   if (ctx.days) return ctx;
-  ctx.days = new Map((await dsQuery('[:find ?p ?d :where [?p :block/journal-day ?d]]')).map(([p, d]) => [p, Number(d)]));
-  ctx.dated = new Map();
-  const rows = await dsQuery('[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :user.property/date ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]').catch(() => []);
-  for (const [t, same, count] of rows) { const n = ctx.dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; ctx.dated.set(t, n); }
+  const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
+  let data = daysCache.graph === graph ? daysCache.data : null;
+  if (!data || Date.now() - daysCache.at > GUESS_DATA_EVERY) {
+    daysCache.loading ||= loadDays().then(fresh => Object.assign(daysCache, { graph, at: Date.now(), data: fresh }).data).finally(() => { daysCache.loading = null; });
+    if (!data && wait) data = await daysCache.loading;
+  }
+  if (!data) return ctx;
+  ctx.days = data.days;
+  ctx.dated = data.dated;
   return ctx;
+}
+async function loadDays() {
+  const days = new Map((await dsQuery('[:find ?p ?d :where [?p :block/journal-day ?d]]')).map(([p, d]) => [p, Number(d)]));
+  const dated = new Map();
+  const rows = await dsQuery('[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :user.property/date ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]').catch(() => []);
+  for (const [t, same, count] of rows) { const n = dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; dated.set(t, n); }
+  return { days, dated };
 }
 // Sure only with evidence: at least 5 such nodes under the record's own tags, and 19 in 20 dated the day written.
 const DATED_LEAST = 5, DATED_SHARE = .95;
@@ -552,12 +603,28 @@ function datedWhenWritten(tagIds, ctx) {
   for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }
   return same + other >= DATED_LEAST && same / (same + other) >= DATED_SHARE;
 }
+// The journal day as a guess: a tag with one to four dated nodes, all the day written; or one with more, dated the day
+// written at least 4 times in 5 but under the bar for sure (the stress test, 2026-10-21: one consultation the owner
+// dated another day took the sure date from all of them, 10 in 11).
+const DATED_GUESS_SHARE = .8;
 function fewDatedAllSameDay(tagIds, ctx) {
-  let same = 0, other = 0;
-  for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }
+  const { same, other } = datedCounts(tagIds, ctx);
   // At least one: no evidence is not permission (second reading: a new tag's first "Scan next Tuesday" would get today,
   // and so would every tag while the counts are still being read).
-  return same >= 1 && same + other < DATED_LEAST && other === 0;
+  if (same + other >= DATED_LEAST) return same / (same + other) >= DATED_GUESS_SHARE && !datedWhenWritten(tagIds, ctx);
+  return same >= 1 && other === 0;
+}
+function datedCounts(tagIds, ctx) {
+  let same = 0, other = 0;
+  for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }
+  return { same, other };
+}
+// A date in the words is the record's own only for a tag whose nodes are dated ahead at least as often as on the day
+// written (an expectation), or that has none dated yet: a consultation's "I can drive in two weeks" is another day
+// (the stress test, 2026-10-21).
+function datedAhead(tagIds, ctx) {
+  const { same, other } = datedCounts(tagIds, ctx);
+  return other >= same;
 }
 
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the
@@ -1205,5 +1272,5 @@ function start() {
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, drawInPlace, css };
+window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, BLOCK_PULL, drawInPlace, css };
 })();

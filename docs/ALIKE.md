@@ -113,6 +113,28 @@ The measure: the pretend check (a Date opens a popup with the box; the box gets 
 Logseq; Tab and Escape behave as in a list) and the look in the app. Nothing is guessed, so the scorer has nothing
 to say.
 
+## Stage G: the stress test (0.4.216)
+
+A large scratch graph, "Stress Check" (made by `test/stress-graph.py`, imported with the command line, never opened in
+the app): the seed plus 2020-01-01 to 2026-06-21, 31,000 bullets, 15,600 records, 3,100 pages with shared surnames.
+
+| Graph | Sure right / wrong | Guess right / wrong | Silent | Tags right / wrong / silent | Tag on a plain note |
+|---|---|---|---|---|---|
+| Large, before the fixes | 20,866 / 0 | 8,763 / 1,400 | 9,277 | 12,750 / 50 / 2,799 | 45 of 8,620 |
+| Large, after (0.4.216) | 20,866 / 0 | 9,128 / 41 | 10,271 | 11,250 / 1 / 4,348 | 1 of 8,620 |
+| Large, honest (earlier days only) | 20,866 / 0 | 8,877 / 98 | 10,465 | 9,063 / 0 / 6,536 | 0 of 8,620 |
+| Seed, after | 54 / 0 | 31 / 1 | 42 | 22 / 0 / 34 | 1 of 228 |
+
+What it taught:
+- **A name needs evidence too.** One word of a title is evidence only if the lines holding that word are mostly about
+  that page (`wordsEarned`); a whole name stands alone. 1,381 wrong became 0 from that rule on its own words.
+- **The tag is the words' to decide.** A link says who; with links in the vote, a call from a doctor seen mostly at
+  consultations was voted a consultation. Plain lines vote "no tag", so a line like many plain notes stays plain.
+- **The learning is real.** Honestly scored, wrong guesses go from 15 in the first month to about one a month after a
+  year, on the same habits. More lines of the same kinds help; more look-alike names make it quieter, not wronger.
+- **Timing is not the problem at this size.** Per key the plugin's own work stays under 3.5 ms and Logseq's two
+  look-ups about 1 ms each; the cost is in the background reading every five minutes (0.8 s in Logseq's worker).
+
 ## Settings the engine has (in `parts/alike.js`, named so the scorer can try them)
 
 - `limits.stem`: a trailing s, ed or ing taken off words of five letters or more.
