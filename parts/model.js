@@ -27,7 +27,7 @@
    - linksInto(pageId), nodeFields(uuid), firstLines(uuid, n)       the nodes pointing at a page through your properties,
      pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines
    - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag,
-     valueTitle, numberValues, linkedPages, hasTag                  what the proposals read while a bullet is written */
+     valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -163,7 +163,7 @@ async function pagesNamed(names) {
 
 /* What the proposals read (0.4.226, moved here from parts/shadow.js). blockInEdit(uuid): the block with its tags and
    values, its page, its parent and the parent's parent (BLOCK_PULL). The earlier lines the "looks like" engine learns
-   from: userTagIds (your own tags, never Logseq's), taggedNodes (every node with one of those tags, with its links
+   from: userTagIds (your own tags, never Logseq's), taggedNodes (every node with one of those tags, pages too since 0.4.239, with its links
    under the given properties), aliasPairs, plainLines (nodes with no tag at all). journalDays: every journal page's day
    by id; datedByTag(dateIdent): for each tag, how many of its nodes dated with that property are dated the day they are
    written on, and how many another day. And what a node holds right now: valueTitle, numberValues, linkedPages, hasTag. */
@@ -177,7 +177,7 @@ async function blockInEdit(uuid) {
 const tagIdents = () => dsQuery('[:find ?t ?i :where [?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]]').catch(() => []);
 const userTagIds = async () => (await tagIdents()).filter(([, ident]) => /^:?user\.class\//.test(String(ident))).map(([t]) => Number(t));
 const taggedNodes = (tagIds, idents) => !tagIds.length ? Promise.resolve([]) : dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${idents.map(ident => `{:${ident} [:db/id]}`).join(' ')}])
-      :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).then(rows => rows.map(([n]) => n));
+      :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] (not [?b :logseq.property/deleted-at _])]`).then(rows => rows.map(([n]) => n));
 const aliasPairs = async () => (await dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])).map(([o, a]) => [Number(o), Number(a)]);
 const plainLines = async () => (await dsQuery('[:find ?b ?t :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :block/tags _]) (not [?b :logseq.property/deleted-at _])]').catch(() => []))
   .map(([id, title]) => ({ id: Number(id), title: String(title) }));
@@ -430,6 +430,9 @@ async function firstLines(uuid, n) {
   const children = entity?.name || entity?.originalName ? await logseq.Editor.getPageBlocksTree(uuid) : entity?.children;
   return (children || []).slice(0, n).map(child => titleOf(child));
 }
+// The words of the bullets written straight on a page, for the page's own proposals (0.4.239); a property's text value
+// is not one (it has a property of its own pointing at it).
+const pageLines = async uuid => !UUID.test(uuid) ? [] : (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${uuid}"] [?b :block/parent ?p] [?b :block/page ?p] [?b :block/title ?t] (not [?b :logseq.property/created-from-property _])]`).catch(() => [])).map(([t]) => String(t));
 // How many of these nodes are pages; the uuid of the tag of yours with this name; a node's uuid by its id.
 const pagesAmong = async (uuids, uuidsIn) => (await dsQuery(`[:find ?u :where ${uuidsIn('?u', uuids)} [?b :block/uuid ?u] [?b :block/name _]]`)).length;
 const tagUuidNamed = async title => String((await dsQuery(`[:find ?u :where [?t :block/tags :logseq.class/Tag] [?t :block/title ${JSON.stringify(title)}] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/uuid ?u]]`))[0]?.[0] || '');
@@ -535,7 +538,7 @@ function provide(core) {
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
-    pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag,
+    pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {

@@ -397,7 +397,8 @@ function wordsEarned(words, page, ctx) {
     const lines = index.postings.get(alike.stem(word)) || [];
     if (lines.length < EARNED_LINES) continue;
     let about = 0;
-    for (const i of lines) { const e = index.entries[i]; if (e.tokens.includes(link) || [...e.values.values()].some(ids => ids.includes(page.id))) about++; }
+    // The page itself counts as about it: pages are learned from too since 0.4.239, and a hospital's own title holds its words.
+    for (const i of lines) { const e = index.entries[i]; if (e.id === page.id || e.tokens.includes(link) || [...e.values.values()].some(ids => ids.includes(page.id))) about++; }
     if (about / lines.length < EARNED_SHARE) return false;
   }
   return true;
@@ -850,6 +851,7 @@ function onGuessPress(event) {
   if (!el) return;
   event.stopImmediatePropagation();
   if (event.type !== 'pointerdown') event.preventDefault();
+  if (event.type === 'click' && el.classList.contains('rfs-page-ghost')) fillPage(el.dataset.rfsKey);
 }
 /* Option-Enter (0.4.204, at the owner's word: "option enter just goes to the empty property that didn't have anything
    guessed or proposed"): from the words of a bullet, open Logseq's own list for the first of the record's properties
@@ -1146,6 +1148,13 @@ async function takeShadow(live) {
   const pieces = found.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || taken.has(guessKey(piece))));
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
   if (!pieces.length || !UUID.test(recordUuid) || stopped) return;
+  const { written, undo } = await writePieces(recordUuid, pieces, live.uuid);
+  if (!written.length) return;
+  rememberUndo(recordUuid, live.uuid, undoText(written), undo);
+}
+const undoText = written => written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · ');
+// Writing what was proposed, for a bullet left or a page's value clicked; and the undo of it.
+async function writePieces(recordUuid, pieces, bulletUuid) {
   const written = [];
   for (const piece of pieces) {
     const tagged = [];
@@ -1153,7 +1162,7 @@ async function takeShadow(live) {
     if (piece.needsTag && !written.some(w => w.kind === 'tag')) continue;
     try {
       if (piece.kind === 'tag') { await logseq.Editor.addBlockTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
-      if (piece.asPage) { if (await takeAsPage(piece, live.uuid, recordUuid)) written.push(piece); continue; }
+      if (piece.asPage) { if (await takeAsPage(piece, bulletUuid, recordUuid)) written.push(piece); continue; }
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
       if (piece.kind === 'day') { piece.wrote = [piece.journalId ?? await journalPageFor(piece.day)]; await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.wrote[0]); }
       else if (piece.kind === 'number') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0]);
@@ -1167,7 +1176,6 @@ async function takeShadow(live) {
       warnOnce(`${piece.prop.title} could not be filled in`, error); notify(`${piece.prop.title} could not be filled in`, 'warning');
     }
   }
-  if (!written.length) return;
   // Undo takes off only what is still as it was filled in: a value chosen by hand since is the owner's, and stays. Every
   // step is tried even when one fails, and a failure is reported at the end (the code review, 2026-10-21).
   const undo = async () => {
@@ -1182,7 +1190,7 @@ async function takeShadow(live) {
     }
     if (failed.length) throw failed[0];
   };
-  rememberUndo(recordUuid, live.uuid, written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · '), undo);
+  return { written, undo };
 }
 
 // Whether a property still holds what the fill wrote (Logseq keeps a number as a value of its own: the number in it is
@@ -1335,7 +1343,7 @@ function drawInPlace(doc = host()) {
   const want = new Map(), rows = live?.recordUuid ? [...doc.querySelectorAll(`.ls-block[blockid="${live.recordUuid}"]`)] : [];
   for (const piece of live?.pieces || []) want.set(piece.ident, piece);
   // Out with what is no longer proposed (another bullet, a value changed, the bullet left).
-  for (const g of doc.querySelectorAll('.rfs-ghost')) {
+  for (const g of doc.querySelectorAll('.rfs-ghost:not(.rfs-page-ghost)')) {
     const piece = want.get(g.dataset.rfsIdent);
     const filled = !g.closest('.rfs-made') && !g.parentElement?.querySelector('.empty-value');
     if (piece && !filled && rows.includes(g.closest('.ls-block[blockid]')) && g.dataset.rfsKey === guessKey(piece)) continue;
@@ -1372,11 +1380,84 @@ function drawInPlace(doc = host()) {
     }
   }
   // A pill marked with nothing of ours left in it (a copy cut short) is given back to Logseq (second reading).
-  for (const pill of doc.querySelectorAll('[data-refinement-proposal]')) if (!pill.querySelector('.rfs-ghost')) pill.removeAttribute('data-refinement-proposal');
+  for (const pill of doc.querySelectorAll('[data-refinement-proposal]:not(.property-pair)')) if (!pill.querySelector('.rfs-ghost')) pill.removeAttribute('data-refinement-proposal');
   drawUndos(doc);
 }
 function hide() { drawInPlace(); }
-const drawEarly = (doc, records) => { if (!state.live && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
+const drawEarly = (doc, records) => { pageEarly(doc); if (!state.live && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
+
+/* Proposals on a page's own properties (0.4.239, at the owner's word: "it is fine if they appear, since new pages are
+   always being created that may apply to them"). For the page open in the main view, not a journal day: what could
+   fill its empty properties shows in them in italic grey, as on a bullet, worked out from its title, the first lines
+   on it and the earlier pages and bullets it looks like. Nothing is filled in by itself, since a page is not left as
+   a bullet is: a click on a grey value fills it in, and the faded arrow at the end of the title takes it back (until
+   the title is edited or the page is left). A click beside it still opens Logseq's own list, to choose another. */
+// The open page's own properties box (its id is Logseq's own for the box, not the page's: the page comes from Logseq).
+const PAGE_PROPS = '#main-content-container .ls-page-properties';
+const pageLive = state.page = { uuid: '', box: null, asked: null, pieces: [], version: 0, timer: 0 };
+const openBox = doc => doc.querySelector(PAGE_PROPS);
+function schedulePage(ms = 120) { clearTimeout(pageLive.timer); pending.delete(pageLive.timer); pageLive.timer = later(computePage, ms); }
+function setPage(uuid, pieces, box = pageLive.box) { Object.assign(pageLive, { uuid, pieces, box }); drawPage(); }
+async function computePage() {
+  const box = openBox(host()), version = ++pageLive.version;
+  pageLive.asked = box;
+  if (!box) return setPage('', [], null);
+  try {
+    const uuid = String((await logseq.Editor.getCurrentPage())?.uuid || '');
+    if (version !== pageLive.version || stopped) return;
+    if (!UUID.test(uuid) || !await allowed()) return setPage(uuid, [], box);
+    const page = await pullBlock(uuid);
+    if (version !== pageLive.version || stopped) return;
+    if (!page || pick(page, 'block/journal-day')) return setPage(uuid, [], box);
+    const lines = await model.pageLines(uuid);
+    const text = [String(pick(page, 'block/title') ?? ''), ...lines].join('\n');
+    const ctx = await withFreshLinks(text, await guessDataFor(await daysFor(await contextFor())));
+    if (version !== pageLive.version || stopped || openBox(host()) !== box) return;
+    const { record, pieces } = piecesFor(page, text, ctx);
+    // Only values for the page itself: no tag for it, and no page to make from its words.
+    setPage(uuid, idOf(record) === idOf(page) ? pieces.filter(x => !x.asPage && x.kind !== 'tag' && !x.needsTag) : [], box);
+  } catch (error) { warnOnce('the page proposals could not be worked out', error); }
+}
+function pageEarly(doc) {
+  const box = openBox(doc);
+  if (box !== pageLive.asked) { pageLive.asked = box; schedulePage(); }
+  else if (pageLive.pieces.length || doc.querySelector('.rfs-page-ghost')) drawPage(doc);
+}
+const rowName = row => String(row.dataset.propertyTitle || '').toLowerCase();
+function drawPage(doc = host()) {
+  const box = pageLive.box?.isConnected ? pageLive.box : null;
+  const want = new Map(box ? pageLive.pieces.map(piece => [piece.prop.lower, piece]) : []);
+  for (const g of doc.querySelectorAll('.rfs-page-ghost')) {
+    const row = g.closest('.property-pair'), piece = row && want.get(rowName(row));
+    if (piece && box?.contains(g) && row.querySelector('.empty-value') && g.dataset.rfsKey === guessKey(piece)) continue;
+    row?.removeAttribute('data-refinement-proposal');
+    g.remove();
+  }
+  if (box) for (const row of box.querySelectorAll('.property-pair[data-property-title]')) {
+    const piece = want.get(rowName(row)), empty = row.querySelector('.empty-value');
+    if (!piece || !empty || row.querySelector('.rfs-page-ghost')) continue;
+    const g = doc.createElement('span'), look = ghostLook(piece);
+    g.className = `${look.cls} rfs-page-ghost`;
+    g.textContent = piece.tagPage ? `${piece.shown} #${piece.tagPage.tag.title}` : piece.shown;
+    g.title = piece.guess ? 'A guess: click to fill it in' : 'Click to fill it in';
+    g.dataset.rfsKey = guessKey(piece);
+    g.dataset.rfsIdent = piece.ident;
+    g.setAttribute('contenteditable', 'false');
+    g.setAttribute('role', 'button');
+    empty.parentElement.insertBefore(g, empty);
+    row.setAttribute('data-refinement-proposal', '');
+  }
+}
+async function fillPage(key) {
+  const uuid = pageLive.uuid, piece = pageLive.pieces.find(x => guessKey(x) === key);
+  if (!piece || stopped || !await allowed()) return;
+  setPage(uuid, pageLive.pieces.filter(x => x !== piece));
+  try {
+    const { written, undo } = await writePieces(uuid, [piece], uuid);
+    // The page's title is a block of the page's own: the arrow goes at the end of it, as on a bullet's line.
+    if (written.length) rememberUndo(uuid, uuid, undoText(written), async () => { try { await undo(); } finally { schedulePage(400); } });
+  } finally { schedulePage(400); }
+}
 
 const css = `
 /* A proposed value (0.4.202): italic grey, in the record's own property where the value goes; a guess has a dotted
@@ -1400,11 +1481,16 @@ const css = `
 .rfs-undo { display: inline-flex; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
 .rfs-undo:hover { opacity: .75; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
+/* A page's own empty property with a proposal (0.4.239): the grey value before Logseq's dashed mark, which is hidden
+   but still opens Logseq's list beside it. */
+.ls-page-properties .property-pair[data-refinement-proposal] .empty-value .ui__icon { visibility: hidden; }
+.rfs-page-ghost { cursor: pointer; align-self: center; margin-left: 3px; margin-right: .5em; }
+.rfs-page-ghost:hover { color: color-mix(in srgb, currentColor 75%, transparent); }
 `;
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
 function start() {
-  ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag']));
+  ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag', 'pageLines']));
   model = window.refinementCore.provided; // the graph is read through the model (0.4.226)
   void titleOf;
   applyStyles();
@@ -1418,15 +1504,16 @@ function start() {
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onUndoPress);
   // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
-  const offRoute = logseq.App.onRouteChanged?.(() => { if (state.undos.size) { state.undos.clear(); drawUndos(host()); } });
+  const offRoute = logseq.App.onRouteChanged?.(() => { if (state.undos.size) { state.undos.clear(); drawUndos(host()); } schedulePage(); });
   if (typeof offRoute === 'function') onUnload(offRoute);
   watchDomEarly(drawEarly);
-  onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
-  onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
+  onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
+  onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
   stopped = false;
-  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); });
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); setPage('', [], null); });
+  schedulePage(300);
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
+window.refinementShadowInner = { piecesFor, namedIn, namesFor, freeWords, wordsEarned, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
 })();

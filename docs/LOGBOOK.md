@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Proposals on a page's own properties (0.4.239)
+
+**The owner:** a picture of a report page with empty Written by and Prior reports: "are proposals possible on the
+properties on a page", then "It is fine if they appear since new pages are always being created that may apply to
+them". **Built:** a page section in `parts/shadow.js` (`computePage`, `drawPage`, `fillPage`; the writing shared with
+bullets as `writePieces`), `pageLines` in `parts/model.js`, and `taggedNodes` now takes pages too; a page's own
+title counts as about that page when a word of it names it (`wordsEarned`). The page comes from Logseq
+(`getCurrentPage`): the properties box's id is not the page's. **Tests:** `tools/check.sh`; the scorer the same with
+and without pages learned. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Right-click a two-way row's name to rename how it reads (0.4.238)
 
 **The owner:** "make this more robust … and if possible easily editable? Like I should be able to right click
