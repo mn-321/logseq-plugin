@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The tag map finds properties (0.4.235)
+
+**The owner:** "can you also search properties in the tag and properties page". **Built:** in `parts/tags.js` a tag
+matches by its own properties' names too (`matches`), the property name is underlined where it matches, the box's
+words changed. **Tests:** `tools/check.sh`; the tag map pictures re-approved (only the box's words changed).
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · "Remove “Dr. Mei Chen”" in place of "Unlink" (0.4.234)
 
 **The owner:** "Yes, rename Unlink to Remove “Dr. Mei Chen” the same way." **Built:** the button and Undo text in

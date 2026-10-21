@@ -409,7 +409,7 @@ const css = `
 .refinement-tags .rtg-act:hover { background: var(--rtg-wash); color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-kids { margin-left: 12px; padding-left: 10px; border-left: 1px solid var(--rtg-line); }
 .refinement-tags .rtg-dim > .rtg-main .rtg-name { opacity: .55; }
-.refinement-tags .rtg-name mark { margin: 0; padding: 0; border-radius: 0; background: none; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
+.refinement-tags :is(.rtg-name, .rtg-pname) mark { margin: 0; padding: 0; border-radius: 0; background: none; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
 .refinement-tags .rtg-dragging { opacity: .4; }
 .refinement-tags .rtg-drop { background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 12%, transparent) !important; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 60%, transparent); }
 .refinement-tags .rtg-drop-before::after, .refinement-tags .rtg-drop-after::after, .refinement-tags .rtg-drop-inside::after { content: ''; position: absolute; left: 24px; right: 8px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 80%, transparent); pointer-events: none; }
@@ -545,7 +545,7 @@ function createView(doc, mode) {
   view.busy = false;
   view.loaded = false; // nothing is drawn until the tags have been read once
 
-  view.find = el(view.doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag', spellcheck: 'false', 'aria-label': 'Find a tag' });
+  view.find = el(view.doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag or property', spellcheck: 'false', 'aria-label': 'Find a tag or property' });
   keepKeys(view.find);
   view.find.addEventListener('input', () => { view.cursorKey = null; view.cursorTag = null; view.draw(); });
   // keepKeys holds the find box's keys back from Logseq; the arrows and Enter still drive the tree.
@@ -1018,7 +1018,10 @@ function propRow(view, tag, prop, from) {
   const fold = el(doc, 'button', { class: 'rtg-fold' + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
     click: event => { event.stopPropagation(); flip(propsOpen, key); saveProps(); view.draw(); } });
   const name = el(doc, 'span', { class: 'rtg-pname', title: from ? `${prop.title} comes from #${from.title}` : view.passesDown(tag, prop),
-    click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } }, prop.title);
+    click: event => { event.stopPropagation(); view.propMenu(tag, prop, from, event.currentTarget); } });
+  const words = el(doc, 'span');
+  view.highlight(words, prop.title, view.q || '');
+  name.append(words);
   const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), click: event => {
     event.stopPropagation();
     const piece = event.target.closest('[data-act]');
@@ -1451,16 +1454,19 @@ function highlight(view, node, title, q) {
   node.append(title.slice(0, at), el(view.doc, 'mark', {}, title.slice(at, at + q.length)), title.slice(at + q.length));
 }
 
+const matches = (tag, q) => tag.title.toLowerCase().includes(q) || tag.propList.some(p => String(p.title || '').toLowerCase().includes(q));
 function draw(view) {
   if (!view.box.isConnected && view.shown.length) return;
   if (!view.loaded) { view.body.replaceChildren(el(view.doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); return; }
   view.paint(view.box); // for the bar that stays at the top while picking
   const q = view.find.value.trim().toLowerCase();
-  // With a search, only matching tags and the tags above them are shown, unfolded.
+  // With a search, only matching tags and the tags above them are shown, unfolded. A tag matches by its name or by
+  // the name of a property of its own (0.4.235, the owner: "search properties in the tag and properties page").
   const keep = new Set();
+  view.q = q;
   if (q) {
     const markMatch = tag => { if (keep.has(tag.id)) return; keep.add(tag.id); tag.parents.forEach(markMatch); };
-    for (const tag of view.data.tags.values()) if (tag.title.toLowerCase().includes(q)) markMatch(tag);
+    for (const tag of view.data.tags.values()) if (matches(tag, q)) markMatch(tag);
   }
   const pass = { q, keep, visible: tag => !q || keep.has(tag.id), section: '', rank: rankOf() }; // what every piece of the drawing reads
   const scrollKeep = view.box.closest('.sidebar-item-list, .cp__sidebar-main-content, #main-content-container') || view.doc.scrollingElement;
@@ -1557,7 +1563,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   const kids = view.sortSiblings(tag.kids.filter(kid => !path.has(kid.id) && pass.visible(kid)), pass.rank);
   const open = pass.q ? true : !folded.has(tag.uuid);
   const isRoot = depth === 0 && pass.section === 'top';
-  const row = el(view.doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (pass.q && !tag.title.toLowerCase().includes(pass.q) ? ' rtg-dim' : ''),
+  const row = el(view.doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (pass.q && !matches(tag, pass.q) ? ' rtg-dim' : ''),
     'data-key': key, draggable: tag.builtIn ? null : 'true', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null });
   const item = { key, tag, parent, row, depth, sec: pass.section, root: isRoot };
   row.rtgLive = [item, tag, parent]; // what its clicks read, brought up to date if the row is kept (see morph)
@@ -1642,7 +1648,7 @@ function drawLogseq(view, pass, sections) {
   const builtIns = [...view.data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && pass.visible(tag)).sort(view.data.byTitle);
   pass.section = 'logseq';
   if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'logseq' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
-  if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
+  if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag or property by that name. Press Enter to make a tag of it.'));
 }
 
 function addRow(view, parent) {
