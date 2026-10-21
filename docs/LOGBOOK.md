@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · The tag of an untagged bullet, stage D of the engine (0.4.213)
+
+**The owner:** "build the pencilled tag line for an untagged bullet, the same systematic way: design note, stage,
+score, app check". **Built:** `tagFor` in `parts/shadow.js` (words and links alone, every node under an owner's tag,
+the engine's vote under `limits.tagNearLeast`, `tagLead`, `tagLeast`); the tag pencilled as a "Tags" pill made under
+the bullet, the tag's properties beside it as guesses that wait for the tag (`needsTag`); `takeShadow` gives the tag
+first, Undo takes it off last. **Measured:** the scorer now hides every record's tag and checks every plain note. First
+run: #Task proposed on addresses (Logseq's tags were in the vote; now only `user.class/` tags), 9 wrong among close
+kinds. Sweep of 36 settings: picked nearest ≥ .6, lead .7, agreeing ≥ 1: right 22, wrong 0, silent 34 of 56; one plain
+note offered #Symptom Log ("Blood again this morning. Third time this month."), allowed as the feature working.
+Scoreboard in `docs/ALIKE.md`. **Seen after:** on the owner's graph, an untagged "Flagging again by teatime, really
+tired" showed Tags *#Symptom Log* · Date *Oct 20* · Symptom type *Fatigue*, dotted, one row (the first look stacked
+them: CSS for the made row added); Enter tagged it and filled both values with the Undo bar; Undo on a second line
+took it all off. Learned: the Undo bar lasts 7 s (press within a batch); the first key after a reload shows nothing
+while the index loads. The owner's bullet in edit was left with Escape. Test bullets removed with the command line
+(`upsert block --remove-tags --remove-properties`, `remove block`); their empty bullet put back.
+
 ## 2026-10-20 · The "looks like" engine (0.4.212)
 
 **The owner:** the guess ideas "seem too based on the current graph instead of developing a more dynamic and fluid

@@ -18,14 +18,17 @@
    - buildIndex(entries)                   { id, tokens, values: Map(ident -> ids) } each; the index the rest read
    - neighbours(index, tokens, options)    the k nearest entries, [{ entry, sim }], best first; options.skip (ids),
                                            options.keep(entry), options.k
-   - vote(near, ident, limits)             { ids, share, sim } the value the nearest holders agree on, or null
-   - limits                                { k, nearLeast, lead }, read on each call, so the scorer can try others */
+   - vote(near, ident, limits)             { ids, share, sim, n } the value the nearest holders agree on, or null
+   - limits                                { k, nearLeast, lead, tagNearLeast, tagLead, tagLeast }, read on each call,
+                                           so the scorer can try others; the tag ones are stage D's (docs/ALIKE.md) */
 const shared = window.refinementShared;
 const { runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (alike): ' });
 
 // Picked by the scorer on 2026-10-20 (docs/ALIKE.md, stage C): nearest at least .3 gave three more right guesses and no
 // wrong one; .2 let lines sharing only "day" or "this morning" vote, and three wrong guesses in.
-const limits = { k: 5, nearLeast: .3, lead: .7, stem: true };
+// The tag's own (stage D, picked 2026-10-20 by a sweep of 36 settings): the nearest node at least .6 alike gave 22 tags
+// right of 56 and none wrong; looser settings mistook a planned operation for a hospital stay and a call for a visit.
+const limits = { k: 5, nearLeast: .3, lead: .7, stem: true, tagNearLeast: .6, tagLead: .7, tagLeast: 1 };
 const WORD = /[\p{L}\p{N}]+/gu;
 // A light stem: a trailing s (not ss), ed or ing taken off words of five letters or more, so "flagged", "flagging"
 // and "flags" meet at "flagg". Crude on purpose: it is the same on both sides, which is all the cosine needs.
@@ -78,20 +81,21 @@ function neighbours(index, tokens, { k = limits.k, skip = new Set(), keep = () =
 }
 // What the nearest entries holding the property agree on: each votes for its value with the square of its similarity
 // (a near-identical line outweighs a few that share one word); the leading value is returned when the nearest holder
-// is near enough and the value holds the lead's share of the vote.
-function vote(near, ident, { nearLeast = limits.nearLeast, lead = limits.lead } = {}) {
+// is near enough, the value holds the lead's share of the vote, and at least `least` entries voted for it (a tag,
+// stage D, asks for more than one).
+function vote(near, ident, { nearLeast = limits.nearLeast, lead = limits.lead, least = 1 } = {}) {
   const holders = near.filter(x => x.entry.values?.get(ident)?.length);
   if (!holders.length || holders[0].sim < nearLeast) return null;
   const tally = new Map();
   let total = 0;
   for (const { entry, sim } of holders) {
     const ids = entry.values.get(ident), key = [...ids].sort((a, b) => a - b).join(',');
-    const t = tally.get(key) || { ids, sum: 0, sim: 0 };
-    t.sum += sim * sim; t.sim = Math.max(t.sim, sim); tally.set(key, t); total += sim * sim;
+    const t = tally.get(key) || { ids, sum: 0, sim: 0, n: 0 };
+    t.sum += sim * sim; t.sim = Math.max(t.sim, sim); t.n++; tally.set(key, t); total += sim * sim;
   }
   const best = [...tally.values()].sort((a, b) => b.sum - a.sum)[0];
   const share = total ? best.sum / total : 0;
-  return share >= lead ? { ids: best.ids, share, sim: best.sim } : null;
+  return share >= lead && best.n >= least ? { ids: best.ids, share, sim: best.sim, n: best.n } : null;
 }
 
 function provide(core) { core.provide({ alike: { tokensOf, buildIndex, neighbours, vote, stem, wordsOf, limits } }); }

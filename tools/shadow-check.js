@@ -13,7 +13,8 @@
      node tools/shadow-check.js          the score, and every wrong one
      node tools/shadow-check.js --all    also every right and silent one
    The "looks like" engine's limits (parts/alike.js) can be tried from the environment, for the scoreboard in
-   docs/ALIKE.md: ALIKE_K=5 ALIKE_NEAR=.5 ALIKE_LEAD=.7 ALIKE_STEM=1 node tools/shadow-check.js
+   docs/ALIKE.md: ALIKE_K=5 ALIKE_NEAR=.5 ALIKE_LEAD=.7 ALIKE_STEM=1 node tools/shadow-check.js; the tag's own
+   (stage D): ALIKE_TAG_NEAR=.3 ALIKE_TAG_LEAD=.7 ALIKE_TAG_LEAST=1
    Runs only while the app has the graph open (as tools/two-way-check.js); skipped quietly otherwise. Reads only. */
 const fs = require('fs');
 const os = require('os');
@@ -30,6 +31,10 @@ const WRONG_LIMIT = 0, RIGHT_LEAST = 50;
 // Guesses (0.4.200), on the same graph: right 19 (15 from earlier lines like it, 4 from plain words), wrong 1 (“about
 // the tingling” guesses Tingling fingers as the Topic, which holds Peripheral neuropathy); silent went from 46 to 26.
 const GUESS_WRONG_LIMIT = 1, GUESS_RIGHT_LEAST = 15;
+// Stage D (0.4.213): every record's tag hidden in turn, and every plain note (no tag, no record above) must get none.
+// On the seed graph at 0.4.213: right 22, wrong 0, silent 34 of 56; one plain note ("Blood again this morning. Third
+// time this month.", left untagged in the seed on purpose) is offered #Symptom Log, which is the feature working.
+const TAG_WRONG_LIMIT = 0, TAG_RIGHT_LEAST = 15, PLAIN_SPOKE_LIMIT = 1;
 const all = process.argv.includes('--all');
 let JSDOM;
 try { ({ JSDOM } = require('jsdom')); } catch { console.log('proposals check skipped (needs jsdom)'); process.exit(0); }
@@ -70,7 +75,10 @@ async function plugin() {
   if (env.ALIKE_NEAR) limits.nearLeast = Number(env.ALIKE_NEAR);
   if (env.ALIKE_LEAD) limits.lead = Number(env.ALIKE_LEAD);
   if (env.ALIKE_STEM) limits.stem = env.ALIKE_STEM !== '0';
-  console.log(`looks-like limits: k ${limits.k}, nearest at least ${limits.nearLeast}, lead ${limits.lead}, stem ${limits.stem}`);
+  if (env.ALIKE_TAG_NEAR) limits.tagNearLeast = Number(env.ALIKE_TAG_NEAR);
+  if (env.ALIKE_TAG_LEAD) limits.tagLead = Number(env.ALIKE_TAG_LEAD);
+  if (env.ALIKE_TAG_LEAST) limits.tagLeast = Number(env.ALIKE_TAG_LEAST);
+  console.log(`looks-like limits: k ${limits.k}, nearest at least ${limits.nearLeast}, lead ${limits.lead}, stem ${limits.stem}; tag: nearest at least ${limits.tagNearLeast}, lead ${limits.tagLead}, agreeing at least ${limits.tagLeast}`);
   parts.proposals.start();
   return window.refinementShadowInner;
 }
@@ -132,6 +140,26 @@ async function plugin() {
   }
   console.log(`proposals on "${GRAPH}": ${cases} filled properties hidden in turn; right ${tally.right}, wrong ${tally.wrong}; guesses right ${tally.guessRight}, wrong ${tally.guessWrong}; silent ${tally.silent}`);
   for (const [how, n] of Object.entries(byHow)) console.log(`  by ${how}: right ${n.right}, wrong ${n.wrong}`);
+  // Stage D: the tag. Every record under a tag the model knows, its tags hidden; every other bullet as it is.
+  const known = ctx.knownTags || new Set();
+  const tags = { right: 0, wrong: 0, silent: 0, spoke: 0, quiet: 0 };
+  for (const b of blocks) {
+    const own = (pick(b, 'block/tags') || []).map(idOf), text = String(pick(b, 'block/title') ?? '');
+    const isRecord = own.some(id => known.has(id));
+    const { pieces } = inner.piecesFor(isRecord ? { ...b, 'block/tags': [] } : b, text, ctx);
+    const piece = pieces.find(p => p.kind === 'tag');
+    if (isRecord) {
+      const verdict = !piece ? 'silent' : own.includes(piece.ids[0]) ? 'right' : 'wrong';
+      tags[verdict]++;
+      if (verdict === 'wrong') console.log(`  wrong tag “${title(b)}”: ${piece.shown}; it is ${own.map(name).map(n => '#' + n).join(', ')}`);
+      else if (all) console.log(`  tag ${verdict.padEnd(7)} “${title(b)}”${piece ? `: ${piece.shown}` : ''}`);
+    } else if (piece) { tags.spoke++; console.log(`  tag on a plain note “${title(b)}”: ${piece.shown}`); }
+    else tags.quiet++;
+  }
+  console.log(`tags on "${GRAPH}": ${tags.right + tags.wrong + tags.silent} records with the tag hidden; right ${tags.right}, wrong ${tags.wrong}, silent ${tags.silent}; ${tags.spoke + tags.quiet} other bullets: a tag proposed on ${tags.spoke}, none on ${tags.quiet}`);
+  if (tags.wrong > TAG_WRONG_LIMIT) problem(`wrong tags: ${tags.wrong}, over the limit of ${TAG_WRONG_LIMIT}`);
+  if (tags.right < TAG_RIGHT_LEAST) problem(`right tags: ${tags.right}, under the least of ${TAG_RIGHT_LEAST}`);
+  if (tags.spoke > PLAIN_SPOKE_LIMIT) problem(`a tag proposed on ${tags.spoke} plain notes, over the limit of ${PLAIN_SPOKE_LIMIT}`);
   if (tally.wrong > WRONG_LIMIT) problem(`wrong proposals: ${tally.wrong}, over the limit of ${WRONG_LIMIT}`);
   if (tally.right < RIGHT_LEAST) problem(`right proposals: ${tally.right}, under the least of ${RIGHT_LEAST}; the rules have stopped firing`);
   if (tally.guessWrong > GUESS_WRONG_LIMIT) problem(`wrong guesses: ${tally.guessWrong}, over the limit of ${GUESS_WRONG_LIMIT}`);

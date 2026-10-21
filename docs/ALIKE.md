@@ -45,6 +45,34 @@ A guess costs a look; a wrong fill taken by habit is the one thing that must not
 | B engine in place of "same line before" (k 5, nearest ≥ .5, lead .7) | 54 / 0 | 23 / 1 | 22 | the same 15 guesses, now by the engine (how: alike) |
 | C the sweep, 24 settings; picked k 5, nearest ≥ .3, lead .7 (0.4.212) | 54 / 0 | 26 / 1 | 19 | nearest ≥ .2 let in 3 wrong (lines sharing only "day", "this morning"); k 10 gained nothing; the lead made no difference above .2 |
 
+## Stage D: the tag of an untagged bullet (0.4.213)
+
+A bullet with no tag, and no record above it, is tokened by its words and links alone and compared with every node
+under a tag the model knows (a tag with properties, or in a tag hierarchy). The nearest nodes vote for their tag.
+A tag costs more when wrong than a property (its properties follow it), so the tag has its own, stricter limits:
+`limits.tagNearLeast`, `limits.tagLead`, and `limits.tagLeast`, the least number of nearest nodes that must agree.
+
+Where it shows: the tag is pencilled where Logseq would show it, a "Tags" pill under the bullet, dotted; beside it
+the properties that tag gives, filled by the usual rules as if the tag were there, every one a guess. Enter takes
+the tag first and then the values, under one Undo; leaving any other way takes nothing (a tag is never sure).
+
+The measure, two counts on the seed graph:
+
+- every tagged record with its tag hidden: right / wrong / silent;
+- every untagged bullet (the plain notes of the journal, "Hair cut. Silly thing to do but I wanted to."): spoke
+  (a tag proposed on a plain note, the one thing that must stay at zero) / silent.
+
+| Stage | Tag right / wrong | Silent | Plain notes spoke / silent | Property guesses | Note |
+|---|---|---|---|---|---|
+| D1 built, limits as the properties' (.3, .7, 1) | 28 / 9 | 42 | 6 / 199 | 26 / 1, silent 19 | Logseq's own #Task was proposed on addresses; a planned operation taken for a hospital stay, a call for a visit |
+| D1 with only the owner's own tags voted | 28 / 7 | 21 | 5 / 223 | 26 / 1, silent 19 | 56 records, 228 other bullets once Logseq's tags are left out |
+| D2 the sweep, 36 settings; picked nearest ≥ .6, lead .7, agreeing ≥ 1 (0.4.213) | 22 / 0 | 34 | 1 / 227 | 26 / 1, silent 19 | the one plain note is "Blood again this morning. Third time this month.", offered #Symptom Log: the feature working |
+
+What stage D showed: the tags the engine gets right are the ones whose lines repeat (symptom logs, chemo cycles);
+it is silent on a line of its own kind, and loosening the limits trades that silence for wrong tags between
+neighbouring kinds (Consultation and Conversation, Expectation and Hospitalization), which the words alone cannot
+tell apart. Agreement of two or three nodes bought nothing the nearest-node floor did not.
+
 ## Settings the engine has (in `parts/alike.js`, named so the scorer can try them)
 
 - `limits.stem`: a trailing s, ed or ing taken off words of five letters or more.

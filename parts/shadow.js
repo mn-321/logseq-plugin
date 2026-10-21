@@ -32,6 +32,11 @@
    - a linked page with no tag yet, for the first empty place it could fill when there are one or two (taking it also
      gives the page that place's tag);
    - the journal day for a "date" of a tag with one to four dated nodes, all dated the day written (0.4.211).
+   Piece 3, stage D (0.4.213, docs/ALIKE.md): a bullet with no tag, and no record above it, gets the tag of the nodes
+   it looks like, pencilled in a "Tags" pill under the bullet where Logseq shows a bullet's tags, with the properties
+   that tag gives beside it, filled by the rules above as if the tag were there; every one of them a guess. Enter
+   gives the bullet the tag and fills the values, under one Undo; leaving any other way takes nothing. The tag has
+   its own, stricter limits in the engine (a wrong tag costs more than a wrong value).
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
@@ -45,7 +50,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far. A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -220,7 +225,7 @@ function ownTagsAtStart(b, ctx) {
   const toPages = new Set(pagesTaggedIn(String(pick(b, 'block/title') ?? ''), ctx).map(x => x.tag.id));
   return new Set((pick(b, 'block/tags') || []).map(idOf).filter(id => !toPages.has(id)));
 }
-function piecesFor(b, text, ctx, ownAtStart = new Set()) {
+function piecesFor(b, text, ctx, ownAtStart = new Set(), assume = null) {
   const { schema } = ctx;
   const { links, tags: typedTags } = inWords(text, ctx);
   const allTags = [...new Set([...(pick(b, 'block/tags') || []).map(idOf), ...typedTags])];
@@ -251,7 +256,14 @@ function piecesFor(b, text, ctx, ownAtStart = new Set()) {
   // The properties only a page's tag gives the bullet (Logseq shows them until the tag is moved): Option-Enter skips them.
   const skip = fieldsOfTags([...aside], schema).filter(p => !fields.includes(p)).map(p => p.lower);
   const pieces = [];
-  if (!fields.length) return { record, pieces, skip };
+  // Stage D: no tag, and no record above: the tag of the nodes it looks like, with the properties it brings, all guesses.
+  if (!fields.length) {
+    const tag = allTags.length || asPage.length || !isBlock(b) ? null : assume || tagFor(b, text, ctx);
+    if (!tag) return { record, pieces, skip };
+    const assumed = piecesFor({ ...b, 'block/tags': [{ 'db/id': tag.id }] }, text, ctx, ownAtStart, tag);
+    const tagPiece = { ident: 'block/tags', prop: { ident: 'block/tags', title: 'Tags', lower: 'tags', type: 'tag', many: true, classes: [] }, kind: 'tag', ids: [tag.id], tag, shown: `#${tag.title}`, how: 'alike-tag', guess: true };
+    return { record: b, pieces: [tagPiece, ...assumed.pieces.map(piece => ({ ...piece, guess: true, needsTag: true }))], skip: assumed.skip, assume: tag };
+  }
   const recordTags = record === b ? ownTags : (pick(record, 'block/tags') || []).map(idOf);
   const page = pick(b, 'block/page'), journalDay = Number(pick(page, 'block/journal-day') || 0);
   const pageTags = new Set((pick(page, 'block/tags') || []).map(idOf));
@@ -340,6 +352,20 @@ function namedIn(words, classIds, ctx, spoken) {
   for (const [page, n] of score) { if (n > top) { best = page; top = n; tie = false; } else if (n === top) tie = true; }
   return tie ? null : best;
 }
+// The tag of the nodes an untagged bullet looks like (stage D): by its words and links alone, among every node under
+// a tag the model knows; the nearest vote, under the tag's own stricter limits. One tag, a tag page the plugin knows.
+function tagFor(b, text, ctx) {
+  if (!ctx.alike || !alike) return null;
+  const { links } = inWords(text, ctx);
+  const tokens = alike.tokensOf(shownWords(text, ctx), links.map(p => p.id), []);
+  if (tokens.length < 2) return null;
+  const near = alike.neighbours(ctx.alike, tokens, { skip: new Set([idOf(b)]), keep: entry => entry.values.get('block/tags')?.length > 0 });
+  const { tagNearLeast: nearLeast, tagLead: lead, tagLeast: least } = alike.limits;
+  const voted = alike.vote(near, 'block/tags', { nearLeast, lead, least });
+  if (!voted || voted.ids.length !== 1) return null;
+  const page = ctx.byId.get(voted.ids[0]);
+  return page?.isTag && page.uuid && (!ctx.knownTags || ctx.knownTags.has(page.id)) ? page : null;
+}
 // The nodes the bullet looks like, for one property: the nearest earlier holders of it, by the bullet's words
 // (links read as titles), its links and the record's tags; the bullet itself left out. Only from the bullet's own
 // words (not a note's under the record), and only once the engine's index is there (never waited for while typing).
@@ -413,7 +439,9 @@ function addHistory(ctx, entries) {
   for (const entry of entries) {
     const words = entry.words || shownWords(entry.title, ctx);
     if (words.size < 2) continue;
-    kept.push({ id: entry.id, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values: entry.values });
+    const values = new Map(entry.values);
+    if (entry.tags?.length) values.set('block/tags', entry.tags);
+    kept.push({ id: entry.id, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values });
   }
   ctx.alike = alike ? alike.buildIndex(kept) : null;
   return ctx;
@@ -432,18 +460,22 @@ async function guessDataFor(ctx, { wait = true } = {}) {
   }
   if (!data) return ctx;
   ctx.aliases = data.aliases;
+  ctx.knownTags = new Set(data.tagIds || []);
   ctx.names = null;
   return addHistory(ctx, data.entries);
 }
 async function loadGuessData(ctx) {
   const { schema } = ctx;
   const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
-  const tagIds = [...new Set([...schema.classProps.keys(), ...[...schema.parentsOf.keys()]])].filter(c => fieldsOfTags([c], schema).some(p => nodeProps.includes(p)));
+  // Every tag of the owner's own (user.class/…), for stage D's tag votes: never Logseq's (Task, Card, Query), which
+  // the schema knows too; before 0.4.213 only the tags with link properties.
+  const tagIds = (await dsQuery('[:find ?t ?i :where [?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]]').catch(() => []))
+    .filter(([, ident]) => /^:?user\.class\//.test(String(ident))).map(([t]) => Number(t));
   const [rows, aliases] = await Promise.all([
-    tagIds.length && nodeProps.length ? dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${nodeProps.map(p => `{:${p.ident} [:db/id]}`).join(' ')}])
+    tagIds.length ? dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${nodeProps.map(p => `{:${p.ident} [:db/id]}`).join(' ')}])
       :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }) : [],
     dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])]);
-  return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]),
+  return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]), tagIds,
     entries: rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
       values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) })) };
 }
@@ -511,11 +543,11 @@ async function compute(box) {
     if (version !== liveVersion) return;
     if (!b) { clearLive(); return; }
     if (startTags.uuid !== uuid) Object.assign(startTags, { uuid, own: ownTagsAtStart(b, ctx) });
-    const { record, pieces, skip } = piecesFor(b, text, ctx, startTags.own);
+    const { record, pieces, skip, assume } = piecesFor(b, text, ctx, startTags.own);
     state.times.push(Math.round(performance.now() - t0)); if (state.times.length > 50) state.times.shift();
     if (!pieces.length) { clearLive(); return; }
     if (state.taken.uuid !== uuid) state.taken = { uuid, keys: new Set() };
-    state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), pieces, skip, own: startTags.own, at: Date.now() };
+    state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), pieces, skip, own: startTags.own, assume: assume || null, at: Date.now() };
     drawInPlace(box.ownerDocument);
   } catch (error) { warnOnce('the shadow could not be worked out', error); }
 }
@@ -881,7 +913,7 @@ async function takeShadow(live) {
   // bullet, and this one must not get that tag's properties (second reading).
   const savedTags = new Set((pick(b, 'block/tags') || []).map(idOf));
   if (inWords(live.text, ctx).tags.some(tag => !savedTags.has(tag))) return;
-  const { record, pieces: found } = piecesFor(b, live.text, ctx, live.own);
+  const { record, pieces: found } = piecesFor(b, live.text, ctx, live.own, live.assume);
   const taken = live.taken || new Set(), shown = live.drawn || new Set();
   const pieces = found.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || taken.has(guessKey(piece))));
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
@@ -889,7 +921,10 @@ async function takeShadow(live) {
   const written = [];
   for (const piece of pieces) {
     const tagged = [];
+    // A value that rests on a proposed tag (stage D) is written only once the bullet has the tag.
+    if (piece.needsTag && !written.some(w => w.kind === 'tag')) continue;
     try {
+      if (piece.kind === 'tag') { await logseq.Editor.addBlockTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
       if (piece.asPage) { if (await takeAsPage(piece, live.uuid, recordUuid)) written.push(piece); continue; }
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
       if (piece.kind === 'day') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.journalId);
@@ -907,6 +942,7 @@ async function takeShadow(live) {
   const undo = async () => {
     for (const piece of [...written].reverse()) {
       if (piece.undo) { await piece.undo(); continue; }
+      if (piece.kind === 'tag') { await logseq.Editor.removeBlockTag(recordUuid, piece.tag.uuid); continue; }
       await logseq.Editor.removeBlockProperty(recordUuid, piece.ident);
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid);
     }
@@ -993,7 +1029,8 @@ function makePill(doc, row, piece) {
 // What one value looks like and says when pointed at; the page that gets a tag is named only there.
 function ghostLook(piece) {
   return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`,
-    title: piece.guess ? 'A guess: Enter fills it in with the rest' : 'Filled in when you leave the bullet' };
+    title: piece.kind === 'tag' ? 'A guess from the lines this one looks like: Enter gives the bullet this tag and fills in the rest'
+      : piece.guess ? 'A guess: Enter fills it in with the rest' : 'Filled in when you leave the bullet' };
 }
 function drawInPlace(doc = host()) {
   const live = state.live;
@@ -1053,6 +1090,8 @@ const css = `
 [data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
 /* On a row's name the ring is drawn just inside it: the row's box cuts off what is outside (seen in the app). */
 .property-key-inner[data-rfs-at] { outline-offset: -2px; }
+/* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */
+.positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 `;

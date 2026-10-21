@@ -115,6 +115,16 @@ expect('plain words, two symptoms tie', piecesFor(bullet('x', [T.log], journal),
 // 11. The lines the bullet looks like give their values, when they agree (a near-identical line: the old "same line before").
 expect('same line before', piecesFor(bullet('x', [T.log], journal), 'Wiped out all day.', ctx), 'Date=Oct 20 · symptoms=Fatigue?');
 expect('same line before, disagreeing', piecesFor(bullet('x', [T.log], journal), 'Bad day.', ctx), 'Date=Oct 20');
+// 11b. Stage D (0.4.213): a bullet with no tag gets the tag of the lines it looks like, pencilled in a Tags pill, with
+//      the properties the tag gives beside it, all guesses; a plain note that looks like nothing gets nothing; a note
+//      under a record still proposes for the record, never a tag for itself.
+expect('untagged bullet, looks like the logs', piecesFor(bullet('x', [], journal), 'Wiped out all day.', ctx), 'Tags=#Symptom log? · Date=Oct 20? · symptoms=Fatigue?');
+expect('untagged bullet, looks like nothing', piecesFor(bullet('x', [], journal), 'Hair cut, silly thing to do', ctx), '(nothing)');
+expect('untagged bullet, lines disagree on the value', piecesFor(bullet('x', [], journal), 'Bad day.', ctx), 'Tags=#Symptom log? · Date=Oct 20?');
+expect('untagged note under a record', piecesFor(bullet('x', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal) }), 'Wiped out all day.', ctx), '(nothing)');
+const taggedGuess = piecesFor(bullet('x', [], journal), 'Wiped out all day.', ctx);
+if (taggedGuess.assume?.id !== T.log || taggedGuess.pieces[0]?.tag?.uuid !== 'tag-9' || !taggedGuess.pieces.slice(1).every(p => p.needsTag)) problem('untagged bullet: the shadow does not carry the tag to give, or the values do not wait for it');
+expect('untagged bullet, the tag assumed again when taken', piecesFor(bullet('x', [], journal), 'Wiped out all day.', ctx, new Set(), byId.get(T.log)), 'Tags=#Symptom log? · Date=Oct 20? · symptoms=Fatigue?');
 // 12. Two doctors linked keep the doctor quiet: no guess either (Jul 17 in the Illness Test Graph).
 expect('two doctors, no guess', piecesFor(bullet('x', [T.consultation], journal), 'Saw [[Dr. Raj Patel]] and [[Dr. Mei Chen]] with Dr. Patel', ctx), '(nothing)');
 
