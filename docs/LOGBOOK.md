@@ -29,6 +29,20 @@ words; Undo put all of it back. Second reading's fixes (the bullet's own tag kep
 nothing, Undo keeps later words, no spill into "with") are pretend-checked; the main path was seen again after them.
 Test bullets and pages removed with the command line; the owner's empty bullet on Oct 20 put back as it was.
 
+## 2026-10-20 · Moving about a bullet's properties with Logseq's keys (0.4.208)
+
+**The owner:** "does this still work with how you can move around on logseq properties", then "sounds good" to keeping
+the proposals waiting. Read in Logseq's own code: Down at the end of the words goes into the capsules, Left/Right move,
+Enter opens one, Up goes back. **Seen:** on "Phone call with Dr. Patel" #Consultation, Down kept both proposals, Topic
+set from there, Up came back with them shown, a click away filled only the sure Date. Second reading's fix (from the
+properties straight into another bullet) pretend-checked only.
+
+## 2026-10-20 · Option-Enter: Enter moves on, the last Enter makes the next bullet (0.4.207)
+
+**The owner:** "enter should go to next bullet on last enter"; for a property holding several, "figure out a way to get
+to next node". **Seen:** Specialty, Works at, Notes filled with Enter in turn, then the next bullet; Spoke with kept its
+list open for a second person and Option-Enter finished the bullet; a ring shows the property you are on.
+
 ## 2026-10-20 · Option-Enter on capsules and rows, every kind but dates (0.4.205)
 
 **The owner:** "test this on bullets with completely empty properties, both capsules and bullet style". Two test

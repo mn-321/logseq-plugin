@@ -127,6 +127,12 @@ stretch, the entries are gathered on one page for the owner with the pictures.
   index** (palette): an imported graph has none, and `[[ ]]` and search then find no page that exists.
 - A freshly imported graph saves a view block ("All", "Linked references") the first time each page is opened: run the tour
   once, then save the fingerprint.
+- The page and property lists (`propPages`, `propSchema`) are read at most every 30 s: a page made or tagged a moment
+  ago is not in them. A rule about pages the bullet links to must read those pages fresh (0.4.210: Provider stayed empty).
+- `[[Page]]#Tag` typed and left as is tags the bullet; picked from Logseq's tag list with Enter right after the link, the
+  tag goes to the page and leaves the words. Test both ways.
+- A background click (the app_* tools) carries the Command key: in Logseq it selects the bullet instead of editing it.
+  Use full-screen control to type into bullets.
 - Opening a property's own page the first time makes Logseq save an "All" table view for it. The graph check shows it as
   added; it is Logseq's, harmless, and can be removed with `logseq remove block --uuid …`.
 
