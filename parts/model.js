@@ -121,7 +121,11 @@ async function loadSchema() {
   for (const [c, p] of await dsQuery(`[:find ?c ?p :where [?c :logseq.property.class/properties ?p]]`)) { if (!classProps.has(c)) classProps.set(c, []); classProps.get(c).push(p); }
   const parentsOf = new Map();
   for (const [child, parent] of await dsQuery(`[:find ?child ?parent :where [?child :logseq.property.class/extends ?parent]]`)) { if (!parentsOf.has(child)) parentsOf.set(child, []); parentsOf.get(child).push(parent); }
-  return { props, byId, classProps, parentsOf };
+  // Logseq's own tags (Root, Page, Task, …; 0.4.220): every tag of yours extends Root in the end, so the top of your
+  // own chains is the tag just under one of these.
+  const builtIn = new Set((await dsQuery('[:find ?c ?i :where [?c :block/tags :logseq.class/Tag] [?c :db/ident ?i]]').catch(() => []))
+    .filter(([, ident]) => !/^:?user\.class\//.test(String(ident))).map(([c]) => idOf(c)));
+  return { props, byId, classProps, parentsOf, builtIn };
 }
 // Pages a page-valued field can point at: every page with its tags (journals left out: a day is a Date's business).
 async function loadPages() {

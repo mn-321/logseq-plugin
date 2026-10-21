@@ -105,6 +105,8 @@ function fakeDb(graph, log) {
     [/:where \[\?v :block\/closed-value-property \?p\]/, () => all().filter(x => x.closedFor).map(x => [x.closedFor, { id: x.id, title: x.title, order: x.order }])],
     [/:find \?c \?p :where \[\?c :logseq\.property\.class\/properties \?p\]/, () => all().flatMap(x => (x.fields || []).map(p => [x.id, p]))],
     [/:find \?child \?parent :where \[\?child :logseq\.property\.class\/extends \?parent\]/, () => all().flatMap(x => (x.extends || []).map(p => [x.id, p]))],
+    // The tags and their idents (0.4.220: which are Logseq's own).
+    [/:find \?c \?i :where \[\?c :block\/tags :logseq\.class\/Tag\] \[\?c :db\/ident \?i\]/, () => all().filter(x => (x.tags || []).includes(2) && x.ident).map(x => [x.id, ':' + x.ident])],
     [/:where \[\?p :block\/name _\] \(not \[\?p :block\/tags :logseq\.class\/Property\]\) \(not \[\?p :block\/journal-day _\]\)/,
       () => all().filter(x => x.name && !isProperty(x) && !x.journalDay).map(x => [{ id: x.id, uuid: x.uuid, title: x.title,
         ...(x.tags ? { tags: x.tags.map(t => ({ id: t, title: graph[t].title, ...(graph[t].ident ? { ident: ':' + graph[t].ident } : {}) })) } : {}) }])],
@@ -241,8 +243,9 @@ async function main() {
   same(by.Deadline.ident, 'logseq.property/deadline', 'propSchema: the ident without its colon');
   same(schema.byId.get(22) === by.attendees, true, 'propSchema: by id');
   same(schema.parentsOf.get(11), [10], 'propSchema: Doctor extends Person');
+  same([10, 11, 12, 13].some(id => schema.builtIn.has(id)), false, 'propSchema: the owner\'s tags are not counted as Logseq\'s own');
   await model.propSchema();
-  same(queries.length - before, 4, 'propSchema asks the graph once (4 queries), then remembers');
+  same(queries.length - before, 5, 'propSchema asks the graph once (5 queries; the tag idents since 0.4.220), then remembers');
 
   // The pages.
   const pages = await model.propPages();

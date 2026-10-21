@@ -41,11 +41,11 @@ window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
 
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
-const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10, treatment: 11 };
+const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10, treatment: 11, talk: 12 };
 const prop = (id, title, type, classes = [], many = false) => ({ id, ident: 'user.property/' + title.replace(/\W/g, '-').toLowerCase(), title, lower: title.toLowerCase(), type, many, classes: classes.map(c => ({ id: c, uuid: 'tag-' + c, title: 'Tag ' + c })) });
-const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default'), prop(26, 'Cycle', 'number')];
+const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default'), prop(26, 'Cycle', 'number'), prop(27, 'Topic', 'node', [T.symptom, T.doctor, T.hospital])];
 const schema = { props, byId: new Map(props.map(p => [p.id, p])),
-  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]], [T.treatment, [23, 26]]]),
+  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]], [T.treatment, [23, 26]], [T.talk, [27]]]),
   parentsOf: new Map([[T.person, [T.entity]], [T.doctor, [T.person]], [T.place, [T.entity]], [T.hospital, [T.place]], [T.appointment, [T.occurrence]], [T.consultation, [T.appointment]]]) };
 const page = (id, title, tags, extra = {}) => ({ id, uuid: 'page-' + id, title, lower: title.toLowerCase(), tags: tags.map(t => ({ id: t, title: 'Tag ' + t, ident: 'user.class/t' + t })), isTag: false, ...extra });
 const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel', [T.doctor]), page(102, 'Ruth Okoro', [T.person]), page(103, 'Hannah Reyes', [], { tags: [{ id: 999, title: 'Page', ident: 'logseq.class/Page' }] }),
@@ -136,6 +136,12 @@ expect('untagged bullet, looks like the logs', piecesFor(bullet('x', [], journal
 expect('untagged bullet, looks like nothing', piecesFor(bullet('x', [], journal), 'Hair cut, silly thing to do', ctx), '(nothing)');
 expect('untagged bullet, lines disagree on the value', piecesFor(bullet('x', [], journal), 'Bad day.', ctx), 'Tags=#Symptom log? · Date=Oct 20?');
 expect('untagged note under a record', piecesFor(bullet('x', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal) }), 'Wiped out all day.', ctx), '(nothing)');
+// 11d. A wide property (0.4.220): Topic takes Symptom, Doctor and Hospital, tags of two families. A link fitting it is
+//      a guess, a plain name is never taken for it, and a narrower property claims a link first.
+expect('wide: a linked symptom is a guess', piecesFor(bullet('x', [T.talk], journal), 'Rang about the [[Nausea]]', ctx), 'Topic=Nausea?');
+expect('wide: a linked doctor is a guess', piecesFor(bullet('x', [T.talk], journal), 'Rang [[Dr. Mei Chen]]', ctx), 'Topic=Dr. Mei Chen?');
+expect('wide: a plain name is not taken', piecesFor(bullet('x', [T.talk], journal), 'Rang Dr. Patel about it', ctx), '(nothing)');
+expect('wide: the narrow doctor property still sure', piecesFor(bullet('x', [T.appointment], journal), 'Saw [[Dr. Mei Chen]]', ctx), 'doctor=Dr. Mei Chen');
 // 11c. Stage E (0.4.214): a date in the words for a Date nothing else fills (an appointment is written ahead: no journal
 //      day), counted from the day written (Oct 20th, 2026 is a Tuesday); a number beside a number property's name.
 expect('a weekday in the words', piecesFor(bullet('x', [T.appointment], journal), 'Scan on Friday, nothing to eat', ctx), 'Date=Oct 23?');

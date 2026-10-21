@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · A wide property proposed for with care (0.4.220)
+
+**The owner:** widened Topic to 15 tags on purpose, "because topic is wide thing". **Built:** `wide(prop, schema)` in
+`parts/shadow.js` (the tops of the accepted tags' extends chains, stopping under Logseq's own tags; two or more tops
+is wide); for a wide property a link in the record's words is a guess (`linked-wide`, `page-wide`), a link in a note
+under it nothing, plain-word naming skipped, and it ranks last for claiming links. `parts/model.js` returns
+`schema.builtIn` (Logseq's own tag ids; every user tag ends in Root, so without this everything was one family:
+found when the first try changed nothing on the owner's graph). Tests: four wide cases in `tools/shadow-test.js`, the
+stand-in and a check in `tools/model-test.js` (propSchema asks 5 questions now). **Scores:** owner's graph sure 50/0
+(was 47/4), guesses 47/1; the linked-wide guesses from notes were 4 wrong before dropping notes. **Seen:** Topic Nausea
+dotted on a consultation.
+
 ## 2026-10-21 · Enter takes guesses again; Option-Enter stops on them (0.4.219)
 
 **The owner:** "Why did you take away guesses from enter?", then "can't i just fix it with option-enter", then "do

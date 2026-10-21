@@ -103,6 +103,27 @@ function fits(page, classIds, schema) {
   }
   return false;
 }
+/* A wide property (0.4.220, at the owner's word: "I was testing it out because topic is wide thing"): one that takes
+   tags from two or more separate families, a family being the top of a tag's chain of extends (Topic taking Symptom,
+   Decision, Doctor and Consultation: Phenomena, Interpretation, Entity, Occurrence). Almost any link fits such a
+   property, so fitting says little: a link or the page written on is only a guess for it, a name in plain words is
+   never taken for it, and it is the last to claim a link (a linked doctor is the Provider, not the Topic). The
+   engine's votes still count: what earlier lines like this one had in it is real evidence. */
+const wideCache = new WeakMap();
+function wide(prop, schema) {
+  if (!prop?.classes?.length) return false;
+  let byProp = wideCache.get(schema);
+  if (!byProp) wideCache.set(schema, byProp = new Map());
+  if (byProp.has(prop.ident)) return byProp.get(prop.ident);
+  const tops = new Set();
+  for (const c of prop.classes) {
+    const seen = new Set(), queue = [c.id];
+    while (queue.length) { const t = queue.shift(); if (seen.has(t)) continue; seen.add(t); const up = (schema.parentsOf.get(t) || []).filter(id => !schema.builtIn?.has(id)); if (!up.length) tops.add(t); queue.push(...up); }
+  }
+  const answer = tops.size >= 2;
+  byProp.set(prop.ident, answer);
+  return answer;
+}
 // A page with no tag of yours (only Logseq's own, such as Page).
 const untagged = page => !page.isTag && !page.tags.some(t => !/^logseq\.class\//.test(t.ident));
 
@@ -230,7 +251,8 @@ function recordOf(b, ownTags, schema) {
     if (parentFields.length) { record = parent; fields = parentFields; }
   }
   const depth = id => { let d = 0, q = [id]; const seen = new Set(); while (q.length) { const c = q.shift(); if (seen.has(c)) continue; seen.add(c); for (const p of schema.parentsOf.get(c) || []) { q.push(p); } d = Math.max(d, seen.size); } return d; };
-  const particular = prop => prop.type === 'node' ? Math.max(0, ...prop.classes.map(c => depth(c.id))) : -1;
+  // A wide property comes last (0.4.220): a narrower one that takes the link claims it first.
+  const particular = prop => prop.type !== 'node' ? -1 : wide(prop, schema) ? -0.5 : Math.max(0, ...prop.classes.map(c => depth(c.id)));
   const ordered = fields.map((prop, i) => ({ prop, i, rank: particular(prop) })).sort((a, b) => b.rank - a.rank || a.i - b.i).map(x => x.prop);
   return { record, fields, ordered };
 }
@@ -306,13 +328,16 @@ function piecesFor(b, text, ctx, ownAtStart = new Set(), assume = null) {
         for (const p of fitting) used.add(p);
         // From a note under the record, only a one-value property is sure: a list of people in a note ("rang Amara and
         // Tunde") is not the record's "spoke with" (found by the scorer on the lean graph).
-        if (!filled && (prop.many ? record === b : fitting.length === 1)) pieces.push({ ident: prop.ident, prop, kind: 'node', ids: fitting.map(p => p.id), shown: fitting.map(p => p.title).join(', '), how: 'linked' });
+        // Into a wide property, only from the record's own words, and only as a guess: a link in a note under it ("Decided:
+        // [[Surgery first]]") is not what the record is about (the owner's graph, 2026-10-21: four such, all wrong).
+        const isWide = wide(prop, schema);
+        if (!filled && (prop.many ? record === b : fitting.length === 1) && !(isWide && record !== b)) pieces.push({ ident: prop.ident, prop, kind: 'node', ids: fitting.map(p => p.id), shown: fitting.map(p => p.title).join(', '), how: 'linked', ...(isWide ? { guess: true, how: 'linked-wide' } : {}) });
         else quiet.add(prop.ident); // no guess either
         continue; // two names for one place: quiet, and the names are spoken for
       }
       if (filled) continue;
       // The page fills one property only, the most particular that takes it (doctor, not also "with"; seen in the app).
-      if (pageAsPage && !pageUsed && pageAsPage.id !== idOf(record) && fits(pageAsPage, classIds, schema)) { pageUsed = true; used.add(ctx.byId.get(pageAsPage.id) || pageAsPage); pieces.push({ ident: prop.ident, prop, kind: 'node', ids: [pageAsPage.id], shown: pageAsPage.title, how: 'page' }); continue; }
+      if (pageAsPage && !pageUsed && pageAsPage.id !== idOf(record) && fits(pageAsPage, classIds, schema)) { pageUsed = true; used.add(ctx.byId.get(pageAsPage.id) || pageAsPage); pieces.push({ ident: prop.ident, prop, kind: 'node', ids: [pageAsPage.id], shown: pageAsPage.title, how: 'page', ...(wide(prop, schema) ? { guess: true, how: 'page-wide' } : {}) }); continue; }
     } else if (!filled && prop.type === 'date' && prop.lower === 'date') {
       // The journal day only for tags whose nodes are dated the day they are written, as the graph shows (symptom logs
       // are; appointments are often written ahead, so the day would be wrong; found by the scorer).
@@ -488,7 +513,7 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
       // The nodes it looks like: the nearest earlier holders of the property vote, and a clear lead speaks.
       const voted = own ? alike?.vote(looksLike(text, links, recordTags, prop, skip, ctx), prop.ident) : null;
       if (voted) said.push({ ids: voted.ids, how: 'alike' });
-      const named = namedIn(words, classIds, ctx, spoken);
+      const named = wide(prop, ctx.schema) ? null : namedIn(words, classIds, ctx, spoken);
       if (named) said.push({ ids: [named.id], how: 'words' });
     }
     // The journal day, as a guess, for a "date" of a tag the graph has too few dated nodes of to be sure (fewer than
