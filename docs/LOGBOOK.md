@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Preview with edits before PDF (0.4.245)
+
+**The owner:** "but if I export it, it loses its design", then "ok lets do that. how can i export based on a query".
+**Built:** in `parts/rich-copy.js`: `preview` (the export in an editable page, Close / Copy / Save as PDF…),
+`pageHtml` shared with `printToPdf`; the timetable walks query results (`withResults`). **Tests:** `tools/check.sh`.
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Document export back on, Timetable layout (0.4.244)
 
 **The owner:** "Can we enable the document export and focus on that. create a simple css to make it presentable. a big

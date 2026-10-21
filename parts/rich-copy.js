@@ -318,13 +318,15 @@ function dateChoices(attrs, results, found) {
 
 /* Dates a timetable can group by, over everything copied: your Date properties first, then Logseq's task
    dates, then the journal day the bullet was written on. "Automatic" tries them in that order. */
+// What a timetable is made of: the bullets, and the results of the queries among them.
+const withResults = roots => collect(roots).flatMap(node => node.queryResults ? [node, ...collect(node.queryResults)] : [node]);
 function timetableChoices(attrs, roots, found) {
-  const all = collect(roots);
+  const all = withResults(roots);
   return dateChoices(attrs, all, found).filter(d => d.key !== 'created');
 }
 function timetableKeys(attrs, roots) {
   const keys = new Set();
-  for (const node of collect(roots)) for (const p of (attrs.get(String(node.uuid).toLowerCase()) || new Map()).values())
+  for (const node of withResults(roots)) for (const p of (attrs.get(String(node.uuid).toLowerCase()) || new Map()).values())
     if (p.ident.startsWith('user.property/') && ['date', 'datetime'].includes(p.type)) keys.add(p.ident);
   return [...keys, 'logseq.property/scheduled', 'logseq.property/deadline', 'journal'];
 }
@@ -503,6 +505,7 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
     const walk = nodes => {
       for (const node of nodes || []) {
         if (!node || Array.isArray(node)) continue;
+        if (node.queryResults) { walk(node.queryResults); continue; } // a query: its results take its place
         const when = dateOf(node);
         if (when != null) entries.push({ node, when });
         else if (hasDated(node)) walk(node.children);
@@ -532,7 +535,7 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
       if (dayKey !== day) {
         closeDay();
         const weekday = date ? date.toLocaleDateString(undefined, { weekday: 'short' }) : '';
-        const short = date ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '–';
+        const short = date ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '';
         html.push(`<tr style="${STYLE.ttRow}"><td style="${STYLE.ttDay}"><span style="${STYLE.ttWeekday}">${escapeHtml(weekday)}</span>` +
           `<span style="${STYLE.ttDate}">${escapeHtml(short)}</span></td><td style="${STYLE.ttItems}">`);
         plain.push('', date ? `${weekday} ${short}` : 'No date');
@@ -597,10 +600,15 @@ async function writeClipboard({ html, plain }) {
    The same simplified text, laid out on A4/Letter pages in a hidden frame, then handed to the Mac's
    print window, where "Save as PDF" (bottom left) writes the file. The page title becomes the file name. */
 const cssString = text => `"${String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\3c ').replace(/\n/g, ' ')}"`;
-function printToPdf({ html }, title, format = {}) {
+function pageHtml(html, title, format = {}, extra = '') {
   const box = `font-family:${FONT};font-size:8.5pt;color:#8a8a8a;`;
   const footer = (format.footer?.trim() ? `@bottom-left { content: ${cssString(format.footer.trim())}; ${box} }` : '') +
     (format.pageNumbers ? `@bottom-right { content: "Page " counter(page) " of " counter(pages); ${box} }` : '');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(String(title).replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Logseq export')}</title>
+      <style>@page { margin: 18mm 18mm 20mm; ${footer} } body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr { break-inside: avoid-page; } h2 { break-after: avoid; } h1, h2, h3, p:has(+ table) { break-after: avoid; } li, p, tr { break-inside: avoid-page; } @media screen { ${extra} }</style>
+      </head><body>${html}</body></html>`;
+}
+function printToPdf({ html }, title, format = {}) {
   return new Promise(resolve => {
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
@@ -608,9 +616,7 @@ function printToPdf({ html }, title, format = {}) {
     document.body.appendChild(frame);
     const doc = frame.contentDocument;
     doc.open();
-    doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(String(title).replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Logseq export')}</title>
-      <style>@page { margin: 18mm 18mm 20mm; ${footer} } body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr { break-inside: avoid-page; } h2 { break-after: avoid; } h1, h2, h3, p:has(+ table) { break-after: avoid; } li, p, tr { break-inside: avoid-page; }</style>
-      </head><body>${html}</body></html>`);
+    doc.write(pageHtml(html, title, format));
     doc.close();
     setTimeout(() => {
       try {
@@ -622,6 +628,47 @@ function printToPdf({ html }, title, format = {}) {
       }
       setTimeout(() => { frame.remove(); resolve(); }, 500);
     }, 200);
+  });
+}
+
+/* ---------- Preview ----------
+   Save as PDF first shows the export as it will print, on a white page. Any line can be clicked and its words
+   changed; the changes go only into this PDF or copy, never into the notes. */
+const PREVIEW_CSS = `
+  .rc-preview { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.45); display: flex; flex-direction: column; align-items: center; padding-top: 44px; }
+  /* 44px: the top strip of Logseq's window drags the window and takes no clicks. */
+  .rc-preview-bar { display: flex; align-items: center; gap: 8px; width: min(820px, 96vw); padding: 10px 0; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 13px; }
+  .rc-preview-bar span { flex: 1; opacity: .85; }
+  .rc-preview-bar button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; cursor: pointer; }
+  .rc-preview-bar button.rc-go { background: #fff; color: #1f1f1f; font-weight: 600; }
+  .rc-preview iframe { flex: 1; width: min(820px, 96vw); border: 0; background: #fff; border-radius: 4px 4px 0 0; box-shadow: 0 8px 28px rgba(0,0,0,.3); }`;
+function preview(result, title, format = {}) {
+  return new Promise(resolve => {
+    if (!document.getElementById('rc-preview-style'))
+      document.head.appendChild(Object.assign(document.createElement('style'), { id: 'rc-preview-style', textContent: PREVIEW_CSS }));
+    const box = document.createElement('div');
+    box.className = 'rc-preview';
+    box.innerHTML = `<div class="rc-preview-bar"><span>Click any text to change it. Your notes stay as they are.</span>
+      <button class="rc-cancel">Close</button><button class="rc-copy">Copy</button><button class="rc-go">Save as PDF…</button></div><iframe title="Preview"></iframe>`;
+    document.body.appendChild(box);
+    const frame = box.querySelector('iframe');
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(pageHtml(result.html, title, format, 'body { padding: 18mm; } body:focus { outline: none; }'));
+    doc.close();
+    doc.body.contentEditable = 'true';
+    doc.body.spellcheck = false;
+    const edited = () => ({ html: doc.body.innerHTML, plain: doc.body.innerText.replace(/\n{3,}/g, '\n\n').trim() + '\n' });
+    const close = () => { document.removeEventListener('keydown', onKey, true); box.remove(); resolve(); };
+    const onKey = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
+    document.addEventListener('keydown', onKey, true);
+    doc.addEventListener('keydown', onKey, true);
+    box.addEventListener('click', async event => {
+      if (event.target.closest('.rc-cancel')) close();
+      else if (event.target.closest('.rc-copy')) notify(await writeClipboard(edited()) ? 'Copied' : 'Could not reach the clipboard', 'info');
+      else if (event.target.closest('.rc-go')) { await printToPdf(edited(), title, format); }
+    });
   });
 }
 
@@ -800,7 +847,7 @@ async function copy(source, what) {
     const run = async (choice, action) => {
       const result = await buildDocument(prepared, choice);
       if (!result.plain.trim()) return notify('Nothing to copy here', 'warning');
-      if (action === 'pdf') return printToPdf(result, source.title || result.plain.split('\n')[0], choice.format);
+      if (action === 'pdf') return preview(result, source.title || result.plain.split('\n')[0], choice.format);
       if (await writeClipboard(result)) notify(`Copied ${what} as rich text`);
       else notify('Could not reach the clipboard', 'error');
     };
