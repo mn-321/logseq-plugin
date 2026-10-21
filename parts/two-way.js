@@ -805,6 +805,8 @@ const twoWayCss = `
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
 .refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .38em; visibility: hidden; }
+/* In an open list the box sits left of the outline's line (0.4.229, the owner: "to the left of the outline, not within it"). */
+.refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; }
 .refinement-two-way .rf-tw-pick { display: inline-block; box-sizing: border-box; width: 12px; height: 12px; border-radius: 3px; cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: hsl(var(--popover)); }
 .refinement-two-way .rf-tw-pick[data-on] { background: hsl(var(--popover-foreground)); border-color: hsl(var(--popover-foreground)); }

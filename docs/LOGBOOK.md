@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Tick boxes left of the outline (0.4.229)
+
+**The owner:** "the tick boxes look off. perhaps you should do it to the left of the outline, not within it".
+**Built:** `.rf-tw-line .rf-tw-pick` at 34px left of the line in `parts/two-way.js`. **Tests:** `tools/check.sh`.
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Picking two-way rows and acting on them together (0.4.228)
 
 **The owner:** "Can you allow items in two-way link box to be selected in groups and be acted on?"; picking like a
