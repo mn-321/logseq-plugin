@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · No more "report of of" (0.4.237)
+
+**The owner:** a picture of First Liver Tumor Biopsy with "report of of →" and "related to of →": "Sometimes it works,
+other times it does not". **Built:** `plainBackwards` in `parts/two-way.js`, used by both the reading and
+`setBackwards`: drop a final "by" or "of", keep a name ending in another joining word, else add "of".
+**Tests:** `tools/check.sh`; sample names tried with node. **Seen:** not on screen (see the CHANGELOG line).
+
 ## 2026-10-21 · The map by property, and the sidebar as full as the page (0.4.236)
 
 **The owner:** "can this tag map all have another view of it based on properties and connection to tags"; "yes do

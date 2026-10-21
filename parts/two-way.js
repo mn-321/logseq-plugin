@@ -26,7 +26,7 @@ const settingsSchema = [
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
     description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
-    description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
+    description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”; a field ending in “by” or “of” loses it (“prescribed by” reads “prescribed”, “report of” reads “report”), and one ending in another joining word such as “to” or “with” reads the same both ways (“related to”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
     description: 'Fields whose link is not shown as a row on the page they point to, as “field; field”. Useful for a field that points at a busy page (a status, a city with hundreds of people). The link itself stays: it still shows in that page’s Linked references and in searches. Set from the tag tree as well.' },
   { key: 'twoWayHideTagLists', type: 'boolean', title: 'Leave out Logseq’s tag lists the rows repeat', default: true,
@@ -64,9 +64,15 @@ function backwardsNames() {
   }
   return names;
 }
+// How a name reads from the other end by itself (0.4.237, the owner saw "report of of" and "related to of"): "doctor"
+// reads "doctor of"; a name ending in "by" or "of" loses it ("prescribed by" reads "prescribed", "report of" reads
+// "report": the biopsy's report); a name ending in another joining word reads the same both ways ("related to",
+// "works with"), since adding "of" after it never makes sense.
+const JOINING = /\s+(to|with|and|for|from|in|on|at|about|into|onto|via|versus|vs)$/i;
+const plainBackwards = name => /\s+(by|of)$/i.test(name) ? name.replace(/\s+(by|of)$/i, '') : JOINING.test(name) ? name : `${name} of`;
 // Read in the case of the page's own property names ("Report" made from the + menu reads "report of").
 const readBackwards = (name, names) => {
-  const words = names.get(name.toLowerCase()) || (/\s+by$/i.test(name) ? name.replace(/\s+by$/i, '') : `${name} of`);
+  const words = names.get(name.toLowerCase()) || plainBackwards(name);
   return /^[A-Z][a-z]/.test(words) ? words[0].toLowerCase() + words.slice(1) : words;
 };
 
@@ -79,7 +85,7 @@ const shownAtOtherEnd = name => !oneEndNames().has(name.toLowerCase());
 function setBackwards(name, words) {
   words = String(words || '').replace(/[;=\n]/g, ' ').replace(/\s+/g, ' ').trim();
   const pairs = String(setting('twoWayNames') || '').split(/[;\n]/).map(pair => pair.split('=').map(part => part?.trim())).filter(([field, said]) => field && said && field.toLowerCase() !== name.toLowerCase());
-  const plain = /\s+by$/i.test(name) ? name.replace(/\s+by$/i, '') : `${name} of`;
+  const plain = plainBackwards(name);
   const builtIn = BUILT_IN.find(([field]) => field === name.toLowerCase());
   // Back to how it reads anyway: no pair needed (a built-in name keeps a pair so the plain reading wins over it).
   if (words && (words.toLowerCase() !== plain.toLowerCase() || builtIn)) pairs.push([name, words]);
