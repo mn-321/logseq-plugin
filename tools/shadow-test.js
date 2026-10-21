@@ -18,7 +18,8 @@ window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
 window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
-window.refinementCore = { watchDomEarly() {}, dsQuery: async () => [], UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
+let answer = () => []; // what the pretend database answers
+window.refinementCore = { watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {} };
 window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
@@ -160,6 +161,16 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
 //     keeps the bullet in edit: the mouse press is held back, the pointer press is not (holding that back stops the
 //     mouse press from coming at all; found in the app).
 (async () => {
+  // 22. A page made and tagged a moment ago (Logseq tags [[Dr. Space Test]] when #Doctor is picked from its list) is not in
+  //     the page list yet, read at most every 30 s: the linked pages are read fresh, so doctor gets it (0.4.210, seen
+  //     empty in the app before).
+  expect('new page tagged a moment ago, before', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', ctx), '(nothing)');
+  answer = query => /:block\/name/.test(query) && query.includes('"dr. space test"') ? [[{ 'db/id': 600, 'block/uuid': 'page-600', 'block/title': 'Dr. Space Test', 'block/tags': [{ 'db/id': 999, 'block/title': 'Page', 'db/ident': ':logseq.class/Page' }, { 'db/id': T.doctor, 'block/title': 'Doctor', 'db/ident': ':user.class/Doctor' }] }]] : [];
+  const freshCtx = await window.refinementShadowInner.withFreshLinks('Call with [[Dr. Space Test]] today', ctx);
+  answer = () => [];
+  expect('new page tagged a moment ago', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', freshCtx), 'doctor=Dr. Space Test');
+  cases++;
+  if (ctx.byKey.has('dr. space test')) problem('new page tagged a moment ago: the shared page list was changed');
   const doc = window.document;
   // A bullet as Logseq draws it, with its property row: "doctor:" and an empty value.
   doc.body.innerHTML = '<div class="ls-block" blockid="b-click"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'

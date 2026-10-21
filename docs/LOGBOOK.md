@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · A page made and tagged a moment ago is seen at once (0.4.210)
+
+**The owner:** "currently properties do not recognize the new page on bullet". **Seen before:** "Phone call with
+[[Dr Space Test]]#Doctor", space, Doctor picked from Logseq's list: Logseq tagged the page, but Provider stayed empty
+(the plugin's page list is read at most every 30 s). **Seen after:** the same with "Dr Fresh Test": Provider showed it
+at once and Enter filled it. Second reading: property pages left out of the fresh read (only pretend-checked after).
+Test bullets and pages removed.
+
 ## 2026-10-20 · A page's tag written after its link (0.4.209)
 
 **The owner:** "create a new page in the bullet `[[example]]#tag1` and if one of the properties is connected to

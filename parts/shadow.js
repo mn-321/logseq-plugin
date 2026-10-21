@@ -95,6 +95,30 @@ async function contextFor() {
   const tagNames = pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length);
   return (context = { schema, pages, byKey, byId, tagNames });
 }
+// The pages linked in the words, read fresh (0.4.210, at the owner's word: "properties do not recognize the new page"):
+// the page list is read at most every 30 s, so a page made or tagged a moment ago ([[Dr. New]] with #Doctor picked
+// from Logseq's list right after it) was unknown, or known without its tag, and Provider stayed empty (seen in the
+// app). Returns the context with those pages as they are now, or the context itself when nothing changed.
+async function withFreshLinks(text, ctx) {
+  const names = [...new Set([...String(text || '').matchAll(LINK)].map(([, key]) => key.trim().toLowerCase()).filter(key => key && !UUID.test(key)))];
+  if (!names.length) return ctx;
+  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title :db/ident]}])
+    :where [(ground [${names.map(name => JSON.stringify(name)).join(' ')}]) [?n ...]] [?p :block/name ?n] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`).catch(() => []);
+  const fresh = [];
+  for (const [p] of rows) {
+    const title = String(pick(p, 'block/title') ?? ''), id = idOf(p);
+    if (!title || title.startsWith('$$$')) continue; // as the page list leaves them out (and properties, above; second reading)
+    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
+    const known = ctx.byId.get(id);
+    if (known && known.title === title && sameIds(known.tags.map(t => t.id), tags.map(t => t.id))) continue;
+    fresh.push({ ...known, id, uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, isTag: tags.some(t => t.ident === 'logseq.class/Tag') });
+  }
+  if (!fresh.length) return ctx;
+  if (ctx.history) namesFor(ctx); // built once on the shared context, not again on each copy (second reading)
+  const byKey = new Map(ctx.byKey), byId = new Map(ctx.byId);
+  for (const page of fresh) { byKey.set(page.lower, page); if (page.uuid) byKey.set(page.uuid.toLowerCase(), page); byId.set(page.id, page); }
+  return { ...ctx, byKey, byId };
+}
 // The bullet in edit with what the rules read: its tags and values, its parent (and the parent's), its page.
 const PAGE_PULL = '[:db/id :block/uuid :block/title :block/journal-day {:block/tags [:db/id]}]';
 const BLOCK_PULL = `[* {:block/tags [:db/id]} {:block/page ${PAGE_PULL}} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]}]}]}]`;
@@ -469,7 +493,7 @@ async function compute(box) {
   const version = ++liveVersion, text = box.value, t0 = performance.now();
   try {
     if (!await allowed()) { clearLive(); return; }
-    const ctx = await guessDataFor(await daysFor(await contextFor()), { wait: false });
+    const ctx = await withFreshLinks(text, await guessDataFor(await daysFor(await contextFor()), { wait: false }));
     const b = await pullBlock(uuid);
     if (version !== liveVersion) return;
     if (!b) { clearLive(); return; }
@@ -830,7 +854,7 @@ const linksOut = text => { const found = String(text || '').match(LINK) || []; r
 const sameWords = (saved, text) => { const a = linksOut(saved), b = linksOut(text); return a.n === b.n && a.words === b.words; };
 async function takeShadow(live) {
   if (!await allowed() || hushed.uuid === live.uuid) return;
-  const ctx = await guessDataFor(await daysFor(await contextFor()), { wait: false });
+  const ctx = await withFreshLinks(live.text, await guessDataFor(await daysFor(await contextFor()), { wait: false }));
   let b = null;
   let saved = false;
   for (let tries = 0; tries < 12 && !saved; tries++) {
@@ -1040,5 +1064,5 @@ function start() {
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, drawInPlace, css };
+window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, BLOCK_PULL, drawInPlace, css };
 })();
