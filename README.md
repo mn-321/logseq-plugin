@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.243.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.244.
 
 **For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -168,7 +168,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Undo beside the value | `undoBesideValue` | on | Proposals in the pills |
 | Show the key hint until this many takes | `proposalHintTakes` | 20 | Proposals in the pills |
 | While you type | `pillProposalsLive` | on | Proposals in the pills |
-| Layout | `layout` | document | Copy as rich text |
+| Layout | `layout` | document (or outline, timetable) | Copy as rich text |
 | Use Todos and Expectations | `todosEnabled` | off | Todos |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
@@ -410,6 +410,13 @@ Each copy opens a small window. Pick a layout:
 
 - **Document:** top-level blocks become paragraphs, nested blocks become indented bullets.
 - **Outline:** every block is a bullet, indented exactly as in Logseq.
+- **Timetable:** bullets grouped by day under month headings, the weekday and day on the left and
+  that day's bullets on the right, with their children under them. **Date from** picks the date:
+  Automatic (a Date property first, then Logseq's scheduled or deadline date, then the journal day
+  the bullet was written on) or one of them; **newest first** turns the order round. Bullets with no
+  date come last under "No date".
+
+On a tag page, the nodes with that tag (Logseq's table) are included after the page's own bullets.
 
 If what you copy has properties, the window also lists them with tick boxes. Only ticked ones are
 included. Your choices are remembered for next time; properties you haven't seen before start ticked.

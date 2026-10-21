@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Document export back on, Timetable layout (0.4.244)
+
+**The owner:** "Can we enable the document export and focus on that. create a simple css to make it presentable. a big
+focus will be on timetable so bullets grouped by date for example". **Built:** `parts/rich-copy.js` moved to
+`PART_FILES`; a third layout `timetable` (`timetable`, `timetableChoices`, `timetableKeys` in `buildDocument`), its
+inline styles in `STYLE.tt*`, Date from / newest first in the copy window, kept in the setting `timetable`; tag pages
+add their tagged nodes (`taggedTrees`); the PDF page keeps a day's row together. **Tests:** `tools/check.sh` (boot test
+with the part loaded). **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Groups of properties (0.4.243)
 
 **The owner:** "is it possible, just for own organization, not actually change things, group properties together in

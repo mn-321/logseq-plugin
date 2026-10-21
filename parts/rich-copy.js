@@ -34,7 +34,17 @@ const STYLE = {
   table: 'border-collapse:collapse;width:100%;margin:2pt 0 10pt;',
   month: 'padding:9pt 0 3pt;font-weight:600;font-size:10.5pt;border-bottom:0.75pt solid #d0d0d0;',
   when: 'width:58pt;padding:4pt 10pt 3pt 0;vertical-align:top;color:#6b6b6b;white-space:nowrap;',
-  what: 'padding:4pt 0 3pt;vertical-align:top;'
+  what: 'padding:4pt 0 3pt;vertical-align:top;',
+  // Timetable: a month heading, then one row per day, the day on the left and that day's bullets on the right.
+  ttMonth: 'font-size:13pt;font-weight:600;margin:16pt 0 2pt;padding-bottom:3pt;border-bottom:1pt solid #1f1f1f;',
+  ttTable: 'border-collapse:collapse;width:100%;margin:0 0 6pt;',
+  ttRow: 'border-bottom:0.5pt solid #e2e2e2;',
+  ttDay: 'width:70pt;padding:6pt 12pt 6pt 0;vertical-align:top;white-space:nowrap;',
+  ttWeekday: 'display:block;color:#6b6b6b;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.5pt;',
+  ttDate: 'display:block;font-size:12pt;font-weight:600;',
+  ttItems: 'padding:6pt 0 4pt;vertical-align:top;',
+  ttItem: 'margin:0 0 4pt;',
+  ttTime: 'color:#6b6b6b;font-variant-numeric:tabular-nums;margin-right:6pt;'
 };
 
 const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -288,7 +298,8 @@ async function prepare({ title, titleNode, roots }) {
   // Dates each query's results could be sorted by.
   for (const query of queries) query.dates = dateChoices(attrs, query.node.queryResults, found);
   const properties = [...found.values()].sort((x, y) => x.name.localeCompare(y.name));
-  return { title, titleNode, roots, attrs, properties, queries: queries.filter(q => q.node.queryResults.length) };
+  const timetableDates = timetableChoices(attrs, roots, found);
+  return { title, titleNode, roots, attrs, properties, timetableDates, queries: queries.filter(q => q.node.queryResults.length) };
 }
 
 function dateChoices(attrs, results, found) {
@@ -303,6 +314,19 @@ function dateChoices(attrs, results, found) {
     if (has(ident)) dates.push({ key: ident, name });
   dates.push({ key: 'created', name: 'Date created' });
   return dates;
+}
+
+/* Dates a timetable can group by, over everything copied: your Date properties first, then Logseq's task
+   dates, then the journal day the bullet was written on. "Automatic" tries them in that order. */
+function timetableChoices(attrs, roots, found) {
+  const all = collect(roots);
+  return dateChoices(attrs, all, found).filter(d => d.key !== 'created');
+}
+function timetableKeys(attrs, roots) {
+  const keys = new Set();
+  for (const node of collect(roots)) for (const p of (attrs.get(String(node.uuid).toLowerCase()) || new Map()).values())
+    if (p.ident.startsWith('user.property/') && ['date', 'datetime'].includes(p.type)) keys.add(p.ident);
+  return [...keys, 'logseq.property/scheduled', 'logseq.property/deadline', 'journal'];
 }
 
 // The date a block is sorted by, as a number (yyyymmdd for days, or a timestamp), or null.
@@ -465,7 +489,74 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
     html.push(group === null ? '</table>' : '</tbody></table>');
   }
 
-  await render(roots, 0);
+  /* Timetable: every bullet with a date of its own (by the chosen date) becomes an entry; its children go
+     with it. A bullet without one that holds dated bullets is passed through; one with nothing dated is listed
+     under "No date". Entries are grouped by day, under month headings, earliest first (or newest first). */
+  async function timetable({ dateKey = 'auto', newestFirst = false }) {
+    const entries = [];
+    const dateOf = node => {
+      const keys = dateKey === 'auto' ? autoKeys : [dateKey];
+      for (const key of keys) { const when = sortDate(attrs, node.uuid, key); if (when != null) return when; }
+      return null;
+    };
+    const hasDated = node => (node.children || []).some(c => c && !Array.isArray(c) && (dateOf(c) != null || hasDated(c)));
+    const walk = nodes => {
+      for (const node of nodes || []) {
+        if (!node || Array.isArray(node)) continue;
+        const when = dateOf(node);
+        if (when != null) entries.push({ node, when });
+        else if (hasDated(node)) walk(node.children);
+        else entries.push({ node, when: null });
+      }
+    };
+    walk(roots);
+    const scale = n => n == null ? null : sameScale(n);
+    entries.sort((x, y) => (x.when == null) - (y.when == null) ||
+      (newestFirst ? scale(y.when) - scale(x.when) : scale(x.when) - scale(y.when)));
+    let month = null, day = null, open = false;
+    const closeDay = () => { if (open) html.push('</td></tr>'); open = false; };
+    for (const { node, when } of entries) {
+      const block = await describeBlock(node, attrs, shown);
+      const children = (node.children || []).filter(c => c && !Array.isArray(c));
+      if (block.isValue || (!block.body.trim() && !children.length)) continue;
+      const date = when == null ? null : toDate(when);
+      const monthName = date ? date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : 'No date';
+      const dayKey = date ? date.toDateString() : 'none';
+      if (monthName !== month) {
+        closeDay();
+        if (month !== null) html.push('</table>');
+        html.push(`<h2 style="${STYLE.ttMonth}">${escapeHtml(monthName)}</h2><table style="${STYLE.ttTable}">`);
+        plain.push('', monthName.toUpperCase());
+        month = monthName; day = null;
+      }
+      if (dayKey !== day) {
+        closeDay();
+        const weekday = date ? date.toLocaleDateString(undefined, { weekday: 'short' }) : '';
+        const short = date ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '–';
+        html.push(`<tr style="${STYLE.ttRow}"><td style="${STYLE.ttDay}"><span style="${STYLE.ttWeekday}">${escapeHtml(weekday)}</span>` +
+          `<span style="${STYLE.ttDate}">${escapeHtml(short)}</span></td><td style="${STYLE.ttItems}">`);
+        plain.push('', date ? `${weekday} ${short}` : 'No date');
+        day = dayKey; open = true;
+      }
+      // A date with a time of day (not midnight) shows the time in front.
+      const time = date && !DAY.test(String(when)) && (date.getHours() || date.getMinutes())
+        ? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+      const mark = taskMark(block.statusId);
+      const meta = block.properties.filter(p => !(dateKey === 'auto' ? autoKeys : [dateKey]).includes(p.ident)).map(propertyText).filter(Boolean);
+      html.push(`<div style="${STYLE.ttItem}">${time ? `<span style="${STYLE.ttTime}">${escapeHtml(time)}</span>` : ''}` +
+        `${mark.html}${block.heading ? `<strong>${inlineHtml(block.body)}</strong>` : inlineHtml(block.body)}` +
+        `${meta.length ? `<br><span style="${STYLE.meta}">${meta.map(escapeHtml).join(' · ')}</span>` : ''}</div>`);
+      plain.push(`  • ${time ? time + ' ' : ''}${mark.plain}${inlinePlain(block.body).replace(/\n/g, '\n    ')}`);
+      if (meta.length) plain.push(`    ${meta.join(' · ')}`);
+      if (children.length) { const before = plain.length; await render(children, 2); for (let i = before; i < plain.length; i++) plain[i] = '  ' + plain[i]; }
+    }
+    closeDay();
+    if (month !== null) html.push('</table>');
+  }
+  const autoKeys = timetableKeys(attrs, roots);
+
+  if (layout === 'timetable') await timetable(format.timetable || {});
+  else await render(roots, 0);
 
   return {
     html: `<div style="${STYLE.body}">${html.join('')}</div>`,
@@ -518,7 +609,7 @@ function printToPdf({ html }, title, format = {}) {
     const doc = frame.contentDocument;
     doc.open();
     doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(String(title).replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Logseq export')}</title>
-      <style>@page { margin: 18mm 18mm 20mm; ${footer} } body { margin: 0; } h1, h2, h3, p:has(+ table) { break-after: avoid; } li, p, tr { break-inside: avoid-page; }</style>
+      <style>@page { margin: 18mm 18mm 20mm; ${footer} } body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr { break-inside: avoid-page; } h2 { break-after: avoid; } h1, h2, h3, p:has(+ table) { break-after: avoid; } li, p, tr { break-inside: avoid-page; }</style>
       </head><body>${html}</body></html>`);
     doc.close();
     setTimeout(() => {
@@ -544,16 +635,17 @@ const hiddenProperties = () => {
   } catch (error) { return new Set(); }
 };
 const savedLayout = () => {
-  try { return logseq.settings?.layout === 'outline' ? 'outline' : 'document'; } catch (error) { return 'document'; }
+  try { return ['outline', 'timetable'].includes(logseq.settings?.layout) ? logseq.settings.layout : 'document'; } catch (error) { return 'document'; }
 };
 let chosenLayout = 'document';
 // Title block and PDF page options, remembered.
 const savedFormat = () => {
   const s = logseq.settings || {};
   return { titleBlock: s.titleBlock !== false, preparedBy: typeof s.preparedBy === 'string' ? s.preparedBy : '',
-    footer: typeof s.footer === 'string' ? s.footer : '', pageNumbers: s.pageNumbers !== false };
+    footer: typeof s.footer === 'string' ? s.footer : '', pageNumbers: s.pageNumbers !== false,
+    timetable: s.timetable && typeof s.timetable === 'object' ? { ...s.timetable } : { dateKey: 'auto', newestFirst: false } };
 };
-let chosenFormat = { titleBlock: true, preparedBy: '', footer: '', pageNumbers: true };
+let chosenFormat = { titleBlock: true, preparedBy: '', footer: '', pageNumbers: true, timetable: { dateKey: 'auto', newestFirst: false } };
 // How each query's results are sorted, remembered per query block.
 let chosenSorts = {};
 const savedSorts = () => {
@@ -582,6 +674,7 @@ const CHOOSER_CSS = `
   .rc-all { padding: 0 16px 6px; font-size: .85em; }
   .rc-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 8px; font-size: .92em; }
   .rc-qname { flex: 1 1 100%; font-weight: 500; }
+  .rc-sort[hidden] { display: none; }
   .rc-sort select { font: inherit; padding: 2px 4px; background: transparent; color: inherit; border: 1px solid var(--ls-border-color, #ccc); border-radius: 4px; }
   .rc-sort label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   .rc-layout { padding: 4px 8px 10px; font-size: .92em; }
@@ -599,7 +692,7 @@ const CHOOSER_CSS = `
   .rc-foot button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
   .rc-foot button.rc-go { font-weight: 600; }`;
 
-function chooseProperties({ properties, queries, title }, what, onChoose) {
+function chooseProperties({ properties, queries, title, timetableDates = [] }, what, onChoose) {
   return new Promise(resolve => {
     let style = document.getElementById('rc-style');
     if (!style) {
@@ -631,7 +724,11 @@ function chooseProperties({ properties, queries, title }, what, onChoose) {
       <div class="rc-layout">
         <label><input type="radio" name="rc-layout" value="document" ${layout === 'document' ? 'checked' : ''}><span><b>Document</b>: top level as paragraphs, nested blocks as indented bullets</span></label>
         <label><input type="radio" name="rc-layout" value="outline" ${layout === 'outline' ? 'checked' : ''}><span><b>Outline</b>: every block a bullet, indented as in Logseq</span></label>
+        <label><input type="radio" name="rc-layout" value="timetable" ${layout === 'timetable' ? 'checked' : ''}><span><b>Timetable</b>: bullets grouped by day, under month headings</span></label>
       </div>
+      <div class="rc-sort rc-tt" ${layout === 'timetable' ? '' : 'hidden'}><span>Date from</span>
+        <select><option value="auto">Automatic</option>${timetableDates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === format.timetable.dateKey ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}</select>
+        <label><input type="checkbox" ${format.timetable.newestFirst ? 'checked' : ''}> newest first</label></div>
       ${title ? `<label class="rc-check"><input type="checkbox" class="rc-title" ${format.titleBlock ? 'checked' : ''}> Title block with today's date</label>
       <label class="rc-field"><span>Prepared by</span><input type="text" class="rc-by" placeholder="optional" value="${escapeHtml(format.preparedBy)}"></label>` : ''}
       <label class="rc-field"><span>PDF footer</span><input type="text" class="rc-footer" placeholder="optional, e.g. Confidential" value="${escapeHtml(format.footer)}"></label>
@@ -661,7 +758,8 @@ function chooseProperties({ properties, queries, title }, what, onChoose) {
         chosenSorts = savedSorts();
         chosenFormat = { titleBlock: root.querySelector('.rc-title')?.checked ?? format.titleBlock,
           preparedBy: root.querySelector('.rc-by')?.value ?? format.preparedBy,
-          footer: root.querySelector('.rc-footer').value, pageNumbers: root.querySelector('.rc-pages').checked };
+          footer: root.querySelector('.rc-footer').value, pageNumbers: root.querySelector('.rc-pages').checked,
+          timetable: { dateKey: root.querySelector('.rc-tt select').value, newestFirst: root.querySelector('.rc-tt input').checked } };
         for (const row of root.querySelectorAll('.rc-sort')) chosenSorts[row.dataset.query] =
           { sortKey: row.querySelector('select').value, newestFirst: row.querySelector('input').checked };
         const nextHidden = hiddenProperties();
@@ -681,6 +779,9 @@ function chooseProperties({ properties, queries, title }, what, onChoose) {
       if (event.key === 'Enter') { event.preventDefault(); finish(true); }
     };
     document.addEventListener('keydown', onKey, true);
+    root.addEventListener('change', event => {
+      if (event.target.name === 'rc-layout') root.querySelector('.rc-tt').hidden = event.target.value !== 'timetable';
+    });
     root.addEventListener('click', event => {
       if (event.target === root || event.target.closest('.rc-cancel')) finish(false);
       else if (event.target.closest('.rc-go')) finish(true);
@@ -729,11 +830,21 @@ async function selectedTrees() {
   return trees.filter(tree => !inside.has(String(tree.uuid)));
 }
 
+// On a tag page, the nodes with that tag (Logseq's table under the title) are copied too, after the page's own bullets.
+async function taggedTrees(page) {
+  const id = page.id ?? page['db/id'];
+  if (!Number.isSafeInteger(id)) return [];
+  const rows = await dsQuery(`[:find ?u :where [?b :block/tags ${id}] [?b :block/uuid ?u] [?b :block/page]]`);
+  const trees = [];
+  for (const [uuid] of rows) { const tree = await blockTree(String(uuid)); if (tree) trees.push(tree); }
+  return trees;
+}
+
 async function copyPage(pageId) {
   const page = pageId ? await logseq.Editor.getPage(pageId) : await logseq.Editor.getCurrentPage();
   if (!page) return notify('Open a page first', 'warning');
   if (!page.name && !page.originalName && page.page) return copyBlock({ uuid: page.uuid }); // zoomed into a block
-  const roots = await logseq.Editor.getPageBlocksTree(page.uuid);
+  const roots = [...(await logseq.Editor.getPageBlocksTree(page.uuid) || []), ...await taggedTrees(page)];
   await copy({ title: titleOf(page) || page.originalName || page.name, titleNode: page, roots }, 'page');
 }
 
@@ -764,8 +875,8 @@ const settingsSchema = [{
     zone: '<div class="row"><span><i class="b"></i>Kickoff call</span><span class="m">Copy as rich text</span></div> <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div>',
   description: 'Bullet right-click menu, page “…” menu or command palette. Title block, footer, page numbers and query sort order are chosen in the copy window and remembered.'
 }, {
-  key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline'], default: 'document', title: 'Layout',
-  description: 'document: top-level blocks as paragraphs, nested ones as bullets. outline: every block a bullet, indented as in Logseq. Also chosen in the copy window.'
+  key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline', 'timetable'], default: 'document', title: 'Layout',
+  description: 'document: top-level blocks as paragraphs, nested ones as bullets. outline: every block a bullet, indented as in Logseq. timetable: bullets grouped by day under month headings. Also chosen in the copy window.'
 }, {
   key: 'hiddenProperties', type: 'object', default: [], title: 'Properties left out',
   description: 'Property names unticked in the copy window. Change them there, not here.'
