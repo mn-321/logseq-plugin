@@ -813,6 +813,9 @@ const twoWayCss = `
 /* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
 .refinement-two-way .rf-tw-item:not(:last-of-type) { flex-basis: 100%; }
+/* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
+.refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
+.refinement-two-way .rf-tw-item::before { left: -26px; width: 26px; }
 .refinement-two-way .rf-tw-pick { display: inline-block; box-sizing: border-box; width: 12px; height: 12px; border-radius: 3px; cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: hsl(var(--popover)); }
 .refinement-two-way .rf-tw-pick[data-on] { background: hsl(var(--popover-foreground)); border-color: hsl(var(--popover-foreground)); }

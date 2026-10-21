@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Tick box shows over its own spot (0.4.232)
+
+**The owner:** "the checkbox don't appear when hover over that area". **Built:** an empty `::before` on each record in
+`parts/two-way.js` reaching left over the box's column, so it counts as the record. **Tests:** `tools/check.sh`.
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Underline back, more room, boxes in one column (0.4.231)
 
 **The owner:** "undo line removal"; "checkmarks should be aligned so outer part of outline"; "even those not in a
