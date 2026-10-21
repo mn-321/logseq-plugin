@@ -1,13 +1,14 @@
 /* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
 (() => {
-/* Tag tree (0.4.30): every tag in the graph as one tree, under a few root tags (by default
-   Occurrence, Entity and Concept), so a tag's children are easy to see and to move.
+/* Tag tree (0.4.30): every tag in the graph as one tree, so a tag's children are easy to see and to move.
+   Tags move like Logseq's bullets (0.4.221): the top level is every tag with no parent (before, a fixed list of
+   "root" names), and tags beside each other keep the order given them, kept in the tagTreeRoots setting.
    - A tag's place in the tree is its "Extends" property (:logseq.property.class/extends). A tag can
      extend more than one tag; it then shows under each of them, marked "also under …".
-   - Tags under none of the roots are listed under "Not placed yet"; tags that extend one of
-     Logseq's own tags (Task, Card) under "Under Logseq's tags".
+   - Tags that extend one of Logseq's own tags (Task, Card) are under "Under Logseq's tags".
    - Drag a tag onto another to move it there (hold Option to add the second parent and keep the
-     first). Tab and Shift+Tab move it in and out, as in an outline. Every move can be undone.
+     first): above or below another to put it beside, below and to the right to put it inside.
+     Tab, Shift+Tab and Cmd+Shift+Up/Down move it as in an outline. Every move can be undone.
    - New tags are made inside the tag they belong to, with the + on its row or the n key.
    Shown as a full view in the main area (a plugin route, #/refinement-tags) or as a panel in the
    right sidebar, both drawn with Logseq's own React like Todos.
@@ -28,11 +29,11 @@ const settingsSchema = [
     pauseSwitch: 'tagTreeEnabled',
     legend: 'All your tags as one tree',
     zone: '<div># Entity</div><div class="ind"># Person &nbsp;<span class="m"># Company</span></div>',
-    description: 'All your tags as one tree under a few root tags, where you can see what is inside each tag, make new tags in the right place and move tags under other tags. In the full view an open tag also lists its properties (the ones it gets from tags above, faded), what each holds, and for a link how it reads on the page it points to, which you can change there. Open it from the tree button in the toolbar, from the command palette (Tag tree) or with its shortcut.' },
+    description: 'All your tags as one tree, where you can see what is inside each tag, make new tags in the right place and move tags under other tags. In the full view an open tag also lists its properties (the ones it gets from tags above, faded), what each holds, and for a link how it reads on the page it points to, which you can change there. Open it from the tree button in the toolbar, from the command palette (Tag tree) or with its shortcut.' },
   { key: 'tagTreeEnabled', type: 'boolean', title: 'Use the tag tree', default: true,
     description: 'Off, the tag tree adds no toolbar button, no page, no sidebar panel, no command and no shortcut, and the settings below do nothing. Applies after you reload the plugin.' },
-  { key: 'tagTreeRoots', type: 'string', title: 'Root tags', default: 'Occurrence, Entity, Concept',
-    description: 'The tags at the top of the tree, in this order, separated by commas. A root that does not exist yet can be made from the tree. Roots can also be added, reordered and removed from the tree itself (a root’s … menu, and + Root tag below the roots).' },
+  { key: 'tagTreeRoots', type: 'string', title: 'Order of the tags', default: '',
+    description: 'The order of tags beside each other in the tree, at every level (tags with no parent are the top level). Among tags with the same parent, the ones named here come first, in this order, separated by commas; the others follow by name. Dragging a tag above or below another, Cmd+Shift+Up and Down, or Move up and Move down in its menu, changes this for you.' },
   { key: 'tagTreeOpensAs', type: 'enum', title: 'The button and shortcut open the tag tree as', default: 'page', enumChoices: ['page', 'sidebar'], enumPicker: 'radio',
     description: 'page: a full view in the main area, like a page. sidebar: a panel in the right sidebar. Both are also in the command palette.' },
   { key: 'tagTreeToolbarButton', type: 'boolean', title: 'Tag tree button in the toolbar', default: true,
@@ -41,10 +42,10 @@ const settingsSchema = [
     description: 'mod+alt+g is Cmd+Option+G on a Mac. Leave empty for no shortcut. Applies after you reload the plugin.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-// Roots changed from the tree are used at once; Logseq hands the saved setting back a little later.
-let rootsOverride = null;
+// An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
+let orderOverride = null;
 const openViews = new Set(); // the draw function of every tree on screen, redrawn when the settings change
-const rootNames = () => (rootsOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
+const topOrder = () => (orderOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
 
 // Folded tags (by uuid), kept for next time on this computer.
 const FOLD_KEY = 'refinement-tags-folded';
@@ -477,8 +478,8 @@ const PAGE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" s
 const CHEVRON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4l-4 4"/></svg>';
 const PLUS = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>';
 const DOTS = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg>';
-// Each root has its own colour; every tag below it carries that colour on its # mark, so the branch a
-// tag belongs to shows at a glance. Tags not under a root keep a plain grey #.
+// Each top-level tag has its own colour (four, in turn); every tag below it carries that colour on its # mark,
+// so the branch a tag belongs to shows at a glance. Tags under Logseq's own tags keep a plain grey #.
 const HUES = 4;
 
 const css = `
@@ -533,16 +534,21 @@ const css = `
 .refinement-tags .rtg-name mark { margin: 0; padding: 0; border-radius: 0; background: none; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
 .refinement-tags .rtg-dragging { opacity: .4; }
 .refinement-tags .rtg-drop { background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 12%, transparent) !important; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 60%, transparent); }
-.refinement-tags h3.rtg-drop { color: var(--ls-primary-text-color); }
+.refinement-tags .rtg-drop-before::after, .refinement-tags .rtg-drop-after::after, .refinement-tags .rtg-drop-inside::after { content: ''; position: absolute; left: 24px; right: 8px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 80%, transparent); pointer-events: none; }
+.refinement-tags .rtg-drop-before::after { top: -1.5px; }
+.refinement-tags .rtg-drop-after::after { bottom: -1.5px; }
+.refinement-tags .rtg-drop-inside::after { bottom: -1.5px; left: 56px; }
+.refinement-tags .rtg-top > .rtg-root ~ .rtg-root { margin-top: 12px; }
+/* While a tag is dragged, a place under the top-level tags to drop it at the end of the top level. */
+.refinement-tags .rtg-topzone { display: none; margin: 10px 0 0 24px; padding: 8px 12px; border: 1.5px dashed var(--rtg-border); border-radius: 7px; font-size: 14px; color: var(--rtg-faint); }
+.refinement-tags.rtg-dragon .rtg-topzone { display: block; }
+.refinement-tags .rtg-topzone.rtg-drop { border-style: solid; color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-addrow { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 24px; }
 .refinement-tags .rtg-addrow::before { content: '#'; color: var(--rtg-hue, var(--rtg-plain)); }
 .refinement-tags .rtg-input { flex: 1; min-width: 0; padding: 2px 8px; border: 1px solid var(--rtg-border); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
 /* Renaming in place keeps the row's height (0.4.182): the box's padding and border sit in the row's own spacing. */
 .refinement-tags .rtg-line > .rtg-input { box-sizing: border-box; height: 1.5em; margin-block: 0; padding-block: 0; line-height: 1; }
 .refinement-tags .rtg-addrow .rtg-small { white-space: normal; }
-.refinement-tags .rtg-missing { display: flex; align-items: baseline; gap: 12px; padding: 5px 8px 5px 24px; }
-.refinement-tags .rtg-missing .rtg-ghost { font-size: 19px; font-weight: 600; color: var(--rtg-faint); }
-.refinement-tags .rtg-missing .rtg-ghost::before { content: '#'; font-weight: 400; color: var(--rtg-hue); }
 .refinement-tags .rtg-make { border: 1px dashed var(--rtg-border); border-radius: 6px; padding: 1px 10px; background: none; cursor: pointer; font-size: 13.5px !important; color: var(--rtg-faint) !important; }
 .refinement-tags .rtg-make:hover { border-style: solid; color: var(--ls-primary-text-color) !important; }
 .refinement-tags .rtg-row.rtg-picked { background: color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 13%, transparent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--rtg-hue, var(--ls-primary-text-color)) 70%, transparent); }
@@ -550,8 +556,6 @@ const css = `
 .refinement-tags .rtg-pickcount { flex: 1; font-size: 14px; font-weight: 500; }
 .refinement-tags .rtg-pickbar .rtg-pickgo { color: var(--ls-primary-text-color) !important; font-weight: 600; }
 .refinement-tags .rtg-newroot { padding: 14px 8px 0 24px; }
-.refinement-tags .rtg-missing .rtg-leave { border-color: transparent; }
-.refinement-tags .rtg-missing .rtg-leave:hover { border-color: var(--rtg-border); }
 .refinement-tags .rtg-empty { padding: 4px 10px 4px 34px; font-size: 14px; color: var(--rtg-faint); }
 .refinement-tags footer { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 14px 10px 0; border-top: 1px solid var(--rtg-border); font-size: 12.5px; color: var(--rtg-faint); }
 .refinement-tags footer kbd { font: inherit; padding: 0 4px; border: 1px solid var(--rtg-line); border-radius: 3px; }
@@ -602,7 +606,6 @@ const css = `
 .refinement-tags.rtg-mode-sidebar { font-size: 15px; }
 .refinement-tags.rtg-mode-sidebar header { padding: 4px 0 10px; gap: 6px; }
 .refinement-tags.rtg-mode-sidebar .rtg-root > .rtg-main .rtg-name { font-size: 16.5px; }
-.refinement-tags.rtg-mode-sidebar .rtg-missing .rtg-ghost { font-size: 16.5px; }
 .refinement-tags.rtg-mode-sidebar .rtg-desc { display: none; }
 .refinement-tags.rtg-mode-sidebar .rtg-section { padding-top: 14px; }
 .refinement-tags.rtg-mode-sidebar .rtg-kids { margin-left: 10px; padding-left: 6px; }
@@ -663,11 +666,10 @@ function createView(doc, mode) {
   view.menu = null;
   view.adding = null; // { key, parent } while a new tag is being typed
   view.renaming = null; // key of the row being renamed
-  view.addingRoot = false; // while a new root is being typed
   view.picked = new Set(); // ids of tags picked with Cmd-click, Shift-click or x
   view.dragging = null; // { tag, parent }
   view.busy = false;
-  view.loaded = false; // nothing is drawn until the tags have been read once, so missing roots do not flash up
+  view.loaded = false; // nothing is drawn until the tags have been read once
 
   view.count = el(view.doc, 'span', { class: 'rtg-count' });
   view.find = el(view.doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag', spellcheck: 'false', 'aria-label': 'Find a tag' });
@@ -675,7 +677,7 @@ function createView(doc, mode) {
   view.find.addEventListener('input', () => { view.cursorKey = null; view.cursorTag = null; view.draw(); });
   // keepKeys holds the find box's keys back from Logseq; the arrows and Enter still drive the tree.
   view.find.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) view.onKey(event); });
-  view.foldAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Fold every tag that has tags or properties inside', click: () => { for (const tag of view.data.tags.values()) if (tag.kids.length || view.hasRows(tag)) folded.add(tag.uuid); for (const name of rootNames()) { const r = view.data.byName.get(name.toLowerCase()); if (r) folded.delete(r.uuid); } saveFolded(); view.draw(); } }, 'Fold');
+  view.foldAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Fold every tag that has tags or properties inside', click: () => { for (const tag of view.data.tags.values()) if (tag.kids.length || view.hasRows(tag)) folded.add(tag.uuid); for (const top of view.topTags()) folded.delete(top.uuid); saveFolded(); view.draw(); } }, 'Fold');
   view.openAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Unfold every tag', click: () => { folded.clear(); saveFolded(); view.draw(); } }, 'Unfold');
   view.inherited = el(view.doc, 'button', { class: 'rtg-tool', title: 'List the properties each tag gets from the tags above it, faded', click: () => { showInherited = !showInherited; saveInherited(); view.draw(); } });
   view.newTag = el(view.doc, 'div', { class: 'rtg-newtag' });
@@ -686,10 +688,10 @@ function createView(doc, mode) {
   // The bar that appears while several tags are picked.
   view.pickCount = el(view.doc, 'span', { class: 'rtg-pickcount' });
   view.pickBar = el(view.doc, 'div', { class: 'rtg-pickbar', hidden: true }, view.pickCount,
-    el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Show the picked tags at the top of the tree', click: () => view.rootsFromPicked() }, 'Make them roots'),
+    el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Take the picked tags out of their parents, to the top level', click: () => view.topFromPicked() }, 'To the top level'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => view.movePicked(event.currentTarget) }, 'Move to …'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
-  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property’s name, kind or choices to change them, or a description to edit it</span><span>Drag a tag onto another to move it; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
+  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out · <kbd>⌘ ⇧ ↑</kbd> <kbd>⌘ ⇧ ↓</kbd> move up, down</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property’s name, kind or choices to change them, or a description to edit it</span><span>Drag a tag as you would a bullet: above or below another to put it beside, below and to the right to put it inside; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
   if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton), view.pickBar, view.body);
   else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.count, view.find, view.inherited, view.foldAll, view.openAll, view.moveButton), view.newTag, view.pickBar, view.body, view.footer);
@@ -824,7 +826,7 @@ async function act(view, run, failText) {
 /* Changes */
 function fresh(view, tag) { return view.data.tags.get(tag.id) || tag; }
 
-function parentsTitle(view, parents) { return parents.length ? 'under ' + parents.map(p => '#' + p.title).join(', ') : 'at the top level, not placed yet'; }
+function parentsTitle(view, parents) { return parents.length ? 'under ' + parents.map(p => '#' + p.title).join(', ') : 'at the top level'; }
 
 // Puts a tag under new parents and offers to put it back.
 async function reparent(view, tag, parents, said) {
@@ -922,11 +924,14 @@ async function rename(view, tag, name) {
   const old = tag.title;
   view.cursorTag = tag.id;
   await view.act(() => logseq.Editor.renamePage(tag.uuid, name), `#${old} could not be renamed`);
+  // Its place among the tags beside it goes with the new name.
+  const renamed = view.fresh(tag).title;
+  if (renamed !== old && topOrder().some(n => view.sameTag(n, old))) { view.saveOrder(topOrder().map(n => view.sameTag(n, old) ? renamed : n).join(', ')); view.draw(); }
   view.mark(true); // the renamed tag moves to its new place in the order; keep it on screen
   if (view.fresh(tag).title !== old) view.showToast(`#${old} is now #${view.fresh(tag).title}`, () => logseq.Editor.renamePage(tag.uuid, old));
 }
 
-// A tag shown in several places stays only in this one (or only at the top, for a root row).
+// A tag shown in several places stays only in this one (or only at the top level).
 function keepOnly(view, tag, parent) { return view.reparent(tag, parent ? [parent] : [], parent ? `#${tag.title} is now only under #${parent.title}` : `#${tag.title} is now only at the top`); }
 
 // Merging: the kept tag is picked from a list that starts with the likely ones.
@@ -961,14 +966,13 @@ async function confirmMerge(view, source, target) {
   }
   if (plan.pageBlocks.length) lines.push(`${n(plan.pageBlocks.length, 'block')} written on #${source.title}’s page move to the end of #${target.title}’s page`);
   lines.push(`then #${source.title} is deleted`);
-  const isRoot = rootNames().some(name => name.toLowerCase() === source.title.toLowerCase()) && !(view.data.sameName.get(source.title.toLowerCase())?.length > 1);
   const doc2 = view.doc;
   const go = el(doc2, 'button', { class: 'rtg-go' }, 'Merge');
   const cancel = el(doc2, 'button', {}, 'Cancel');
   const panel = el(doc2, 'div', { role: 'dialog', 'aria-label': 'Merge tags' },
     el(doc2, 'h2', {}, `Merge #${source.title} into #${target.title}?`),
     el(doc2, 'ul', {}, ...lines.map(line => el(doc2, 'li', {}, line))),
-    el(doc2, 'p', {}, (isRoot ? `#${source.title} is one of your root tags; the tree will offer to make it again. ` : '') + 'The moves cannot be undone in one step, and Logseq deletes a tag for good (it does not go to the Recycle).'),
+    el(doc2, 'p', {}, 'The moves cannot be undone in one step, and Logseq deletes a tag for good (it does not go to the Recycle).'),
     el(doc2, 'div', { class: 'rtg-btns' }, cancel, go));
   const backdrop = el(doc2, 'div', { class: 'refinement-tags-dialog' }, panel);
   const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
@@ -1007,12 +1011,14 @@ function pickClick(view, item, event) {
 
 function pickedTags(view) { return [...view.picked].map(id => view.data.tags.get(id)).filter(Boolean).sort(view.data.byTitle); }
 
-function rootsFromPicked(view) {
-  const tags = view.pickedTags();
-  if (!tags.length) return;
-  const titles = tags.map(t => t.title);
+// The picked tags all go to the top level, out of every parent; Undo puts each back.
+async function topFromPicked(view) {
+  const tags = view.pickedTags().filter(t => t.parents.length);
   view.picked.clear();
-  view.setRoots([...rootNames().filter(n => !titles.some(t => view.sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is now a root' : 'are now roots'}`);
+  if (!tags.length) { view.mark(false); return; }
+  const before = tags.map(t => [t, t.parents.slice()]);
+  const done = await view.act(async () => { for (const t of tags) await setParents(t, []); }, 'The tags could not be moved');
+  if (done) view.showToast(`${plural(tags.length, 'tag')} moved to the top level`, async () => { for (const [t, parents] of before) await setParents(view.fresh(t), parents); });
 }
 
 function movePicked(view, anchor) {
@@ -1037,48 +1043,68 @@ function movePicked(view, anchor) {
   });
 }
 
-/* Root tags: the setting, changed from the tree */
+/* The top level: every tag with no parent, in the order kept in the setting, the rest by name */
 function sameTag(view, a, b) { return a.toLowerCase() === b.toLowerCase(); }
 
-async function setRoots(view, names, said) {
-  const before = rootNames().join(', ');
-  const save = value => { rootsOverride = value; logseq.updateSettings({ tagTreeRoots: value }); view.draw(); };
-  save(names.join(', '));
-  if (said) view.showToast(said, async () => save(before));
+// Tags are kept in order like bullets (0.4.221). Logseq keeps no order among the tags a tag extends, so the order is one
+// list of tag names (the tagTreeRoots setting): among siblings, a tag named earlier in it comes first, the rest by name.
+function rankOf() {
+  const at = new Map();
+  topOrder().forEach((name, i) => { const key = name.toLowerCase(); if (!at.has(key)) at.set(key, i); });
+  return tag => at.get(tag.title.toLowerCase()) ?? at.size + 1e6;
+}
+function sortSiblings(view, list, rank = rankOf()) { return list.slice().sort((a, b) => rank(a) - rank(b) || view.data.byTitle(a, b)); }
+function topTags(view, rank) { return view.sortSiblings([...view.data.tags.values()].filter(tag => !tag.builtIn && !tag.parents.length), rank); }
+// The tags beside a tag: inside the same parent, or at the top level.
+function siblingsIn(view, parent) { return parent ? view.sortSiblings(view.fresh(parent).kids.filter(t => !t.builtIn)) : view.topTags(); }
+
+function saveOrder(view, value) { orderOverride = value; logseq.updateSettings({ tagTreeRoots: value }); }
+
+// The order list with these siblings in this order: they take the place of the first of them already named,
+// and every other name keeps its place.
+function orderWith(siblings) {
+  const keys = new Set(siblings.map(t => t.title.toLowerCase()));
+  const old = topOrder();
+  const first = old.findIndex(n => keys.has(n.toLowerCase()));
+  const rest = old.filter(n => !keys.has(n.toLowerCase()));
+  const at = first < 0 ? rest.length : old.slice(0, first).filter(n => !keys.has(n.toLowerCase())).length;
+  rest.splice(at, 0, ...siblings.map(t => t.title));
+  return rest.join(', ');
 }
 
-function moveRoot(view, tag, by) {
-  const names = rootNames();
-  const at = names.findIndex(n => view.sameTag(n, tag.title));
-  const to = at + by;
-  if (at < 0 || to < 0 || to >= names.length) return;
-  [names[at], names[to]] = [names[to], names[at]];
-  view.setRoots(names);
-}
-
-function unRoot(view, tag) { return view.setRoots(rootNames().filter(n => !view.sameTag(n, tag.title)), `#${tag.title} is no longer a root`); }
-
-function makeRoot(view, tag) { return view.setRoots([...rootNames().filter(n => !view.sameTag(n, tag.title)), tag.title], `#${tag.title} is now a root`); }
-
-function rootAddRow(view) {
-  const input = el(view.doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: 'Root tag: an existing tag or a new name', title: 'Several at once: separate them with commas', 'aria-label': 'New root tag' });
-  keepKeys(input);
-  const done = () => { view.addingRoot = false; view.draw(); view.box.focus({ preventScroll: true }); };
-  input.addEventListener('keydown', async event => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); done(); return; }
-    if (event.key !== 'Enter' || event.isComposing) return;
-    event.preventDefault();
-    const names = input.value.split(',').map(n => n.trim().replace(/^#/, '').trim()).filter(Boolean);
-    view.addingRoot = false;
-    if (!names.length) { done(); return; }
-    const newNames = names.filter(n => !view.data.byName.has(n.toLowerCase()));
-    if (newNames.length) await view.act(async () => { await view.addTags(null, newNames.join(', ')); }, 'The tag could not be made');
-    const titles = names.map(n => view.data.byName.get(n.toLowerCase())?.title || n);
-    view.setRoots([...rootNames().filter(n => !titles.some(t => view.sameTag(t, n))), ...titles], `${titles.map(t => '#' + t).join(', ')} ${titles.length === 1 ? 'is' : 'are'} now ${titles.length === 1 ? 'a root' : 'roots'}`);
+// Puts a tag inside parent (null: the top level) just before the sibling `before` (null: last), as a bullet is moved
+// in an outline. It leaves the parent it was dragged from (`from`) and keeps any other; at the top level it leaves
+// them all. With keep (Option held) it stays where it was too. One Undo puts back its place and the order.
+async function place(view, tag, from, parent, before, keep = false) {
+  tag = view.fresh(tag);
+  if (parent && isAbove(tag, parent)) { logseq.UI.showMsg(`#${tag.title} cannot go inside #${parent.title}, which is inside it`, 'warning'); return; }
+  const wasOrder = topOrder().join(', ');
+  const wasParents = tag.parents.slice();
+  const parents = !parent ? [] : [...wasParents.filter(p => p.id !== parent.id && (keep || p.id !== from?.id)), parent];
+  const siblings = view.siblingsIn(parent).filter(t => t.id !== tag.id);
+  const at = before ? siblings.findIndex(t => t.id === before.id) : -1;
+  siblings.splice(at < 0 ? siblings.length : at, 0, tag);
+  view.saveOrder(orderWith(siblings));
+  if (parent) { folded.delete(parent.uuid); saveFolded(); }
+  view.cursorTag = tag.id; view.cursorKey = null;
+  const moving = parents.map(p => p.id).sort().join() !== wasParents.map(p => p.id).sort().join();
+  if (moving) { if (!await view.act(() => setParents(tag, parents), `#${tag.title} could not be moved`)) { view.saveOrder(wasOrder); view.draw(); return; } }
+  else view.draw();
+  view.mark(true);
+  const said = !moving ? `#${tag.title} moved` : keep ? `#${tag.title} is now also under #${parent.title}` : `#${tag.title} is now ${view.parentsTitle(view.fresh(tag).parents)}`;
+  view.showToast(said, async () => {
+    view.saveOrder(wasOrder);
+    view.cursorTag = tag.id;
+    if (moving) await setParents(view.fresh(tag), wasParents);
   });
-  input.addEventListener('blur', () => setTimeout(() => { if (view.addingRoot && !input.value.trim() && view.doc.activeElement !== input) { view.addingRoot = false; view.draw(); } }, 150));
-  setTimeout(() => input.focus());
-  return el(view.doc, 'div', { class: 'rtg-addrow', style: `--rtg-hue: var(--rtg-h${rootNames().length % HUES})` }, input);
+}
+
+// Move up / Move down among its siblings (Cmd+Shift+Up / Down, as for a bullet).
+function moveAmong(view, tag, parent, by) {
+  const list = view.siblingsIn(parent);
+  const at = list.findIndex(t => t.id === tag.id);
+  if (at < 0 || at + by < 0 || at + by >= list.length) return;
+  return view.place(tag, parent, parent, by < 0 ? list[at - 1] : list[at + 2] || null);
 }
 
 /* Tag properties */
@@ -1226,7 +1252,7 @@ function propGuide(view, tag, prop) {
 // "Setting up a new tag", above the tree, opened with its i.
 function drawNewTag(view) {
   if (view.compact) return;
-  const key = 'newtag', roots = rootNames().map(n => '#' + n);
+  const key = 'newtag', roots = view.topTags().slice(0, 4).map(t => '#' + t.title);
   view.newTag.replaceChildren(view.infoButton(key, 'setting up a new tag'), el(view.doc, 'span', {}, 'Setting up a new tag'));
   if (view.newTag.nextElementSibling?.classList.contains('rtg-guide')) view.newTag.nextElementSibling.remove();
   if (!infoOpen.has(key)) return;
@@ -1551,25 +1577,19 @@ function rowMenu(view, item, anchor) {
       { html: `Keep only under #${escapeHtml(parent.title)}`, run: () => view.keepOnly(tag, parent) });
     else if (parent) items.push({ html: 'Move to the top level', run: () => view.moveTo(tag, parent, null) });
     else if (tag.parents.length) items.push({ html: 'Keep only at the top', run: () => view.keepOnly(tag, null) });
-    if (item.root) {
-      const names = rootNames(), at = names.findIndex(n => view.sameTag(n, tag.title));
-      items.push('-');
-      if (at > 0) items.push({ html: 'Move this root up', run: () => view.moveRoot(tag, -1) });
-      if (at < names.length - 1) items.push({ html: 'Move this root down', run: () => view.moveRoot(tag, 1) });
-      items.push({ html: 'Stop showing it as a root', run: () => view.unRoot(tag) });
-    } else if (!tag.parents.length) items.push({ html: 'Make it a root', run: () => view.makeRoot(tag) });
+    const list = view.siblingsIn(parent), at = list.findIndex(t => t.id === tag.id);
+    if (at > 0) items.push({ html: 'Move up<kbd>⌘ ⇧ ↑</kbd>', run: () => view.moveAmong(tag, parent, -1) });
+    if (at >= 0 && at < list.length - 1) items.push({ html: 'Move down<kbd>⌘ ⇧ ↓</kbd>', run: () => view.moveAmong(tag, parent, 1) });
     items.push('-', { html: 'Add a property …<kbd>p</kbd>', run: () => view.askProperty(tag, anchor) },
       { html: 'Rename<kbd>r</kbd>', run: () => { view.renaming = item.key; view.draw(); } },
       { html: tag.desc ? 'Change the description …' : 'Add a description …', run: () => view.askDescription(tag, anchor) },
       { html: 'Merge into …<kbd>j</kbd>', run: () => view.askMerge(tag, parent, anchor) });
-  } else if (item.root) items.push('-', { html: 'Stop showing it as a root', run: () => view.unRoot(tag) });
-  if (view.picked.size > 1 && view.picked.has(tag.id)) items.unshift({ html: `Make the ${view.picked.size} picked tags roots`, run: () => view.rootsFromPicked() }, { html: `Move the ${view.picked.size} picked tags to …`, run: () => view.movePicked(anchor) }, '-');
+  }
+  if (view.picked.size > 1 && view.picked.has(tag.id)) items.unshift({ html: `Move the ${view.picked.size} picked tags to the top level`, run: () => view.topFromPicked() }, { html: `Move the ${view.picked.size} picked tags to …`, run: () => view.movePicked(anchor) }, '-');
   view.showMenu(anchor, '#' + tag.title, items);
 }
 
 /* Drawing */
-function roots(view) { return rootNames().map((name, i) => ({ name, hue: i % HUES, tag: view.data.byName.get(name.toLowerCase()) })); }
-
 function highlight(view, node, title, q) {
   const at = q ? title.toLowerCase().indexOf(q) : -1;
   if (at < 0) { node.textContent = title; return; }
@@ -1587,7 +1607,7 @@ function draw(view) {
     const markMatch = tag => { if (keep.has(tag.id)) return; keep.add(tag.id); tag.parents.forEach(markMatch); };
     for (const tag of view.data.tags.values()) if (tag.title.toLowerCase().includes(q)) markMatch(tag);
   }
-  const pass = { q, keep, visible: tag => !q || keep.has(tag.id), rootIds: null, section: '' }; // what every piece of the drawing reads
+  const pass = { q, keep, visible: tag => !q || keep.has(tag.id), section: '', rank: rankOf() }; // what every piece of the drawing reads
   const scrollKeep = view.box.closest('.sidebar-item-list, .cp__sidebar-main-content, #main-content-container') || view.doc.scrollingElement;
   const top = scrollKeep?.scrollTop;
   // The row with the cursor stays where it is on screen (0.4.182): a renamed tag that sorts elsewhere, or a tag
@@ -1595,14 +1615,12 @@ function draw(view) {
   const held = view.cursorTag != null && (view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag));
   const heldTop = held?.row?.isConnected ? held.row.getBoundingClientRect().top : null;
   view.shown = [];
-  const rootList = view.roots();
-  pass.rootIds = new Set(rootList.filter(r => r.tag).map(r => r.tag.id));
   const sections = [];
   let tagTotal = 0;
   for (const tag of view.data.tags.values()) if (!tag.builtIn) tagTotal++;
 
-  drawRoots(view, pass, rootList, sections);
-  drawLoose(view, pass, sections);
+  drawTop(view, pass, sections);
+  drawLogseq(view, pass, sections);
 
   view.morph(view.body, sections);
   view.count.textContent = plural(tagTotal, 'tag');
@@ -1685,9 +1703,9 @@ function scrollingParent(node) {
 // One tag's row and, unless folded, the rows of the tags inside it.
 function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   const key = keyBase + '/' + tag.id;
-  const kids = tag.kids.filter(kid => !path.has(kid.id) && pass.visible(kid));
+  const kids = view.sortSiblings(tag.kids.filter(kid => !path.has(kid.id) && pass.visible(kid)), pass.rank);
   const open = pass.q ? true : !folded.has(tag.uuid);
-  const isRoot = depth === 0 && pass.rootIds.has(tag.id);
+  const isRoot = depth === 0 && pass.section === 'top';
   const row = el(view.doc, 'div', { class: 'rtg-row' + (kids.length ? ' rtg-branch' : '') + (isRoot ? ' rtg-root' : '') + (tag.builtIn ? ' rtg-builtin' : '') + (pass.q && !tag.title.toLowerCase().includes(pass.q) ? ' rtg-dim' : ''),
     'data-key': key, draggable: tag.builtIn ? null : 'true', style: hue != null ? `--rtg-hue: var(--rtg-h${hue})` : null });
   const item = { key, tag, parent, row, depth, sec: pass.section, root: isRoot };
@@ -1756,37 +1774,27 @@ function rowListeners(view, row, item, tag, key) {
   row.addEventListener('contextmenu', event => { event.preventDefault(); view.setCursor(key); view.rowMenu(item, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }); });
   row.addEventListener('dblclick', event => { if (!tag.builtIn && !event.target.closest('button, input')) { view.renaming = key; view.draw(); } });
 }
-// The roots, each with its colour, then the row that adds a root.
-function drawRoots(view, pass, rootList, sections) {
-// The roots, each with its colour.
-for (const root of rootList) {
-  pass.section = 'root:' + root.name;
-  if (root.tag) { if (pass.visible(root.tag)) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': pass.section }, ...drawBranch(view, pass, root.tag, null, 0, root.hue, new Set(), ''))); continue; }
-  if (pass.q) continue;
-  const make = el(view.doc, 'button', { class: 'rtg-make', click: () => view.act(async () => { await makeTag(root.name); }, `#${root.name} could not be made`) }, `Make #${root.name}`);
-  const leave = el(view.doc, 'button', { class: 'rtg-make rtg-leave', title: `Stop showing #${root.name} as a root`, click: () => view.setRoots(rootNames().filter(n => n.toLowerCase() !== root.name.toLowerCase())) }, 'Not a root');
-  sections.push(el(view.doc, 'div', { class: 'rtg-section' }, el(view.doc, 'div', { class: 'rtg-missing', style: `--rtg-hue: var(--rtg-h${root.hue})` }, el(view.doc, 'span', { class: 'rtg-ghost' }, root.name), make, leave)));
+// The top level: every tag with no parent, each with its colour; then, while a tag is dragged, a place to drop
+// it last at the top level, and the button for a new tag there.
+function drawTop(view, pass, sections) {
+  pass.section = 'top';
+  const tops = view.topTags(pass.rank).filter(pass.visible);
+  const nodes = tops.flatMap((tag, i) => drawBranch(view, pass, tag, null, 0, i % HUES, new Set(), ''));
+  if (!pass.q) {
+    const zone = el(view.doc, 'div', { class: 'rtg-topzone', 'data-key': 'topzone' }, 'Drop here to put it at the top level');
+    view.dropTarget(zone, null);
+    nodes.push(zone);
+    if (view.adding?.key === 'top') nodes.push(view.addRow(null));
+    else nodes.push(el(view.doc, 'div', { class: 'rtg-newroot', 'data-key': 'newtop' }, el(view.doc, 'button', { class: 'rtg-make', title: 'Make a tag at the top level', click: () => view.startAdd(null, 'top') }, '+ New tag')));
+  }
+  sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-top', 'data-key': 'top' }, ...nodes));
 }
-// Adding a root: an existing tag or a new one.
-if (!pass.q) {
-  if (view.addingRoot) sections.push(el(view.doc, 'div', { class: 'rtg-section' }, view.rootAddRow()));
-  else sections.push(el(view.doc, 'div', { class: 'rtg-newroot' }, el(view.doc, 'button', { class: 'rtg-make', title: 'Show another tag at the top of the tree, or make a new one', click: () => { view.addingRoot = true; view.draw(); } }, '+ Root tag')));
-}
-}
-// Tags under none of the roots, then the tags that extend Logseq's own tags.
-function drawLoose(view, pass, sections) {
-// Tags under none of the roots.
-const loose = [...view.data.tags.values()].filter(tag => !tag.builtIn && !pass.rootIds.has(tag.id) && !tag.parents.length && pass.visible(tag)).sort(view.data.byTitle);
-const looseHead = el(view.doc, 'h3', { class: 'rtg-group', 'data-drop': 'top' }, 'Not placed yet', el(view.doc, 'span', { class: 'rtg-hint' }, loose.length ? (view.compact ? String(loose.length) : 'Drag a tag onto a root, or press m to move it') : 'Every tag has a place'));
-view.dropTarget(looseHead, null);
-pass.section = 'loose';
-const looseNodes = loose.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'loose'));
-if (!pass.q || loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-loose', 'data-key': 'loose' }, looseHead, ...looseNodes));
 // Tags that extend Logseq's own tags, under those tags.
-const builtIns = [...view.data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && pass.visible(tag)).sort(view.data.byTitle);
-pass.section = 'logseq';
-if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'logseq' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
-if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
+function drawLogseq(view, pass, sections) {
+  const builtIns = [...view.data.tags.values()].filter(tag => tag.builtIn && !tag.parents.length && tag.kids.some(kid => !kid.builtIn) && pass.visible(tag)).sort(view.data.byTitle);
+  pass.section = 'logseq';
+  if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'logseq' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
+  if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag by that name. Press Enter to make it.'));
 }
 
 function addRow(view, parent) {
@@ -1822,45 +1830,84 @@ function mark(view, scroll) {
   if (scroll && item) item.row.scrollIntoView({ block: 'nearest' });
 }
 
-/* Dragging a tag onto another */
+/* Dragging a tag onto another, or between two */
 function dragRow(view, row, item) {
   if (!item.tag.builtIn) {
     row.addEventListener('dragstart', event => {
       view.dragging = { tag: item.tag, parent: item.parent };
       event.dataTransfer.effectAllowed = 'copyMove';
       event.dataTransfer.setData('text/plain', '#' + item.tag.title);
-      setTimeout(() => row.classList.add('rtg-dragging'));
+      setTimeout(() => { if (view.dragging) { row.classList.add('rtg-dragging'); view.box.classList.add('rtg-dragon'); } });
+      // The browser sends no dragend when the row it started from was moved by the drop (seen in Logseq), so the
+      // drag also ends at the first ordinary mouse move after it (none come while a drag is on).
+      view.doc.addEventListener('mousemove', view.endDrag, { once: true, capture: true });
     });
-    row.addEventListener('dragend', () => { view.dragging = null; row.classList.remove('rtg-dragging'); view.clearDrop(); });
+    row.addEventListener('dragend', view.endDrag);
   }
-  if (!item.tag.builtIn || PARENT_BUILT_INS.has(item.tag.ident)) view.dropTarget(row, item.tag);
+  view.dropTarget(row, item.tag, item);
 }
 
-function clearDrop(view) { return view.body.querySelectorAll('.rtg-drop').forEach(node => node.classList.remove('rtg-drop')); }
+function endDrag(view) {
+  view.dragging = null;
+  view.box.classList.remove('rtg-dragon');
+  view.body.querySelectorAll('.rtg-dragging').forEach(node => node.classList.remove('rtg-dragging'));
+  view.clearDrop();
+}
 
-function dropTarget(view, node, target) {
-  const allowed = () => {
-    if (!view.dragging) return false;
+const DROP_MARKS = ['rtg-drop', 'rtg-drop-before', 'rtg-drop-after', 'rtg-drop-inside'];
+function clearDrop(view) { return view.body.querySelectorAll(DROP_MARKS.map(c => '.' + c).join(', ')).forEach(node => node.classList.remove(...DROP_MARKS)); }
+
+// Where a dragged tag would go, as with Logseq's bullets: over the upper half of a row, just before it (beside it,
+// under the same parent); over the lower half, just after it, or, with the pointer moved to the right past the
+// start of its name, inside it as its first tag. A row whose own tags show below it takes the lower half as
+// inside, like an open bullet. A line shows the place, indented for inside. Without a row (the zone below the top
+// level), the tag goes last at the top level.
+function dropZone(view, node, target, item, event) {
+  if (!item) return 'top';
+  const canInside = !target.builtIn || PARENT_BUILT_INS.has(target.ident);
+  const canBeside = !target.builtIn && (item.parent || item.sec === 'top');
+  const r = node.getBoundingClientRect();
+  const nameLeft = node.querySelector(':scope > .rtg-main')?.getBoundingClientRect().left ?? r.left + 24;
+  const kidsShown = !!node.nextElementSibling?.classList.contains('rtg-kids') && node.nextElementSibling.childElementCount > 0;
+  const upper = event.clientY < r.top + r.height / 2;
+  if (upper) return canBeside ? 'before' : canInside ? 'inside' : null;
+  if (canInside && (kidsShown || event.clientX > nameLeft + 30 || !canBeside)) return 'inside';
+  return canBeside ? 'after' : null;
+}
+
+function dropTarget(view, node, target, item) {
+  const allowed = zone => {
+    if (!view.dragging || !zone) return false;
     const tag = view.fresh(view.dragging.tag);
-    if (!target) return tag.parents.length > 0;
-    return target.id !== tag.id && !isAbove(tag, target) && !tag.parents.some(p => p.id === target.id);
+    if (zone === 'top') return true;
+    if (zone === 'inside') return !isAbove(tag, target);
+    if (target.id === tag.id) return false;
+    return !item.parent || !isAbove(tag, item.parent);
   };
   node.addEventListener('dragover', event => {
-    if (!allowed()) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = event.altKey ? 'copy' : 'move';
-    if (!node.classList.contains('rtg-drop')) { view.clearDrop(); node.classList.add('rtg-drop'); }
+    const zone = view.dropZone(node, target, item, event);
+    if (!allowed(zone)) { if (DROP_MARKS.some(c => node.classList.contains(c))) view.clearDrop(); return; }
+    event.preventDefault(); event.stopPropagation();
+    event.dataTransfer.dropEffect = event.altKey && zone !== 'top' && (zone === 'inside' || item.parent) ? 'copy' : 'move';
+    const mark = zone === 'top' ? 'rtg-drop' : 'rtg-drop-' + zone;
+    if (!node.classList.contains(mark)) { view.clearDrop(); node.classList.add(mark); }
   });
-  node.addEventListener('dragleave', event => { if (!node.contains(event.relatedTarget)) node.classList.remove('rtg-drop'); });
+  node.addEventListener('dragleave', event => { if (!node.contains(event.relatedTarget)) node.classList.remove(...DROP_MARKS); });
   node.addEventListener('drop', event => {
-    if (!allowed()) return;
+    const zone = view.dropZone(node, target, item, event);
+    if (!allowed(zone)) return;
     event.preventDefault(); event.stopPropagation();
     const { tag, parent } = view.dragging;
-    view.dragging = null;
-    view.clearDrop();
-    if (!target) view.moveTo(tag, parent, null);
-    else if (event.altKey) view.alsoUnder(tag, target);
-    else view.moveTo(tag, parent, target);
+    view.endDrag();
+    const keep = event.altKey;
+    if (zone === 'top') view.place(tag, parent, null, null);
+    // Inside: as its first tag.
+    else if (zone === 'inside') view.place(tag, parent, target, view.siblingsIn(target).find(t => t.id !== tag.id) || null, keep);
+    else if (zone === 'before') view.place(tag, parent, item.parent, target, keep && !!item.parent);
+    else {
+      const list = view.siblingsIn(item.parent).filter(t => t.id !== tag.id);
+      view.place(tag, parent, item.parent, list[list.findIndex(t => t.id === target.id) + 1] || null, keep && !!item.parent);
+    }
   });
 }
 
@@ -1879,7 +1926,7 @@ function onKey(view, event) {
   if (view.menu && !typing) { event.stopPropagation(); return; }
   const at = view.shown.findIndex(item => item.key === view.cursorKey);
   const item = view.shown[at];
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+  if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !(item && (event.metaKey || event.ctrlKey) && event.shiftKey)) {
     if (typing && event.target !== view.find) return;
     event.preventDefault(); event.stopPropagation();
     if (!view.shown.length) return;
@@ -1919,20 +1966,23 @@ function onKey(view, event) {
     else { const up = view.shown.slice(0, at).reverse().find(i => i.sec === item.sec && i.depth < item.depth); if (up) view.setCursor(up.key); }
     return;
   }
-  if (event.key === 'Tab' && !tag.builtIn && !item.row.classList.contains('rtg-root')) {
+  if (event.key === 'Tab' && !tag.builtIn) {
     stop();
     if (event.shiftKey) {
-      // Out: from its parent to the parent's parent (or the top level).
+      // Out, as for a bullet: just after its parent, beside it.
       if (!parent) return;
       const grand = view.shown.slice(0, at).reverse().find(i => i.depth < item.depth && i.tag.id === parent.id)?.parent ?? null;
-      view.moveTo(tag, parent, grand);
+      const list = view.siblingsIn(grand).filter(t => t.id !== tag.id);
+      view.place(tag, parent, grand, list[list.findIndex(t => t.id === parent.id) + 1] || null);
     } else {
-      // In: under the tag just above it at the same level.
+      // In: the last tag inside the tag just above it at the same level.
       const prev = view.shown.slice(0, at).reverse().find(i => i.depth <= item.depth);
-      if (prev && prev.sec === item.sec && prev.depth === item.depth && prev.tag.id !== tag.id && (!prev.tag.builtIn || PARENT_BUILT_INS.has(prev.tag.ident))) view.moveTo(tag, parent, prev.tag);
+      if (prev && prev.sec === item.sec && prev.depth === item.depth && prev.tag.id !== tag.id && (!prev.tag.builtIn || PARENT_BUILT_INS.has(prev.tag.ident))) view.place(tag, parent, prev.tag, null);
     }
     return;
   }
+  // Cmd+Shift+Up / Down move it among the tags beside it, as Logseq moves a bullet.
+  if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && (event.metaKey || event.ctrlKey) && event.shiftKey && !tag.builtIn) { stop(); view.moveAmong(tag, parent, event.key === 'ArrowUp' ? -1 : 1); return; }
   if ((key === 'n' || event.key === '+') && (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident))) { stop(); view.startAdd(tag, item.key); return; }
   if (key === 'm' && !tag.builtIn) { stop(); view.askMove(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
   if (key === 'a' && !tag.builtIn) { stop(); view.askAlso(tag, item.row.querySelector('.rtg-name') || item.row); return; }
@@ -1978,12 +2028,13 @@ function destroy(view) {
   view.hideToast();
   clearTimeout(view.timer);
   view.doc.removeEventListener('mousedown', view.onDown, true);
+  view.doc.removeEventListener('mousemove', view.endDrag, true);
   try { view.offChanged?.(); } catch (error) { /* already off */ }
   openViews.delete(view.draw);
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, rootsFromPicked, movePicked, sameTag, setRoots, moveRoot, unRoot, makeRoot, rootAddRow, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, roots, highlight, draw, addRow, toggle, setCursor, mark, dragRow, clearDrop, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
@@ -2055,7 +2106,7 @@ function start() {
     });
   }
   window.refinementTags = { openPage, openSidebar, loadTags };
-  const off = logseq.onSettingsChanged?.(() => { rootsOverride = null; for (const redraw of openViews) redraw(); });
+  const off = logseq.onSettingsChanged?.(() => { orderOverride = null; for (const redraw of openViews) redraw(); });
   if (typeof off === 'function') onUnload(off);
   onUnload(() => { host().querySelector('.refinement-tags-menu')?.remove(); host().querySelector('.refinement-tags-toast')?.remove(); host().querySelector('.refinement-tags-dialog')?.remove(); });
 }

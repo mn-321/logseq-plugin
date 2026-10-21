@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The tag tree moves tags like bullets (0.4.221)
+
+**The owner:** dragging a root under another tag left it showing as a root; "Don't need to have this label of root. just
+think in terms of levels", with drop zones for the top level and between tags; then, mid-way, "think about the
+hierarchy like logseq bullets with parent and child". **Cause:** the top was drawn from the `tagTreeRoots` names, so a
+named tag with a parent still showed there. **Built** (`parts/tags.js`): `topTags` (no parent), `rankOf`/`sortSiblings`
+(the setting is now one order list for siblings everywhere; `orderWith` rewrites it keeping other names' places),
+`place(tag, from, parent, before, keep)` with one Undo for parents and order, `moveAmong`; `dropZone` (upper half before,
+lower half after, right of the name or below an open tag inside) with `::after` lines; the top zone; Tab, Shift+Tab,
+Cmd+Shift+Up/Down as for bullets; `endDrag` also on the next mousemove (Logseq sent no dragend after the source row moved).
+Removed: roots, missing-root rows, + Root tag, Not placed yet. **Tests:** `tools/tag-drag-test.js` (pretend graph of 7
+tags; fails 11 ways when the inside rule is broken). **Seen:** in the CHANGELOG line; real mouse drags from computer
+use only select text, so the drags were sent from the console. **Restored:** research under Interpretation, the order
+setting to `Occurrence, Interpretation, Phenomena, Entity`.
+
 ## 2026-10-21 · A wide property proposed for with care (0.4.220)
 
 **The owner:** widened Topic to 15 tags on purpose, "because topic is wide thing". **Built:** `wide(prop, schema)` in

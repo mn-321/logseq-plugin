@@ -34,10 +34,11 @@ if [ "$listed" != "$present" ]; then
   problem "parts/ and PART_FILES differ. In PART_FILES: $(echo $listed). In parts/: $(echo $present)"
 fi
 
-# 6. The boot test (tools/boot-test.js) and the tag map checks (tools/tags-test.js), where node and jsdom are installed; skipped quietly elsewhere.
+# 6. The boot test (tools/boot-test.js), the tag map checks (tools/tags-test.js) and moving tags (tools/tag-drag-test.js), where node and jsdom are installed; skipped quietly elsewhere.
 if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/boot-test.js || problem "the boot test failed (see above)"
   node tools/tags-test.js || problem "the tag map checks failed (see above)"
+  node tools/tag-drag-test.js || problem "moving tags in the tag tree failed its checks (see above)"
   node tools/alike-test.js || problem "the looks-like engine failed its checks or timings (see above)"
   node tools/shadow-test.js || problem "the proposals' rules failed on the pretend graph (see above)"
   node tools/shadow-write-test.js || problem "the proposals' writes or Undo failed (see above)"
