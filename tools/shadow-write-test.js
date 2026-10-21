@@ -125,7 +125,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     check(await undo(), '1. no undo arrow after the fill');
     check(JSON.stringify(writes) === JSON.stringify([['remove', b.uuid, 'user.property/doctor']]) && !b.props.has('user.property/doctor'), `1. Undo did ${JSON.stringify(writes)}; wanted the doctor taken off`);
   }
-  // 2. A guess is written only after Tab accepted it (0.4.218); Enter, or a click away, writes the sure values alone.
+  // 2. Enter takes the guesses too (0.4.219, as from 0.4.202); a click away writes the sure values alone; Tab is Logseq's.
   {
     reset();
     const b = addBlock(1002, 'Wiped out all day.', [T.log]);
@@ -137,27 +137,22 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     reset(); b.props.clear();
     box = onScreen(b, b.title);
     await type(box);
+    check(!key(box, 'Tab').defaultPrevented, '2. Tab was taken by the plugin (Logseq would not indent)');
     key(box, 'Enter');
     await leave(box);
-    check(JSON.stringify(writes) === JSON.stringify([['set', b.uuid, 'user.property/date', 300]]), `2. Enter then leaving wrote ${JSON.stringify(writes)}; wanted the sure date only (Enter no longer takes guesses)`);
-    reset(); b.props.clear();
-    box = onScreen(b, b.title);
-    await type(box);
-    check(key(box, 'Tab').defaultPrevented && !doc.querySelector('.rfs-ghost.rfs-guess'), '2. Tab did not accept the guess (it is still dotted, or Tab went to Logseq)');
-    await leave(box);
     const sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
-    check(sets === 'user.property/date,user.property/symptoms', `2. Tab then leaving wrote ${JSON.stringify(writes)}; wanted the date and the accepted symptom`);
+    check(sets === 'user.property/date,user.property/symptoms', `2. Enter then leaving wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
   }
-  // 3. An untagged bullet, Tab: the tag first, then the values that rest on it; Undo takes the values off, then the tag.
+  // 3. An untagged bullet, Enter: the tag first, then the values that rest on it; Undo takes the values off, then the tag.
   {
     reset();
     const b = addBlock(1003, 'Wiped out all day.', []);
     const box = onScreen(b, b.title);
     await type(box);
     check(ghosts().includes('#Symptom log'), `3. untagged: shown ${JSON.stringify(ghosts())}; wanted the tag #Symptom log`);
-    key(box, 'Tab');
+    key(box, 'Enter');
     await leave(box);
-    check(writes[0]?.[0] === 'tag' && writes[0][2] === T.log && writes.slice(1).every(w => w[0] === 'set') && writes.length >= 2, `3. untagged, Tab: wrote ${JSON.stringify(writes)}; wanted the tag first, then the values`);
+    check(writes[0]?.[0] === 'tag' && writes[0][2] === T.log && writes.slice(1).every(w => w[0] === 'set') && writes.length >= 2, `3. untagged, Enter: wrote ${JSON.stringify(writes)}; wanted the tag first, then the values`);
     writes.length = 0;
     await undo();
     check(writes.length >= 2 && writes[writes.length - 1][0] === 'untag' && !b.tags.size && !b.props.size, `3. Undo did ${JSON.stringify(writes)}; wanted the values off, then the tag`);
@@ -180,7 +175,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     const b = addBlock(1005, 'Wiped out all day.', []);
     const box = onScreen(b, b.title);
     await type(box);
-    key(box, 'Tab');
+    key(box, 'Enter');
     await leave(box);
     writes.length = 0;
     failRemoves = 1;

@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Enter takes guesses again; Option-Enter stops on them (0.4.219)
+
+**The owner:** "Why did you take away guesses from enter?", then "can't i just fix it with option-enter", then "do
+that". I had reversed their 0.4.202 choice in 0.4.218 without saying so; said so. **Built:** `onKey` back to Enter
+(`state.accepted` with `at`, the 500 ms window); `leave` defaults to nothing taken, `finishBullet` passes all shown
+guesses; `emptyNames` keeps guessed properties as stops (only sure ones passed over); `guessesAt` and `typeInto` put the
+guess into Logseq's list box (native value setter, an input event, select); CSS shows Logseq's empty value and hides the
+ghost on the stop being opened. Tests: section 13 back to Enter, section 17 stops on the guessed doctor first and checks
+the typed, selected guess. **Seen:** in the CHANGELOG line. **Probe:** a TEMP-DEV block wrote what Option-Enter saw to
+the settings file (`devOpt`); removed with its key. **Found:** the owner widened Topic to 15 tags, which makes linked
+decisions sure Topics and lets an unused doctor's name slide into Topic; the scorer fails on the owner's graph for that
+(4 wrong sure, the same on 0.4.218's code); asked the owner, not changed. **Note:** a bullet tagged a moment ago has the
+plugin's stand-in capsules, which Option-Enter cannot open.
+
 ## 2026-10-21 · Undo as a faded arrow on the line; Tab accepts guesses (0.4.218)
 
 **The owner:** the undo toast "is in an awful place and loud and too far down and distracting. it should be something

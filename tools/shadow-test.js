@@ -239,24 +239,33 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
     const press = type => { const e = new window.MouseEvent(type, { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e; };
     if (press('pointerdown').defaultPrevented) problem('click on a value: the pointer press is held back, so no mouse press follows');
     if (!press('mousedown').defaultPrevented) problem('click on a value: the mouse press is not held back, so the bullet would leave edit');
-    if (window.refinementShadow.accepted.keys.size) problem('click on a value: a click accepted the guess; only Tab does');
+    if (window.refinementShadow.accepted.keys.size) problem('click on a value: a click took the guess; only Enter does');
   }
-  // 13. Tab accepts the guesses shown (0.4.218; Enter did before): they lose their dotted line; Enter takes nothing;
-  //     Shift+Tab and a Tab with nothing to accept stay Logseq's.
+  // 13. Enter takes the guesses shown (0.4.202; again 0.4.219 after one version of Tab): Shift+Enter and Tab never do,
+  //     and Tab stays Logseq's; an Enter that did not leave the bullet does not count for a later leaving.
   const keydown = (k, more = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...more }); box.dispatchEvent(e); return e; };
   cases++;
+  keydown('Enter', { shiftKey: true });
+  if (window.refinementShadow.accepted.keys.size) problem('Shift+Enter (a line break) took the guesses');
+  cases++;
+  if (keydown('Tab').defaultPrevented || window.refinementShadow.accepted.keys.size) problem('Tab was taken by the plugin (it would not indent)');
+  cases++;
   keydown('Enter');
-  if (window.refinementShadow.accepted.keys.size) problem('Enter accepted the guesses; only Tab does now');
+  if (!window.refinementShadow.accepted.keys.has(guessKeyOf(guess))) problem('Enter: the guess shown is not taken');
   cases++;
-  if (keydown('Tab', { shiftKey: true }).defaultPrevented || window.refinementShadow.accepted.keys.size) problem('Shift+Tab was taken by the plugin');
-  cases++;
-  const tab = keydown('Tab');
-  if (!tab.defaultPrevented || !window.refinementShadow.accepted.keys.has(guessKeyOf(guess))) problem('Tab: the guess shown is not accepted');
-  if (doc.querySelector('.rfs-ghost.rfs-guess')) problem('Tab: the accepted guess still has its dotted line');
-  cases++;
-  if (keydown('Tab').defaultPrevented) problem('a second Tab, nothing left to accept, was taken from Logseq (it would not indent)');
-  // 14. Leaving puts the next bullet in edit, and its shadow can come before the wait is over: what Tab accepted in
-  //     the bullet left must still be filled in (second reading).
+  const stale = window.refinementShadow.live;
+  window.refinementShadow.accepted.at = Date.now() - 5000;
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
+  box.blur();
+  await new Promise(resolve => setTimeout(resolve, 200));
+  if (window.refinementShadow.left !== stale || stale.taken?.size) problem('an Enter long before leaving still fills in the guesses');
+  // Back in the bullet for the next check.
+  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
+  window.refinementShadowInner.drawInPlace(doc);
+  box.focus();
+  keydown('Enter');
+  // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what Enter
+  //     took in the bullet left must still be filled in (second reading).
   const left = window.refinementShadow.live;
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
@@ -264,7 +273,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadow.accepted = { uuid: 'b-next', keys: new Set() };
   await new Promise(resolve => setTimeout(resolve, 200));
   cases++;
-  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving: the guess Tab accepted in the bullet left is not filled in');
+  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
   window.refinementShadow.live = null;
   window.refinementShadowInner.drawInPlace(doc);
   cases++;
@@ -293,8 +302,9 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   cases++;
   if (doc.querySelector('[data-refinement-proposal]')) problem('a marked pill with nothing of ours in it keeps hiding Logseq\'s empty value');
 
-// 17. Option-Enter (0.4.204): from the words, Logseq's own list opens for the first property that is empty and has
-//     nothing proposed; Tab goes on to the next; Escape in the list comes back to the end of the words.
+// 17. Option-Enter (0.4.204): from the words, Logseq's own list opens for the first property that is empty or holds a
+//     guess (0.4.219: the guess is typed into the list, selected); Tab goes on to the next; Escape in the list comes
+//     back to the end of the words.
 {
   // From here on the graph counts as one named in the setting (0.4.217: Option-Enter works only there), whatever the
   // checks the focus starts say: this pretend graph has no name.
@@ -318,14 +328,28 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   for (const id of ['t-doctor', 't-with', 't-hospital', 't-date', 't-notes']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
   cases++;
-  if (pressed.join() !== 't-with') problem(`Option-Enter: opened ${pressed.join() || 'nothing'}; wanted the first empty property with nothing proposed ("with")`);
-  // Logseq's list, as it opens: its own box, which takes the keys.
+  if (pressed.join() !== 't-doctor') problem(`Option-Enter: opened ${pressed.join() || 'nothing'}; wanted the guessed doctor first (0.4.219)`);
+  // Logseq's list, as it opens: its own box, which takes the keys. The guess is typed into it, selected.
   const list = doc.createElement('div'); list.className = 'cp__select'; list.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list);
-  list.querySelector('input').focus();
+  const listBox = list.querySelector('input');
+  let typed = '';
+  listBox.addEventListener('input', () => { typed = listBox.value; });
+  listBox.focus();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  cases++;
+  if (typed !== 'Dr. Raj Patel' || listBox.selectionStart !== 0 || listBox.selectionEnd !== listBox.value.length) problem(`Option-Enter on a guess: the list's box holds "${listBox.value}" (heard "${typed}"); wanted "Dr. Raj Patel", selected`);
+  listBox.value = '';
+  listBox.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 120));
+  listBox.focus();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  cases++;
+  if (pressed.join() !== 't-doctor,t-with') problem(`Tab from the guessed doctor: opened ${pressed.join()}; wanted "with" next`);
+  if (listBox.value) problem(`an empty property's list got words typed in: "${listBox.value}"`);
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 120));
   cases++;
-  if (pressed.join() !== 't-with,t-hospital') problem(`Tab in the list: opened ${pressed.join()}; wanted "hospital" next`);
+  if (pressed.join() !== 't-doctor,t-with,t-hospital') problem(`Tab in the list: opened ${pressed.join()}; wanted "hospital" next`);
   list.querySelector('input').focus(); // the next list, as Logseq opens it, takes the keys
   await new Promise(resolve => setTimeout(resolve, 150));
   // Tab again: the date is next (stage F, 0.4.215). Logseq's date picker opens, a popup outside the page with a
@@ -335,7 +359,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 250));
   cases++;
-  if (pressed.join() !== 't-with,t-hospital,t-date') problem(`Tab past hospital: opened ${pressed.join()}; wanted the date next`);
+  if (pressed.join() !== 't-doctor,t-with,t-hospital,t-date') problem(`Tab past hospital: opened ${pressed.join()}; wanted the date next`);
   cases++;
   if (!popup || doc.activeElement !== popup.querySelector('input')) problem('the date picker: the keyboard did not go to its text box');
   // Enter in the box is Logseq's: it sets the day and closes the picker (no Escape of the plugin's); then the next property opens.
@@ -348,7 +372,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   popup.remove(); popup = null; // as Logseq closes it on Enter
   await new Promise(resolve => setTimeout(resolve, 250));
   cases++;
-  if (pressed.join() !== 't-with,t-hospital,t-date,t-notes') problem(`after the date: opened ${pressed.join()}; wanted the Notes row next`);
+  if (pressed.join() !== 't-doctor,t-with,t-hospital,t-date,t-notes') problem(`after the date: opened ${pressed.join()}; wanted the Notes row next`);
   list.querySelector('input').focus();
   await new Promise(resolve => setTimeout(resolve, 150));
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
