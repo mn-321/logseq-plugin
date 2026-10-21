@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field; right-click it to change how it reads here. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”; a field ending in “by” or “of” loses it (“prescribed by” reads “prescribed”, “report of” reads “report”), and one ending in another joining word such as “to” or “with” reads the same both ways (“related to”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -408,6 +408,7 @@ function draw(doc) {
     box.addEventListener('click', onClick);
     box.addEventListener('mouseover', onOver);
     box.addEventListener('mouseout', onOut);
+    box.addEventListener('contextmenu', onRename);
     state.html = '';
   }
   if (!rows) state.picked.clear();
@@ -441,6 +442,21 @@ function onClick(event) {
     if (!tag || state.only.get(key) === tag) state.only.delete(key); else state.only.set(key, tag);
   }
   draw(host());
+}
+
+/* Right-click a row's name to change how it reads here (0.4.237, the owner: "I should be able to right click
+   “report of of” and edit display name"). Saved in "Fields read backwards", as the tag map's box does; empty goes
+   back to how the name reads by itself. Undo in the bar. */
+async function onRename(event) {
+  const nameEl = event.target.closest?.('.rf-tw-name');
+  const group = nameEl && state.groups.find(g => g.name === nameEl.closest('.rf-tw-row')?.dataset.field);
+  if (!group) return;
+  event.preventDefault(); event.stopPropagation(); hidePeek();
+  const before = backwardsLabel(group.name);
+  const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true);
+  if (typed == null || typed === before) return;
+  setBackwards(group.name, typed);
+  showUndoBar(typed ? `“${group.name}” now reads “${typed}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before));
 }
 
 /* Adding from the far end (0.4.185, the owner's pick of "Add only"): the + at the end of a row opens a small box,
@@ -580,19 +596,20 @@ const nodesPicked = () => [...new Set(picks().map(p => p.uuid))];
 const titleFor = uuid => { for (const g of state.groups) for (const item of g.items) if (item.uuid === uuid) return item.title; return 'a record'; };
 const counted = n => `${n} ${n === 1 ? 'record' : 'records'}`;
 // A small box asking for one thing, with a list to choose from; resolves with what was typed, or null.
-const ask = (heading, hint, options, button = 'OK') => modal(null, (box, finish, doc) => {
+const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = false) => modal(null, (box, finish, doc) => {
   box.classList.add('refinement-two-way-ask');
   const label = doc.createElement('label'); label.textContent = heading;
-  const input = doc.createElement('input'); input.type = 'text'; input.spellcheck = false;
+  const input = doc.createElement('input'); input.type = 'text'; input.spellcheck = false; input.value = value;
+  const done = () => finish(allowEmpty ? input.value.trim() : input.value.trim() || null);
   const list = doc.createElement('datalist'); list.id = `rf-tw-ask-${Date.now()}`;
   for (const option of options) { const o = doc.createElement('option'); o.value = option; list.append(o); }
   input.setAttribute('list', list.id);
-  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); finish(input.value.trim() || null); } });
+  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); done(); } });
   box.append(label, input, list);
   if (hint) box.append(modalHint(doc, hint));
-  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, () => finish(input.value.trim() || null)]]);
+  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, done]]);
   row.style.marginTop = '10px'; box.append(row);
-  input.focus();
+  input.focus(); input.select();
 });
 const sure = (heading, button) => modal(false, (box, finish, doc) => {
   const label = doc.createElement('label'); label.textContent = heading;

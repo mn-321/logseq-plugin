@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Right-click a two-way row's name to rename how it reads (0.4.238)
+
+**The owner:** "make this more robust … and if possible easily editable? Like I should be able to right click
+\"report of of\" and edit display name". **Built:** `onRename` in `parts/two-way.js` (the shared `ask` box now takes
+a starting value and can return empty), through `setBackwards`. **Tests:** `tools/check.sh`. **Seen:** see the
+CHANGELOG line; the Undo bar's seven seconds ran out before it was tried, so Undo itself was not clicked.
+
 ## 2026-10-21 · No more "report of of" (0.4.237)
 
 **The owner:** a picture of First Liver Tumor Biopsy with "report of of →" and "related to of →": "Sometimes it works,
