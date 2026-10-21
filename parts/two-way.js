@@ -726,8 +726,7 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
 .refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
-.refinement-two-way a.rf-tw-record { border-bottom: 1px solid color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent); }
-.refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
+/* No line under a record's name (0.4.230, the owner: "an underline is not necessary"): the patch under the pointer shows it opens. */
 .refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
 .refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }

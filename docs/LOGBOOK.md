@@ -2,6 +2,11 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · No underline under records in the two-way rows (0.4.230)
+
+**The owner:** "an underline is not necessary under pages". **Built:** the border under `a.rf-tw-record` removed in
+`parts/two-way.js`. **Tests:** `tools/check.sh`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Tick boxes left of the outline (0.4.229)
 
 **The owner:** "the tick boxes look off. perhaps you should do it to the left of the outline, not within it".
