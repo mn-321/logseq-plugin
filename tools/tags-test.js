@@ -109,7 +109,33 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       }
     }
   }
+  // Groups of properties (0.4.243): only in the Properties view, kept in the propertyGroups setting by name; a
+  // property put in another group leaves its old one, Undo puts the groups back, nothing in the graph is written.
+  {
+    window.logseq.settings.propertyGroups = 'Results: result; Empty one:';
+    const byProp = [...doc.querySelectorAll('button')].find(b => b.textContent === 'Properties');
+    if (!byProp) problem('no Properties button to turn the map round');
+    else {
+      byProp.click();
+      await until(() => doc.querySelector('.rtg-ghead'));
+      const heads = [...doc.querySelectorAll('h3.rtg-group')].map(h => h.querySelector('span')?.textContent || h.textContent);
+      if (heads.slice(0, 3).join('|') !== 'Results|Empty one|Not in a group') problem(`the groups read ${JSON.stringify(heads)}; wanted Results, Empty one, Not in a group`);
+      const inResults = doc.querySelector('.rtg-pgroup[data-key="group-0"] .rtg-pname')?.textContent;
+      if (inResults !== 'result') problem(`the Results group holds “${inResults}”, not result`);
+      const writesBefore = JSON.stringify(window.pretendChoices);
+      const name = [...doc.querySelectorAll('.rtg-pname')].find(n => n.textContent === 'result');
+      name?.click();
+      [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.startsWith('Put in a group'))?.click();
+      [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent === 'Empty one')?.click();
+      if (window.logseq.settings.propertyGroups !== 'Results: ; Empty one: result') problem(`putting result in Empty one left the setting “${window.logseq.settings.propertyGroups}”`);
+      const toast = await until(() => doc.querySelector('.refinement-tags-toast'));
+      [...(toast?.querySelectorAll('button') || [])].find(b => b.textContent === 'Undo')?.click();
+      await until(() => window.logseq.settings.propertyGroups === 'Results: result; Empty one: ');
+      if (window.logseq.settings.propertyGroups !== 'Results: result; Empty one: ') problem(`Undo left the groups as “${window.logseq.settings.propertyGroups}”`);
+      if (JSON.stringify(window.pretendChoices) !== writesBefore) problem('grouping changed something in the pretend graph');
+    }
+  }
   view.destroy();
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

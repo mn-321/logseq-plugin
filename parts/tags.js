@@ -34,6 +34,8 @@ const settingsSchema = [
     description: 'Off, the tag tree adds no toolbar button, no page, no sidebar panel, no command and no shortcut, and the settings below do nothing. Applies after you reload the plugin.' },
   { key: 'tagTreeRoots', type: 'string', title: 'Order of the tags', default: '',
     description: 'The order of tags beside each other in the tree, at every level (tags with no parent are the top level). Among tags with the same parent, the ones named here come first, in this order, separated by commas; the others follow by name. Dragging a tag above or below another, Cmd+Shift+Up and Down, or Move up and Move down in its menu, changes this for you.' },
+  { key: 'propertyGroups', type: 'string', title: 'Groups of properties', default: '',
+    description: 'Your own groups for the Properties view of the map, for keeping them in order; nothing in the graph changes. Each group is its name, a colon and its properties, separated by commas; groups are separated by semicolons, in the order shown: People and places: Provider, Spoke with; Dates: Date, End. A property sits in one group. Made, filled, renamed and removed from the map (+ New group, a property’s menu, dragging a property onto a group, a group’s menu), which changes this for you.' },
   { key: 'tagTreeOpensAs', type: 'enum', title: 'The button and shortcut open the tag tree as', default: 'page', enumChoices: ['page', 'sidebar'], enumPicker: 'radio',
     description: 'page: a full view in the main area, like a page. sidebar: a panel in the right sidebar. Both are also in the command palette.' },
   { key: 'tagTreeToolbarButton', type: 'boolean', title: 'Tag tree button in the toolbar', default: true,
@@ -45,6 +47,29 @@ const setting = shared.settingReader(settingsSchema);
 // An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
 let orderOverride = null;
 const openViews = new Set(); // the draw function of every tree on screen, redrawn when the settings change
+/* Groups of properties (0.4.243, the owner: "just for own organization, not actually change things, group properties
+   together in properties list"): kept in the propertyGroups setting by name, read as [{ name, props: [lower names] }].
+   A change from the map is used at once, as the order is. */
+let groupsOverride = null;
+const readGroups = () => String(groupsOverride ?? setting('propertyGroups') ?? '').split(';').map(part => {
+  const at = part.indexOf(':');
+  const name = (at < 0 ? part : part.slice(0, at)).trim();
+  const props = at < 0 ? [] : part.slice(at + 1).split(',').map(p => p.trim()).filter(Boolean);
+  return { name, props };
+}).filter(g => g.name);
+const writeGroups = groups => groups.map(g => `${g.name}: ${g.props.join(', ')}`).join('; ');
+function saveGroups(groups) { const value = writeGroups(groups); groupsOverride = value; logseq.updateSettings({ propertyGroups: value }); for (const draw of openViews) draw(); }
+const groupOf = (groups, title) => groups.find(g => g.props.some(p => p.toLowerCase() === title.toLowerCase())) || null;
+// A property put in a group leaves any other; null takes it out of every group.
+function placeInGroup(title, groupName) {
+  const before = readGroups(), groups = before.map(g => ({ name: g.name, props: g.props.filter(p => p.toLowerCase() !== title.toLowerCase()) }));
+  if (groupName) { let g = groups.find(x => x.name.toLowerCase() === groupName.toLowerCase()); if (!g) { g = { name: groupName, props: [] }; groups.push(g); } g.props.push(title); }
+  saveGroups(groups);
+  return before;
+}
+const GROUPS_SHUT_KEY = 'refinement-tags-groups-shut';
+const groupsShut = new Set((() => { try { return JSON.parse(localStorage.getItem(GROUPS_SHUT_KEY) || '[]'); } catch (error) { return []; } })());
+const saveGroupsShut = () => { try { localStorage.setItem(GROUPS_SHUT_KEY, JSON.stringify([...groupsShut])); } catch (error) { /* kept for this session only */ } };
 const topOrder = () => (orderOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
 
 // Folded tags (by uuid), kept for next time on this computer.
@@ -497,6 +522,13 @@ const css = `
 .refinement-tags .rtg-tool:hover { background: var(--rtg-wash); color: var(--ls-primary-text-color) !important; }
 .refinement-tags .rtg-body { padding: 4px 0 24px; }
 .refinement-tags .rtg-section { padding-top: 22px; }
+.refinement-tags h3.rtg-ghead { cursor: pointer; margin-left: 0; }
+.refinement-tags h3.rtg-gnone { cursor: default; }
+.refinement-tags h3.rtg-ghead .rtg-gmenu { opacity: 0; margin-left: auto; }
+.refinement-tags h3.rtg-ghead:hover .rtg-gmenu { opacity: 1; }
+.refinement-tags h3.rtg-gdrop { outline: 1.5px dashed currentColor; outline-offset: 2px; }
+.refinement-tags .rtg-pgroup { margin-bottom: 10px; }
+.refinement-tags .rtg-gempty { margin-left: 28px; font-size: 12.5px; }
 .refinement-tags h3.rtg-group { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 4px 10px; padding: 3px 0; font-size: 12.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--rtg-faint); border-radius: 6px; }
 .refinement-tags h3.rtg-group .rtg-hint { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .85; }
 .refinement-tags .rtg-row { position: relative; display: flex; align-items: flex-start; gap: 4px; padding: 3px 8px 3px 2px; border-radius: 6px; line-height: 1.5; cursor: default; }
@@ -1268,6 +1300,7 @@ function propMenu(view, tag, prop, from, anchor, alone) {
   items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) });
   // In the by-property view (alone) the property is not under any one tag: taking it off each is offered by name.
   if (alone) {
+    items.push({ html: 'Put in a group …', run: () => view.askPutInGroup(prop, anchor) });
     const givers = (prop.givenBy || []).filter(t => !t.builtIn);
     if (givers.length) items.push('-');
     for (const giver of givers) items.push({ html: `Take it off #${escapeHtml(giver.title)}`, run: () => view.takePropOff(giver, prop) });
@@ -1304,7 +1337,12 @@ function askRenameProp(view, prop, anchor) {
       const now = await model().titleNow(prop.uuid);
       if (now !== name) throw new Error('Logseq kept the old name');
     }, `${old} could not be renamed`);
-    if (done) view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
+    if (done) {
+      // Its group goes with it (0.4.243): groups keep properties by name.
+      const groups = readGroups(), g = groupOf(groups, old);
+      if (g) saveGroups(groups.map(x => x === g ? { ...x, props: x.props.map(p => p.toLowerCase() === old.toLowerCase() ? name : p) } : x));
+      view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
+    }
   });
   view.doc.body.append(view.paint(view.menu));
   input.focus(); input.select();
@@ -1861,14 +1899,97 @@ function drawLogseq(view, pass, sections) {
    holds, its choices, what a link accepts, how it reads on the other page) and its name opens the same menu. A
    property on no tag is listed last, under its own heading. A search matches a property's name or the name of a
    tag that has it. */
+// Since 0.4.243 your groups come first, each under its name, in the order you gave them; the rest follow under "Not
+// in a group" (only when there are groups), and a property on no tag, in no group, last. A group's name opens its
+// menu; dragging a property onto a group's name puts it there.
 function drawProps(view, pass, sections) {
   pass.section = 'props';
+  const doc = view.doc;
   const all = [...(view.data.propInfo?.values() || [])].filter(prop => prop.title).sort((a, b) => a.title.localeCompare(b.title));
   const fits = prop => !pass.q || prop.title.toLowerCase().includes(pass.q) || (prop.givenBy || []).some(t => t.title.toLowerCase().includes(pass.q));
-  const onTags = all.filter(prop => prop.givenBy?.length && fits(prop)), loose = all.filter(prop => !prop.givenBy?.length && fits(prop));
-  if (onTags.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-top', 'data-key': 'props' }, ...onTags.flatMap(prop => propTopRow(view, pass, prop))));
-  if (loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'props-loose' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'On no tag'), ...loose.flatMap(prop => propTopRow(view, pass, prop))));
-  if (!onTags.length && !loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, pass.q ? 'No property by that name.' : 'No properties yet.'));
+  const groups = readGroups(), grouped = new Set();
+  groups.forEach((group, i) => {
+    const members = group.props.map(name => all.find(p => p.title.toLowerCase() === name.toLowerCase())).filter(Boolean);
+    for (const p of members) grouped.add(p);
+    const shown = members.filter(fits);
+    if (pass.q && !shown.length && !group.name.toLowerCase().includes(pass.q)) return;
+    const shut = groupsShut.has(group.name.toLowerCase()) && !pass.q;
+    sections.push(el(doc, 'div', { class: 'rtg-section rtg-pgroup', 'data-key': `group-${i}` }, view.groupHeading(group, i, groups.length, members.length, shut),
+      ...(shut ? [] : shown.length ? shown.flatMap(prop => propTopRow(view, pass, prop)) : [el(doc, 'div', { class: 'rtg-empty rtg-gempty' }, 'Drag a property onto the name, or use Put in a group in its menu.')])));
+  });
+  const rest = all.filter(prop => !grouped.has(prop) && fits(prop));
+  const onTags = rest.filter(prop => prop.givenBy?.length), loose = rest.filter(prop => !prop.givenBy?.length);
+  const restHead = groups.length ? [view.groupHeading(null)] : [];
+  if (onTags.length || groups.length) sections.push(el(doc, 'div', { class: 'rtg-section rtg-top', 'data-key': 'props' }, ...restHead, ...onTags.flatMap(prop => propTopRow(view, pass, prop))));
+  if (loose.length) sections.push(el(doc, 'div', { class: 'rtg-section', 'data-key': 'props-loose' }, el(doc, 'h3', { class: 'rtg-group' }, 'On no tag'), ...loose.flatMap(prop => propTopRow(view, pass, prop))));
+  if (!grouped.size && !onTags.length && !loose.length) sections.push(el(doc, 'div', { class: 'rtg-empty' }, pass.q ? 'No property by that name.' : 'No properties yet.'));
+  if (!pass.q) sections.push(el(doc, 'div', { class: 'rtg-newroot', 'data-key': 'newgroup' }, el(doc, 'button', { class: 'rtg-make', title: 'Make a group of properties, for your own order; nothing in the graph changes', click: event => view.askGroupName(null, event.currentTarget) }, '+ New group')));
+}
+// A group's heading (group null: "Not in a group"): click to fold, its name opens its menu, a property dropped on it goes in.
+function groupHeading(view, group, i, count, members, shut) {
+  const doc = view.doc;
+  const head = el(doc, 'h3', { class: 'rtg-group rtg-ghead' + (group ? '' : ' rtg-gnone'), title: group ? 'Click to fold; right-click or ⋯ for the group’s menu; drop a property here to put it in' : 'Drop a property here to take it out of its group' });
+  if (group) {
+    head.append(el(doc, 'button', { class: 'rtg-fold' + (shut ? ' rtg-shut' : ''), tabindex: '-1', 'aria-label': shut ? 'Unfold' : 'Fold', html: CHEVRON }),
+      el(doc, 'span', {}, group.name), el(doc, 'span', { class: 'rtg-small' }, String(members)),
+      el(doc, 'button', { class: 'rtg-make rtg-gmenu', title: 'The group’s menu', click: event => { event.stopPropagation(); view.groupMenu(group, i, count, event.currentTarget); } }, '⋯'));
+    head.addEventListener('click', event => { if (event.target.closest('.rtg-gmenu')) return; const key = group.name.toLowerCase(); if (groupsShut.has(key)) groupsShut.delete(key); else groupsShut.add(key); saveGroupsShut(); view.draw(); });
+    head.addEventListener('contextmenu', event => { event.preventDefault(); view.groupMenu(group, i, count, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }); });
+  } else head.append(el(doc, 'span', {}, 'Not in a group'));
+  head.addEventListener('dragover', event => { if (!view.draggingProp) return; event.preventDefault(); head.classList.add('rtg-gdrop'); });
+  head.addEventListener('dragleave', () => head.classList.remove('rtg-gdrop'));
+  head.addEventListener('drop', event => {
+    if (!view.draggingProp) return;
+    event.preventDefault(); head.classList.remove('rtg-gdrop');
+    const prop = view.draggingProp; view.draggingProp = null;
+    view.putInGroup(prop, group?.name || null);
+  });
+  return head;
+}
+function putInGroup(view, prop, name) {
+  const was = groupOf(readGroups(), prop.title)?.name || null;
+  if ((was || '').toLowerCase() === (name || '').toLowerCase()) return;
+  const before = placeInGroup(prop.title, name);
+  view.showToast(name ? `${prop.title} is in ${name} now` : `${prop.title} is in no group now`, async () => saveGroups(before));
+}
+function groupMenu(view, group, i, count, anchor) {
+  const move = by => { const before = readGroups(), groups = before.slice(); const [g] = groups.splice(i, 1); groups.splice(i + by, 0, g); saveGroups(groups); view.showToast(`${group.name} moved ${by < 0 ? 'up' : 'down'}`, async () => saveGroups(before)); };
+  const items = [{ html: 'Rename …', run: () => view.askGroupName(group, anchor) }];
+  if (i > 0) items.push({ html: 'Move up', run: () => move(-1) });
+  if (i < count - 1) items.push({ html: 'Move down', run: () => move(1) });
+  items.push('-', { html: 'Remove the group (its properties stay)', run: () => { const before = readGroups(); saveGroups(before.filter((_, k) => k !== i)); view.showToast(`${group.name} removed; its properties are in no group now`, async () => saveGroups(before)); } });
+  view.showMenu(anchor, group.name, items);
+}
+// A name for a new group, or a new name for one; Enter keeps it, Esc leaves it.
+function askGroupName(view, group, anchor, then) {
+  view.closeMenu();
+  const input = el(view.doc, 'input', { type: 'text', value: group?.name || '', placeholder: 'People and places', spellcheck: 'false', 'aria-label': 'Name of the group' });
+  view.menu = el(view.doc, 'div', { class: 'refinement-tags-menu', role: 'menu' }, el(view.doc, 'div', { class: 'rtg-mh' }, group ? `Rename ${group.name}` : 'New group of properties'), input,
+    el(view.doc, 'div', { class: 'rtg-mnote' }, 'Only for the order in this map; nothing in the graph changes. Enter to keep, Esc to leave it.'));
+  keepKeys(input);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); return; }
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    const name = input.value.trim().replace(/[;:]/g, ' ').replace(/\s+/g, ' ').trim();
+    view.closeMenu();
+    if (!name) return;
+    const before = readGroups();
+    const clash = before.find(g => g.name.toLowerCase() === name.toLowerCase() && g.name !== group?.name);
+    if (clash) { logseq.UI.showMsg(`There is already a group called ${clash.name}`, 'warning'); return; }
+    if (group) { saveGroups(before.map(g => g.name === group.name ? { ...g, name } : g)); view.showToast(`${group.name} is now ${name}`, async () => saveGroups(before)); }
+    else { saveGroups([...before, { name, props: [] }]); then?.(name); if (!then) view.showToast(`Made the group ${name}`, async () => saveGroups(before)); }
+  });
+  view.doc.body.append(view.paint(view.menu));
+  input.focus(); input.select();
+  view.placeMenu(anchor);
+}
+function askPutInGroup(view, prop, anchor) {
+  const groups = readGroups(), now = groupOf(groups, prop.title);
+  const items = groups.filter(g => g !== now).map(g => ({ html: escapeHtml(g.name), run: () => view.putInGroup(prop, g.name) }));
+  items.push({ html: 'New group …', run: () => view.askGroupName(null, anchor, name => view.putInGroup(prop, name)) });
+  if (now) items.push('-', { html: `Take it out of ${escapeHtml(now.name)}`, run: () => view.putInGroup(prop, null) });
+  view.showMenu(anchor, `Put ${prop.title} in a group`, items);
 }
 function propTopRow(view, pass, prop) {
   const doc = view.doc, key = `P${prop.id}`, open = propsOpen.has(key);
@@ -1896,7 +2017,9 @@ function propTopRow(view, pass, prop) {
     });
     line.append(on);
   }
-  const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
+  const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key, draggable: 'true' }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
+  row.addEventListener('dragstart', event => { view.draggingProp = prop; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', prop.title); event.stopPropagation(); });
+  row.addEventListener('dragend', () => { view.draggingProp = null; for (const h of doc.querySelectorAll('.rtg-gdrop')) h.classList.remove('rtg-gdrop'); });
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag')) fold.click(); });
   row.addEventListener('contextmenu', event => { event.preventDefault(); view.propMenu(tag, prop, null, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }, true); });
   const nodes = [row];
@@ -2154,7 +2277,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
@@ -2226,7 +2349,7 @@ function start() {
     });
   }
   window.refinementTags = { openPage, openSidebar, loadTags };
-  const off = logseq.onSettingsChanged?.(() => { orderOverride = null; for (const redraw of openViews) redraw(); });
+  const off = logseq.onSettingsChanged?.(() => { orderOverride = null; groupsOverride = null; for (const redraw of openViews) redraw(); });
   if (typeof off === 'function') onUnload(off);
   onUnload(() => { host().querySelector('.refinement-tags-menu')?.remove(); host().querySelector('.refinement-tags-toast')?.remove(); host().querySelector('.refinement-tags-dialog')?.remove(); });
 }

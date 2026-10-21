@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.242.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.243.
 
 **For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -180,6 +180,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Open Expectations | `expectationsShortcut` | mod+alt+e | Expectations |
 | Use the tag tree | `tagTreeEnabled` | on | Tag tree |
 | Order of the tags | `tagTreeRoots` | (empty: by name) | Tag tree |
+| Groups of properties | `propertyGroups` | (empty: no groups) | Tag tree |
 | The button and shortcut open the tag tree as | `tagTreeOpensAs` | page | Tag tree |
 | Tag tree button in the toolbar | `tagTreeToolbarButton` | on | Tag tree |
 | Open the tag tree | `tagTreeShortcut` | mod+alt+g | Tag tree |
@@ -305,7 +306,9 @@ All your tags as one tree, so you can see what is inside each tag, make new tags
 - **Merge two tags** (`j`, or **Merge into …** in the row's menu): pick the tag to keep. Works for two tags with the same name (marked "same name as another tag"; click the mark), a tag into its parent, or two tags beside each other. Everything tagged with the old tag gets the kept one; links, property values, aliases and "tags of its values" point to it; tags inside it move into the kept tag; its own properties and blocks, and the aliases, icon and property values on its page, move over; and its description is kept if the other has none (the summary says when it is dropped). A summary shows what will change and nothing happens until you press **Merge**. Logseq then deletes the old tag for good: this cannot be undone in one step, so try it in a test graph first.
 - Click a tag's name to open its page (`Shift` click: right sidebar). Right-click a row, or its `…`, for all of these. `↑` `↓` move between rows, `←` `→` fold and unfold, `Enter` opens, `/` finds. Folded tags are remembered on this computer.
 
-Settings (section **Tag tree**): **Order of the tags** (empty: by name), **The button and shortcut open the tag tree as** (page), **Tag tree button in the toolbar** (on), **Open the tag tree** shortcut (`mod+alt+g`).
+- **Groups of properties** (Properties view only, for your own order; nothing in the graph changes): **+ New group** at the bottom makes one; a property goes in with **Put in a group …** in its menu or by dragging it onto the group's name (onto **Not in a group** takes it out); a property sits in one group; a group's name folds it, and its menu (right-click, or ⋯) renames it, moves it up or down, or removes it (its properties stay, in no group); renaming a property from the map keeps it in its group. Kept in **Groups of properties** by name, which you can also edit by hand.
+
+Settings (section **Tag tree**): **Order of the tags** (empty: by name), **Groups of properties** (empty: none), **The button and shortcut open the tag tree as** (page), **Tag tree button in the toolbar** (on), **Open the tag tree** shortcut (`mod+alt+g`).
 
 ## Search
 

@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Groups of properties (0.4.243)
+
+**The owner:** "is it possible, just for own organization, not actually change things, group properties together in
+properties list", then "Yes, build property groups in the tag map next". **Built:** in `parts/tags.js`: the setting
+`propertyGroups` (by name, as `tagTreeRoots` keeps the order), `readGroups`/`saveGroups`/`placeInGroup`, the groups in
+`drawProps` with `groupHeading`, `groupMenu`, `askGroupName`, `askPutInGroup`, `putInGroup`; property rows draggable onto
+a group's name; a property renamed from the map keeps its group. **Tests:** `tools/tags-test.js` (drawn in order, moved
+by the menu, Undo, nothing written to the graph); `tools/check.sh`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Click to accept, Ctrl-Enter, empty properties hidden (0.4.242)
 
 **The owner:** "is it possible to keep properties hidden until there is a proposal?", "I thought clicking on a proposal
