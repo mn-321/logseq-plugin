@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Property names lighter than tags in the map (0.4.227)
+
+**The owner:** "can you lighten the weight of text of properties in tag map to make it easier to tell them apart from
+tags"; then "nevermind" (the change was undone), "show me difference" (a picture of each), and "make property names
+lighter after all". **Built:** `.rtg-pname` from 600 to 400 in `parts/tags.js`; tag names stay 600, inherited
+properties were 400 already and stay faded. **Tests:** `tools/pictures.js` showed the change in both tag map pictures;
+looked at and approved. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Proposals read through the model (0.4.226)
 
 **The owner:** the last of the three moves asked for with 0.4.224. **Built:** `parts/model.js` gained `pagesNamed`

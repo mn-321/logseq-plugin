@@ -439,7 +439,7 @@ const css = `
 .refinement-tags .rtg-prow { padding-top: 2px; padding-bottom: 2px; font-size: 16px; }
 .refinement-tags .rtg-prow > .rtg-fold { height: 22px; }
 .refinement-tags .rtg-prow .rtg-line { align-items: center; }
-.refinement-tags .rtg-pname { cursor: pointer; font-weight: 600; overflow-wrap: anywhere; }
+.refinement-tags .rtg-pname { cursor: pointer; font-weight: 400; overflow-wrap: anywhere; } /* lighter than a tag's name, so the two are told apart (0.4.227) */
 .refinement-tags .rtg-pname:hover { text-decoration: underline; text-underline-offset: 2px; }
 .refinement-tags .rtg-inh .rtg-main { opacity: .62; }
 .refinement-tags .rtg-inh .rtg-pname { font-weight: 400; }
