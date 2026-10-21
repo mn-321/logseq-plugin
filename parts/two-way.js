@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, point them at another page, take the link off, add a tag, copy, set or clear a property, or delete them.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -545,9 +545,20 @@ function barHtml() {
   if (!state.picked.size) return '';
   const b = (act, text, title) => `<button type="button" data-act="${act}" title="${esc(title)}">${text}</button>`;
   return `<div class="rf-tw-bar"><button type="button" data-act="clear" class="rf-tw-bar-count" title="Clear the picks (Escape)"><span class="rf-tw-pick" data-on=""></span>Picked: ${state.picked.size}</button>${
-    b('sidebar', 'Sidebar', 'Open them in the sidebar')}${b('point', 'Point to…', 'Point their field at another page instead of this one')}${
+    b('sidebar', 'Sidebar', 'Open them in the sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one')}${
     b('unlink', 'Unlink', 'Take this page out of their field')}${b('tag', '#', 'Add a tag')}${b('copy', 'Copy', 'Copy them as references')}${
     b('set', 'Set property', 'Give them all one value')}${b('unset', 'Unset property', 'Clear a property on them all')}${b('delete', TRASH, 'Delete them')}</div>`;
+}
+// The page's own name, for the bar's "Change “Dr. Mei Chen” to…" (0.4.233, the owner: "make it clear"), read once per page.
+const named = { uuid: '', title: '' };
+const pageTitle = () => named.uuid === state.pageUuid && named.title ? named.title : 'this page';
+async function readTitle() {
+  const uuid = state.pageUuid;
+  if (named.uuid === uuid) return;
+  const title = await provided.titleNow(uuid).catch(() => null);
+  if (state.pageUuid !== uuid || !title) return;
+  Object.assign(named, { uuid, title: await provided.readableTitle(title).catch(() => title) });
+  draw(host());
 }
 function togglePick(el, range) {
   const key = el.dataset.pick, all = [...state.box.querySelectorAll('.rf-tw-row .rf-tw-pick')].map(p => p.dataset.pick);
@@ -556,6 +567,7 @@ function togglePick(el, range) {
   else if (state.picked.has(key)) state.picked.delete(key); else state.picked.add(key);
   state.lastPick = key;
   draw(host());
+  readTitle().catch(() => {});
 }
 const picks = () => [...state.picked].map(key => { const at = key.indexOf('|'); return { uuid: key.slice(0, at), group: state.groups.find(g => g.name === key.slice(at + 1)) }; }).filter(p => p.group);
 const nodesPicked = () => [...new Set(picks().map(p => p.uuid))];
@@ -627,12 +639,12 @@ async function act(what) {
       let target = null;
       if (what === 'point') {
         const fits = (await provided.propPages()).filter(page => page.id !== here && fields.some(f => !f.classes.length || page.tags.some(t => f.classes.some(c => c.id === t.id))));
-        const name = await ask(`Point ${counted(nodes.length)} at …`, `Their “${fields.map(f => f.title).join('”, “')}” will name this page instead.`, fits.map(page => page.title), 'Point');
+        const name = await ask(`Change “${pageTitle()}” to …`, `On ${counted(nodes.length)}: their “${fields.map(f => f.title).join('”, “')}” will name the page you pick instead.`, fits.map(page => page.title), 'Change');
         if (!name) return;
         target = await pageNamed(name, fields[0]);
         if (!target) return notify(`There is no page named “${name}”, so nothing was changed`, 'warning');
       }
-      return writeAll(`${what === 'point' ? `Pointed ${counted(chosen.length)} at “${target.title}”` : `Unlinked ${counted(chosen.length)}`}`, chosen.map(({ uuid, group }) => async () => {
+      return writeAll(`${what === 'point' ? `Changed “${pageTitle()}” to “${target.title}” on ${counted(chosen.length)}` : `Unlinked ${counted(chosen.length)}`}`, chosen.map(({ uuid, group }) => async () => {
         const prop = schema.props.find(p => p.ident === group.ident);
         if (!prop) return null;
         const had = await provided.valuesOf(uuid, prop.ident);

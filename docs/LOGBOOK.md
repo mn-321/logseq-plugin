@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · "Change “Dr. Mei Chen” to…" in place of "Point to…" (0.4.233)
+
+**The owner:** "what does point to mean?", then "make it clear like change \"Dr. Mei Chen\" to X". **Built:** the bar
+button, its box and the Undo bar in `parts/two-way.js` name the page (read once per page with `titleNow`).
+**Tests:** `tools/check.sh`. **Seen:** see the CHANGELOG line; the change itself tried for the first time, with Undo.
+
 ## 2026-10-21 · Tick box shows over its own spot (0.4.232)
 
 **The owner:** "the checkbox don't appear when hover over that area". **Built:** an empty `::before` on each record in
