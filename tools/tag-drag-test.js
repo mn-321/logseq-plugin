@@ -64,6 +64,8 @@ const until = async test => { for (let i = 0; i < 100; i++) { const found = test
   const exposed = source.replace(/\}\)\(\);\s*$/, 'window.__createView = createView; })();');
   if (exposed === source) { console.log('PROBLEM: the end of parts/tags.js changed; tools/tag-drag-test.js cannot reach the tree'); process.exit(1); }
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
+  window.eval(require('./pretend-model'));
   window.eval(exposed);
   const doc = window.document;
   const view = window.__createView(doc, 'sidebar'); // the sidebar view: tags only, no property rows

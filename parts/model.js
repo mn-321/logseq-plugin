@@ -20,7 +20,10 @@
    - pageTitles(doc), titleAnchor(doc, title)                      the page titles drawn in the page area, and the row a title sits in
    - CHECKED_WITH, PAGE_TITLE, screenChecks()                       the Logseq version the plugin was checked with, the
                                                                     title selector, and what a drawn page must hold
-   - bare(value), pick(node, name), idOf(value)                     readers of a pulled map (keys come back shortened) */
+   - bare(value), pick(node, name), idOf(value)                     readers of a pulled map (keys come back shortened)
+   - tagGraph(), propInfo(), ownProps(), inheritedProps(tag)        every tag as a tree with its properties, read fresh
+   - tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid, descriptionOf, titleNow,
+     valuesOf, userValues, mergeFacts                               what a tag, property, choice or node holds right now */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -98,12 +101,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
    Priority) with their type, cardinality, class and choices; and which tag has which fields. Remembered for the
    session (graphWide) and read again when the graph has changed. */
 const OWN_PROP = /^(?:user\.property\/|logseq\.property\/(?:deadline|scheduled|status|priority)$)/;
-async function loadSchema() {
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality :logseq.property/icon
+// Every property as Logseq holds it, and every choice with the property it belongs to: the one reading of the
+// properties, which propSchema, propInfo and ownProps shape each their own way (0.4.224).
+const readProps = async () => (await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality :logseq.property/icon
       {:logseq.property/classes [:db/id :block/uuid :block/title]}])
-    :where [?p :block/tags :logseq.class/Property] [?p :db/ident _]]`);
+    :where [?p :block/tags :logseq.class/Property] [?p :db/ident _]]`)).map(([p]) => p);
+const readChoices = () => dsQuery(`[:find ?p (pull ?v [:db/id :block/uuid :block/title :block/order :logseq.property/icon]) :where [?v :block/closed-value-property ?p]]`);
+const orderOf = v => String(pick(v, 'block/order') ?? '');
+async function loadSchema() {
+  const [rows, choices] = await Promise.all([readProps(), readChoices()]);
   const props = [], byId = new Map();
-  for (const [p] of rows) {
+  for (const p of rows) {
     const ident = bare(pick(p, 'db/ident')), title = String(pick(p, 'block/title') ?? '');
     if (!OWN_PROP.test(ident) || !title) continue;
     const classes = (pick(p, 'logseq.property/classes') || []).map(c => ({ id: idOf(c), uuid: String(pick(c, 'block/uuid') ?? ''), title: String(pick(c, 'block/title') ?? '') }));
@@ -111,9 +119,9 @@ async function loadSchema() {
       type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many', classes, choices: [], icon: pick(p, 'logseq.property/icon') };
     props.push(prop); byId.set(prop.id, prop);
   }
-  for (const [pid, v] of await dsQuery(`[:find ?p (pull ?v [:db/id :block/title :block/order :logseq.property/icon]) :where [?v :block/closed-value-property ?p]]`)) {
+  for (const [pid, v] of choices) {
     const prop = byId.get(pid);
-    if (prop) prop.choices.push({ id: idOf(v), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? ''), icon: pick(v, 'logseq.property/icon') });
+    if (prop) prop.choices.push({ id: idOf(v), title: String(pick(v, 'block/title') ?? ''), order: orderOf(v), icon: pick(v, 'logseq.property/icon') });
   }
   for (const prop of props) prop.choices.sort((a, b) => a.order.localeCompare(b.order));
   props.sort((a, b) => a.lower.localeCompare(b.lower));
@@ -157,6 +165,151 @@ async function fieldsOf(uuid, schema) {
     queue.push(...(schema.parentsOf.get(c) || []));
   }
   return fields;
+}
+
+/* The tags (0.4.224, moved here from parts/tags.js so that the tag tree reads the graph through the model like the
+   other parts). tagGraph() is every tag with its parents, children, own properties, description and node count, read
+   fresh each time (the tree reads again at every change), with propInfo beside it: your properties with what they
+   hold. inheritedProps and ownProps shape the same. The small readers after them are what the tree checks before and
+   after it writes (what a tag's property list, a property's accepted tags, a choice, a description or a value is now). */
+const TREE_PROP = /^(user|plugin)\.property/;
+const list = value => value == null ? [] : Array.isArray(value) ? value : [value];
+const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
+// Your properties with what they hold: type, one value or many, the tags a link accepts, the choices (by id).
+async function propInfo() {
+  const [rows, choices] = await Promise.all([readProps(), readChoices()]);
+  const props = new Map();
+  for (const p of rows) {
+    const ident = bare(pick(p, 'db/ident'));
+    if (!TREE_PROP.test(ident)) continue;
+    props.set(idOf(p), { id: idOf(p), ident, title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''),
+      type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many',
+      accepts: list(pick(p, 'logseq.property/classes')).map(idOf).filter(v => v != null), choices: [] });
+  }
+  for (const [id, v] of choices.sort((a, b) => orderOf(a[1]).localeCompare(orderOf(b[1])))) props.get(id)?.choices.push(String(pick(v, 'block/title') ?? ''));
+  return props;
+}
+// The graph's own properties (made by you or a plugin), by name, for adding one to a tag.
+async function ownProps() {
+  return (await readProps()).map(p => ({ ident: bare(pick(p, 'db/ident')), title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''), id: idOf(p), type: bare(pick(p, 'logseq.property/type')) }))
+    .filter(p => p.title && TREE_PROP.test(p.ident)).sort(byTitle);
+}
+async function tagGraph(onPropInfoFailed) {
+  const [rows, counts, info] = await Promise.all([
+    dsQuery(`[:find (pull ?t [:db/id :block/uuid :block/title :db/ident
+                {:logseq.property.class/extends [:db/id]}
+                {:logseq.property.class/properties [:db/id :db/ident :block/title :block/uuid]}
+                {:logseq.property/description [:block/title]}])
+      :where [?t :block/tags :logseq.class/Tag]]`),
+    dsQuery(`[:find ?t (count ?b) :where [?t :block/tags :logseq.class/Tag] [?b :block/tags ?t]]`),
+    propInfo().catch(error => { onPropInfoFailed?.(error); return new Map(); }),
+  ]);
+  const tags = new Map();
+  for (const [node] of rows) {
+    const id = idOf(node);
+    const ident = bare(pick(node, 'db/ident'));
+    if (id == null || ident === 'logseq.class/Root') continue;
+    tags.set(id, {
+      id, ident,
+      uuid: String(pick(node, 'block/uuid') ?? ''),
+      title: String(pick(node, 'block/title') ?? ''),
+      builtIn: ident.startsWith('logseq.class/'),
+      parentIds: list(pick(node, 'logseq.property.class/extends')).map(idOf).filter(v => v != null),
+      propList: list(pick(node, 'logseq.property.class/properties')).map(p => ({ ident: bare(pick(p, 'db/ident')), title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''), id: idOf(p) })).filter(p => p.title),
+      desc: String(pick(pick(node, 'logseq.property/description'), 'block/title') ?? '').trim(),
+      count: 0, parents: [], kids: [],
+    });
+  }
+  for (const [id, n] of counts) if (tags.has(id)) tags.get(id).count = n;
+  for (const tag of tags.values()) tag.props = tag.propList.map(p => p.title);
+  // Parents that are not shown (Logseq's Root tag) leave a tag at the top level.
+  for (const tag of tags.values()) {
+    tag.parents = tag.parentIds.map(id => tags.get(id)).filter(Boolean);
+    for (const parent of tag.parents) parent.kids.push(tag);
+  }
+  for (const tag of tags.values()) tag.kids.sort(byTitle);
+  const byName = new Map([...tags.values()].map(tag => [tag.title.toLowerCase(), tag]));
+  // Tags that share a name with another tag (Logseq allows it); they are marked so they can be merged.
+  const sameName = new Map();
+  for (const tag of tags.values()) if (!tag.builtIn) { const key = tag.title.toLowerCase(); sameName.set(key, [...(sameName.get(key) || []), tag]); }
+  for (const [key, group] of sameName) if (group.length < 2) sameName.delete(key);
+  // Which tags give each property, and the links that point at each tag (listed on the tag the link
+  // names, not again on every tag inside it).
+  for (const prop of info.values()) prop.givenBy = [];
+  for (const tag of tags.values()) for (const p of tag.propList) info.get(p.id)?.givenBy.push(tag);
+  for (const tag of tags.values()) tag.pointers = [];
+  for (const prop of info.values()) if (prop.type === 'node') for (const id of prop.accepts) tags.get(id)?.pointers.push(prop);
+  return { tags, byName, byTitle, sameName, propInfo: info };
+}
+// The properties a tag gets from the tags above it (Logseq gives a tag every property of the tags it
+// extends), nearest first, each once, with the tag it comes from.
+function inheritedProps(tag) {
+  const have = new Set(tag.propList.map(p => p.ident));
+  const out = [], seen = new Set([tag.id]);
+  for (let level = tag.parents.slice(); level.length;) {
+    const next = [];
+    for (const parent of level) {
+      if (seen.has(parent.id)) continue;
+      seen.add(parent.id);
+      for (const prop of parent.propList) if (!have.has(prop.ident)) { have.add(prop.ident); out.push({ ...prop, from: parent }); }
+      next.push(...parent.parents);
+    }
+    level = next;
+  }
+  return out;
+}
+// A tag's own properties, as ids (read as the tag's "Tag properties" value: Logseq 2.0.2's addTagProperty refuses every tag).
+const TAG_PROPS = 'logseq.property.class/properties';
+const tagPropIds = async tag => (await dsQuery(`[:find ?p :where [?t :block/uuid #uuid "${tag.uuid}"] [?t :${TAG_PROPS} ?p]]`)).map(([id]) => id);
+// The tags a link property accepts ("Specify node tags"), as ids.
+const ACCEPTS = 'logseq.property/classes';
+const acceptedIds = async prop => (await dsQuery(`[:find ?c :where [?p :block/uuid #uuid "${prop.uuid}"] [?p :${ACCEPTS} ?c]]`)).map(([id]) => id);
+// A property's choices: each a small block that belongs to the property, in their order.
+async function choicesOf(prop) {
+  const rows = await dsQuery(`[:find (pull ?v [:block/uuid :block/title :block/order]) :where [?p :block/uuid #uuid "${prop.uuid}"] [?v :block/closed-value-property ?p]]`);
+  return rows.map(([v]) => ({ uuid: String(pick(v, 'block/uuid') ?? ''), title: String(pick(v, 'block/title') ?? ''), order: orderOf(v) }))
+    .sort((a, b) => a.order < b.order ? -1 : a.order > b.order ? 1 : 0);
+}
+// How many nodes hold a choice; and, for a tag, how many of its nodes hold each choice (by the choice's uuid).
+const choiceUse = async (prop, choice) => (await dsQuery(`[:find (count ?b) :where [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v]]`))[0]?.[0] || 0;
+async function choiceCounts(tag, prop) {
+  const counts = await dsQuery(`[:find ?u (count ?b) :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/closed-value-property ?p] [?p :block/uuid #uuid "${prop.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?v :block/uuid ?u]]`);
+  return new Map(counts.map(([u, n]) => [String(u), n]));
+}
+// The nodes of a tag that hold a choice, as uuids; and the choice's id.
+const choiceNodes = async (tag, prop, choice) => (await dsQuery(`[:find ?u :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?b :block/uuid ?u]]`)).map(([u]) => String(u));
+const idByUuid = async uuid => (await dsQuery(`[:find ?v :where [?v :block/uuid #uuid "${uuid}"]]`))[0]?.[0];
+// A tag's description, and a node's title, as they are now.
+const DESCRIPTION = 'logseq.property/description';
+const descriptionOf = async tag => String((await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${tag.uuid}"] [?p :${DESCRIPTION} ?d] [?d :block/title ?t]]`))[0]?.[0] || '');
+const titleNow = async uuid => { const [[title] = []] = await dsQuery(`[:find ?t :where [?b :block/uuid #uuid "${uuid}"] [?b :block/title ?t]]`); return title == null ? null : String(title); };
+// A node's values of one property (ids for links, else the values), and the names of your properties it holds.
+const valuesOf = async (uuid, ident) => (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
+const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uuid #uuid "${uuid}"] [?b ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`))
+  .map(([a]) => bare(a)).filter(a => TREE_PROP.test(a));
+// Everything that points at a tag or sits on its page, for merging it into another: the nodes tagged with it, the
+// nodes whose words link it, the property values that point at it, the blocks on its page in order, the values set
+// on its own page, and which properties the other tag's page already has.
+async function mergeFacts(source, target) {
+  const S = source.id;
+  const [tagged, refs, propRefs, pageBlocks, ownValues, targetValues] = await Promise.all([
+    dsQuery(`[:find ?u :where [?b :block/tags ${S}] [?b :block/uuid ?u]]`),
+    dsQuery(`[:find ?u ?t :where [?b :block/refs ${S}] [?b :block/uuid ?u] [?b :block/title ?t]]`),
+    // Only your own properties are looked at (binding the property first keeps this quick).
+    dsQuery(`[:find ?u ?a :where [?p :block/tags :logseq.class/Property] [?p :db/ident ?a] [?b ?a ${S}] [?b :block/uuid ?u]]`),
+    dsQuery(`[:find ?u ?o :where [?b :block/parent ${S}] [?b :block/page ${S}] [?b :block/uuid ?u] [?b :block/order ?o] (not [?b :logseq.property/created-from-property])]`),
+    // Values set on each tag's own page: aliases, the icon, and your own properties.
+    dsQuery(`[:find ?a ?v :where [${S} ?a ?v] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`),
+    dsQuery(`[:find ?a :where [${target.id} ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`),
+  ]);
+  return {
+    tagged: tagged.map(([u]) => String(u)),
+    refs: refs.map(([uuid, title]) => ({ uuid: String(uuid), title: String(title ?? '') })),
+    propRefs: propRefs.map(([uuid, a]) => ({ uuid: String(uuid), attr: bare(a) })),
+    pageBlocks: pageBlocks.sort((a, b) => String(a[1]).localeCompare(String(b[1]))).map(([u]) => String(u)),
+    ownValues: ownValues.map(([a, v]) => [bare(a), idOf(v) ?? v]),
+    targetAttrs: new Set(targetValues.map(([a]) => bare(a))),
+  };
 }
 
 /* Days. A value typed for a Date: today, tomorrow, yesterday, a weekday (the next one after today), "next" and a
@@ -256,6 +409,8 @@ async function kindOfPage(pageId) {
 function provide(core) {
   core.provide({ titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
+    tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
+    descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {

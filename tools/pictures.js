@@ -55,14 +55,14 @@ function pretendLogseq() {
   const procedureType = prop('procedure type', 'default', false);
   tag('Procedure', occurrence, [procedureType]);
   tag('Symptom log', occurrence, [severity]);
-  ['Imaging', 'Biopsy', 'Surgery'].forEach((t, k) => choices.push([procedureType[':db/id'], t, 'a' + k]));
-  ['Mild', 'Moderate', 'Severe'].forEach((t, k) => choices.push([severity[':db/id'], t, 'a' + k]));
+  ['Imaging', 'Biopsy', 'Surgery'].forEach((t, k) => choices.push([procedureType[':db/id'], { ':block/title': t, ':block/order': 'a' + k }]));
+  ['Mild', 'Moderate', 'Severe'].forEach((t, k) => choices.push([severity[':db/id'], { ':block/title': t, ':block/order': 'a' + k }]));
   const counts = tags.map((t, i) => [t[':db/id'], [0, 2, 6, 0, 4, 9, 0, 14, 0, 13, 8, 3, 2, 21][i] || 0]);
   const settings = { tagTreeRoots: 'Entity, Occurrence, Concept', twoWayNames: '', twoWayOneEnd: '' };
   window.parent = window;
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
-    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [:db/id]') ? props.map(p => [p])
+    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
       : q.includes('closed-value') ? choices
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
       : q.includes('count') ? counts : [], onChanged: () => () => {} },
@@ -95,7 +95,7 @@ async function scenes(page) {
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   return {
     'tag-map': {
-      scripts: [`(${pretendLogseq})();`, read('parts/shared.js'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')],
+      scripts: [`(${pretendLogseq})();`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')],
       draw: async () => {
         const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);
         const view = window.__createView(document, 'page');

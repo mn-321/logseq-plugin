@@ -31,9 +31,9 @@ function pretendLogseq(window) {
   window.parent = window;
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
-    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [:db/id]') ? props.map(p => [p])
+    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
       : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
-      : q.includes('closed-value') ? choices.map(c => [22, c.title, c.order])
+      : q.includes('closed-value') ? choices.map(c => [22, { ':block/title': c.title, ':block/order': c.order }])
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
       : q.includes('count') ? [[10, 3]] : [], onChanged: () => () => {} },
     UI: { showMsg() {} }, App: { pushState() {} },
@@ -55,6 +55,8 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   const exposed = source.replace(/\}\)\(\);\s*$/, 'window.__createView = createView; })();');
   if (exposed === source) { console.log('PROBLEM: the end of parts/tags.js changed; tools/tags-test.js cannot reach the map'); process.exit(1); }
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
+  window.eval(require('./pretend-model'));
   window.eval(exposed);
   const doc = window.document;
   const view = window.__createView(doc, 'page');

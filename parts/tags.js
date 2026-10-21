@@ -64,112 +64,18 @@ const flip = (set, key) => { if (set.has(key)) set.delete(key); else set.add(key
 const twoWay = () => { const p = window.refinementCore?.provided; return p?.backwardsLabel && p.setBackwards ? p : null; };
 
 /* ---------- Reading the tags ---------- */
-const dsQuery = async query => {
-  const rows = await logseq.DB.datascriptQuery(query);
-  return Array.isArray(rows) ? rows : [];
-};
-// Query results name attributes with or without the leading colon, and some without their namespace.
-function pick(node, name) {
-  if (!node || typeof node !== 'object') return undefined;
-  for (const key of [name, ':' + name, name.split('/').pop()]) if (node[key] !== undefined) return node[key];
-  return undefined;
-}
-const idOf = value => typeof value === 'number' ? value : pick(value, 'db/id');
-const list = value => value == null ? [] : Array.isArray(value) ? value : [value];
+// The graph is read through the model (parts/model.js, 0.4.224): every tag with its parents, properties and count,
+// and what a tag, property, choice or node holds right now. Taken when asked, so a view made before start() (the
+// tests) finds it too.
+const model = () => window.refinementCore.provided;
 // Logseq's own tags that other tags may extend; the rest of its tags (Page, Journal …) cannot be parents.
 const PARENT_BUILT_INS = new Set(['logseq.class/Task', 'logseq.class/Card']);
-
-// Your properties with what they hold: type, one value or many, the tags a link accepts, the choices.
-async function loadPropInfo() {
-  const [rows, choices] = await Promise.all([
-    dsQuery(`[:find (pull ?p [:db/id :db/ident :block/title :block/uuid :logseq.property/type :db/cardinality {:logseq.property/classes [:db/id]}])
-      :where [?p :block/tags :logseq.class/Property]]`),
-    dsQuery(`[:find ?p ?title ?order :where [?v :block/closed-value-property ?p] [?v :block/title ?title] [?v :block/order ?order]]`),
-  ]);
-  const props = new Map();
-  for (const [p] of rows) {
-    const ident = String(pick(p, 'db/ident') ?? '').replace(/^:/, '');
-    if (!/^(user|plugin)\.property/.test(ident)) continue;
-    props.set(idOf(p), { id: idOf(p), ident, title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''),
-      type: String(pick(p, 'logseq.property/type') ?? '').replace(/^:/, '') || 'default',
-      many: String(pick(p, 'db/cardinality') ?? '').replace(/^:/, '') === 'db.cardinality/many',
-      accepts: list(pick(p, 'logseq.property/classes')).map(idOf).filter(v => v != null), choices: [] });
-  }
-  for (const [id, title, order] of choices.sort((a, b) => String(a[2]).localeCompare(String(b[2])))) props.get(id)?.choices.push(String(title));
-  return props;
-}
-
-async function loadTags() {
-  const [rows, counts, propInfo] = await Promise.all([
-    dsQuery(`[:find (pull ?t [:db/id :block/uuid :block/title :db/ident
-                {:logseq.property.class/extends [:db/id]}
-                {:logseq.property.class/properties [:db/id :db/ident :block/title :block/uuid]}
-                {:logseq.property/description [:block/title]}])
-      :where [?t :block/tags :logseq.class/Tag]]`),
-    dsQuery(`[:find ?t (count ?b) :where [?t :block/tags :logseq.class/Tag] [?b :block/tags ?t]]`),
-    loadPropInfo().catch(error => { warnOnce('what the properties hold could not be read', error); return new Map(); }),
-  ]);
-  const tags = new Map();
-  for (const [node] of rows) {
-    const id = idOf(node);
-    const ident = String(pick(node, 'db/ident') ?? '').replace(/^:/, '');
-    if (id == null || ident === 'logseq.class/Root') continue;
-    tags.set(id, {
-      id, ident,
-      uuid: String(pick(node, 'block/uuid') ?? ''),
-      title: String(pick(node, 'block/title') ?? ''),
-      builtIn: ident.startsWith('logseq.class/'),
-      parentIds: list(pick(node, 'logseq.property.class/extends')).map(idOf).filter(v => v != null),
-      propList: list(pick(node, 'logseq.property.class/properties')).map(p => ({ ident: String(pick(p, 'db/ident') ?? '').replace(/^:/, ''), title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''), id: idOf(p) })).filter(p => p.title),
-      desc: String(pick(pick(node, 'logseq.property/description'), 'block/title') ?? '').trim(),
-      count: 0, parents: [], kids: [],
-    });
-  }
-  for (const [id, n] of counts) if (tags.has(id)) tags.get(id).count = n;
-  for (const tag of tags.values()) tag.props = tag.propList.map(p => p.title);
-  // Parents that are not shown (Logseq's Root tag) leave a tag at the top level.
-  for (const tag of tags.values()) {
-    tag.parents = tag.parentIds.map(id => tags.get(id)).filter(Boolean);
-    for (const parent of tag.parents) parent.kids.push(tag);
-  }
-  const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
-  for (const tag of tags.values()) tag.kids.sort(byTitle);
-  const byName = new Map([...tags.values()].map(tag => [tag.title.toLowerCase(), tag]));
-  // Tags that share a name with another tag (Logseq allows it); they are marked so they can be merged.
-  const sameName = new Map();
-  for (const tag of tags.values()) if (!tag.builtIn) { const key = tag.title.toLowerCase(); sameName.set(key, [...(sameName.get(key) || []), tag]); }
-  for (const [key, list] of sameName) if (list.length < 2) sameName.delete(key);
-  // Which tags give each property, and the links that point at each tag (listed on the tag the link
-  // names, not again on every tag inside it).
-  for (const prop of propInfo.values()) prop.givenBy = [];
-  for (const tag of tags.values()) for (const p of tag.propList) propInfo.get(p.id)?.givenBy.push(tag);
-  for (const tag of tags.values()) tag.pointers = [];
-  for (const prop of propInfo.values()) if (prop.type === 'node') for (const id of prop.accepts) tags.get(id)?.pointers.push(prop);
-  return { tags, byName, byTitle, sameName, propInfo };
-}
-// The properties a tag gets from the tags above it (Logseq gives a tag every property of the tags it
-// extends), nearest first, each once, with the tag it comes from.
-function inheritedProps(tag) {
-  const have = new Set(tag.propList.map(p => p.ident));
-  const out = [], seen = new Set([tag.id]);
-  for (let level = tag.parents.slice(); level.length;) {
-    const next = [];
-    for (const parent of level) {
-      if (seen.has(parent.id)) continue;
-      seen.add(parent.id);
-      for (const prop of parent.propList) if (!have.has(prop.ident)) { have.add(prop.ident); out.push({ ...prop, from: parent }); }
-      next.push(...parent.parents);
-    }
-    level = next;
-  }
-  return out;
-}
+const loadTags = () => model().tagGraph(error => warnOnce('what the properties hold could not be read', error));
+const inheritedProps = tag => model().inheritedProps(tag);
 // A tag's own properties ("Tag properties"). Logseq 2.0.2's addTagProperty and removeTagProperty refuse
 // every tag ("Not a valid tag"), so the list is read and written as the tag's property itself.
 const TAG_PROPS = 'logseq.property.class/properties';
-async function tagPropIds(tag) {
-  return (await dsQuery(`[:find ?p :where [?t :block/uuid #uuid "${tag.uuid}"] [?t :${TAG_PROPS} ?p]]`)).map(([id]) => id);
-}
+const tagPropIds = tag => model().tagPropIds(tag);
 // One value at a time: writing several at once with reset kept only the first in testing.
 const addTagProp = (tag, prop) => logseq.Editor.upsertBlockProperty(tag.uuid, TAG_PROPS, prop.id, { entityId: true });
 // The list can only be cleared and filled again, so what was there is read first and put back if a
@@ -189,7 +95,7 @@ async function setTagProps(tag, ids) {
 // with what was there put back if a value cannot be written.
 const ACCEPTS = 'logseq.property/classes';
 async function setAccepts(prop, ids) {
-  const read = async () => (await dsQuery(`[:find ?c :where [?p :block/uuid #uuid "${prop.uuid}"] [?p :${ACCEPTS} ?c]]`)).map(([id]) => id);
+  const read = () => model().acceptedIds(prop);
   const had = await read(), want = [...new Set(ids)];
   if (want.length === had.length && want.every(id => had.includes(id))) return;
   if (had.length) await logseq.Editor.removeBlockProperty(prop.uuid, ACCEPTS);
@@ -201,20 +107,15 @@ async function setAccepts(prop, ids) {
   throw new Error('Logseq did not take the change; the list was put back as it was');
 }
 const removeTagProp = async (tag, prop) => setTagProps(tag, (await tagPropIds(tag)).filter(id => id !== prop.id));
-// The graph's own properties (made by you or a plugin), for adding to a tag.
 // Choices: each is a small block that belongs to its property. Every change is read back to be sure.
 const CHOICE_TYPES = new Set(['default', 'number', 'url']);
-async function choicesOf(prop) {
-  const rows = await dsQuery(`[:find (pull ?v [:block/uuid :block/title :block/order]) :where [?p :block/uuid #uuid "${prop.uuid}"] [?v :block/closed-value-property ?p]]`);
-  return rows.map(([v]) => ({ uuid: String(pick(v, 'block/uuid') ?? ''), title: String(pick(v, 'block/title') ?? ''), order: String(pick(v, 'block/order') ?? '') }))
-    .sort((a, b) => a.order < b.order ? -1 : a.order > b.order ? 1 : 0);
-}
+const choicesOf = prop => model().choicesOf(prop);
 async function renameChoice(prop, choice, title) {
   await logseq.Editor.updateBlock(choice.uuid, title);
   if ((await choicesOf(prop)).find(c => c.uuid === choice.uuid)?.title !== title) throw new Error('Logseq kept the old name');
 }
 async function removeChoice(prop, choice) {
-  const used = (await dsQuery(`[:find (count ?b) :where [?v :block/uuid #uuid "${choice.uuid}"] [?b :${prop.ident} ?v]]`))[0]?.[0] || 0;
+  const used = await model().choiceUse(prop, choice);
   if (used) throw new Error(`${plural(used, 'node')} still ${used === 1 ? 'has' : 'have'} it. Change ${used === 1 ? 'that node' : 'those nodes'} first, or rename the choice instead`);
   await logseq.Editor.removeBlock(choice.uuid);
   if ((await choicesOf(prop)).some(c => c.uuid === choice.uuid)) throw new Error('Logseq kept it');
@@ -227,16 +128,11 @@ const DESCRIPTION = 'logseq.property/description';
 async function setDescription(tag, text) {
   if (text) await logseq.Editor.upsertBlockProperty(tag.uuid, DESCRIPTION, text);
   else await logseq.Editor.removeBlockProperty(tag.uuid, DESCRIPTION);
-  const now = (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${tag.uuid}"] [?p :${DESCRIPTION} ?d] [?d :block/title ?t]]`))[0]?.[0] || '';
-  if (String(now).trim() !== text) throw new Error('Logseq did not keep it');
+  if ((await model().descriptionOf(tag)).trim() !== text) throw new Error('Logseq did not keep it');
 }
 
-async function loadProps() {
-  const rows = await dsQuery('[:find (pull ?p [:db/id :db/ident :block/title :block/uuid :logseq.property/type]) :where [?p :block/tags :logseq.class/Property]]');
-  return rows.map(([p]) => ({ ident: String(pick(p, 'db/ident') ?? '').replace(/^:/, ''), title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''), id: idOf(p), type: String(pick(p, 'logseq.property/type') ?? '').replace(/^:/, '') }))
-    .filter(p => p.title && /^(user|plugin)\.property/.test(p.ident))
-    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }));
-}
+// The graph's own properties (made by you or a plugin), for adding to a tag.
+const loadProps = () => model().ownProps();
 // Every tag below this one, once each (a tag reached twice, or a loop, is not counted again).
 function below(tag, seen = new Set()) {
   for (const kid of tag.kids) if (!seen.has(kid.id)) { seen.add(kid.id); below(kid, seen); }
@@ -270,43 +166,30 @@ async function makeTag(name) {
 /* Merging one tag (source) into another (target): what it would change, then the change itself.
    Logseq deletes a tag outright (no Recycle) and drops the blocks on its page, so everything worth
    keeping is moved to the target first. */
-const attrName = value => String(value ?? '').replace(/^:/, '');
 async function planMerge(source, target, tags) {
   const S = source.id;
-  const [tagged, refs, propRefs, pageBlocks, ownValues, targetValues] = await Promise.all([
-    dsQuery(`[:find ?u :where [?b :block/tags ${S}] [?b :block/uuid ?u]]`),
-    dsQuery(`[:find ?u ?t :where [?b :block/refs ${S}] [?b :block/uuid ?u] [?b :block/title ?t]]`),
-    // Only your own properties are looked at (binding the property first keeps this quick).
-    dsQuery(`[:find ?u ?a :where [?p :block/tags :logseq.class/Property] [?p :db/ident ?a] [?b ?a ${S}] [?b :block/uuid ?u]]`),
-    dsQuery(`[:find ?u ?o :where [?b :block/parent ${S}] [?b :block/page ${S}] [?b :block/uuid ?u] [?b :block/order ?o] (not [?b :logseq.property/created-from-property])]`),
-    // Values set on each tag's own page: aliases, the icon, and your own properties.
-    dsQuery(`[:find ?a ?v :where [${S} ?a ?v] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`),
-    dsQuery(`[:find ?a :where [${target.id} ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`),
-  ]);
-  const targetHas = new Set(targetValues.map(([a]) => attrName(a)));
+  const facts = await model().mergeFacts(source, target);
   const pageValues = new Map();
-  for (const [a, v] of ownValues) {
-    const attr = attrName(a);
+  for (const [attr, value] of facts.ownValues) {
     const alias = attr === 'logseq.property/alias';
     if (!(/^(user|plugin)\.property/.test(attr) || alias || attr === 'logseq.property/icon')) continue;
-    if (!alias && targetHas.has(attr)) continue;
-    const value = idOf(v) ?? v;
+    if (!alias && facts.targetAttrs.has(attr)) continue;
     if (value === target.id || value === S) continue;
     pageValues.set(attr, [...(pageValues.get(attr) || []), value]);
   }
-  const textRefs = refs.map(([uuid, title]) => ({ uuid: String(uuid), title: String(title ?? '') })).filter(r => r.title.includes(source.uuid));
+  const textRefs = facts.refs.filter(r => r.title.includes(source.uuid));
   // Your own properties, and the two of Logseq's that can point at a tag: a page's aliases and a
   // property's "tags of its values".
-  const props = propRefs.map(([uuid, a]) => ({ uuid: String(uuid), attr: attrName(a) })).filter(r => /^(user|plugin)\.property/.test(r.attr) || r.attr === 'logseq.property/alias' || r.attr === 'logseq.property/classes');
+  const props = facts.propRefs.filter(r => /^(user|plugin)\.property/.test(r.attr) || r.attr === 'logseq.property/alias' || r.attr === 'logseq.property/classes');
   const kids = source.kids.filter(kid => kid.id !== target.id);
   const newProps = source.propList.filter(p => p.ident && !target.propList.some(q => q.ident === p.ident));
   return {
     source, target,
-    tagged: tagged.map(([u]) => String(u)),
+    tagged: facts.tagged,
     textRefs,
     props,
     kids, newProps,
-    pageBlocks: pageBlocks.sort((a, b) => String(a[1]).localeCompare(String(b[1]))).map(([u]) => String(u)),
+    pageBlocks: facts.pageBlocks,
     desc: !target.desc && source.desc ? source.desc : '',
     descDropped: !!(target.desc && source.desc && target.desc !== source.desc),
     pageValues,
@@ -324,7 +207,7 @@ async function runMerge(plan) {
   }
   // 3. Property values that point at the old tag point at the kept one.
   for (const ref of plan.props) {
-    const values = (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${ref.uuid}"] [?b :${ref.attr} ?v]]`)).map(([v]) => idOf(v) ?? v);
+    const values = await valuesOf(ref.uuid, ref.attr);
     const next = [...new Set(values.map(v => v === source.id ? target.id : v))];
     await logseq.Editor.upsertBlockProperty(ref.uuid, ref.attr, next.length === 1 ? next[0] : next, { entityId: true, reset: true });
   }
@@ -369,19 +252,15 @@ async function runMerge(plan) {
    2.0.2 does not let a plugin make a choice again once it is gone, so removing it here would leave Undo unable to
    bring it back. Every step is noted as it is made, so a failure puts back what was done and Undo puts back the
    whole of it (docs/MODELLING.md: child tags for short lists of broad kinds). */
-const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uuid #uuid "${uuid}"] [?b ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`))
-  .map(([a]) => attrName(a)).filter(a => /^(user|plugin)\.property/.test(a));
-const valuesOf = async (uuid, ident) => (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
+const userValues = uuid => model().userValues(uuid);
+const valuesOf = (uuid, ident) => model().valuesOf(uuid, ident);
 async function setValues(uuid, prop, values) {
   if (!values.length) { await logseq.Editor.removeBlockProperty(uuid, prop.ident); return; }
   await logseq.Editor.upsertBlockProperty(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
 }
 async function planChildTag(tag, prop, choice, data) {
-  const [nodes, choiceRow] = await Promise.all([
-    dsQuery(`[:find ?u :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?b :block/uuid ?u]]`),
-    dsQuery(`[:find ?v :where [?v :block/uuid #uuid "${choice.uuid}"]]`),
-  ]);
-  return { tag, prop, choice, choiceId: choiceRow[0]?.[0], nodes: nodes.map(([u]) => String(u)), data };
+  const [nodes, choiceId] = await Promise.all([model().choiceNodes(tag, prop, choice), model().idByUuid(choice.uuid)]);
+  return { tag, prop, choice, choiceId, nodes, data };
 }
 // Is the name free for the new tag? A tag of that name already inside the tag is used as it is.
 async function childTagName(plan, name) {
@@ -1282,7 +1161,7 @@ function askRenameProp(view, prop, anchor) {
     if (!name || name === old) return;
     const done = await view.act(async () => {
       await logseq.Editor.renamePage(prop.uuid, name);
-      const now = (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${prop.uuid}"] [?p :block/title ?t]]`))[0]?.[0];
+      const now = await model().titleNow(prop.uuid);
       if (now !== name) throw new Error('Logseq kept the old name');
     }, `${old} could not be renamed`);
     if (done) view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
@@ -1383,8 +1262,7 @@ async function askChildTag(view, tag, prop, anchor) {
   let list = [];
   try {
     list = await choicesOf(prop);
-    const counts = await dsQuery(`[:find ?u (count ?b) :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/closed-value-property ?p] [?p :block/uuid #uuid "${prop.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?v :block/uuid ?u]]`);
-    const by = new Map(counts.map(([u, n]) => [String(u), n]));
+    const by = await model().choiceCounts(tag, prop);
     for (const choice of list) choice.count = by.get(choice.uuid) || 0;
   } catch (error) { warnOnce('the choices could not be read', error); logseq.UI.showMsg('The choices could not be read: ' + (error?.message || error), 'warning'); return; }
   if (!list.length) { logseq.UI.showMsg(`${prop.title} has no choices yet`, 'warning'); return; }

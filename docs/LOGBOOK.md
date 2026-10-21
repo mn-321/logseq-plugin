@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The tag tree reads through the model (0.4.224)
+
+**The owner:** "is the setup of this plugin modular with concern of separation so things are not muddled"; then "move
+the tag tree's own lookups into the model first, then two-way, then proposals". **Found:** the engine and the parts
+are cleanly apart, but the tree, the two-way rows and proposals each queried Logseq's database on their own (23, 11
+and 14 lookups), with their own copies of `dsQuery`, `pick` and `idOf`. **Built:** `parts/model.js` gained a tags
+section: `readProps`/`readChoices` (one reading of the properties, shaped by `propSchema`, `propInfo`, `ownProps`),
+`tagGraph`, `inheritedProps`, and the small readers the tree checks with (`tagPropIds`, `acceptedIds`, `choicesOf`,
+`choiceUse`, `choiceCounts`, `choiceNodes`, `idByUuid`, `descriptionOf`, `titleNow`, `valuesOf`, `userValues`,
+`mergeFacts`). `parts/tags.js` keeps the writing and reaches the model through `model()` (lazily, so a view made
+before `start()` in the tests finds it). **Tests:** `tools/pretend-model.js` starts the model in a pretend window;
+tags-test, tag-drag-test, tags-speed and pictures load it; their pretend choices come back as the model's pull rows.
+All checks pass, pictures unchanged. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · The tag tree as just the outline (0.4.223)
 
 **The owner:** "clean this up and remove all thes shortcuts and text and make just an outline". **Built:** the footer,

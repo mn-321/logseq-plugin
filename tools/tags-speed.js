@@ -36,13 +36,13 @@ function pretendLogseq() {
       ':logseq.property.class/extends': parent ? [{ ':db/id': parent }] : [],
       ':logseq.property.class/properties': [1, 2, 3].map(k => ref(props[(i * 3 + k) % props.length])) });
   }
-  const choices = props.filter(p => p[':db/id'] % 6 === 1).flatMap(p => ['Low', 'Middle', 'High'].map((t, k) => [p[':db/id'], t, 'a' + k]));
+  const choices = props.filter(p => p[':db/id'] % 6 === 1).flatMap(p => ['Low', 'Middle', 'High'].map((t, k) => [p[':db/id'], { ':block/title': t, ':block/order': 'a' + k }]));
   const settings = { tagTreeRoots: 'Tag 000, Tag 001, Tag 002', twoWayNames: '', twoWayOneEnd: '' };
   window.parent = window;
   window.pretend = { props, tags, choices, ref };
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
-    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [:db/id]') ? props.map(p => [p])
+    DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
       : q.includes('closed-value') ? choices
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
       : q.includes('count') ? tags.map(t => [t[':db/id'], 7]) : [], onChanged: () => () => {} },
@@ -64,6 +64,8 @@ function pretendLogseq() {
   await page.setContent('<!doctype html><html><body style="margin:0;font-family:system-ui"><div id="scroll" style="height:900px;overflow:auto"></div></body></html>');
   await page.addScriptTag({ content: `(${pretendLogseq})();` });
   await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8') });
+  await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8') });
+  await page.addScriptTag({ content: require('./pretend-model') });
   await page.addScriptTag({ content: exposed });
   const result = await page.evaluate(async () => {
     const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);
