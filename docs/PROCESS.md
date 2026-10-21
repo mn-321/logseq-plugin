@@ -127,6 +127,8 @@ stretch, the entries are gathered on one page for the owner with the pictures.
   index** (palette): an imported graph has none, and `[[ ]]` and search then find no page that exists.
 - A freshly imported graph saves a view block ("All", "Linked references") the first time each page is opened: run the tour
   once, then save the fingerprint.
+- Documents fall behind quietly (CLAUDE.md stood at 0.4.200 while the plugin reached 0.4.211): `tools/docs-check.sh`,
+  run by the commit hook and by check.sh, now stops that.
 - The page and property lists (`propPages`, `propSchema`) are read at most every 30 s: a page made or tagged a moment
   ago is not in them. A rule about pages the bullet links to must read those pages fresh (0.4.210: Provider stayed empty).
 - `[[Page]]#Tag` typed and left as is tags the bullet; picked from Logseq's tag list with Enter right after the link, the

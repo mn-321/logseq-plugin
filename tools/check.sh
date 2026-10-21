@@ -65,5 +65,8 @@ if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/shadow-check.js || problem "the proposals' rules proposed something wrong on the graph (see above)"
 fi
 
+# 11. The documents keep up: CHANGELOG.md, CLAUDE.md's State line and the logbook name this version (tools/docs-check.sh).
+sh tools/docs-check.sh || problem "the documents are behind (see above)"
+
 if [ $fail -ne 0 ]; then echo "check.sh: FAILED"; exit 1; fi
 echo "check.sh: OK (version $pkg)"
