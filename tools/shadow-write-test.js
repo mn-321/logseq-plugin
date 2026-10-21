@@ -282,6 +282,50 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     check(arrow && e.defaultPrevented && !heard, '13. a press on the undo arrow reached Logseq (it would open the bullet)');
     doc.body.replaceChildren();
   }
+  // 14. A click on a guess accepts it (0.4.242): leaving with a click away writes it with the sure values; a second
+  // click takes the acceptance back. The press never reaches Logseq.
+  {
+    reset();
+    const b = addBlock(1014, 'Wiped out all day.', [T.log]);
+    let box = onScreen(b, b.title);
+    await type(box);
+    const guess = [...doc.querySelectorAll('.rfs-ghost.rfs-guess')].find(g => g.textContent === 'Fatigue');
+    const down = new window.MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    guess?.dispatchEvent(down);
+    guess?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    check(guess && down.defaultPrevented, '14. a press on a guess reached Logseq');
+    check(doc.querySelector('.rfs-ghost.rfs-taken')?.textContent === 'Fatigue', '14. a clicked guess does not look accepted');
+    await leave(box);
+    let sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
+    check(sets === 'user.property/date,user.property/symptoms', `14. a clicked guess, then a click away, wrote ${JSON.stringify(writes)}; wanted the date and the clicked symptom`);
+    reset(); b.props.clear();
+    box = onScreen(b, b.title);
+    await type(box);
+    const again = [...doc.querySelectorAll('.rfs-ghost.rfs-guess')].find(g => g.textContent === 'Fatigue');
+    for (let i = 0; i < 2; i++) again?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await leave(box);
+    sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
+    check(sets === 'user.property/date', `14. a guess clicked twice wrote ${JSON.stringify(writes)}; wanted the sure date only`);
+  }
+  // 15. Ctrl-Enter (0.4.242): everything shown is accepted and the bullet is left, with no new bullet (Logseq never
+  // hears the key).
+  {
+    reset();
+    const b = addBlock(1015, 'Wiped out all day.', [T.log]);
+    const box = onScreen(b, b.title);
+    await type(box);
+    let exited = false;
+    const before = window.logseq.Editor.exitEditingMode;
+    window.logseq.Editor.exitEditingMode = async () => { exited = true; };
+    const e = new window.KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true });
+    box.dispatchEvent(e);
+    check(e.defaultPrevented, '15. Ctrl-Enter reached Logseq');
+    check(exited, '15. Ctrl-Enter did not leave the bullet');
+    await leave(box);
+    window.logseq.Editor.exitEditingMode = before;
+    const sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
+    check(sets === 'user.property/date,user.property/symptoms', `15. Ctrl-Enter wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
+  }
   // 9. Switched off with a fill still waiting: nothing is written afterwards.
   {
     reset();

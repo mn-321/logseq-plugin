@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Click to accept, Ctrl-Enter, empty properties hidden (0.4.242)
+
+**The owner:** "is it possible to keep properties hidden until there is a proposal?", "I thought clicking on a proposal
+accepted it", "if I click in an old bullet … I don't want to have to hit enter", "ctrl-enter?". **Built:** in
+`parts/shadow.js`: `onGuessPress` toggles a clicked proposal into `live.clicked`, which `leave` adds to what is taken;
+Ctrl-Enter in `onKey` accepts what is shown and calls `exitEditingMode`; the setting `shadowHideEmpty` and the class
+`rfs-hide-empty` on Logseq's page (`applyHide`, only where the proposals write) hide empty pills and rows without a
+proposal. **Tests:** `tools/shadow-write-test.js` cases 14 (click, click twice) and 15 (Ctrl-Enter);
+`tools/check.sh`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Turn a property into links to pages (0.4.241)
 
 **The owner:** after a picture of four costly conversions, "lets do 1 first", then "create future Specialty property,

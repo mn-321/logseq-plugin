@@ -66,6 +66,8 @@ const settingsSchema = [
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
     description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, and a faded undo arrow at the end of the bullet’s line takes them off again until you next edit it. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty or holds a guess (a capsule or a row of its own; a date opens Logseq’s date picker with the keyboard in its text box, so “next fri” and Enter set it; a guess is already typed in, so Enter keeps it and typing puts something else); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+  { key: 'shadowHideEmpty', type: 'boolean', title: 'Hide empty properties until something is proposed', default: true,
+    description: 'Under a bullet and on a page, a property with no value is hidden until the plugin proposes something for it (a doctor linked in a consultation brings Provider up, with the doctor in grey). Option-Enter still steps through the hidden ones. Only in the graphs named below. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -703,7 +705,7 @@ const shownGuesses = live => new Set(live.pieces.filter(piece => piece.guess && 
 function leave(live, taken = new Set()) {
   if (!live || live.left) return;
   live.left = true;
-  live.taken = taken;
+  live.taken = new Set([...taken, ...live.clicked || []]); // the ones clicked are accepted too (0.4.242)
   live.dismissed = hushed.uuid === live.uuid;
   state.left = live; // for tools/shadow-test.js
   liveVersion++;
@@ -833,6 +835,14 @@ function onKey(event) {
   if (!box || uuidOf(box) !== state.live.uuid) return;
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
   if (event.key === 'Enter') {
+    // Ctrl-Enter (0.4.242, the owner: "accepting … with enter and modifier that doesn't create new bullet"): everything
+    // shown is accepted, as with Enter, and the bullet is simply left, with no new bullet made.
+    if (event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
+      Promise.resolve(logseq.Editor.exitEditingMode()).catch(error => warnOnce('the bullet could not be left', error));
+      return;
+    }
     if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
     state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
     return;
@@ -846,12 +856,21 @@ function onKey(event) {
 // A press on a proposed value does nothing (0.4.202: no click to confirm; Enter does): Logseq never hears of it, so
 // its value editor does not open under the value, and the mouse press is held back so the bullet stays in edit. The
 // pointer press is not held back: that would stop the mouse press, and its holding back, from coming at all.
+// Since 0.4.242 a click on one accepts it (the owner: going back into an old bullet, "I don't want to have to hit
+// enter to just accept since I would create a new bullet"): it turns solid and is filled in, guess or not, when the
+// bullet is left; a second click takes the acceptance back. On a page's own properties a click fills it at once.
 function onGuessPress(event) {
   const el = event.target?.closest?.('.rfs-ghost');
   if (!el) return;
   event.stopImmediatePropagation();
   if (event.type !== 'pointerdown') event.preventDefault();
-  if (event.type === 'click' && el.classList.contains('rfs-page-ghost')) fillPage(el.dataset.rfsKey);
+  if (event.type !== 'click') return;
+  if (el.classList.contains('rfs-page-ghost')) { fillPage(el.dataset.rfsKey); return; }
+  const live = state.live, key = el.dataset.rfsKey;
+  if (!live || !live.pieces.some(piece => guessKey(piece) === key)) return;
+  live.clicked ||= new Set();
+  if (live.clicked.has(key)) live.clicked.delete(key); else live.clicked.add(key);
+  drawInPlace(el.ownerDocument);
 }
 /* Option-Enter (0.4.204, at the owner's word: "option enter just goes to the empty property that didn't have anything
    guessed or proposed"): from the words of a bullet, open Logseq's own list for the first of the record's properties
@@ -1373,7 +1392,8 @@ function drawInPlace(doc = host()) {
       // A page that would get a tag says so where it shows ("Hannah Reyes #Doctor"; the owner, 0.4.202–0.4.203).
       const words = piece.tagPage ? `${piece.shown} #${piece.tagPage.tag.title}` : piece.shown;
       if (g.textContent !== words) g.textContent = words;
-      if (g.className !== look.cls) g.className = look.cls;
+      const cls = look.cls + (live.clicked?.has(guessKey(piece)) ? ' rfs-taken' : '');
+      if (g.className !== cls) g.className = cls;
       if (g.title !== look.title) g.title = look.title;
       if (!pill.hasAttribute('data-refinement-proposal')) pill.setAttribute('data-refinement-proposal', '');
       (live.drawn ||= new Set()).add(guessKey(piece));
@@ -1481,6 +1501,12 @@ const css = `
 .rfs-undo { display: inline-flex; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
 .rfs-undo:hover { opacity: .75; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
+/* A proposal clicked (0.4.242): solid, not grey, filled in when the bullet is left. */
+.rfs-ghost.rfs-taken { color: inherit; font-style: normal; text-decoration: none; }
+/* Empty properties hidden until something is proposed (0.4.242), only in the graphs the proposals write in: the class
+   is on Logseq's page while that holds. One Option-Enter is on (data-rfs-at), or being typed in, stays. */
+html.rfs-hide-empty .ls-block .positioned-properties .bottom-property-pill:has(.empty-value):not([data-refinement-proposal]):not([data-rfs-at]):not(:focus-within) { display: none !important; }
+html.rfs-hide-empty :is(.ls-block-properties, .ls-page-properties) .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within) { display: none !important; }
 /* A page's own empty property with a proposal (0.4.239): the grey value before Logseq's dashed mark, which is hidden
    but still opens Logseq's list beside it. */
 .ls-page-properties .property-pair[data-refinement-proposal] .empty-value .ui__icon { visibility: hidden; }
@@ -1488,7 +1514,14 @@ const css = `
 .rfs-page-ghost:hover { color: color-mix(in srgb, currentColor 75%, transparent); }
 `;
 
-function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
+function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); applyHide(); }
+// Hiding empty properties only where the proposals write: elsewhere nothing would ever bring them back.
+let hideVersion = 0;
+async function applyHide() {
+  const version = ++hideVersion;
+  const on = !stopped && setting('shadowProposals') && setting('shadowHideEmpty') && await allowed().catch(() => false);
+  if (version === hideVersion) host().documentElement.classList.toggle('rfs-hide-empty', !!on);
+}
 function start() {
   ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag', 'pageLines']));
   model = window.refinementCore.provided; // the graph is read through the model (0.4.226)
@@ -1506,12 +1539,15 @@ function start() {
   // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
   const offRoute = logseq.App.onRouteChanged?.(() => { if (state.undos.size) { state.undos.clear(); drawUndos(host()); } schedulePage(); });
   if (typeof offRoute === 'function') onUnload(offRoute);
+  const offGraph = logseq.App.onCurrentGraphChanged?.(() => applyHide());
+  if (typeof offGraph === 'function') onUnload(offGraph);
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
   stopped = false;
-  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); setPage('', [], null); });
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
   schedulePage(300);
+  applyHide();
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
