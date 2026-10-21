@@ -20,8 +20,9 @@
      (Logseq makes the bullet a doctor otherwise).
 
    Piece 2 (0.4.200): guesses, for empty properties the sure pieces leave empty (and not one kept quiet by two names).
-   They show in the same place with a dotted line under them as well, and Enter takes them with the rest (under the
-   same Undo; before 0.4.202 a click took each); leaving any other way takes only the sure values. A guess is made when every rule that speaks agrees:
+   They show in the same place with a dotted line under them as well; Tab accepts them (0.4.218; from 0.4.202 Enter
+   took them, before that a click took each), and leaving fills them in with the sure values under the same Undo.
+   A guess is made when every rule that speaks agrees:
    - plain words: a page named without brackets, by its whole title or alias ("Northgate") or by a word of its title
      that no other page of the right tag shares ("Dr. Patel", "the tingling"); a tie names no one;
    - the nodes it looks like (piece 3, 0.4.212, the "looks like" engine in parts/alike.js, docs/ALIKE.md): the
@@ -44,10 +45,15 @@
    Stage F (0.4.215): Option-Enter reaches an empty Date too. Logseq's date picker opens as for a click, and the
    keyboard goes to its text box ("e.g. Next week"): a day in words and Enter set it and move on, Tab skips, Escape
    comes back to the words.
+   0.4.218, at the owner's word ("the undo toast notification is in an awful place and loud and too far down and
+   distracting. it should be something just where text is but very subtle, like a faded icon. Also deal with
+   recommendations"): Enter fills only the sure values; a guess is filled only once Tab has accepted it (it loses its
+   dotted line); and Undo is a faded icon at the end of the bullet's line, there until the bullet is edited again or
+   the page is left, in place of the bar at the bottom of the window.
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
-const { host, notify, showUndoBar, graphNamedIn } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
+const { host, notify, graphNamedIn } = shared;
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made, .rfs-undo', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
 let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -57,7 +63,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; a date opens Logseq’s date picker with the keyboard in its text box, so “next fri” and Enter set it); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, and a faded undo arrow at the end of the bullet’s line takes them off again until you next edit it. They are in italic grey; a guess has a dotted line under it as well, and is filled in only once Tab has accepted it: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Tab accepts them and leaving gives it the tag and fills them in. Tab accepts every guess shown (its dotted line goes); when there is none to accept, Tab is Logseq’s. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; a date opens Logseq’s date picker with the keyboard in its text box, so “next fri” and Enter set it); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -507,7 +513,7 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
   }
   // A linked page with no tag yet: a guess for the first empty place it could fill (a property taking one tag, the
   // most particular first), when there are one or two such places and no other such page competes for them. Taking
-  // it gives the page that tag too. Only one place, since Enter takes every guess (0.4.202; it offered both before).
+  // it gives the page that tag too. Only one place, since Tab accepts every guess at once (0.4.202; it offered both before).
   const { aliasIds } = namesFor(ctx);
   const loose = free.filter(p => !used.has(p) && untagged(p) && !aliasIds.has(p.id));
   const places = fields.filter(prop => open(prop) && prop.type === 'node' && prop.classes.length === 1 && !out.some(g => g.ident === prop.ident));
@@ -645,12 +651,14 @@ function datedAhead(tagIds, ctx) {
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the
    block, drawn in the record's own properties, and taken when the bullet is left unless Escape cleared it. Only what
    was shown is taken: a record whose row is not on screen (a note zoomed into) gets nothing (second reading). */
-// taken: the guesses Enter took in the bullet being written ({ uuid, at, keys }), filled in with the rest when it is left.
-const ENTER_LEAVES = 500;
-const state = window.refinementShadow = { live: null, times: [], taken: { uuid: '', keys: new Set() } };
+// accepted: the guesses Tab accepted in the bullet being written ({ uuid, keys }), filled in with the sure values when
+// it is left, whichever way (0.4.218; before, Enter took every guess shown, which a habit of Enter made risky).
+// undos: what each fill can take back, by the record it was written on (0.4.218: a faded icon on its line).
+const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, undos: new Map() };
 // A page tagged in the words goes by its name: it may be made, and get an id, only after it was drawn.
 const guessKey = piece => `${piece.ident} ${piece.named ?? piece.ids.join(',')}`;
-const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set();
+const acceptedIn = uuid => state.accepted.uuid === uuid ? state.accepted.keys : new Set();
+const noneAccepted = () => { state.accepted = { uuid: '', keys: new Set() }; };
 // Escape clears the proposals until the bullet is next edited (0.4.204, at the owner's word; before, for good, kept
 // in Logseq's window storage, which is emptied at start so bullets cleared then show their proposals again).
 const OFF_KEY = 'refinementShadowOff';
@@ -672,20 +680,20 @@ const later = (fn, ms) => { const t = setTimeout(() => { pending.delete(t); if (
 // Whether the proposals may write in the graph open now, as last seen by a check (Option-Enter must decide at once,
 // while its key is still going; the check sets it on every key).
 state.allowedNow = false;
-// All the guesses shown on a bullet, as Enter takes them.
-const shownGuesses = live => new Set(live.pieces.filter(piece => piece.guess && live.drawn?.has(guessKey(piece))).map(guessKey));
+// The guesses shown on a bullet and not accepted yet, for Tab.
+const openGuesses = live => live.pieces.filter(piece => piece.guess && live.drawn?.has(guessKey(piece)) && !acceptedIn(live.uuid).has(guessKey(piece))).map(guessKey);
 /* Leaving a bullet, the one way (the code review, 2026-10-21: four copies of this disagreed about what to check). The
    shadow is taken off the screen, any check still running for it is dropped, and what was shown is filled in, unless
    Escape had cleared it (looked at here, at once: Escape's clearing ends a moment later). taken: the guesses to fill
-   with the sure values. */
-function leave(live, taken = new Set()) {
+   with the sure values (the ones Tab accepted). */
+function leave(live, taken = new Set(acceptedIn(live?.uuid))) {
   if (!live || live.left) return;
   live.left = true;
   live.taken = taken;
   live.dismissed = hushed.uuid === live.uuid;
   state.left = live; // for tools/shadow-test.js
   liveVersion++;
-  if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
+  if (state.accepted.uuid === live.uuid) noneAccepted();
   if (state.live === live) { state.live = null; hide(); }
   if (live.dismissed || stopped) return;
   takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
@@ -696,7 +704,7 @@ async function allowed() {
   return setting('shadowProposals') && await graphNamedIn(setting('shadowGraphs'));
 }
 // No shadow: nor anything taken in it, so a guess taken earlier is never written on a later visit (second reading).
-function clearLive() { state.live = null; state.taken = { uuid: '', keys: new Set() }; hide(); }
+function clearLive() { state.live = null; noneAccepted(); hide(); }
 async function compute(box) {
   const uuid = uuidOf(box);
   if (!uuid || hushed.uuid === uuid) { clearLive(); return; }
@@ -718,7 +726,7 @@ async function compute(box) {
     const { record, pieces, skip, assume } = piecesFor(b, text, ctx, startTags.own);
     state.times.push(Math.round(performance.now() - t0)); if (state.times.length > 50) state.times.shift();
     if (!pieces.length) { clearLive(); return; }
-    if (state.taken.uuid !== uuid) state.taken = { uuid, keys: new Set() };
+    if (state.accepted.uuid !== uuid) state.accepted = { uuid, keys: new Set() };
     state.live = { uuid, text, recordUuid: String(pick(record, 'block/uuid') ?? ''), pieces, skip, own: startTags.own, assume: assume || null, at: Date.now() };
     drawInPlace(box.ownerDocument);
   } catch (error) { warnOnce('the shadow could not be worked out', error); }
@@ -732,6 +740,8 @@ function onInput(event) {
 function onFocusIn(event) {
   const box = editingBox(event.target);
   if (box) startTags.uuid = '';
+  // Editing a bullet again ends the undo of what was filled in on it (0.4.218): the icon goes.
+  if (box) forgetUndo(uuidOf(box));
   if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 40); }
 }
 // The bullet left: the shadow is taken, once Logseq has saved the words (a link typed a moment ago is in the saved
@@ -748,10 +758,11 @@ function onFocusOut(event) {
   if (hushed.uuid === uuid) { liveVersion++; later(() => { const now = editingBox(host().activeElement); if (!(now && uuidOf(now) === uuid) && picking.uuid !== uuid && picking.returning !== uuid) hushed.uuid = ''; }, 120); return; }
   // Into a property's list with Option-Enter, or coming back from it: the proposals wait for the words.
   if (picking.uuid === uuid || picking.returning === uuid) return;
-  if (!state.live || state.live.uuid !== uuid) { if (state.taken.uuid === uuid) state.taken = { uuid: '', keys: new Set() }; return; }
+  if (!state.live || state.live.uuid !== uuid) { if (state.accepted.uuid === uuid) noneAccepted(); return; }
   // Enter's taking counts only when the bullet is left right after it: an Enter that kept the bullet in edit (at the
   // very start of its words, or in document mode) must not let a later click away fill in guesses (second reading).
-  const live = state.live, taken = Date.now() - (state.taken.at || 0) < ENTER_LEAVES ? new Set(takenIn(uuid)) : new Set();
+  // What Tab accepted is read now: the next bullet's proposals can come before the wait below is over.
+  const live = state.live, taken = new Set(acceptedIn(uuid));
   // A check still running for this bullet is dropped now: the bullet is being left (it would draw on it afterwards).
   liveVersion++;
   later(() => {
@@ -796,23 +807,28 @@ function visitProperties(live) {
 function stopVisiting() { clearInterval(visiting.timer); Object.assign(visiting, { live: null, timer: 0, out: 0 }); }
 
 // Escape clears the proposals until the bullet is next edited; the caret stays (a second Escape is Logseq's).
-// Enter (plain, with no list of Logseq's open) takes the guesses too: the bullet is then left as usual, and everything
-// shown is filled in (the owner: "enter confirms I like things"; 0.4.202). Leaving any other way takes the sure values
-// only. Nothing of Enter is held back: Logseq still makes the next bullet.
+// Tab (0.4.218, as the old proposals' "Tab takes") accepts every guess shown: they lose their dotted line and are
+// filled in with the sure values when the bullet is left. With no guess to accept, Tab is Logseq's (it indents).
+// Enter is Logseq's: it makes the next bullet, and leaving fills in what is sure and what Tab accepted.
 function onKey(event) {
-  if ((event.key !== 'Escape' && event.key !== 'Enter') || event.isComposing || !state.live) return;
+  if ((event.key !== 'Escape' && event.key !== 'Tab') || event.isComposing || !state.live) return;
   const box = editingBox(event.target);
   if (!box || uuidOf(box) !== state.live.uuid) return;
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
-  if (event.key === 'Enter') {
+  if (event.key === 'Tab') {
     if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
-    state.taken = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
+    const keys = openGuesses(state.live);
+    if (!keys.length) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (state.accepted.uuid !== state.live.uuid) state.accepted = { uuid: state.live.uuid, keys: new Set() };
+    for (const key of keys) state.accepted.keys.add(key);
+    drawInPlace(box.ownerDocument);
     return;
   }
   event.preventDefault(); event.stopImmediatePropagation();
   dismiss(state.live.uuid);
   state.live = null;
-  state.taken = { uuid: '', keys: new Set() };
+  noneAccepted();
   hide();
 }
 // A press on a proposed value does nothing (0.4.202: no click to confirm; Enter does): Logseq never hears of it, so
@@ -996,7 +1012,7 @@ async function finishBullet() {
   try {
     // The fill goes on behind the next bullet, as with Enter in the words (second reading: waiting for it left
     // nothing in edit for a moment).
-    if (live) leave(live, shownGuesses(live));
+    if (live) leave(live);
     if (hushed.uuid === uuid) hushed.uuid = ''; // the bullet is left: Escape's clearing ends (second reading)
     // Where Logseq's own Enter puts it: the first child of a bullet whose children show, else the next sibling.
     const row = recordRow(host(), uuid);
@@ -1120,7 +1136,6 @@ async function takeShadow(live) {
     }
   }
   if (!written.length) return;
-  const words = cleanWords(String(pick(record, 'block/title') ?? '')) || 'the bullet';
   // Undo takes off only what is still as it was filled in: a value chosen by hand since is the owner's, and stays. Every
   // step is tried even when one fails, and a failure is reported at the end (the code review, 2026-10-21).
   const undo = async () => {
@@ -1135,8 +1150,7 @@ async function takeShadow(live) {
     }
     if (failed.length) throw failed[0];
   };
-  showUndoBar(`${written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · ')} filled in on “${words.length > 40 ? words.slice(0, 39) + '…' : words}”`, undo,
-    error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
+  rememberUndo(recordUuid, live.uuid, written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · '), undo);
 }
 
 // Whether a property still holds what the fill wrote (Logseq keeps a number as a value of its own: the number in it is
@@ -1234,11 +1248,59 @@ function makePill(doc, row, piece) {
   (rowEl.querySelector('.bottom-properties-row') || rowEl).appendChild(pill);
   return pill;
 }
+/* Undo (0.4.218, at the owner's word: the bar at the bottom was "loud and too far down and distracting"): a faded
+   arrow at the end of the line of the bullet the values were filled in on, saying what it takes off when pointed at.
+   A click takes them off. It stays until that bullet is edited again or the page is left, so it never times out
+   while you look elsewhere; each filled bullet keeps its own. Drawn on the early pass, so Logseq's redraw of the line
+   cannot lose it. */
+const UNDO_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14l-4 -4l4 -4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></svg>';
+function rememberUndo(recordUuid, bulletUuid, text, undo) {
+  // A second fill on the same bullet adds to its undo: one arrow takes both back, the later first.
+  const before = state.undos.get(recordUuid);
+  const all = before ? async () => { let failed = null; try { await undo(); } catch (error) { failed = error; } await before.undo(); if (failed) throw failed; } : undo;
+  state.undos.set(recordUuid, { bulletUuid, text: before ? `${text} · ${before.text}` : text, undo: all });
+  drawUndos(host());
+}
+function forgetUndo(uuid) {
+  let gone = false;
+  for (const [record, u] of state.undos) if (record === uuid || u.bulletUuid === uuid) { state.undos.delete(record); gone = true; }
+  if (gone) drawUndos(host());
+}
+function drawUndos(doc = host()) {
+  for (const el of doc.querySelectorAll('.rfs-undo')) if (!state.undos.has(el.dataset.rfsUndo) || el.closest('.ls-block[blockid]')?.getAttribute('blockid') !== el.dataset.rfsUndo) el.remove();
+  for (const [uuid, u] of state.undos) for (const row of doc.querySelectorAll(`.ls-block[blockid="${uuid}"]`)) {
+    const line = [...row.querySelectorAll('.block-title-wrap')].find(ownRow(row));
+    if (!line || line.querySelector(':scope > .rfs-undo')) continue;
+    const el = doc.createElement('span');
+    el.className = 'rfs-undo';
+    el.dataset.rfsUndo = uuid;
+    el.setAttribute('role', 'button');
+    el.setAttribute('contenteditable', 'false');
+    el.setAttribute('aria-label', `Undo: ${u.text}`);
+    el.title = `Undo what was filled in: ${u.text}`;
+    el.innerHTML = UNDO_ICON;
+    line.appendChild(el);
+  }
+}
+// A press on the arrow is the plugin's: Logseq would put the bullet in edit. The click takes the values off.
+function onUndoPress(event) {
+  const el = event.target?.closest?.('.rfs-undo');
+  if (!el) return;
+  event.stopImmediatePropagation();
+  if (event.type !== 'pointerdown') event.preventDefault();
+  if (event.type !== 'click') return;
+  const u = state.undos.get(el.dataset.rfsUndo);
+  state.undos.delete(el.dataset.rfsUndo);
+  drawUndos(el.ownerDocument);
+  if (u) u.undo().catch(error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
+}
 // What one value looks like and says when pointed at; the page that gets a tag is named only there.
-function ghostLook(piece) {
-  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`,
-    title: piece.kind === 'tag' ? 'A guess from the lines this one looks like: Enter gives the bullet this tag and fills in the rest'
-      : piece.guess ? 'A guess: Enter fills it in with the rest' : 'Filled in when you leave the bullet' };
+// A guess Tab accepted looks like a sure value (0.4.218).
+function ghostLook(piece, accepted = false) {
+  const open = piece.guess && !accepted;
+  return { cls: `rfs-ghost${open ? ' rfs-guess' : ''}`,
+    title: open ? (piece.kind === 'tag' ? 'A guess from the lines this one looks like: Tab accepts it, with the rest' : 'A guess: Tab accepts it')
+      : piece.guess ? 'Accepted: filled in when you leave the bullet' : 'Filled in when you leave the bullet' };
 }
 function drawInPlace(doc = host()) {
   const live = state.live;
@@ -1262,7 +1324,7 @@ function drawInPlace(doc = host()) {
       // Filled meanwhile in Logseq's own way (from the properties): the proposal for it goes.
       if (target && !pill.classList.contains('rfs-made') && !target.querySelector('.empty-value')) continue;
       if (!target) continue;
-      const look = ghostLook(piece);
+      const look = ghostLook(piece, acceptedIn(live.uuid).has(guessKey(piece)));
       let g = [...target.querySelectorAll(':scope > .rfs-ghost')].find(el => el.dataset.rfsIdent === piece.ident);
       if (!g) {
         g = doc.createElement('span');
@@ -1283,9 +1345,10 @@ function drawInPlace(doc = host()) {
   }
   // A pill marked with nothing of ours left in it (a copy cut short) is given back to Logseq (second reading).
   for (const pill of doc.querySelectorAll('[data-refinement-proposal]')) if (!pill.querySelector('.rfs-ghost')) pill.removeAttribute('data-refinement-proposal');
+  drawUndos(doc);
 }
 function hide() { drawInPlace(); }
-const drawEarly = (doc, records) => { if (!state.live && !doc.querySelector('.rfs-ghost, .rfs-made, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made')))) drawInPlace(doc); };
+const drawEarly = (doc, records) => { if (!state.live && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
 
 const css = `
 /* A proposed value (0.4.202): italic grey, in the record's own property where the value goes; a guess has a dotted
@@ -1301,6 +1364,9 @@ const css = `
 /* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */
 .positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
+/* The undo arrow (0.4.218): faded, at the end of the bullet's line, a little clearer under the pointer. */
+.rfs-undo { display: inline-flex; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
+.rfs-undo:hover { opacity: .75; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 `;
 
@@ -1317,11 +1383,15 @@ function start() {
   listen(win, ['keydown'], onPickKey);
   listen(win, ['keydown'], onKey);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
+  listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onUndoPress);
+  // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
+  const offRoute = logseq.App.onRouteChanged?.(() => { if (state.undos.size) { state.undos.clear(); drawUndos(host()); } });
+  if (typeof offRoute === 'function') onUnload(offRoute);
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
   stopped = false;
-  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); });
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.

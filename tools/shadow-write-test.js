@@ -93,10 +93,17 @@ function onScreen(b, text) {
 }
 const type = async (box, more = '') => { box.focus(); box.value += more; box.dispatchEvent(new window.Event('input', { bubbles: true })); await wait(60 + slowPull); };
 const key = (box, k) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }); box.dispatchEvent(e); return e; };
-const leave = async box => { box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); box.blur(); doc.getElementById('elsewhere').focus(); await wait(500); };
+// Leaving: the box goes and Logseq draws the bullet's line in its place, where the undo arrow goes (0.4.218).
+const leave = async box => {
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true })); box.blur(); doc.getElementById('elsewhere').focus();
+  const line = doc.createElement('div'); line.className = 'block-title-wrap'; line.textContent = box.value; box.replaceWith(line);
+  await wait(500);
+};
+// Editing the bullet again: Logseq puts a box back in place of its line.
+const editAgain = b => { const row = doc.querySelector(`.ls-block[blockid="${b.uuid}"]`); const line = row.querySelector('.block-title-wrap'); const box = doc.createElement('textarea'); box.value = b.title; line.replaceWith(box); box.focus(); return box; };
 const ghosts = () => [...doc.querySelectorAll('.rfs-ghost')].map(g => g.textContent);
-const undo = async () => { const button = doc.querySelector('.refinement-undo-bar button'); if (button) button.click(); await wait(100); return !!button; };
-const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.live = null; state.hushed.uuid = ''; doc.querySelector('.refinement-undo-bar')?.remove(); };
+const undo = async () => { const arrow = doc.querySelector('.rfs-undo'); if (arrow) arrow.click(); await wait(100); return !!arrow; };
+const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.live = null; state.hushed.uuid = ''; state.undos.clear(); };
 
 (async () => {
   await inner.guessDataFor(await inner.daysFor(await inner.contextFor()));
@@ -112,10 +119,13 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     check(JSON.stringify(writes) === JSON.stringify([['set', b.uuid, 'user.property/doctor', 100]]), `1. leaving wrote ${JSON.stringify(writes)}; wanted the doctor only`);
     check(!ghosts().length, '1. after leaving, faint values are still on screen');
     writes.length = 0;
-    check(await undo(), '1. no Undo bar after the fill');
+    const arrow = doc.querySelector(`.ls-block[blockid="${b.uuid}"] .block-title-wrap > .rfs-undo`);
+    check(arrow && /doctor: Dr\. Mei Chen/.test(arrow.title), `1. no faded undo arrow at the end of the bullet's line, saying what it takes off (${arrow?.title})`);
+    check(!doc.querySelector('.refinement-undo-bar'), '1. the old Undo bar is still shown at the bottom');
+    check(await undo(), '1. no undo arrow after the fill');
     check(JSON.stringify(writes) === JSON.stringify([['remove', b.uuid, 'user.property/doctor']]) && !b.props.has('user.property/doctor'), `1. Undo did ${JSON.stringify(writes)}; wanted the doctor taken off`);
   }
-  // 2. A guess is written only after Enter; leaving any other way writes the sure values alone.
+  // 2. A guess is written only after Tab accepted it (0.4.218); Enter, or a click away, writes the sure values alone.
   {
     reset();
     const b = addBlock(1002, 'Wiped out all day.', [T.log]);
@@ -129,19 +139,25 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     await type(box);
     key(box, 'Enter');
     await leave(box);
+    check(JSON.stringify(writes) === JSON.stringify([['set', b.uuid, 'user.property/date', 300]]), `2. Enter then leaving wrote ${JSON.stringify(writes)}; wanted the sure date only (Enter no longer takes guesses)`);
+    reset(); b.props.clear();
+    box = onScreen(b, b.title);
+    await type(box);
+    check(key(box, 'Tab').defaultPrevented && !doc.querySelector('.rfs-ghost.rfs-guess'), '2. Tab did not accept the guess (it is still dotted, or Tab went to Logseq)');
+    await leave(box);
     const sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
-    check(sets === 'user.property/date,user.property/symptoms', `2. Enter then leaving wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
+    check(sets === 'user.property/date,user.property/symptoms', `2. Tab then leaving wrote ${JSON.stringify(writes)}; wanted the date and the accepted symptom`);
   }
-  // 3. An untagged bullet: the tag first, then the values that rest on it; Undo takes the values off, then the tag.
+  // 3. An untagged bullet, Tab: the tag first, then the values that rest on it; Undo takes the values off, then the tag.
   {
     reset();
     const b = addBlock(1003, 'Wiped out all day.', []);
     const box = onScreen(b, b.title);
     await type(box);
     check(ghosts().includes('#Symptom log'), `3. untagged: shown ${JSON.stringify(ghosts())}; wanted the tag #Symptom log`);
-    key(box, 'Enter');
+    key(box, 'Tab');
     await leave(box);
-    check(writes[0]?.[0] === 'tag' && writes[0][2] === T.log && writes.slice(1).every(w => w[0] === 'set') && writes.length >= 2, `3. untagged, Enter: wrote ${JSON.stringify(writes)}; wanted the tag first, then the values`);
+    check(writes[0]?.[0] === 'tag' && writes[0][2] === T.log && writes.slice(1).every(w => w[0] === 'set') && writes.length >= 2, `3. untagged, Tab: wrote ${JSON.stringify(writes)}; wanted the tag first, then the values`);
     writes.length = 0;
     await undo();
     check(writes.length >= 2 && writes[writes.length - 1][0] === 'untag' && !b.tags.size && !b.props.size, `3. Undo did ${JSON.stringify(writes)}; wanted the values off, then the tag`);
@@ -164,7 +180,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     const b = addBlock(1005, 'Wiped out all day.', []);
     const box = onScreen(b, b.title);
     await type(box);
-    key(box, 'Enter');
+    key(box, 'Tab');
     await leave(box);
     writes.length = 0;
     failRemoves = 1;
@@ -241,6 +257,34 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     window.logseq.Editor.addBlockTag = addTag;
     check(b.title === 'Phone with [[Dr. New]]#Doctor now and more' && !b.props.has('user.property/doctor') && !writes.some(w => w[0] === 'words'),
       `11. words written during the fill: wrote ${JSON.stringify(writes)}; words now "${b.title}"`);
+  }
+  // 12. The undo arrow stays (no time limit) until the bullet is edited again; then it goes, and the values stay.
+  {
+    reset();
+    const b = addBlock(1012, 'Saw [[Dr. Raj Patel]] at last', [T.consultation]);
+    const box = onScreen(b, b.title);
+    await type(box);
+    await leave(box);
+    await wait(300);
+    check(!!doc.querySelector('.rfs-undo'), '12. the undo arrow went by itself');
+    editAgain(b);
+    await wait(100);
+    check(!doc.querySelector('.rfs-undo') && !state.undos.size && b.props.has('user.property/doctor'), '12. editing the bullet again: the arrow did not go, or the values went with it');
+  }
+  // 13. A press on the arrow does not put the bullet in edit (Logseq never hears of it).
+  {
+    reset();
+    const b = addBlock(1013, 'Saw [[Dr. Mei Chen]] once more', [T.consultation]);
+    const box = onScreen(b, b.title);
+    await type(box);
+    await leave(box);
+    const arrow = doc.querySelector('.rfs-undo');
+    let heard = false;
+    doc.body.addEventListener('mousedown', () => { heard = true; }, { once: true });
+    const e = new window.MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    arrow?.dispatchEvent(e);
+    check(arrow && e.defaultPrevented && !heard, '13. a press on the undo arrow reached Logseq (it would open the bullet)');
+    doc.body.replaceChildren();
   }
   // 9. Switched off with a fill still waiting: nothing is written afterwards.
   {

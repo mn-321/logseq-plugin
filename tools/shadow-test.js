@@ -239,37 +239,32 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
     const press = type => { const e = new window.MouseEvent(type, { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e; };
     if (press('pointerdown').defaultPrevented) problem('click on a value: the pointer press is held back, so no mouse press follows');
     if (!press('mousedown').defaultPrevented) problem('click on a value: the mouse press is not held back, so the bullet would leave edit');
-    if (window.refinementShadow.taken.keys.size) problem('click on a value: a click took the guess; only Enter does now');
+    if (window.refinementShadow.accepted.keys.size) problem('click on a value: a click accepted the guess; only Tab does');
   }
+  // 13. Tab accepts the guesses shown (0.4.218; Enter did before): they lose their dotted line; Enter takes nothing;
+  //     Shift+Tab and a Tab with nothing to accept stay Logseq's.
+  const keydown = (k, more = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...more }); box.dispatchEvent(e); return e; };
   cases++;
-  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }));
-  if (window.refinementShadow.taken.keys.size) problem('Shift+Enter (a line break) took the guesses');
+  keydown('Enter');
+  if (window.refinementShadow.accepted.keys.size) problem('Enter accepted the guesses; only Tab does now');
   cases++;
-  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-  if (!window.refinementShadow.taken.keys.has(guessKeyOf(guess))) problem('Enter: the guess shown is not taken');
-  // An Enter that did not leave the bullet does not count for a later leaving (second reading).
+  if (keydown('Tab', { shiftKey: true }).defaultPrevented || window.refinementShadow.accepted.keys.size) problem('Shift+Tab was taken by the plugin');
   cases++;
-  const stale = window.refinementShadow.live;
-  window.refinementShadow.taken.at = Date.now() - 5000;
-  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
-  box.blur();
-  await new Promise(resolve => setTimeout(resolve, 200));
-  if (window.refinementShadow.left !== stale || stale.taken?.size) problem('an Enter long before leaving still fills in the guesses');
-  // Back in the bullet for the next check.
-  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
-  window.refinementShadowInner.drawInPlace(doc);
-  box.focus();
-  box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-  // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what was
-  //     taken in the bullet left must still be filled in (second reading).
+  const tab = keydown('Tab');
+  if (!tab.defaultPrevented || !window.refinementShadow.accepted.keys.has(guessKeyOf(guess))) problem('Tab: the guess shown is not accepted');
+  if (doc.querySelector('.rfs-ghost.rfs-guess')) problem('Tab: the accepted guess still has its dotted line');
+  cases++;
+  if (keydown('Tab').defaultPrevented) problem('a second Tab, nothing left to accept, was taken from Logseq (it would not indent)');
+  // 14. Leaving puts the next bullet in edit, and its shadow can come before the wait is over: what Tab accepted in
+  //     the bullet left must still be filled in (second reading).
   const left = window.refinementShadow.live;
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
   window.refinementShadow.live = { uuid: 'b-next', recordUuid: 'b-next', text: '', pieces: [] };
-  window.refinementShadow.taken = { uuid: 'b-next', keys: new Set() };
+  window.refinementShadow.accepted = { uuid: 'b-next', keys: new Set() };
   await new Promise(resolve => setTimeout(resolve, 200));
   cases++;
-  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
+  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving: the guess Tab accepted in the bullet left is not filled in');
   window.refinementShadow.live = null;
   window.refinementShadowInner.drawInPlace(doc);
   cases++;

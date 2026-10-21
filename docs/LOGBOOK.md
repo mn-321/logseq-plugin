@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Undo as a faded arrow on the line; Tab accepts guesses (0.4.218)
+
+**The owner:** the undo toast "is in an awful place and loud and too far down and distracting. it should be something
+just where text is but very subtle, like a faded icon. Also deal with recommendations" (the two from my usability
+answer: Enter fills only sure values; Undo stays until the next edit). **Built:** `rememberUndo`, `forgetUndo`,
+`drawUndos`, `onUndoPress` in `parts/shadow.js`: an inline SVG arrow (Tabler's arrow-back-up, `currentColor`, opacity
+.28, .75 on hover) appended to the record's `.block-title-wrap`; kept in `state.undos` by record until a focus-in on that
+bullet or a route change; drawn on the early pass. Keys: `state.taken` (Enter, 500 ms window) became `state.accepted`
+(Tab, `openGuesses`); `leave` defaults to the accepted keys, so every way of leaving fills them. History: the old
+proposals had "Tab takes" (0.4.120) and an "undo ⌘z" beside the value (0.4.121); the rebuild had gone back to the bar.
+Tests: `tools/shadow-test.js` section 13 rewritten for Tab; `tools/shadow-write-test.js` now presses Tab, clicks the
+arrow, and checks the arrow outlasts 7 s, goes on editing again, and keeps its press from Logseq (31 checks). **Seen:**
+in the CHANGELOG line. **Note:** a click away on blank space can land in the next bullet when the page reflows; look
+before clicking.
+
 ## 2026-10-21 · The proposals' keys, leaving and writing fixed after a code review (0.4.217)
 
 **The owner:** "check quality of code", then "fix them in that order: tests for writing and Undo, one leave path with the
