@@ -15,8 +15,8 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
-const { host, openEntity, showUndoBar, notify } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add' } });
+const { host, openEntity, showUndoBar, notify, modal, modalButtons, modalHint } = shared;
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add, .refinement-two-way-ask' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). A link is not removed from here: change it on the record that holds the field.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, point them at another page, take the link off, add a tag, copy, set or clear a property, or delete them.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”, and a field ending in “by” loses it (“prescribed by” reads “prescribed”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -44,7 +44,7 @@ const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<':
 // indexed (0.4.182): every page's rows were read in one look-up, so a page not in byPage has none, and a page
 // opened for the first time gets its rows in the same frame as its title instead of half a second later.
 // open, all and only (0.4.184): per row, whether its list is open, shows every record, or only one kind ("Infusion").
-const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '' };
+const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '', picked: new Set(), lastPick: '' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 const dayText = day => {
@@ -198,6 +198,7 @@ const INLINE = 3, LISTED = 5;
    past; "show all 13" folds back with "show fewer". Whether a list is open is kept across restarts. */
 const recordLink = item => `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#">${esc(item.title)}</a>`;
 const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page">+</a>` : '';
+const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
 const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
@@ -209,7 +210,7 @@ function rowHtml(group) {
     ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
-    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span>${sideLink(item)}</span>`).join('');
+    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span>${sideLink(item)}</span>`).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}${addLink(group)}</div></div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -226,7 +227,7 @@ function rowHtml(group) {
     const lines = shown.map((item, i) => {
       const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier">earlier</div>' : '';
       const tag = counts.size > 1 ? `<a class="rf-tw-tag" data-key="${esc(key)}" data-tag="${esc(item.tag)}" href="#" title="Show only ${esc(plural(item.tag, 2))}">${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
-      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}"><span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
+      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
     }).join('');
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
@@ -365,7 +366,7 @@ function holdRoom(doc, box, mode, page) {
 }
 const setHold = (box, px) => { if (px) box.style.setProperty('--rf-tw-hold', px + 'px'); else if (box.style.length) box.removeAttribute('style'); };
 function onRoute() {
-  hidePeek(); closeAdd();
+  hidePeek(); closeAdd(); state.picked.clear(); state.lastPick = '';
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
@@ -403,8 +404,10 @@ function draw(doc) {
     box.addEventListener('mouseout', onOut);
     state.html = '';
   }
-  const html = rows ? state.groups.map(rowHtml).join('') : '';
+  if (!rows) state.picked.clear();
+  const html = rows ? barHtml() + state.groups.map(rowHtml).join('') : '';
   if (state.html !== html) { state.html = html; box.innerHTML = html; }
+  box.toggleAttribute('data-picking', state.picked.size > 0);
   if (anchor.nextElementSibling !== box) anchor.after(box);
   holdRoom(doc, box, mode, page);
   if (!rows && mode === 'save') box.remove();
@@ -413,6 +416,8 @@ function draw(doc) {
 // when elements came or went, or while a page settles.
 const drawEarly = (doc, records) => { if (performance.now() - settle.since < SETTLE_MS || addsElements(records)) draw(doc); };
 function onClick(event) {
+  const pickEl = event.target.closest?.('.rf-tw-bar button') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
+  if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act) : togglePick(pickEl, event.shiftKey); }
   const target = event.target.closest?.('a');
   const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   if (!target && !line) return;
@@ -528,6 +533,177 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
   if (open) openEntity(block.uuid, true);
 }
 
+/* Picking records and acting on them together (0.4.228, the owner's ask: "selected in groups and be acted on", like
+   Logseq's own tables). A tick box before each record, shown under the pointer and on every record while any is
+   ticked; Shift-click ticks every record from the last one ticked. A pick is a record under one field ("uuid|field"),
+   since a record can point here through two fields. The bar above the rows, as Logseq's table has: how many are
+   picked, then open in the sidebar, point to another page, take the link off (these two through the picked record's
+   own field), add a tag, copy, set a property, clear a property, delete. Every change but delete has Undo in the bar
+   at the bottom; delete asks first. Escape or the bar's box clears the picks; going to another page does too. */
+const TRASH = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+function barHtml() {
+  if (!state.picked.size) return '';
+  const b = (act, text, title) => `<button type="button" data-act="${act}" title="${esc(title)}">${text}</button>`;
+  return `<div class="rf-tw-bar"><button type="button" data-act="clear" class="rf-tw-bar-count" title="Clear the picks (Escape)"><span class="rf-tw-pick" data-on=""></span>Picked: ${state.picked.size}</button>${
+    b('sidebar', 'Sidebar', 'Open them in the sidebar')}${b('point', 'Point to…', 'Point their field at another page instead of this one')}${
+    b('unlink', 'Unlink', 'Take this page out of their field')}${b('tag', '#', 'Add a tag')}${b('copy', 'Copy', 'Copy them as references')}${
+    b('set', 'Set property', 'Give them all one value')}${b('unset', 'Unset property', 'Clear a property on them all')}${b('delete', TRASH, 'Delete them')}</div>`;
+}
+function togglePick(el, range) {
+  const key = el.dataset.pick, all = [...state.box.querySelectorAll('.rf-tw-row .rf-tw-pick')].map(p => p.dataset.pick);
+  const from = all.indexOf(state.lastPick), to = all.indexOf(key);
+  if (range && from >= 0 && to >= 0) { const on = !state.picked.has(key); for (const k of all.slice(Math.min(from, to), Math.max(from, to) + 1)) on ? state.picked.add(k) : state.picked.delete(k); }
+  else if (state.picked.has(key)) state.picked.delete(key); else state.picked.add(key);
+  state.lastPick = key;
+  draw(host());
+}
+const picks = () => [...state.picked].map(key => { const at = key.indexOf('|'); return { uuid: key.slice(0, at), group: state.groups.find(g => g.name === key.slice(at + 1)) }; }).filter(p => p.group);
+const nodesPicked = () => [...new Set(picks().map(p => p.uuid))];
+const titleFor = uuid => { for (const g of state.groups) for (const item of g.items) if (item.uuid === uuid) return item.title; return 'a record'; };
+const counted = n => `${n} ${n === 1 ? 'record' : 'records'}`;
+// A small box asking for one thing, with a list to choose from; resolves with what was typed, or null.
+const ask = (heading, hint, options, button = 'OK') => modal(null, (box, finish, doc) => {
+  box.classList.add('refinement-two-way-ask');
+  const label = doc.createElement('label'); label.textContent = heading;
+  const input = doc.createElement('input'); input.type = 'text'; input.spellcheck = false;
+  const list = doc.createElement('datalist'); list.id = `rf-tw-ask-${Date.now()}`;
+  for (const option of options) { const o = doc.createElement('option'); o.value = option; list.append(o); }
+  input.setAttribute('list', list.id);
+  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); finish(input.value.trim() || null); } });
+  box.append(label, input, list);
+  if (hint) box.append(modalHint(doc, hint));
+  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, () => finish(input.value.trim() || null)]]);
+  row.style.marginTop = '10px'; box.append(row);
+  input.focus();
+});
+const sure = (heading, button) => modal(false, (box, finish, doc) => {
+  const label = doc.createElement('label'); label.textContent = heading;
+  const row = modalButtons(doc, [['Cancel', () => finish(false)], [button, () => finish(true)]]);
+  box.append(label, row); row.lastChild.focus();
+});
+// What a node holds under a property, as ids, so it can be put back exactly (the tag tree's way, parts/tags.js).
+async function setValues(uuid, prop, values) {
+  if (!values.length) return logseq.Editor.removeBlockProperty(uuid, prop.ident);
+  return logseq.Editor.upsertBlockProperty(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
+}
+// Runs one change on every picked node; a node that fails is left as it was and the rest go on. Undo puts back the rest.
+async function writeAll(text, steps) {
+  const undos = [];
+  let failed = 0;
+  for (const step of steps) {
+    try { const undo = await step(); if (undo) undos.push(undo); } catch (error) { failed++; warnOnce('a picked record could not be changed', error); }
+  }
+  state.picked.clear(); later(300); draw(host());
+  if (failed) notify(`${failed} of the picked records could not be changed`, 'warning');
+  if (undos.length) showUndoBar(text, async () => {
+    let missed = 0;
+    for (const undo of undos.reverse()) { try { await undo(); } catch (error) { missed++; warnOnce('a picked record could not be put back', error); } }
+    later(300);
+    if (missed) notify(`${missed} of the records could not be put back`, 'warning');
+  });
+}
+const propNamed = async name => (await provided.propSchema()).props.find(p => p.lower === name.toLowerCase());
+async function pageNamed(name, prop) {
+  const pages = (await provided.propPages()).filter(page => page.lower === name.toLowerCase());
+  const fits = pages.filter(page => !prop?.classes?.length || page.tags.some(t => prop.classes.some(c => c.id === t.id)));
+  return fits[0] || pages[0] || null;
+}
+async function act(what) {
+  const chosen = picks(), nodes = nodesPicked();
+  if (what === 'clear') { state.picked.clear(); return draw(host()); }
+  if (!chosen.length) return;
+  if (what === 'sidebar') { for (const uuid of nodes) openEntity(uuid, true); state.picked.clear(); return draw(host()); }
+  try {
+    if (what === 'copy') {
+      const lines = await Promise.all(nodes.map(async uuid => { const page = await logseq.Editor.getPage(uuid).catch(() => null); return page?.name ? `[[${page.title || page.originalName || page.name}]]` : `((${uuid}))`; }));
+      await host().defaultView.navigator.clipboard.writeText(lines.join('\n'));
+      notify(`Copied ${counted(nodes.length)}`);
+      state.picked.clear(); return draw(host());
+    }
+    const schema = await provided.propSchema();
+    const here = await provided.idByUuid(state.pageUuid);
+    if (what === 'point' || what === 'unlink') {
+      const fields = [...new Set(chosen.map(p => p.group.ident))].map(ident => schema.props.find(p => p.ident === ident)).filter(Boolean);
+      let target = null;
+      if (what === 'point') {
+        const fits = (await provided.propPages()).filter(page => page.id !== here && fields.some(f => !f.classes.length || page.tags.some(t => f.classes.some(c => c.id === t.id))));
+        const name = await ask(`Point ${counted(nodes.length)} at …`, `Their “${fields.map(f => f.title).join('”, “')}” will name this page instead.`, fits.map(page => page.title), 'Point');
+        if (!name) return;
+        target = await pageNamed(name, fields[0]);
+        if (!target) return notify(`There is no page named “${name}”, so nothing was changed`, 'warning');
+      }
+      return writeAll(`${what === 'point' ? `Pointed ${counted(chosen.length)} at “${target.title}”` : `Unlinked ${counted(chosen.length)}`}`, chosen.map(({ uuid, group }) => async () => {
+        const prop = schema.props.find(p => p.ident === group.ident);
+        if (!prop) return null;
+        const had = await provided.valuesOf(uuid, prop.ident);
+        let now = had.filter(id => id !== here);
+        if (target && !now.includes(target.id)) now = prop.many ? [...now, target.id] : [target.id];
+        await setValues(uuid, prop, now);
+        return () => setValues(uuid, prop, had);
+      }));
+    }
+    if (what === 'tag') {
+      const tags = (await provided.propPages()).filter(page => page.isTag);
+      const name = await ask(`Add a tag to ${counted(nodes.length)}`, '', tags.map(t => t.title), 'Add');
+      if (!name) return;
+      const tagUuid = await provided.tagUuidNamed(tags.find(t => t.lower === name.replace(/^#/, '').toLowerCase())?.title || name.replace(/^#/, ''));
+      if (!tagUuid) return notify(`There is no tag named “${name}”, so nothing was changed`, 'warning');
+      return writeAll(`Tagged ${counted(nodes.length)} #${name.replace(/^#/, '')}`, nodes.map(uuid => async () => {
+        if (await provided.hasTag(uuid, tagUuid)) return null;
+        await logseq.Editor.addBlockTag(uuid, tagUuid);
+        return () => logseq.Editor.removeBlockTag(uuid, tagUuid);
+      }));
+    }
+    if (what === 'set' || what === 'unset') {
+      let names = schema.props.map(p => p.title);
+      if (what === 'unset') {
+        const held = new Set((await Promise.all(nodes.map(uuid => provided.userValues(uuid)))).flat());
+        names = schema.props.filter(p => held.has(p.ident)).map(p => p.title);
+        if (!names.length) return notify('The picked records hold none of your properties', 'warning');
+      }
+      const name = await ask(what === 'set' ? `Set a property on ${counted(nodes.length)}` : `Clear a property on ${counted(nodes.length)}`, what === 'unset' ? `They hold: ${names.join(', ')}` : '', names, 'Next');
+      if (!name) return;
+      const prop = await propNamed(name);
+      if (!prop) return notify(`There is no property named “${name}”, so nothing was changed`, 'warning');
+      let value = null;
+      if (what === 'set') {
+        const kind = prop.choices.length ? 'choice' : prop.type;
+        const options = kind === 'choice' ? prop.choices.map(c => c.title)
+          : ['node', 'page'].includes(kind) ? (await provided.propPages()).filter(page => !prop.classes.length || page.tags.some(t => prop.classes.some(c => c.id === t.id))).map(page => page.title)
+          : kind === 'checkbox' ? ['yes', 'no'] : [];
+        const typed = await ask(`${prop.title} for ${counted(nodes.length)}`, kind === 'date' ? 'A day: today, friday, 4 aug, 2026-08-04 …' : prop.many ? 'Added to what each one holds.' : '', options, 'Set');
+        if (!typed) return;
+        if (kind === 'choice') value = prop.choices.find(c => c.title.toLowerCase() === typed.toLowerCase())?.id;
+        else if (['node', 'page'].includes(kind)) value = (await pageNamed(typed, prop))?.id;
+        else if (kind === 'date') {
+          const day = provided.parseDay(typed, new Date());
+          value = day && await provided.journalIdFor(provided.dayNumber(day), await provided.journalTitleFor(day.getFullYear(), day.getMonth() + 1, day.getDate()));
+        } else if (kind === 'checkbox') value = /^(y|yes|true|1|on)$/i.test(typed) ? true : /^(n|no|false|0|off)$/i.test(typed) ? false : undefined;
+        else if (kind === 'number') value = Number.isFinite(Number(typed)) ? Number(typed) : undefined;
+        else value = typed;
+        if (value == null) return notify(`“${typed}” is not a value “${prop.title}” takes, so nothing was changed`, 'warning');
+      }
+      const entity = what === 'set' && (prop.choices.length || ['node', 'page', 'date'].includes(prop.type));
+      return writeAll(what === 'set' ? `Set “${prop.title}” on ${counted(nodes.length)}` : `Cleared “${prop.title}” on ${counted(nodes.length)}`, nodes.map(uuid => async () => {
+        const had = await provided.valuesOf(uuid, prop.ident);
+        if (what === 'unset') { if (!had.length) return null; await logseq.Editor.removeBlockProperty(uuid, prop.ident); }
+        else if (entity) await setValues(uuid, prop, prop.many ? [...new Set([...had, value])] : [value]);
+        else await logseq.Editor.upsertBlockProperty(uuid, prop.ident, value);
+        return () => setValues(uuid, prop, had);
+      }));
+    }
+    if (what === 'delete') {
+      const one = nodes.length === 1 ? `“${titleFor(nodes[0])}”` : counted(nodes.length);
+      if (!await sure(`Delete ${one}? This cannot be undone from here.`, 'Delete')) return;
+      return writeAll('', nodes.map(uuid => async () => {
+        const page = await logseq.Editor.getPage(uuid).catch(() => null);
+        if (page?.name) await logseq.Editor.deletePage(page.name); else await logseq.Editor.removeBlock(uuid);
+        return null;
+      }));
+    }
+  } catch (error) { warnOnce(`could not ${what} the picked records`, error); notify('That could not be done', 'warning'); }
+}
+
 const twoWayCss = `
 /* Under the page's own properties, on the same light field: these rows are the far end of a field held by other
    records, so they read like properties but are not this page's own; the → after the name, pointing at the records that hold the field, says so (a ← before the name until 0.4.186). The names are
@@ -625,6 +801,22 @@ const twoWayCss = `
 .refinement-two-way-add .rf-tw-add-foot span { flex: 1; white-space: nowrap; color: var(--ls-secondary-text-color); font-size: .9em; }
 .refinement-two-way-add .rf-tw-add-foot button[data-main] { background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; }
 .refinement-two-way-add .rf-tw-add-foot button[data-main]:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+/* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
+   with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
+.refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
+.refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .38em; visibility: hidden; }
+.refinement-two-way .rf-tw-pick { display: inline-block; box-sizing: border-box; width: 12px; height: 12px; border-radius: 3px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: hsl(var(--popover)); }
+.refinement-two-way .rf-tw-pick[data-on] { background: hsl(var(--popover-foreground)); border-color: hsl(var(--popover-foreground)); }
+.refinement-two-way .rf-tw-pick[data-on]::after { content: ''; display: block; width: 3px; height: 6px; margin: 1px 0 0 3.5px; border: solid var(--ls-primary-background-color, Canvas); border-width: 0 1.5px 1.5px 0; border-color: hsl(var(--popover)); transform: rotate(45deg); }
+.refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-pick, .refinement-two-way[data-picking] .rf-tw-row .rf-tw-pick { visibility: visible; }
+.refinement-two-way { position: relative; }
+.refinement-two-way .rf-tw-bar { position: absolute; z-index: 5; bottom: calc(100% - 4px); left: 19px; display: flex; flex-wrap: wrap; align-items: stretch; width: max-content; max-width: calc(100% - 19px); box-shadow: var(--rf-popup-shadow, 0 2px 6px rgba(0, 0, 0, .12)); border-radius: 7px; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); font-size: var(--rf-row, .875rem); }
+.refinement-two-way .rf-tw-bar button { display: flex; align-items: center; gap: 7px; padding: 3px 10px; border: 0; border-left: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.refinement-two-way .rf-tw-bar button:first-child { border-left: 0; }
+.refinement-two-way .rf-tw-bar button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 8%, transparent); }
+.refinement-two-way-ask input { margin-top: 2px; }
 /* The bar after adding, with Undo: shared.showUndoBar, drawn by the rules in parts/shared.js (moved there in 0.4.197). */
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
@@ -667,6 +859,9 @@ function start() {
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   }));
+  const escape = event => { if (event.key === 'Escape' && state.picked.size && !event.target.closest?.('input, textarea, [contenteditable="true"]')) { state.picked.clear(); draw(host()); } };
+  host().addEventListener('keydown', escape);
+  onUnload(() => host().removeEventListener('keydown', escape));
   onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
   later(0);
   indexLater(1500);

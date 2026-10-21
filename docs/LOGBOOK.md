@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Picking two-way rows and acting on them together (0.4.228)
+
+**The owner:** "Can you allow items in two-way link box to be selected in groups and be acted on?"; picking like a
+table, not like bullets; the actions of Logseq's table bar (#, Copy, Set property, Unset property, delete) plus open in
+the sidebar, point elsewhere, unlink. **Built:** in `parts/two-way.js` a tick box per record (a pick is record and field),
+Shift-click ranges, Escape clears, a bar floating above the rows, the actions through the model (`valuesOf`,
+`userValues`, `hasTag`, `propPages`) with Undo by putting the old values back; delete asks first, no Undo.
+**Tests:** `tools/check.sh`. **Seen:** see the CHANGELOG line. **Open:** the first Undo of the tag left three tags on
+(cleaned by hand; the second try worked); Point to, Copy, Set and Unset property, Sidebar and delete not tried in the app.
+
 ## 2026-10-21 · Property names lighter than tags in the map (0.4.227)
 
 **The owner:** "can you lighten the weight of text of properties in tag map to make it easier to tell them apart from
