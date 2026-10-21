@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Option-Enter into dates, stage F (0.4.215)
+
+**The owner:** "build Option-Enter into dates next, the same systematic way". **Seen first:** an empty Date opens
+Logseq's date picker (calendar, today marked, a text box "e.g. Next week"); keys go to the calendar, Enter picks
+today; a click in the box and "next fri" + Enter set Oct 30th, 2026. **Built:** `emptyTrigger` takes dates;
+`settleInDatePicker` finds the box by its placeholder, focuses it, and remembers the picker's top-level element as
+`picking.pickerRoot` (`inPicker`, and Enter there is Logseq's, not turned into Escape). Pretend check: the date
+opens, the box gets the keys, Enter is left alone, the next property follows. **Seen after:** Option-Enter on "Scan test #Expectation" opened the
+picker, ring on Date, caret in the box; "next fri" + Enter set Oct 30th, 2026 and opened Set Status (ring moved);
+Escape back to the words. Tab in the picker left the date empty and opened Status. Learned: the journal rolled over
+to Oct 21 while I worked, the view was scrolled, and a click on blank space plus typing went nowhere (letters are
+Logseq shortcuts); go to Journals first and screenshot before typing. Today's empty bullet put back with the command
+line.
+
 ## 2026-10-20 · Dates and numbers in the words, stage E (0.4.214)
 
 **The owner:** "build dates and numbers in words as guesses, the same systematic way". **Built:** `daysInWords` (a

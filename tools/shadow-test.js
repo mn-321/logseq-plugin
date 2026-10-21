@@ -330,11 +330,27 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   if (pressed.join() !== 't-with,t-hospital') problem(`Tab in the list: opened ${pressed.join()}; wanted "hospital" next`);
   list.querySelector('input').focus(); // the next list, as Logseq opens it, takes the keys
   await new Promise(resolve => setTimeout(resolve, 150));
-  // Tab again: the date is passed over, the row of its own is next.
+  // Tab again: the date is next (stage F, 0.4.215). Logseq's date picker opens, a popup outside the page with a
+  // calendar and a text box "e.g. Next week"; the keyboard must land in that box.
+  let popup = null;
+  doc.getElementById('t-date').addEventListener('pointerdown', () => { popup = doc.createElement('div'); popup.className = 'ui__popover'; popup.innerHTML = '<button id="cal-today">21</button><input placeholder="e.g. Next week">'; doc.body.appendChild(popup); popup.querySelector('button').focus(); popup.addEventListener('keydown', e => { if (e.key === 'Escape') { popup.remove(); popup = null; } }); });
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-  await new Promise(resolve => setTimeout(resolve, 120));
+  await new Promise(resolve => setTimeout(resolve, 250));
   cases++;
-  if (pressed.join() !== 't-with,t-hospital,t-notes') problem(`Tab past the capsules: opened ${pressed.join()}; wanted the Notes row (the date passed over)`);
+  if (pressed.join() !== 't-with,t-hospital,t-date') problem(`Tab past hospital: opened ${pressed.join()}; wanted the date next`);
+  cases++;
+  if (!popup || doc.activeElement !== popup.querySelector('input')) problem('the date picker: the keyboard did not go to its text box');
+  // Enter in the box is Logseq's: it sets the day and closes the picker (no Escape of the plugin's); then the next property opens.
+  let escaped = false;
+  popup.querySelector('input').addEventListener('keydown', e => { if (e.key === 'Escape') escaped = true; });
+  popup.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  await new Promise(resolve => setTimeout(resolve, 30));
+  cases++;
+  if (escaped) problem('Enter in the date picker\'s box was turned into Escape (the day would not be set)');
+  popup.remove(); popup = null; // as Logseq closes it on Enter
+  await new Promise(resolve => setTimeout(resolve, 250));
+  cases++;
+  if (pressed.join() !== 't-with,t-hospital,t-date,t-notes') problem(`after the date: opened ${pressed.join()}; wanted the Notes row next`);
   list.querySelector('input').focus();
   await new Promise(resolve => setTimeout(resolve, 150));
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));

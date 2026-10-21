@@ -98,6 +98,21 @@ Expectations, planned ahead).
 Still silent after stage E: Severity on symptom logs (a number never in the words; the engine could vote on it from
 the lines alike, a later stage), planned things with no date in the words ("Chemo cycle 5", "Flu jab"), Topic.
 
+## Stage F: Option-Enter into dates (0.4.215)
+
+Not the engine, but the same discipline. Seen in the app first (2026-10-21): an empty Date opens Logseq's own date
+picker, a calendar with today marked and a text box under it ("e.g. Next week"). The keyboard is on the calendar:
+letters typed go nowhere and Enter picks the marked day (today). A click in the text box and "next fri" with Enter set
+Oct 30th, 2026 and closed the picker. So the design: Option-Enter on an empty Date presses it as before, then puts
+the keyboard in the picker's text box; words and Enter set the day and move on; Tab skips; Escape comes back to the
+words. The box is found by its placeholder ("e.g. …"), and the picker by the top-level element the box sits in, so
+the plugin needs no class names of Logseq's. If the box is not found, the calendar keeps the keys (Enter picks the
+marked day), and the plugin still moves on when the picker closes.
+
+The measure: the pretend check (a Date opens a popup with the box; the box gets the keys; Enter there is left to
+Logseq; Tab and Escape behave as in a list) and the look in the app. Nothing is guessed, so the scorer has nothing
+to say.
+
 ## Settings the engine has (in `parts/alike.js`, named so the scorer can try them)
 
 - `limits.stem`: a trailing s, ed or ing taken off words of five letters or more.

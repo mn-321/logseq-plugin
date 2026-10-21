@@ -41,6 +41,9 @@
    "the 4th", "4 Aug", "tomorrow", "in two weeks"), counted from the day the bullet is written on, is a guess for an
    empty Date nothing else fills; one date, or nothing. A number beside a number property's name ("cycle 5") is a
    guess for it. A journal page the day does not have yet is made when the guess is taken.
+   Stage F (0.4.215): Option-Enter reaches an empty Date too. Logseq's date picker opens as for a click, and the
+   keyboard goes to its text box ("e.g. Next week"): a day in words and Enter set it and move on, Tab skips, Escape
+   comes back to the words.
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
@@ -54,7 +57,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; a date opens Logseq’s date picker with the keyboard in its text box, so “next fri” and Enter set it); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -722,12 +725,31 @@ function onGuessPress(event) {
    fills them in as usual. Leaving the list any other way (a click elsewhere) is leaving the bullet: what is sure is
    filled in. Logseq has no key of its own into the properties shown under a bullet (tried on screen: Escape and Down
    go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does. */
-const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '' };
+const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '', pickerRoot: null, settle: 0 };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
-// An empty value's own trigger, for the kinds whose list or box is followed here: a link, a text (or choice), a web
-// address, a number. A date's calendar is not followed yet, and a checkbox's trigger is the box itself, which a press
-// would tick (second reading).
-const emptyTrigger = el => el.querySelector(['node', 'default', 'url', 'number'].map(type => `.empty-value[data-type="${type}"] .jtrigger`).join(', '));
+// An empty value's own trigger, for the kinds whose list, box or picker is followed here: a link, a text (or choice),
+// a web address, a number, a date (0.4.215). A checkbox's trigger is the box itself, which a press would tick (second
+// reading).
+const emptyTrigger = el => el.querySelector(['node', 'default', 'url', 'number', 'date'].map(type => `.empty-value[data-type="${type}"] .jtrigger`).join(', '));
+const isDateTrigger = el => el?.closest?.('.empty-value')?.dataset.type === 'date';
+// Logseq's date picker, once it has opened (stage F): the keyboard goes to its text box ("e.g. Next week"), found by
+// its placeholder, and the picker is the top-level element the box sits in; the plugin needs no class names for it.
+// Without the box (another Logseq), the calendar keeps the keys, and whatever outside the page took the focus counts
+// as the picker, so the plugin still moves on when it closes.
+function settleInDatePicker(doc) {
+  clearInterval(picking.settle);
+  const started = Date.now(), main = doc.querySelector('#main-content-container');
+  picking.settle = setInterval(() => {
+    if (!picking.uuid || Date.now() - started > OPEN_WAIT) { clearInterval(picking.settle); picking.settle = 0; return; }
+    const box = [...doc.querySelectorAll('input[placeholder]')].find(el => /^e\.g\./i.test(el.placeholder) && !el.closest('.ls-block'));
+    const active = doc.activeElement;
+    const root = box ? box.closest('body > *') : active && active !== doc.body && !(main || doc.body).contains(active) ? active.closest('body > *') : null;
+    if (!root) return;
+    picking.pickerRoot = root;
+    if (box && active !== box) box.focus();
+    clearInterval(picking.settle); picking.settle = 0;
+  }, 50);
+}
 // The record's properties, as Logseq shows them: capsules under the bullet, and rows of their own ("Notes", shown like
 // a bullet), by name, in the order they show (0.4.205, at the owner's word: "test this on ... both capsules and bullet
 // style"). Capsules the plugin made for a proposal are left out.
@@ -769,6 +791,7 @@ function press(el) {
 function inPicker(el) {
   if (!el?.closest) return false;
   if (el.closest('.cp__select')) return true;
+  if (picking.pickerRoot && picking.pickerRoot.contains(el)) return true; // Logseq's date picker (stage F)
   // A text box inside the record's own drawing, other than the bullet's words (found in the app: a text value's box
   // sits in a block of its own there, so matching it by Logseq's class names missed it).
   if (!picking.rowUuid || !el.matches('input, textarea, [contenteditable="true"]') || ownWords(el)) return false;
@@ -813,8 +836,10 @@ function openAt(doc, i, step = 1, pastEnd = backToWords) {
   picking.keyAt = 0;
   picking.lastKey = '';
   picking.moving = Date.now();
+  picking.pickerRoot = null;
   markAt(doc, found.trigger.closest('.bottom-property-pill, .property-pair'));
   press(found.trigger);
+  if (isDateTrigger(found.trigger)) settleInDatePicker(doc);
   watchPicker();
 }
 // Watches the focus while a list is meant to be open. The list closed: right after Enter in it, on to the next empty
@@ -881,9 +906,9 @@ async function finishBullet() {
 function endPicking(left) {
   if (left) passOn();
   const live = picking.live;
-  clearInterval(picking.timer); clearTimeout(picking.tab);
+  clearInterval(picking.timer); clearTimeout(picking.tab); clearInterval(picking.settle);
   markAt(host(), null);
-  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0 });
+  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0, pickerRoot: null, settle: 0 });
   if (!left || !live || live.left) return;
   // Left from the list: as leaving the words, the sure values only.
   live.left = true;
@@ -901,7 +926,8 @@ function closeThen(target, next) {
   picking.ownKey = false;
   picking.tab = setTimeout(() => { picking.tab = 0; if (picking.uuid) next(doc); }, 60);
 }
-const isTextBox = el => !!el?.matches?.('input, textarea, [contenteditable="true"]') && !el.closest('.cp__select');
+// The date picker's box is not one: Enter there is Logseq's, which sets the day and closes the picker (stage F).
+const isTextBox = el => !!el?.matches?.('input, textarea, [contenteditable="true"]') && !el.closest('.cp__select') && !picking.pickerRoot?.contains(el);
 function onPickKey(event) {
   if (event.isComposing) return;
   const plainEnter = event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey;
