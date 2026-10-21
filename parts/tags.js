@@ -1827,7 +1827,19 @@ function mark(view, scroll) {
   view.pickBar.hidden = !view.picked.size;
   view.pickCount.textContent = view.picked.size === 1 ? '1 tag picked' : `${view.picked.size} tags picked`;
   const item = view.shown.find(i => i.key === view.cursorKey);
-  if (scroll && item) item.row.scrollIntoView({ block: 'nearest' });
+  if (scroll && item) scrollToRow(item.row);
+}
+
+// Brings a row into view by scrolling only the box the map scrolls in (0.4.222). The browser's scrollIntoView also
+// scrolled Logseq's own frame, which is not meant to scroll and cannot be scrolled back, so after a move the top
+// of the whole window, the page title and the sidebar's header, stayed cut off.
+function scrollToRow(row) {
+  const scroller = scrollingParent(row);
+  const doc = row.ownerDocument;
+  const view = scroller === doc.scrollingElement ? { top: 0, bottom: doc.defaultView.innerHeight } : scroller.getBoundingClientRect();
+  const r = row.getBoundingClientRect();
+  if (r.top < view.top) scroller.scrollTop -= view.top - r.top + 8;
+  else if (r.bottom > view.bottom) scroller.scrollTop += r.bottom - view.bottom + 8;
 }
 
 /* Dragging a tag onto another, or between two */

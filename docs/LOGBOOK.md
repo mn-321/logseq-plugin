@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The window's top no longer cut off after a move (0.4.222)
+
+**The owner:** a screenshot after dragging Disease: "the top of view is cuttof", "the main view too". **Cause:**
+0.4.221's `place` called `mark(true)`, whose `row.scrollIntoView` also scrolls Logseq's overflow-hidden frame (the
+toolbar went above the window). **Built:** `scrollToRow` scrolls only `scrollingParent(row)` (overflow auto or
+scroll), used by `mark`. **Seen:** see the CHANGELOG line. **Note:** Undo's note lasts 7 s; my first Undo click came after it had gone.
+
 ## 2026-10-21 · The tag tree moves tags like bullets (0.4.221)
 
 **The owner:** dragging a root under another tag left it showing as a root; "Don't need to have this label of root. just
