@@ -23,7 +23,9 @@
    - bare(value), pick(node, name), idOf(value)                     readers of a pulled map (keys come back shortened)
    - tagGraph(), propInfo(), ownProps(), inheritedProps(tag)        every tag as a tree with its properties, read fresh
    - tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid, descriptionOf, titleNow,
-     valuesOf, userValues, mergeFacts                               what a tag, property, choice or node holds right now */
+     valuesOf, userValues, mergeFacts                               what a tag, property, choice or node holds right now
+   - linksInto(pageId), nodeFields(uuid), firstLines(uuid, n)       the nodes pointing at a page through your properties,
+     pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -312,6 +314,83 @@ async function mergeFacts(source, target) {
   };
 }
 
+/* Links into pages (0.4.225, moved here from parts/two-way.js). linksInto(id) is every node that points at the page
+   (every page but journals when id is null) through a property of yours, with the property's name and ident, the
+   node's words as stored, its first tag of yours by name, and its day: a Date property of yours (the one named "date"
+   first, else the earliest), else the journal day it is written on. Deleted nodes and nodes on deleted pages are left
+   out, and a page's own blocks do not count as pointing at it. nodeFields(uuid) is what a node's own properties of
+   yours hold, by name, each value a day, a title or plain text; firstLines(uuid, n) its first children's words. */
+const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
+const USER_PROP = /^:?user\.property\//;
+async function linksInto(id) {
+  // One round of questions (0.4.150): each is asked about the blocks that point here through a property of yours,
+  // rather than waiting for that list first, since every wait right after a page change is long. For every page the
+  // properties come first, so the database walks only their values (0.4.182).
+  const fields = '[?prop :db/ident ?attr] [(namespace ?attr) ?pns] [(= ?pns "user.property")]';
+  const these = id == null
+    ? `${fields} [?b ?attr ?page] [?page :block/name] (not [?page :block/journal-day]) [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`
+    : `[(identity ${id}) ?page] [?b ?attr ?page] ${fields} [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
+  // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
+  const [links, titled, tagged, dated, written] = await Promise.all([
+    dsQuery(`[:find ?page ?pu ?b ?attr ?name ?fu :where ${these} [?prop :block/title ?name] [?page :block/uuid ?pu] [?prop :block/uuid ?fu]]`),
+    dsQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
+    dsQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
+    dsQuery(`[:find ?b ?dattr ?day :where ${these} [?dprop :logseq.property/type :date] [?dprop :db/ident ?dattr] [?b ?dattr ?d] [?d :block/journal-day ?day]]`),
+    dsQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
+  ]);
+  const isId = v => Number.isSafeInteger(v) && v > 0;
+  const pages = new Map(), fieldsByName = new Map(), ids = new Set();
+  for (const [page, pageUuid, b, attr, name, fieldUuid] of links) {
+    // Only properties you made; built-in links such as tags, aliases and parents are left out.
+    if (!isId(b) || !name || !USER_PROP.test(String(attr))) continue;
+    const field = fieldsByName.get(name) || { uuid: '', ident: bare(attr) };
+    if (fieldUuid) field.uuid = String(fieldUuid);
+    fieldsByName.set(name, field);
+    if (!pages.has(page)) pages.set(page, { uuid: String(pageUuid || ''), byField: new Map() });
+    const byField = pages.get(page).byField;
+    if (!byField.has(name)) byField.set(name, new Set());
+    byField.get(name).add(b);
+    ids.add(b);
+  }
+  const records = new Map();
+  if (!ids.size) return { pages, fields: fieldsByName, records };
+  const days = new Map();
+  for (const [b, attr, day] of dated) {
+    const ident = bare(attr);
+    if (!/^user\.property\//.test(ident)) continue;
+    const rank = ident === 'user.property/date' ? 0 : 1, had = days.get(b);
+    if (!had || rank < had.rank || (rank === had.rank && day < had.day)) days.set(b, { rank, day });
+  }
+  for (const [b, day] of written) if (!days.has(b)) days.set(b, { rank: 2, day });
+  const tags = new Map();
+  for (const [b, tag] of tagged) if (!tags.has(b) || tag < tags.get(b)) tags.set(b, tag);
+  for (const [b, uuid, title] of titled) if (isId(b)) records.set(b, { uuid: String(uuid), title: title || '', tag: tags.get(b) || '', day: days.get(b)?.day || 0 });
+  return { pages, fields: fieldsByName, records };
+}
+async function nodeFields(uuid) {
+  const where = `[?b :block/uuid #uuid "${uuid}"] [?b ?attr ?v] [?prop :db/ident ?attr] [(namespace ?attr) ?ns] [(= ?ns "user.property")] [?prop :block/title ?name]`;
+  const [raw, titled, dated] = await Promise.all([
+    dsQuery(`[:find ?name ?v :where ${where}]`),
+    dsQuery(`[:find ?name ?v ?t :where ${where} [?v :block/title ?t]]`),
+    dsQuery(`[:find ?name ?v ?d :where ${where} [?v :block/journal-day ?d]]`),
+  ]);
+  const fields = new Map(), known = new Set();
+  const add = (name, value) => { if (!fields.has(name)) fields.set(name, []); fields.get(name).push(value); };
+  for (const [name, v, day] of dated) { known.add(`${name}|${v}`); add(name, { day }); }
+  for (const [name, v, title] of titled) { if (known.has(`${name}|${v}`)) continue; known.add(`${name}|${v}`); add(name, { title: String(title) }); }
+  for (const [name, v] of raw) if (!known.has(`${name}|${v}`) && !(typeof v === 'number' && Number.isSafeInteger(v) && v > 0)) add(name, { text: String(v) });
+  return fields;
+}
+async function firstLines(uuid, n) {
+  const entity = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+  const children = entity?.name || entity?.originalName ? await logseq.Editor.getPageBlocksTree(uuid) : entity?.children;
+  return (children || []).slice(0, n).map(child => titleOf(child));
+}
+// How many of these nodes are pages; the uuid of the tag of yours with this name; a node's uuid by its id.
+const pagesAmong = async (uuids, uuidsIn) => (await dsQuery(`[:find ?u :where ${uuidsIn('?u', uuids)} [?b :block/uuid ?u] [?b :block/name _]]`)).length;
+const tagUuidNamed = async title => String((await dsQuery(`[:find ?u :where [?t :block/tags :logseq.class/Tag] [?t :block/title ${JSON.stringify(title)}] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/uuid ?u]]`))[0]?.[0] || '');
+const uuidById = async id => { const [[u] = []] = await dsQuery(`[:find ?u :where [(identity ${id}) ?p] [?p :block/uuid ?u]]`); return u ? String(u) : ''; };
+
 /* Days. A value typed for a Date: today, tomorrow, yesterday, a weekday (the next one after today), "next" and a
    weekday (a week later), +3 or -2 (days from today), 2026-10-23, 23 oct, oct 23 (this year, or next year when
    that day has passed). */
@@ -411,6 +490,7 @@ function provide(core) {
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
+    linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {

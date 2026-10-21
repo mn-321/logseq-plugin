@@ -35,7 +35,7 @@ const settingsSchema = [
     description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery, uuidsIn;
+let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
@@ -45,7 +45,6 @@ const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<':
 // opened for the first time gets its rows in the same frame as its title instead of half a second later.
 // open, all and only (0.4.184): per row, whether its list is open, shows every record, or only one kind ("Infusion").
 const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '' };
-const LIVE = '(not [?b :logseq.property/deleted-at]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at])';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 const dayText = day => {
@@ -125,56 +124,19 @@ const shownPage = doc => {
 };
 const groupsFor = async id => (await groupsByPage(id)).get(id)?.groups || [];
 // The rows of one page (id), or of every page that is not a journal (no id), as a Map of page id to { uuid, groups }.
+// The nodes that point at the pages come from the model (linksInto, 0.4.225); this shapes them into rows.
 async function groupsByPage(id) {
-  // One round of questions (0.4.150): each is asked about the blocks that point here through a field of
-  // yours, rather than waiting for that list first, since every wait right after a page change is long.
-  // For every page the fields come first, so the database walks only their values (0.4.182).
-  const fields = '[?prop :db/ident ?attr] [(namespace ?attr) ?pns] [(= ?pns "user.property")]';
-  const these = id == null
-    ? `${fields} [?b ?attr ?page] [?page :block/name] (not [?page :block/journal-day]) [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`
-    : `[(identity ${id}) ?page] [?b ?attr ?page] ${fields} [(not= ?b ?page)] (not [?b :block/page ?page]) ${LIVE}`;
-  // Plain finds (a pull here was refused by Logseq's query call: "Extra inputs passed").
-  const [links, titled, tagged, dated, written] = await Promise.all([
-    logseq.DB.datascriptQuery(`[:find ?page ?pu ?b ?attr ?name ?fu :where ${these} [?prop :block/title ?name] [?page :block/uuid ?pu] [?prop :block/uuid ?fu]]`),
-    logseq.DB.datascriptQuery(`[:find ?b ?uuid ?title :where ${these} [?b :block/uuid ?uuid] [?b :block/title ?title]]`),
-    logseq.DB.datascriptQuery(`[:find ?b ?tag :where ${these} [?b :block/tags ?t] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/title ?tag]]`),
-    // A record's own date: a date field of yours (the one named "date" first), else the journal day it is written on.
-    logseq.DB.datascriptQuery(`[:find ?b ?dattr ?day :where ${these} [?dprop :logseq.property/type :date] [?dprop :db/ident ?dattr] [?b ?dattr ?d] [?d :block/journal-day ?day]]`),
-    logseq.DB.datascriptQuery(`[:find ?b ?day :where ${these} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
-  ]);
-  const pages = new Map(), ids = new Set();
-  const fieldUuids = new Map(), fieldIdents = new Map();
-  for (const [page, pageUuid, b, attr, name, fieldUuid] of links || []) {
-    // Only properties you made; built-in links such as tags, aliases and parents are left out.
-    if (!isEntityId(b) || !name || !/^:?user\.property\//.test(String(attr))) continue;
-    if (fieldUuid) fieldUuids.set(name, String(fieldUuid));
-    fieldIdents.set(name, String(attr).replace(/^:/, ''));
-    if (!pages.has(page)) pages.set(page, { uuid: String(pageUuid || ''), byField: new Map() });
-    const byField = pages.get(page).byField;
-    if (!byField.has(name)) byField.set(name, new Set());
-    byField.get(name).add(b);
-    ids.add(b);
-  }
-  if (!ids.size) return new Map();
-  const days = new Map();
-  for (const [b, attr, day] of dated || []) {
-    const ident = String(attr).replace(/^:/, '');
-    if (!/^user\.property\//.test(ident)) continue;
-    const rank = ident === 'user.property/date' ? 0 : 1, had = days.get(b);
-    if (!had || rank < had.rank || (rank === had.rank && day < had.day)) days.set(b, { rank, day });
-  }
-  for (const [b, day] of written || []) if (!days.has(b)) days.set(b, { rank: 2, day });
-  const tags = new Map();
-  for (const [b, tag] of tagged || []) if (!tags.has(b) || tag < tags.get(b)) tags.set(b, tag);
+  const { pages, fields, records: found } = await provided.linksInto(id);
+  if (!found.size) return new Map();
   const records = new Map();
   // The titles are made readable together (0.4.150): each one with a link in it asks the database for that link's name.
-  await Promise.all((titled || []).filter(([b]) => isEntityId(b)).map(async ([b, uuid, raw]) => {
-    let title = raw || '';
+  await Promise.all([...found].map(async ([b, record]) => {
+    let title = record.title;
     try { title = await provided.readableTitle(title); } catch { /* the stored words, then */ }
     // Links read as the words they show (0.4.147): "saw [[Dr. Joe]]" as "saw Dr. Joe", "[the scan]([[CT]])" as "the scan".
     title = String(title).replace(/\s+#(?:\[\[[^\]]*\]\]|[^\s#\[\]]+)/g, '').replace(/\[([^\[\]]+)\]\(\[\[[^\]]*\]\]\)/g, '$1')
       .replace(/\[\[([^\]]+)\]\]/g, '$1').trim() || 'Untitled';
-    records.set(b, { uuid: String(uuid), title, tag: tags.get(b) || 'note', day: days.get(b)?.day || 0 });
+    records.set(b, { uuid: record.uuid, title, tag: record.tag || 'note', day: record.day });
   }));
   const names = backwardsNames(), today = todayNumber(), oneEnd = oneEndNames();
   const result = new Map();
@@ -187,7 +149,7 @@ async function groupsByPage(id) {
       // Coming up first (nearest first), then the past (latest first), then records with no date.
       items.sort((a, b) => (a.day >= today ? 0 : a.day ? 1 : 2) - (b.day >= today ? 0 : b.day ? 1 : 2) ||
         (a.day >= today ? a.day - b.day : b.day - a.day) || a.title.localeCompare(b.title));
-      groups.push({ name, label: readBackwards(name, names), items, fieldUuid: fieldUuids.get(name) || '', ident: fieldIdents.get(name) || '' });
+      groups.push({ name, label: readBackwards(name, names), items, fieldUuid: fields.get(name)?.uuid || '', ident: fields.get(name)?.ident || '' });
     }
     groups.sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label));
     result.set(page, { uuid, groups });
@@ -290,31 +252,16 @@ const peek = { timer: 0, hide: 0, el: null, uuid: '', anchor: null, cache: new M
 async function peekData(uuid, field) {
   const key = `${uuid}|${field}`;
   if (peek.cache.has(key)) return peek.cache.get(key);
-  const where = `[?b :block/uuid #uuid "${uuid}"] [?b ?attr ?v] [?prop :db/ident ?attr] [(namespace ?attr) ?ns] [(= ?ns "user.property")] [?prop :block/title ?name]`;
-  const [raw, titled, dated] = await Promise.all([
-    dsQuery(`[:find ?name ?v :where ${where}]`),
-    dsQuery(`[:find ?name ?v ?t :where ${where} [?v :block/title ?t]]`),
-    dsQuery(`[:find ?name ?v ?d :where ${where} [?v :block/journal-day ?d]]`),
-  ]);
-  const fields = new Map(), add = (name, value) => { if (!fields.has(name)) fields.set(name, []); if (!fields.get(name).includes(value)) fields.get(name).push(value); };
-  const known = new Set();
-  for (const [name, v, day] of dated) { known.add(`${name}|${v}`); add(name, dayText(day)); }
-  for (const [name, v, title] of titled) { if (known.has(`${name}|${v}`)) continue; known.add(`${name}|${v}`); add(name, title); }
-  for (const [name, v] of raw) if (!known.has(`${name}|${v}`) && !(typeof v === 'number' && isEntityId(v))) add(name, String(v));
+  const fields = await provided.nodeFields(uuid);
   fields.delete(field);
   const readable = async text => { try { text = await provided.readableTitle(String(text || '')); } catch { /* as stored */ } return String(text).replace(/\[\[([^\]]+)\]\]/g, '$1').trim(); };
   const rows = [];
-  for (const [name, values] of [...fields].sort((a, b) => a[0].localeCompare(b[0])).slice(0, 8)) rows.push([name, (await Promise.all(values.map(readable))).filter(Boolean).join(', ')]);
+  for (const [name, values] of [...fields].sort((a, b) => a[0].localeCompare(b[0])).slice(0, 8)) {
+    const texts = await Promise.all(values.map(v => v.day ? dayText(v.day) : readable(v.title ?? v.text)));
+    rows.push([name, [...new Set(texts.filter(Boolean))].join(', ')]);
+  }
   let lines = [];
-  try {
-    const entity = await logseq.Editor.getBlock(uuid, { includeChildren: true });
-    const children = entity?.name || entity?.originalName ? await logseq.Editor.getPageBlocksTree(uuid) : entity?.children;
-    for (const child of children || []) {
-      const text = await readable(child?.title ?? child?.content ?? '');
-      if (text) lines.push(text);
-      if (lines.length >= 4) break;
-    }
-  } catch { /* no lines, then */ }
+  try { lines = (await Promise.all((await provided.firstLines(uuid, 4)).map(readable))).filter(Boolean); } catch { /* no lines, then */ }
   const data = { rows: rows.filter(([, value]) => value), lines };
   peek.cache.set(key, data);
   return data;
@@ -505,7 +452,7 @@ async function openAdd(button) {
   const kinds = [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
   let kind = kinds[0] || '';
   const uuids = group.items.map(item => item.uuid);
-  const pages = (await dsQuery(`[:find ?u :where ${uuidsIn('?u', uuids)} [?b :block/uuid ?u] [?b :block/name _]]`)).length;
+  const pages = await provided.pagesAmong(uuids, uuidsIn);
   const asPage = pages * 2 > uuids.length;
   const title = page.title || page.originalName || page.name || 'this page';
   const el = adding.el = doc.createElement('div');
@@ -552,8 +499,7 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
   const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
   let tagUuid = '';
   if (kind) {
-    const tags = await dsQuery(`[:find ?u :where [?t :block/tags :logseq.class/Tag] [?t :block/title ${JSON.stringify(kind)}] [?t :db/ident ?ti] [(namespace ?ti) ?ns] [(= ?ns "user.class")] [?t :block/uuid ?u]]`);
-    tagUuid = String(tags[0]?.[0] || '');
+    tagUuid = await provided.tagUuidNamed(kind);
   }
   let block, undo;
   if (asPage) {
@@ -566,7 +512,7 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
   } else {
     const now = new Date();
     const journalId = await provided.journalIdFor(todayNumber(), await provided.journalTitleFor(now.getFullYear(), now.getMonth() + 1, now.getDate()));
-    const [[journalUuid] = []] = journalId ? await dsQuery(`[:find ?u :where [(identity ${journalId}) ?p] [?p :block/uuid ?u]]`) : [];
+    const journalUuid = journalId ? await provided.uuidById(journalId) : '';
     if (!journalUuid) throw new Error('no journal page for today');
     block = await logseq.Editor.appendBlockInPage(String(journalUuid), name);
     if (!block?.uuid) throw new Error('the block was not made');
@@ -708,7 +654,7 @@ let timer = 0, indexTimer = 0;
 const later = (ms = 600) => { clearTimeout(timer); timer = setTimeout(() => load().catch(error => warnOnce('could not refresh the two-way rows', error)), ms); };
 const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().catch(error => warnOnce('could not read the rows of every page', error)), ms); };
 function start() {
-  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, dsQuery, uuidsIn } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'dsQuery', 'uuidsIn']));
+  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'uuidsIn']));
   applyStyles();
   readHeights();
   readOpen();

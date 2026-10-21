@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The two-way rows read through the model (0.4.225)
+
+**The owner:** the second of the three moves asked for with 0.4.224. **Built:** `parts/model.js` gained `linksInto(id)`
+(the five questions of `groupsByPage`, with the day and tag choice: a Date property of yours, "date" first, else the
+journal day; the first tag of yours by name), `nodeFields(uuid)` and `firstLines(uuid, n)` for the hover card, and
+`pagesAmong`, `tagUuidNamed`, `uuidById` for the + box. `parts/two-way.js` keeps the readable titles, the sorting, the
+labels and the drawing; it no longer takes `dsQuery`. **Tests:** `tools/two-way-check.js` loads the model and
+`tools/pretend-model.js`; 90 links on the Illness Test Graph still match the answer key. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · The tag tree reads through the model (0.4.224)
 
 **The owner:** "is the setup of this plugin modular with concern of separation so things are not muddled"; then "move

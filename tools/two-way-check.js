@@ -76,15 +76,16 @@ async function pluginRows() {
   window.parent = window;
   window.logseq = { settings: { twoWayRows: true, twoWayNames: settings.twoWayNames ?? '', twoWayOneEnd: settings.twoWayOneEnd ?? '' }, DB: { datascriptQuery: ask }, UI: {}, App: {}, Editor: {} };
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
+  window.eval(require('./pretend-model')); // the model answers through ask (0.4.225)
   const source = fs.readFileSync(path.join(root, 'parts/two-way.js'), 'utf8');
-  const exposed = source.replace(/\}\)\(\);\s*$/, `window.__tw = { groupsByPage, summary, init: core => ({ UUID, isEntityId, provided, dsQuery } = core) }; })();`);
+  const exposed = source.replace(/\}\)\(\);\s*$/, `window.__tw = { groupsByPage, summary, init: core => ({ UUID, isEntityId, provided } = core) }; })();`);
   if (exposed === source) throw new Error('the end of parts/two-way.js changed; tools/two-way-check.js cannot reach it');
   window.eval(exposed);
   window.__tw.init({
     UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     isEntityId: id => Number.isSafeInteger(id) && id > 0,
-    provided: { readableTitle: async text => text },
-    dsQuery: ask,
+    provided: { ...window.refinementCore.provided, readableTitle: async text => text },
   });
   return { rows: await window.__tw.groupsByPage(null), summary: window.__tw.summary };
 }
