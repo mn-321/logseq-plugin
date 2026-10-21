@@ -27,7 +27,8 @@
    - linksInto(pageId), nodeFields(uuid), firstLines(uuid, n)       the nodes pointing at a page through your properties,
      pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines
    - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag,
-     valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written */
+     valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written
+   - propTextValues, propNamed                                     turning a property into links (0.4.241) */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -324,6 +325,17 @@ async function choiceCounts(tag, prop) {
 }
 // The nodes of a tag that hold a choice, as uuids; and the choice's id.
 const choiceNodes = async (tag, prop, choice) => (await dsQuery(`[:find ?u :where [?t :block/uuid #uuid "${tag.uuid}"] [?v :block/uuid #uuid "${choice.uuid}"] [?b :block/tags ?t] [?b :${prop.ident} ?v] [?b :block/uuid ?u]]`)).map(([u]) => String(u));
+// Turning a property into links (0.4.241): every node holding it, with the words of each value (a text value is a small
+// block of its own, a choice has its title); and your own property of a name and kind, once Logseq has made it.
+const propTextValues = async ident => (await dsQuery(`[:find ?u ?vt :where [?b :${ident} ?v] [?b :block/uuid ?u] [?v :block/title ?vt] (not [?b :logseq.property/deleted-at _])]`))
+  .map(([u, t]) => ({ uuid: String(u), value: String(t).trim() })).filter(r => r.value);
+async function propNamed(title, type) {
+  const rows = await dsQuery(`[:find ?p ?u ?i ?c :where [?p :block/title ${JSON.stringify(title)}] [?p :block/tags :logseq.class/Property] [?p :logseq.property/type :${type}] [?p :db/ident ?i] [?p :block/uuid ?u] [?p :db/cardinality ?c] (not [?p :logseq.property/deleted-at _])]`);
+  const user = rows.filter(([, , i]) => /^:?user\.property\//.test(String(i)));
+  if (!user.length) return null;
+  const [p, u, i, c] = user[user.length - 1];
+  return { id: Number(p), uuid: String(u), ident: bare(i), title, type, many: /many/.test(String(c)) };
+}
 const idByUuid = async uuid => (await dsQuery(`[:find ?v :where [?v :block/uuid #uuid "${uuid}"]]`))[0]?.[0];
 // A tag's description, and a node's title, as they are now.
 const DESCRIPTION = 'logseq.property/description';
@@ -539,7 +551,7 @@ function provide(core) {
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
-    journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
+    propTextValues, propNamed, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));

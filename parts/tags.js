@@ -319,6 +319,108 @@ async function undoChildTag(plan, done) {
   done.moved = [];
   if (done.made) { await logseq.Editor.deletePage(done.made.uuid); done.made = null; }
 }
+/* Turning a text property into links to pages (0.4.241, the owner: "create future Specialty property, rename old
+   property Specialty, then transfer"). Logseq lets only itself make a property of yours, and locks a property's kind
+   once it holds values, so: the old one is renamed "Specialty (old)" and keeps its values; a new Specialty is made
+   with Logseq's own Add tag property, on the tag's page in the right sidebar, the plugin pressing its buttons (the
+   name, Node, Skip choosing tag); one page per value is made or found and given a tag, "Specialty kind" unless renamed; the new
+   property accepts that tag; each node gets its link. Everything is undone in reverse if a step fails, and by Undo. */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function planLinks(tag, prop, data) {
+  const rows = await model().propTextValues(prop.ident);
+  const byNode = new Map();
+  for (const row of rows) byNode.set(row.uuid, [...byNode.get(row.uuid) || [], row.value]);
+  const several = [...byNode.values()].some(values => values.length > 1);
+  const titles = [...new Set(rows.map(r => r.value))].sort((a, b) => a.localeCompare(b));
+  const pages = new Map();
+  for (const title of titles) { const page = await logseq.Editor.getPage(title).catch(() => null); if (page?.uuid && page.uuid !== prop.uuid) pages.set(title, page); }
+  return { tag, prop, data, byNode, several, titles, pages };
+}
+async function freeName(base) {
+  for (let n = 1; n < 50; n++) { const name = n === 1 ? base : `${base} ${n}`; if (!await logseq.Editor.getPage(name).catch(() => null)) return name; }
+  throw new Error(`no free name like “${base}”`);
+}
+// Logseq's own Add tag property, on the tag's page in the right sidebar, so the map stays open where it is.
+async function makeLinkProperty(tag, name) {
+  const doc = host(), win = doc.defaultView;
+  const waitFor = async (find, tries = 40) => { for (let i = 0; i < tries; i++) { const node = find(); if (node) return node; await sleep(100); } return null; };
+  const press = node => { for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) node.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, view: win })); };
+  const shown = node => node.getClientRects().length > 0;
+  const item = test => () => [...doc.querySelectorAll('[role="menuitem"], [role="option"], .menu-link, .cp__select-main .menu-link, button, li, a')]
+    .filter(shown).find(node => test(node.textContent.trim()));
+  await logseq.Editor.openInRightSidebar(tag.uuid);
+  await logseq.App.setRightSidebarVisible?.(true);
+  // On a tag's page in the sidebar the button under Tag Properties reads "Add property"; in the main view, above the
+  // title, "Add tag property" (both seen in the app). The tag just opened is the first item of the sidebar.
+  const button = await waitFor(() => [...doc.querySelectorAll('#right-sidebar button')].find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
+  if (!button) throw new Error('Logseq’s Add tag property button was not found on the tag’s page');
+  press(button);
+  const input = await waitFor(() => doc.querySelector('input[placeholder="Add or change property"]') || (doc.activeElement?.matches?.('#right-sidebar input, .ui__popover-content input, [data-radix-popper-content-wrapper] input') ? doc.activeElement : null));
+  if (!input) throw new Error('Logseq’s new property box did not open');
+  Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, name);
+  input.dispatchEvent(new win.Event('input', { bubbles: true }));
+  const fail = what => { doc.activeElement?.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return new Error(`Logseq’s new property box did not show ${what}`); };
+  const fresh = await waitFor(item(text => /^\+?\s*New option/i.test(text) && text.includes(name)));
+  if (!fresh) throw fail(`“New option: ${name}”`);
+  press(fresh);
+  const node = await waitFor(item(text => text === 'Node'));
+  if (!node) throw fail('the kind “Node”');
+  press(node);
+  const skip = await waitFor(item(text => text === 'Skip choosing tag'));
+  if (!skip) throw fail('“Skip choosing tag”');
+  press(skip);
+  for (let i = 0; i < 50; i++) { const made = await model().propNamed(name, 'node'); if (made) return made; await sleep(100); }
+  throw new Error(`Logseq did not make ${name}`);
+}
+async function runLinks(plan, tagName) {
+  const { prop, tag } = plan;
+  const done = { oldTitle: prop.title, renamed: false, newProp: null, givers: [], madeTag: null, linkTag: null, made: [], tagged: [], filled: [] };
+  const undo = () => undoLinks(plan, done);
+  try {
+    const oldName = await freeName(`${prop.title} (old)`);
+    await logseq.Editor.renamePage(prop.uuid, oldName);
+    if (await model().titleNow(prop.uuid) !== oldName) throw new Error('Logseq kept the old name');
+    done.renamed = true;
+    done.newProp = await makeLinkProperty(tag, prop.title);
+    for (const giver of [...plan.data.tags.values()].filter(t => !t.builtIn && t.id !== tag.id && (t.propList || []).some(p => p.id === prop.id))) { await addTagProp(giver, done.newProp); done.givers.push(giver); }
+    const existing = plan.data.byName.get(tagName.toLowerCase());
+    if (existing && !existing.builtIn) done.linkTag = existing;
+    else { done.madeTag = await makeTag(tagName); done.linkTag = done.madeTag; }
+    if (done.linkTag.uuid === prop.uuid || done.linkTag.uuid === done.newProp.uuid) throw new Error(`#${tagName} came back as the property itself`);
+    await setAccepts(done.newProp, [done.linkTag.id]);
+    const ids = new Map();
+    for (const title of plan.titles) {
+      let page = plan.pages.get(title);
+      if (page) {
+        const tags = await valuesOf(page.uuid, 'block/tags');
+        if (!tags.includes(done.linkTag.id)) { await logseq.Editor.addBlockTag(page.uuid, done.linkTag.uuid); done.tagged.push(page.uuid); }
+      } else {
+        page = await logseq.Editor.createPage(title, {}, { redirect: false, createFirstBlock: false });
+        if (!page?.uuid) throw new Error(`the page “${title}” could not be made`);
+        done.made.push(page.uuid);
+        await logseq.Editor.addBlockTag(page.uuid, done.linkTag.uuid);
+      }
+      ids.set(title, page.id);
+    }
+    for (const [uuid, values] of plan.byNode) {
+      await logseq.Editor.upsertBlockProperty(uuid, done.newProp.ident, ids.get(values[0]), { entityId: true });
+      done.filled.push(uuid);
+    }
+  } catch (error) {
+    await undo().catch(again => warnOnce('a half-done change to links could not be put back', again));
+    throw error;
+  }
+  return { done, undo };
+}
+async function undoLinks(plan, done) {
+  for (const uuid of done.filled.splice(0).reverse()) await logseq.Editor.removeBlockProperty(uuid, done.newProp.ident);
+  for (const uuid of done.made.splice(0).reverse()) await logseq.Editor.deletePage(uuid);
+  for (const uuid of done.tagged.splice(0)) await logseq.Editor.removeBlockTag(uuid, done.linkTag.uuid);
+  if (done.madeTag) { await logseq.Editor.deletePage(done.madeTag.uuid); done.madeTag = null; }
+  for (const giver of done.givers.splice(0)) await removeTagProp(giver, done.newProp);
+  if (done.newProp) { await removeTagProp(plan.tag, done.newProp).catch(() => {}); await logseq.Editor.deletePage(done.newProp.uuid); done.newProp = null; }
+  if (done.renamed) { await logseq.Editor.renamePage(plan.prop.uuid, done.oldTitle); done.renamed = false; }
+}
 async function openTag(tag, sidebar) {
   if (sidebar) await logseq.Editor.openInRightSidebar(tag.uuid);
   else logseq.App.pushState('page', { name: tag.uuid });
@@ -694,7 +796,7 @@ function pickTag(view, anchor, header, choices, onPick) {
 
 function hideToast(view) { clearTimeout(view.toastTimer); view.toast?.remove(); view.toast = null; }
 
-function showToast(view, text, undo) {
+function showToast(view, text, undo, ms = 7000) {
   view.hideToast();
   view.toast = el(view.doc, 'div', { class: 'refinement-tags-toast', role: 'status' }, el(view.doc, 'span', {}, text));
   if (undo) {
@@ -703,7 +805,7 @@ function showToast(view, text, undo) {
     view.toast.append(button);
   }
   view.doc.body.append(view.paint(view.toast));
-  view.toastTimer = setTimeout(view.hideToast, 7000);
+  view.toastTimer = setTimeout(view.hideToast, ms);
 }
 
 async function act(view, run, failText) {
@@ -1161,6 +1263,8 @@ function propMenu(view, tag, prop, from, anchor, alone) {
   if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
   if (prop.choices.length && tag && !tag.builtIn && !alone) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });
+  const linkFrom = tag && !tag.builtIn ? tag : (prop.givenBy || []).find(t => !t.builtIn);
+  if (prop.type === 'default' && linkFrom) items.push({ html: 'Turn into links to pages …', run: () => view.askLinks(linkFrom, prop) });
   items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) });
   // In the by-property view (alone) the property is not under any one tag: taking it off each is offered by name.
   if (alone) {
@@ -1367,6 +1471,71 @@ async function confirmChildTag(view, tag, prop, choice) {
   input.focus(); input.select();
 }
 
+// What turning a property into links would change, and the go-ahead.
+async function askLinks(view, tag, prop) {
+  view.closeMenu();
+  let plan;
+  try { plan = await planLinks(view.fresh(tag), prop, view.data); }
+  catch (error) { warnOnce('links could not be prepared', error); logseq.UI.showMsg('Could not look up what it would change: ' + (error?.message || error), 'warning'); return; }
+  const n = plan.byNode.size;
+  if (!n) { logseq.UI.showMsg(`No node has ${prop.title} yet: change its kind in its own settings instead (Kind of value …)`, 'info'); return; }
+  if (plan.several) { logseq.UI.showMsg(`Some nodes hold more than one ${prop.title}; that is not handled yet`, 'warning'); return; }
+  const doc = view.doc, P = prop.title, T = '#' + tag.title;
+  // The pages' tag is "… kind" by default (docs/MODELLING.md: the property "… type", the tag on its pages "… kind"):
+  // a tag cannot share its name with the property (Logseq hands back the property's page; seen in the app).
+  const input = el(doc, 'input', { class: 'rtg-input', type: 'text', value: `${P} kind`, spellcheck: 'false', 'aria-label': 'Tag for the pages' });
+  keepKeys(input);
+  const lines = el(doc, 'ul'), note = el(doc, 'p'), go = el(doc, 'button', { class: 'rtg-go' }, 'Turn into links'), cancel = el(doc, 'button', {}, 'Cancel');
+  const newPages = plan.titles.filter(t => !plan.pages.has(t)).length;
+  const first = [...plan.byNode][0];
+  const firstName = await model().titleNow(first[0]).catch(() => '') || 'a node';
+  const fill = async () => {
+    const name = input.value.trim().replace(/^#/, '').trim(), G = '#' + (name || '…');
+    const items = [`${P} is renamed “${P} (old)” and keeps its values, so nothing is lost`,
+      `a new ${P} is made on ${T}, holding a link to a ${G} page (Logseq’s own new-property box opens in the right sidebar for a moment; the plugin fills it in)`,
+      `${plural(plan.titles.length, 'page')}: ${plan.titles.join(', ')}${newPages < plan.titles.length ? ` (${plan.titles.length - newPages} already there, given ${G})` : ''}`,
+      `${plural(n, 'node')} get their link, for example ${firstName} → ${first[1][0]}`];
+    lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
+    const tagNamed = plan.data.byName.get(name.toLowerCase());
+    const page = name && !tagNamed ? await logseq.Editor.getPage(name).catch(() => null) : null;
+    const bad = !name ? 'Give the tag a name' : name.includes('/') ? 'A tag name cannot have a / in it'
+      : tagNamed?.builtIn ? `#${name} is one of Logseq’s own tags`
+      : name.toLowerCase() === P.toLowerCase() || page ? `“${page?.title || name}” is already ${page?.uuid === prop.uuid || name.toLowerCase() === P.toLowerCase() ? 'the property’s own name' : 'a page that is not a tag'}; pick another name` : '';
+    note.textContent = bad || `When it looks right, delete “${P} (old)” yourself. Undo puts everything back, for a minute after.`;
+    note.classList.toggle('rtg-warn', !!bad);
+    go.disabled = !!bad;
+  };
+  const panel = el(doc, 'div', { role: 'dialog', 'aria-label': 'Turn into links' },
+    el(doc, 'h2', {}, `Turn ${P} into links to pages?`),
+    el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Pages tagged'), input), lines, note,
+    el(doc, 'div', { class: 'rtg-btns' }, cancel, go));
+  const backdrop = el(doc, 'div', { class: 'refinement-tags-dialog' }, panel);
+  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  cancel.addEventListener('click', close);
+  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
+  backdrop.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
+    if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); }
+  });
+  input.addEventListener('input', () => { fill().catch(() => {}); });
+  go.addEventListener('click', async () => {
+    if (go.disabled) return;
+    go.disabled = true;
+    await fill().catch(() => {});
+    if (go.disabled && note.classList.contains('rtg-warn')) return;
+    const name = input.value.trim().replace(/^#/, '').trim();
+    close();
+    let result = null;
+    const done = await view.act(async () => { result = await runLinks(plan, name); }, `${P} could not be turned into links`);
+    if (!done || !result) return;
+    // A larger change gets a minute to be undone (seen in the app: seven seconds went by while the result was looked at).
+    view.showToast(`${P} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; the old one is “${P} (old)”`, result.undo, 60000);
+  });
+  doc.body.append(view.paint(backdrop));
+  await fill().catch(() => {});
+  input.focus(); input.select();
+}
 // A tag's description, the line under its name.
 function askDescription(view, tag, anchor) {
   view.closeMenu();
@@ -1985,7 +2154,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';

@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Turn a property into links to pages (0.4.241)
+
+**The owner:** after a picture of four costly conversions, "lets do 1 first", then "create future Specialty property,
+rename old property Specialty, then transfer". **Found:** Logseq locks a property's kind once it holds values (greyed
+out in its menu; unlocked again when empty, tried on a throwaway property); neither a plugin nor the command line can
+make a link property of yours; Logseq's own Add property box asks the name, the kind (Node) and a tag (Skip choosing
+tag), and the plugin can press each. **Built:** `planLinks`, `makeLinkProperty`, `runLinks`, `undoLinks` and
+`askLinks` in `parts/tags.js`; `propTextValues` and `propNamed` in `parts/model.js`; the toast takes a time (a minute
+here). **Tests:** `tools/check.sh`; in the app, on Specialty, the change and its Undo. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · The top of the window no longer stays cut off (0.4.240)
 
 **The owner:** "there is a bug where view jumps up and top of view is cut off no matter what page", with two
