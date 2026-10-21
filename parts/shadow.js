@@ -24,8 +24,10 @@
    same Undo; before 0.4.202 a click took each); leaving any other way takes only the sure values. A guess is made when every rule that speaks agrees:
    - plain words: a page named without brackets, by its whole title or alias ("Northgate") or by a word of its title
      that no other page of the right tag shares ("Dr. Patel", "the tingling"); a tie names no one;
-   - the same line written before: an earlier node under the same tag with nearly the same words gives its values,
-     when all such nodes agree ("Wiped out all day." has had Fatigue);
+   - the nodes it looks like (piece 3, 0.4.212, the "looks like" engine in parts/alike.js, docs/ALIKE.md): the
+     nearest earlier nodes holding the property, by their words, links and tags, vote for their value, and a clear
+     lead is proposed ("Flagging again by teatime." looks like the lines that had Fatigue); it took the place of
+     "the same line written before", which it holds as the case of a near-identical line;
    - the parent's values: a tagged bullet under a tagged bullet gets the parent's values for properties both have;
    - a linked page with no tag yet, for the first empty place it could fill when there are one or two (taking it also
      gives the page that place's tag);
@@ -34,7 +36,7 @@
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
-let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly;
+let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -43,7 +45,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values an earlier line like this one had, the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -290,7 +292,7 @@ function piecesFor(b, text, ctx, ownAtStart = new Set()) {
     }
   }
   pieces.sort((a, b) => fields.indexOf(a.prop) - fields.indexOf(b.prop)); // shown in the order the tag gives them
-  const guesses = guessesFor({ b, text, record, fields: ordered, recordTags, free, used, quiet, done: new Set(pieces.map(p => p.ident)), ctx });
+  const guesses = guessesFor({ b, text, record, fields: ordered, recordTags, links, free, used, quiet, done: new Set(pieces.map(p => p.ident)), ctx });
   guesses.sort((a, b) => fields.indexOf(a.prop) - fields.indexOf(b.prop));
   return { record, pieces: [...pieces, ...guesses], skip };
 }
@@ -303,11 +305,13 @@ const COMMON = new Set('with from that this have been after before about again t
 const telling = word => word.length >= 4 && !COMMON.has(word) && !/^\d+$/.test(word);
 // The words a bullet's text shows outside its links and tags (what plain words can name).
 const freeWords = text => wordsOf(String(text || '').replace(/#?\[\[[^\[\]]*\]\]/g, ' ').replace(TAG, ' '));
-// All the words a text shows, a saved link ([[uuid]]) read as its page's title, tags left out (for "the same line").
+// All the words a text shows, a saved link ([[uuid]]) read as its page's title, tags left out (for the engine).
 function shownWords(text, ctx) {
   const named = String(text || '').replace(/#?\[\[([^\[\]]+)\]\]/g, (m, key) => ' ' + (/^[0-9a-f-]{36}$/i.test(key) ? ctx.byKey.get(key.toLowerCase())?.title || '' : key) + ' ');
   return new Set(wordsOf(named.replace(TAG, ' ')));
 }
+// The pages a saved title links ([[uuid]], or [[Name]] in the text box), as ids, for the engine's link tokens.
+const linkIdsIn = (text, ctx) => [...new Set([...String(text || '').matchAll(LINK)].map(([, key]) => ctx.byKey.get(key.trim().toLowerCase())?.id).filter(id => id != null))];
 // Every page by the names it goes by (its title and its aliases), for plain words: the telling words of each name,
 // and each whole name. Alias pages themselves are left out: they stand for their original.
 function namesFor(ctx) {
@@ -336,24 +340,19 @@ function namedIn(words, classIds, ctx, spoken) {
   for (const [page, n] of score) { if (n > top) { best = page; top = n; tie = false; } else if (n === top) tie = true; }
   return tie ? null : best;
 }
-// Earlier nodes under the record's tags with nearly the same words (at least three in four words shared).
-const SIMILAR = .75;
-function similarBefore(text, tagIds, skip, ctx) {
-  const words = shownWords(text, ctx), found = new Map();
-  if (words.size < 2) return [];
-  for (const tag of tagIds) for (const entry of ctx.history?.get(tag) || []) {
-    if (skip.has(entry.id) || found.has(entry.id)) continue;
-    let shared = 0;
-    for (const w of words) if (entry.words.has(w)) shared++;
-    if (shared / (words.size + entry.words.size - shared) >= SIMILAR) found.set(entry.id, entry);
-  }
-  return [...found.values()];
+// The nodes the bullet looks like, for one property: the nearest earlier holders of it, by the bullet's words
+// (links read as titles), its links and the record's tags; the bullet itself left out. Only from the bullet's own
+// words (not a note's under the record), and only once the engine's index is there (never waited for while typing).
+function looksLike(text, links, tagIds, prop, skip, ctx) {
+  if (!ctx.alike || !alike) return [];
+  const tokens = alike.tokensOf(shownWords(text, ctx), links.map(p => p.id), tagIds);
+  return alike.neighbours(ctx.alike, tokens, { skip, keep: entry => entry.values.get(prop.ident)?.length > 0 });
 }
 const sameIds = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
-function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, done, ctx }) {
+function guessesFor({ b, text, record, fields, recordTags, links, free, used, quiet, done, ctx }) {
   const own = record === b, parent = pick(b, 'block/parent'), journalDay = Number(pick(pick(b, 'block/page'), 'block/journal-day') || 0);
   const parentTags = own && isBlock(parent) ? (pick(parent, 'block/tags') || []).map(idOf) : [];
-  const before = own ? similarBefore(text, recordTags, new Set([idOf(b)]), ctx) : [];
+  const skip = new Set([idOf(b)]);
   const words = freeWords(text), spoken = new Set(used), out = [];
   const open = prop => !done.has(prop.ident) && !quiet.has(prop.ident) && !valuesOf(record, prop.ident).length;
   const nodeOf = id => ctx.byId.get(id);
@@ -366,9 +365,9 @@ function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, do
     if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
     if (isNode) {
       const classIds = new Set(prop.classes.map(c => c.id));
-      // The same line written before: all such nodes that have the property agree.
-      const theirs = before.map(entry => entry.values.get(prop.ident)).filter(v => v?.length);
-      if (theirs.length && theirs.every(v => sameIds(v, theirs[0]))) said.push({ ids: theirs[0], how: 'before' });
+      // The nodes it looks like: the nearest earlier holders of the property vote, and a clear lead speaks.
+      const voted = own ? alike?.vote(looksLike(text, links, recordTags, prop, skip, ctx), prop.ident) : null;
+      if (voted) said.push({ ids: voted.ids, how: 'alike' });
       const named = namedIn(words, classIds, ctx, spoken);
       if (named) said.push({ ids: [named.id], how: 'words' });
     }
@@ -405,16 +404,18 @@ function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, do
   }
   return out;
 }
-// The nodes under each tag with link properties, their words and values, for "the same line written before"; and
-// the aliases (original, alias), for plain words. Kept apart from the context, per graph, read again at most
-// every five minutes (guessDataFor).
+// The nodes under tags with link properties, their words, links, tags and values, made into the engine's index (the
+// nodes a bullet may look like); and the aliases (original, alias), for plain words. Kept apart from the context, per
+// graph, read again at most every five minutes (guessDataFor). ctx.history marks that it was read.
 function addHistory(ctx, entries) {
-  ctx.history = new Map();
+  ctx.history = true;
+  const kept = [];
   for (const entry of entries) {
-    const kept = { id: entry.id, words: entry.words || shownWords(entry.title, ctx), values: entry.values };
-    if (kept.words.size < 2) continue;
-    for (const tag of entry.tags) { if (!ctx.history.has(tag)) ctx.history.set(tag, []); ctx.history.get(tag).push(kept); }
+    const words = entry.words || shownWords(entry.title, ctx);
+    if (words.size < 2) continue;
+    kept.push({ id: entry.id, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values: entry.values });
   }
+  ctx.alike = alike ? alike.buildIndex(kept) : null;
   return ctx;
 }
 // Read at most every five minutes, apart from the context (which is read again every 30 s while you write), and
@@ -443,7 +444,7 @@ async function loadGuessData(ctx) {
       :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }) : [],
     dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])]);
   return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]),
-    entries: rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
+    entries: rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
       values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) })) };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
@@ -1058,7 +1059,7 @@ const css = `
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
 function start() {
-  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly']));
+  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike']));
   void titleOf;
   applyStyles();
   forgetOld();

@@ -17,10 +17,12 @@ const { window } = dom;
 window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
 window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
+window.eval(fs.readFileSync(path.join(root, 'parts/alike.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
 let answer = () => []; // what the pretend database answers
 window.refinementCore = { watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
-  bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {} };
+  bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {}, provide: things => Object.assign(window.refinementCore.provided, things) };
+window.refinementParts.find(p => p.name === 'alike').provide(window.refinementCore);
 window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
 
@@ -40,7 +42,7 @@ const byKey = new Map(), byId = new Map();
 for (const p of pages) { byKey.set(p.lower, p); byKey.set(p.uuid, p); byId.set(p.id, p); }
 const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }], [T.treatment, { same: 3, other: 0 }], [T.consultation, { same: 3, other: 5 }]]),
   aliases: [[104, 106]] };
-// Lines written before, for "the same line written before": two symptom logs saying "Wiped out all day." with Fatigue,
+// Lines written before, for the "looks like" engine: two symptom logs saying "Wiped out all day." with Fatigue,
 // and two "Bad day." that disagree.
 addHistory(ctx, [
   { id: 500, title: 'Wiped out all day.', tags: [T.log], values: new Map([['user.property/symptoms', [107]]]) },
@@ -110,7 +112,7 @@ expect('plain words, a word of the title', piecesFor(bullet('x', [T.log], journa
 expect('plain words, "Dr." alone', piecesFor(bullet('x', [T.appointment], journal), 'Saw the Dr. today', ctx), '(nothing)');
 expect('plain words, two doctors', piecesFor(bullet('x', [T.appointment], journal), 'Saw Dr. Chen and Dr. Patel', ctx), '(nothing)');
 expect('plain words, two symptoms tie', piecesFor(bullet('x', [T.log], journal), 'Cold hurts my fingers', ctx), 'Date=Oct 20');
-// 11. The same line written before under the same tag gives its values, when the earlier ones agree.
+// 11. The lines the bullet looks like give their values, when they agree (a near-identical line: the old "same line before").
 expect('same line before', piecesFor(bullet('x', [T.log], journal), 'Wiped out all day.', ctx), 'Date=Oct 20 · symptoms=Fatigue?');
 expect('same line before, disagreeing', piecesFor(bullet('x', [T.log], journal), 'Bad day.', ctx), 'Date=Oct 20');
 // 12. Two doctors linked keep the doctor quiet: no guess either (Jul 17 in the Illness Test Graph).

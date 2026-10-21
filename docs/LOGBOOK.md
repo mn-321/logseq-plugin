@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · The "looks like" engine (0.4.212)
+
+**The owner:** the guess ideas "seem too based on the current graph instead of developing a more dynamic and fluid
+system with less friction"; agreed on one mechanism: a new bullet is filled the way the nodes it most resembles were
+filled. **Built:** `parts/alike.js` (tokens: stemmed words, link:id, tag:id; inverse document frequency; cosine
+through an inverted index; a vote weighted by similarity squared), wired into `guessesFor` in place of "the same line
+before" (how: alike). **Measured:** 24 settings swept with the scorer on "Seed Check" (`ALIKE_K`, `ALIKE_NEAR`,
+`ALIKE_LEAD`); picked k 5, nearest ≥ .3, lead .7: sure 54/0 unchanged, guesses 26/1 (was 23/1), silent 19 (was 22).
+At .2 three wrong guesses came in from lines sharing only "day" or "this morning". Speed: 20,000 pretend nodes, index
+30 ms, a key 2 ms. Scoreboard in `docs/ALIKE.md`. **Seen after:** nothing: control of Logseq was declined this time; the owner looks
+(a #Symptom Log bullet reading "Flagged again by teatime, really tired" should show Symptom type Fatigue dotted).
+
 ## 2026-10-20 · The journal day as a guess for tags with few examples (0.4.211)
 
 **The owner:** "the date is not taking the date of journal". **Why:** the day is sure only for tags with at least 5

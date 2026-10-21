@@ -12,6 +12,8 @@
    goes above GUESS_WRONG_LIMIT, or a right guess under GUESS_RIGHT_LEAST.
      node tools/shadow-check.js          the score, and every wrong one
      node tools/shadow-check.js --all    also every right and silent one
+   The "looks like" engine's limits (parts/alike.js) can be tried from the environment, for the scoreboard in
+   docs/ALIKE.md: ALIKE_K=5 ALIKE_NEAR=.5 ALIKE_LEAD=.7 ALIKE_STEM=1 node tools/shadow-check.js
    Runs only while the app has the graph open (as tools/two-way-check.js); skipped quietly otherwise. Reads only. */
 const fs = require('fs');
 const os = require('os');
@@ -54,6 +56,7 @@ async function plugin() {
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   window.eval(read('parts/shared.js'));
   window.eval(read('parts/model.js'));
+  window.eval(read('parts/alike.js'));
   window.eval(read('parts/shadow.js'));
   const cache = new Map();
   const core = { host: () => window.document, watchDomEarly() {}, dsQuery: ask, graphWide: (name, load) => { if (!cache.has(name)) cache.set(name, load()); return cache.get(name); },
@@ -61,6 +64,13 @@ async function plugin() {
   window.refinementCore = core;
   const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));
   parts.model.provide(core); parts.model.start();
+  parts.alike.provide(core);
+  const { limits } = core.provided.alike, env = process.env;
+  if (env.ALIKE_K) limits.k = Number(env.ALIKE_K);
+  if (env.ALIKE_NEAR) limits.nearLeast = Number(env.ALIKE_NEAR);
+  if (env.ALIKE_LEAD) limits.lead = Number(env.ALIKE_LEAD);
+  if (env.ALIKE_STEM) limits.stem = env.ALIKE_STEM !== '0';
+  console.log(`looks-like limits: k ${limits.k}, nearest at least ${limits.nearLeast}, lead ${limits.lead}, stem ${limits.stem}`);
   parts.proposals.start();
   return window.refinementShadowInner;
 }
