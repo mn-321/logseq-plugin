@@ -57,6 +57,11 @@ const PROPS_KEY = 'refinement-tags-props-open', INHERITED_KEY = 'refinement-tags
 const propsOpen = new Set((() => { try { return JSON.parse(localStorage.getItem(PROPS_KEY) || '[]'); } catch (error) { return []; } })());
 const saveProps = () => { try { localStorage.setItem(PROPS_KEY, JSON.stringify([...propsOpen])); } catch (error) { /* kept for this session only */ } };
 let showInherited = (() => { try { return localStorage.getItem(INHERITED_KEY) !== 'off'; } catch (error) { return true; } })();
+// Which way round the map is drawn (0.4.236, the owner's ask): by tag (the tree) or by property (every property once,
+// with the tags that have it). Kept in Logseq's window storage, shared by the page and the sidebar.
+const BY_KEY = 'refinement-tags-by';
+let byProp = (() => { try { return localStorage.getItem(BY_KEY) === 'property'; } catch (error) { return false; } })();
+const saveBy = () => { try { localStorage.setItem(BY_KEY, byProp ? 'property' : 'tag'); } catch (error) { /* kept for this session only */ } };
 const saveInherited = () => { try { localStorage.setItem(INHERITED_KEY, showInherited ? 'on' : 'off'); } catch (error) { /* kept for this session only */ } };
 const infoOpen = new Set();
 const flip = (set, key) => { if (set.has(key)) set.delete(key); else set.add(key); };
@@ -371,7 +376,19 @@ const css = `
 .refinement-tags button { font: inherit; color: inherit; }
 .refinement-tags [hidden] { display: none !important; }
 .refinement-tags .rtg-title { margin: 0 0 18px; padding: 0 10px; font-size: 2em; font-weight: 600; line-height: 1.2; }
-.refinement-tags header { display: flex; align-items: center; gap: 12px; padding: 0 0 12px 10px; border-bottom: 1px solid var(--rtg-border); }
+.refinement-tags header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 0 0 12px 10px; border-bottom: 1px solid var(--rtg-border); }
+/* By tag or by property (0.4.236): two buttons in one pill; the pressed one filled. The sidebar's tools sit on a second line. */
+.refinement-tags .rtg-switch { flex: none; display: inline-flex; border: 1px solid var(--rtg-border); border-radius: 7px; overflow: hidden; }
+.refinement-tags .rtg-switch .rtg-tool { border-radius: 0; height: 26px; }
+.refinement-tags .rtg-switch .rtg-tool + .rtg-tool { border-left: 1px solid var(--rtg-border); }
+.refinement-tags .rtg-switch .rtg-tool[aria-pressed="true"] { background: var(--rtg-wash); color: var(--ls-primary-text-color) !important; font-weight: 600; }
+.refinement-tags .rtg-tools { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.refinement-tags .rtg-ptop { padding-top: 4px; padding-bottom: 4px; }
+.refinement-tags .rtg-ptop .rtg-pname { font-weight: 600; }
+.refinement-tags .rtg-on { color: var(--rtg-faint); font-size: 14px; }
+.refinement-tags .rtg-ontag { cursor: pointer; color: var(--rtg-mid); }
+.refinement-tags .rtg-ontag:hover { text-decoration: underline; text-underline-offset: 2px; }
+.refinement-tags.rtg-by-prop .rtg-pinfo { margin-left: 26px; }
 .refinement-tags .rtg-find { flex: 1; min-width: 100px; padding: 6px 12px; border: 1px solid var(--rtg-border); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
 .refinement-tags .rtg-find:focus, .refinement-tags .rtg-input:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-tags .rtg-tool { flex: none; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; color: var(--rtg-faint) !important; font-size: 13.5px !important; white-space: nowrap; }
@@ -480,7 +497,6 @@ const css = `
 .refinement-tags.rtg-mode-sidebar { font-size: 15px; }
 .refinement-tags.rtg-mode-sidebar header { padding: 4px 0 10px; gap: 6px; }
 .refinement-tags.rtg-mode-sidebar .rtg-root > .rtg-main .rtg-name { font-size: 16.5px; }
-.refinement-tags.rtg-mode-sidebar .rtg-desc { display: none; }
 .refinement-tags.rtg-mode-sidebar .rtg-section { padding-top: 14px; }
 .refinement-tags.rtg-mode-sidebar .rtg-kids { margin-left: 10px; padding-left: 6px; }
 .refinement-tags-menu { position: fixed; z-index: 10001; min-width: 240px; max-width: 340px; padding: 4px; border: 1px solid var(--rtg-fborder); border-radius: 8px; background: var(--rtg-bg); color: var(--rtg-fg); box-shadow: 0 6px 20px rgba(0, 0, 0, .16); font-size: 14.5px; }
@@ -563,9 +579,15 @@ function createView(doc, mode) {
     el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Take the picked tags out of their parents, to the top level', click: () => view.topFromPicked() }, 'To the top level'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => view.movePicked(event.currentTarget) }, 'Move to …'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
+  // By tag or by property (0.4.236). The sidebar has the same tools as the page now (the owner: "fully functional").
+  const byButton = (on, text, title) => el(view.doc, 'button', { class: 'rtg-tool rtg-by', 'data-by': on ? 'property' : 'tag', title, 'aria-pressed': String(byProp === on),
+    click: () => { if (byProp === on) return; byProp = on; saveBy(); view.cursorKey = null; view.cursorTag = null; view.closeMenu(); for (const draw of openViews) draw(); } }, text);
+  view.byTags = byButton(false, 'Tags', 'Every tag as a tree, with its properties');
+  view.byProps = byButton(true, 'Properties', 'Every property once, with the tags that have it');
+  view.toggle2 = el(view.doc, 'div', { class: 'rtg-switch', role: 'group', 'aria-label': 'Arrange by' }, view.byTags, view.byProps);
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
-  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton), view.pickBar, view.body);
-  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.find, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body);
+  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton, el(view.doc, 'div', { class: 'rtg-tools' }, view.toggle2, view.inherited, view.foldAll, view.openAll)), view.pickBar, view.body);
+  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.find, view.toggle2, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body);
 
   /* The note at the bottom after a change, with Undo */
   view.toast = null; view.toastTimer = 0;
@@ -980,9 +1002,9 @@ function moveAmong(view, tag, parent, by) {
 
 /* Tag properties */
 /* The map: a tag's properties as rows */
-// Whether an open tag has rows of its own under it (properties, or links that point at it). The sidebar has none.
+// Whether an open tag has rows of its own under it (properties, or links that point at it). The sidebar has them too (0.4.236).
 function hasRows(view, tag) {
-  return !view.compact && !!(tag.propList.length || tag.pointers?.length || (showInherited && inheritedProps(tag).length));
+  return !!(tag.propList.length || tag.pointers?.length || (showInherited && inheritedProps(tag).length));
 }
 // What a property holds, as separate pieces: a small kind label ("choice", "link", "date"), then what it
 // accepts or offers, then "several" when it takes more than one value.
@@ -992,7 +1014,9 @@ function typeHtml(view, prop) {
   const several = prop.many ? kind('several') : '';
   if (prop.type === 'node') {
     const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
-    return kind('link') + `<span class="rtg-tv" data-act="values" title="Change what it accepts">${to.length ? to.map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') : 'any node'}</span>` + several;
+    // A wide property (Topic takes 15 tags) shows the first few and how many more; the row's details list them all (0.4.236).
+    const shown = to.slice(0, 4).map(t => `<b>#</b>${escapeHtml(t.title)}`).join(', ') + (to.length > 4 ? ` · ${to.length - 4} more` : '');
+    return kind('link') + `<span class="rtg-tv" data-act="values" title="Change what it accepts">${to.length ? shown : 'any node'}</span>` + several;
   }
   if (prop.choices.length) return kind('choice') + `<span class="rtg-tv" data-act="values" title="Edit the choices">${escapeHtml(prop.choices.slice(0, 4).join(' · ') + (prop.choices.length > 4 ? ' · …' : ''))}</span>` + several;
   return kind(KINDS[prop.type] || prop.type) + several;
@@ -1048,8 +1072,8 @@ function propDetails(view, tag, prop, from) {
   const doc = view.doc, box = el(doc, 'div', { class: 'rtg-pinfo' });
   const line = (label, ...rest) => box.append(el(doc, 'div', {}, el(doc, 'span', { class: 'rtg-plbl' }, label), ...rest));
   const tagNames = list => list.map(t => '#' + t.title).join(', ');
-  const givers = prop.givenBy?.length ? prop.givenBy : [from || tag];
-  line('Given by', el(doc, 'span', { class: 'rtg-val' }, tagNames(givers)), givers.some(t => t.kids.length) ? el(doc, 'span', { class: 'rtg-note' }, 'and the tags inside them') : null);
+  const givers = (prop.givenBy?.length ? prop.givenBy : [from || tag]).filter(Boolean);
+  line('Given by', el(doc, 'span', { class: givers.length ? 'rtg-val' : 'rtg-note' }, givers.length ? tagNames(givers) : 'no tag yet'), givers.some(t => t.kids.length) ? el(doc, 'span', { class: 'rtg-note' }, 'and the tags inside them') : null);
   const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ', from a list of choices' : '');
   line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'),
     el(doc, 'button', { class: 'rtg-make', title: 'What kind of value it holds, and one or several, are changed in Logseq’s own settings for the property', click: event => { event.stopPropagation(); view.kindMenu(prop, event.currentTarget); } }, 'Change'));
@@ -1131,13 +1155,22 @@ function passesDown(view, tag, prop) {
 
 function propMoves(view, tag, prop) { return view.fresh(tag).parents.filter(p => !p.builtIn && !p.propList.some(q => q.ident === prop.ident)); }
 
-function propMenu(view, tag, prop, from, anchor) {
-  tag = view.fresh(tag);
+function propMenu(view, tag, prop, from, anchor, alone) {
+  tag = tag ? view.fresh(tag) : null;
   const items = [{ html: 'Rename …', run: () => view.askRenameProp(prop, anchor) }];
   if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
-  if (prop.choices.length && !tag.builtIn) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });
-  items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) }, '-');
+  if (prop.choices.length && tag && !tag.builtIn && !alone) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });
+  items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) });
+  // In the by-property view (alone) the property is not under any one tag: taking it off each is offered by name.
+  if (alone) {
+    const givers = (prop.givenBy || []).filter(t => !t.builtIn);
+    if (givers.length) items.push('-');
+    for (const giver of givers) items.push({ html: `Take it off #${escapeHtml(giver.title)}`, run: () => view.takePropOff(giver, prop) });
+    view.showMenu(anchor, prop.title, items);
+    return;
+  }
+  items.push('-');
   if (from) {
     items.push({ html: `Go to #${escapeHtml(from.title)}`, run: () => { const at = view.shown.find(i => i.tag.id === from.id); if (at) view.setCursor(at.key); } });
     if (!from.builtIn) items.push({ html: `Take it off #${escapeHtml(from.title)}`, run: () => view.takePropOff(from, prop) });
@@ -1478,11 +1511,14 @@ function draw(view) {
   view.shown = [];
   const sections = [];
 
-  drawTop(view, pass, sections);
-  drawLogseq(view, pass, sections);
+  if (byProp) drawProps(view, pass, sections);
+  else { drawTop(view, pass, sections); drawLogseq(view, pass, sections); }
 
   view.morph(view.body, sections);
   view.inherited.textContent = showInherited ? 'Hide inherited' : 'Show inherited';
+  view.byTags.setAttribute('aria-pressed', String(!byProp)); view.byProps.setAttribute('aria-pressed', String(byProp));
+  for (const b of [view.inherited, view.foldAll, view.openAll]) b.hidden = byProp;
+  view.box.classList.toggle('rtg-by-prop', byProp);
   // Keep the cursor on its row, or on the tag it was on if that moved.
   if (view.cursorTag != null) {
     const again = view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag);
@@ -1595,7 +1631,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   const kidNodes = [];
   if (view.adding?.key === key) kidNodes.push(view.addRow(tag));
   if (open) {
-    if (!view.compact) kidNodes.push(...view.propRows(tag));
+    kidNodes.push(...view.propRows(tag));
     const nextPath = new Set(path).add(tag.id);
     for (const kid of kids) kidNodes.push(...drawBranch(view, pass, kid, tag, depth + 1, hue, nextPath, key));
   }
@@ -1649,6 +1685,54 @@ function drawLogseq(view, pass, sections) {
   pass.section = 'logseq';
   if (builtIns.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'logseq' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'Under Logseq’s tags'), ...builtIns.flatMap(tag => drawBranch(view, pass, tag, null, 1, null, new Set(), 'logseq'))));
   if (pass.q && !pass.keep.size) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, 'No tag or property by that name. Press Enter to make a tag of it.'));
+}
+
+/* By property (0.4.236): every property of yours once, in name order, each a row like the ones under a tag, with the
+   tags that have it after its kind ("on #Consultation, #Conversation"); it opens into the same details (what it
+   holds, its choices, what a link accepts, how it reads on the other page) and its name opens the same menu. A
+   property on no tag is listed last, under its own heading. A search matches a property's name or the name of a
+   tag that has it. */
+function drawProps(view, pass, sections) {
+  pass.section = 'props';
+  const all = [...(view.data.propInfo?.values() || [])].filter(prop => prop.title).sort((a, b) => a.title.localeCompare(b.title));
+  const fits = prop => !pass.q || prop.title.toLowerCase().includes(pass.q) || (prop.givenBy || []).some(t => t.title.toLowerCase().includes(pass.q));
+  const onTags = all.filter(prop => prop.givenBy?.length && fits(prop)), loose = all.filter(prop => !prop.givenBy?.length && fits(prop));
+  if (onTags.length) sections.push(el(view.doc, 'div', { class: 'rtg-section rtg-top', 'data-key': 'props' }, ...onTags.flatMap(prop => propTopRow(view, pass, prop))));
+  if (loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-section', 'data-key': 'props-loose' }, el(view.doc, 'h3', { class: 'rtg-group' }, 'On no tag'), ...loose.flatMap(prop => propTopRow(view, pass, prop))));
+  if (!onTags.length && !loose.length) sections.push(el(view.doc, 'div', { class: 'rtg-empty' }, pass.q ? 'No property by that name.' : 'No properties yet.'));
+}
+function propTopRow(view, pass, prop) {
+  const doc = view.doc, key = `P${prop.id}`, open = propsOpen.has(key);
+  const tag = prop.givenBy?.[0] || null;
+  const fold = el(doc, 'button', { class: 'rtg-fold' + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
+    click: event => { event.stopPropagation(); flip(propsOpen, key); saveProps(); view.draw(); } });
+  const name = el(doc, 'span', { class: 'rtg-pname', title: 'Rename, or change what it holds',
+    click: event => { event.stopPropagation(); view.propMenu(tag, prop, null, event.currentTarget, true); } });
+  const words = el(doc, 'span');
+  view.highlight(words, prop.title, pass.q);
+  name.append(words);
+  const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), click: event => {
+    event.stopPropagation();
+    const piece = event.target.closest('[data-act]');
+    if (piece?.dataset.act === 'values') { if (prop.type === 'node') view.askAccepts(prop, piece); else view.askChoices(prop, piece); }
+    else view.kindMenu(prop, piece || event.currentTarget);
+  } });
+  const line = el(doc, 'div', { class: 'rtg-line' }, name, type);
+  if (prop.givenBy?.length) {
+    const on = el(doc, 'span', { class: 'rtg-small rtg-on' }, 'on ');
+    prop.givenBy.slice().sort(view.data.byTitle).forEach((t, i) => {
+      const link = el(doc, 'span', { class: 'rtg-ontag', title: `Open #${t.title} (⇧ click: right sidebar)`, click: event => { event.stopPropagation(); openTag(t, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); } });
+      view.highlight(link, '#' + t.title, pass.q);
+      on.append(i ? ', ' : '', link);
+    });
+    line.append(on);
+  }
+  const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key }, fold, el(doc, 'div', { class: 'rtg-main' }, line));
+  row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag')) fold.click(); });
+  row.addEventListener('contextmenu', event => { event.preventDefault(); view.propMenu(tag, prop, null, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }, true); });
+  const nodes = [row];
+  if (open) nodes.push(view.propDetails(tag, prop, null));
+  return nodes;
 }
 
 function addRow(view, parent) {
@@ -1803,6 +1887,7 @@ function onKey(view, event) {
   }
   if (event.key === 'Enter' && event.target === view.find && !item) {
     event.preventDefault(); event.stopPropagation();
+    if (byProp) return;
     const name = view.find.value.trim();
     const hit = name && view.data.byName.get(name.replace(/^#/, '').toLowerCase());
     if (hit) { const row = view.shown.find(i => i.tag.id === hit.id); if (row) { view.find.blur(); view.box.focus({ preventScroll: true }); view.setCursor(row.key); } }

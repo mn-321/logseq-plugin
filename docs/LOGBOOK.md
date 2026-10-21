@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The map by property, and the sidebar as full as the page (0.4.236)
+
+**The owner:** "can this tag map all have another view of it based on properties and connection to tags"; "yes do
+this. and while you are at it, make the sidebar version of both tag and property view fully functional".
+**Built:** in `parts/tags.js` `byProp` (saved in window storage, shared by page and sidebar), `drawProps` and
+`propTopRow` (a property's row with "on #A, #B", opening into `propDetails`; `propMenu` with `alone` offers
+"Take it off #A" per tag), `propDetails` safe with no tag, the sidebar no longer leaving out property rows,
+descriptions or the tools, `typeHtml` capping accepted tags at four. **Tests:** `tools/check.sh`; the tag map
+pictures re-approved (the switch in the header). **Seen:** see the CHANGELOG line. **Open:** the one-off "Load
+plugin …" freeze after reload plus sidebar open; keyboard arrows do nothing in the Properties view.
+
 ## 2026-10-21 · The tag map finds properties (0.4.235)
 
 **The owner:** "can you also search properties in the tag and properties page". **Built:** in `parts/tags.js` a tag

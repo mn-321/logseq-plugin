@@ -68,7 +68,7 @@ const until = async test => { for (let i = 0; i < 100; i++) { const found = test
   window.eval(require('./pretend-model'));
   window.eval(exposed);
   const doc = window.document;
-  const view = window.__createView(doc, 'sidebar'); // the sidebar view: tags only, no property rows
+  const view = window.__createView(doc, 'sidebar'); // the sidebar view (it has property rows too since 0.4.236; the pretend tags here have none)
   doc.getElementById('stage').append(view.node);
   await view.refresh();
   const { by, settings } = window.pretend;
