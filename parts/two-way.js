@@ -726,7 +726,11 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
 .refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
-/* No line under a record's name (0.4.230, the owner: "an underline is not necessary"): the patch under the pointer shows it opens. */
+.refinement-two-way a.rf-tw-record { border-bottom: 1px solid color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent); }
+.refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
+/* A little more room between records (0.4.230, the owner: "just increase line spacing of items", in place of taking the line away). */
+.refinement-two-way .rf-tw-line { padding-top: 2px; padding-bottom: 2px; }
+.refinement-two-way .rf-tw-value { row-gap: 4px; }
 .refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
 .refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }
@@ -805,7 +809,10 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
 .refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .38em; visibility: hidden; }
 /* In an open list the box sits left of the outline's line (0.4.229, the owner: "to the left of the outline, not within it"). */
-.refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; }
+.refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.38em + 2px); }
+/* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
+.refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
+.refinement-two-way .rf-tw-item:not(:last-of-type) { flex-basis: 100%; }
 .refinement-two-way .rf-tw-pick { display: inline-block; box-sizing: border-box; width: 12px; height: 12px; border-radius: 3px; cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: hsl(var(--popover)); }
 .refinement-two-way .rf-tw-pick[data-on] { background: hsl(var(--popover-foreground)); border-color: hsl(var(--popover-foreground)); }

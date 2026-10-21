@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Underline back, more room, boxes in one column (0.4.231)
+
+**The owner:** "undo line removal"; "checkmarks should be aligned so outer part of outline"; "even those not in a
+outline"; "just increase line spacing of items". **Built:** in `parts/two-way.js` the record underline restored, 2px
+above and below a list line and 4px between records not in a list, those records one to a line, their boxes 24px left.
+**Tests:** `tools/check.sh` (0.4.230's commit went in with the pictures check failing on the missing underline; back to
+the approved pictures now). **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · No underline under records in the two-way rows (0.4.230)
 
 **The owner:** "an underline is not necessary under pages". **Built:** the border under `a.rf-tw-record` removed in
