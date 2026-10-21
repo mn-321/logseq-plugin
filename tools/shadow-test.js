@@ -20,7 +20,21 @@ window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/alike.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
 let answer = () => []; // what the pretend database answers
+const dayAfter = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const WD = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'], MO = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+// A small stand-in for the model's day reader (parts/model.js parseDay): today, tomorrow, a weekday, "4 aug", an ISO date.
+const parseDay = (text, today) => {
+  const t = text.trim().toLowerCase();
+  if (t === 'today') return today; if (t === 'tomorrow' || t === 'tmr') return dayAfter(today, 1); if (t === 'yesterday') return dayAfter(today, -1);
+  let m = t.match(/^(next\s+)?([a-z]+)$/);
+  if (m) { const wd = WD.findIndex(d => d.startsWith(m[2].slice(0, 3))); if (wd >= 0) { let n = (wd - today.getDay() + 7) % 7 || 7; if (m[1]) n += 7; return dayAfter(today, n); } }
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  m = t.match(/^(\d{1,2})\s+([a-z]{3})$/) || t.match(/^([a-z]{3})\s+(\d{1,2})$/);
+  if (m) { const [a, b] = /^\d/.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]]; const month = MO.indexOf(b); if (month < 0) return null; let d = new Date(today.getFullYear(), month, Number(a)); if (d < today) d = new Date(today.getFullYear() + 1, month, Number(a)); return d; }
+  return null;
+};
 window.refinementCore = { watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
+  parseDay, dayAfter, dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(), journalIdFor: async () => 999, journalTitleFor: async () => 'a day',
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {}, provide: things => Object.assign(window.refinementCore.provided, things) };
 window.refinementParts.find(p => p.name === 'alike').provide(window.refinementCore);
 window.refinementParts.find(p => p.name === 'proposals').start();
@@ -29,9 +43,9 @@ const { piecesFor, addHistory } = window.refinementShadowInner;
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
 const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10, treatment: 11 };
 const prop = (id, title, type, classes = [], many = false) => ({ id, ident: 'user.property/' + title.replace(/\W/g, '-').toLowerCase(), title, lower: title.toLowerCase(), type, many, classes: classes.map(c => ({ id: c, uuid: 'tag-' + c, title: 'Tag ' + c })) });
-const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default')];
+const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default'), prop(26, 'Cycle', 'number')];
 const schema = { props, byId: new Map(props.map(p => [p.id, p])),
-  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]], [T.treatment, [23]]]),
+  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]], [T.treatment, [23, 26]]]),
   parentsOf: new Map([[T.person, [T.entity]], [T.doctor, [T.person]], [T.place, [T.entity]], [T.hospital, [T.place]], [T.appointment, [T.occurrence]], [T.consultation, [T.appointment]]]) };
 const page = (id, title, tags, extra = {}) => ({ id, uuid: 'page-' + id, title, lower: title.toLowerCase(), tags: tags.map(t => ({ id: t, title: 'Tag ' + t, ident: 'user.class/t' + t })), isTag: false, ...extra });
 const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel', [T.doctor]), page(102, 'Ruth Okoro', [T.person]), page(103, 'Hannah Reyes', [], { tags: [{ id: 999, title: 'Page', ident: 'logseq.class/Page' }] }),
@@ -83,7 +97,7 @@ expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journ
 expect('no day for an appointment', piecesFor(bullet('Review next month', [T.appointment], journal), 'Review next month', ctx), '(nothing)');
 // A tag with too few dated nodes to be sure, none dated another day (a treatment, 3 in the graph): the day as a guess (0.4.211).
 expect('day for a tag with few examples', piecesFor(bullet('Iron tablets started', [T.treatment], journal), 'Iron tablets started', ctx), 'Date=Oct 20?');
-expect('no day for a tag with no dated nodes yet', piecesFor(bullet('Scan next Tuesday', [T.hospital], journal), 'Scan next Tuesday', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), '(nothing)');
+expect('no journal day for a tag with no dated nodes yet (the words give next Tuesday, stage E)', piecesFor(bullet('Scan next Tuesday', [T.hospital], journal), 'Scan next Tuesday', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), 'Date=Nov 3?');
 expect('no day off a journal', piecesFor(bullet('Iron tablets started', [T.treatment], chenPage), 'Iron tablets started', ctx), '(nothing)');
 // 6. A note under an appointment: the pieces are the appointment's. A record nested under a record does not take
 //    its parent's values as sure pieces (a follow-up under its first visit would get that visit's date; second
@@ -109,7 +123,7 @@ expect('two-word tag in the words', piecesFor(bullet('Queasy after lunch', [], j
 expect('plain words', piecesFor(bullet('x', [T.appointment], journal), 'Post-op check with Dr. Patel. Wounds fine.', ctx), 'doctor=Dr. Raj Patel?');
 expect('plain words, alias', piecesFor(bullet('x', [T.appointment], journal), 'Bloods at Northgate this morning', ctx), 'hospital=Northgate Cancer Center?');
 expect('plain words, a word of the title', piecesFor(bullet('x', [T.log], journal), 'Bad night, the tingling again', ctx), 'Date=Oct 20 · symptoms=Tingling fingers?');
-expect('plain words, "Dr." alone', piecesFor(bullet('x', [T.appointment], journal), 'Saw the Dr. today', ctx), '(nothing)');
+expect('plain words, "Dr." alone (today in the words is the day, stage E)', piecesFor(bullet('x', [T.appointment], journal), 'Saw the Dr. today', ctx), 'Date=Oct 20?');
 expect('plain words, two doctors', piecesFor(bullet('x', [T.appointment], journal), 'Saw Dr. Chen and Dr. Patel', ctx), '(nothing)');
 expect('plain words, two symptoms tie', piecesFor(bullet('x', [T.log], journal), 'Cold hurts my fingers', ctx), 'Date=Oct 20');
 // 11. The lines the bullet looks like give their values, when they agree (a near-identical line: the old "same line before").
@@ -122,6 +136,23 @@ expect('untagged bullet, looks like the logs', piecesFor(bullet('x', [], journal
 expect('untagged bullet, looks like nothing', piecesFor(bullet('x', [], journal), 'Hair cut, silly thing to do', ctx), '(nothing)');
 expect('untagged bullet, lines disagree on the value', piecesFor(bullet('x', [], journal), 'Bad day.', ctx), 'Tags=#Symptom log? · Date=Oct 20?');
 expect('untagged note under a record', piecesFor(bullet('x', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal) }), 'Wiped out all day.', ctx), '(nothing)');
+// 11c. Stage E (0.4.214): a date in the words for a Date nothing else fills (an appointment is written ahead: no journal
+//      day), counted from the day written (Oct 20th, 2026 is a Tuesday); a number beside a number property's name.
+expect('a weekday in the words', piecesFor(bullet('x', [T.appointment], journal), 'Scan on Friday, nothing to eat', ctx), 'Date=Oct 23?');
+expect('next weekday', piecesFor(bullet('x', [T.appointment], journal), 'Scan next Friday', ctx), 'Date=Oct 30?');
+expect('a day of the month', piecesFor(bullet('x', [T.appointment], journal), 'Operation on the 4th. In at 7.', ctx), 'Date=Nov 4?');
+expect('a day and month', piecesFor(bullet('x', [T.appointment], journal), 'Flu jab 6 Nov at the surgery', ctx), 'Date=Nov 6?');
+expect('tomorrow', piecesFor(bullet('x', [T.appointment], journal), 'Bloods tomorrow morning', ctx), 'Date=Oct 21?');
+expect('in two weeks', piecesFor(bullet('x', [T.appointment], journal), 'Review in two weeks', ctx), 'Date=Nov 3?');
+expect('two dates: nothing', piecesFor(bullet('x', [T.appointment], journal), 'Scan on Friday or Monday', ctx), '(nothing)');
+expect('the day written for a log beats the words', piecesFor(bullet('x', [T.log], journal), 'Tired since Monday', ctx), 'Date=Oct 20');
+expect('a date in a note under a record: nothing', piecesFor(bullet('x', [], journal, { 'block/parent': bullet('Visit', [T.appointment], journal) }), 'Scan on Friday', ctx), '(nothing)');
+const wordsDay = piecesFor(bullet('x', [T.appointment], journal), 'Scan on Friday', ctx).pieces[0];
+if (wordsDay?.day !== 20261023 || wordsDay.journalId !== null || wordsDay.ids[0] !== -20261023) problem('a weekday in the words: the piece does not carry the day, or claims a journal page the graph has not got');
+expect('a number beside the property\'s name', piecesFor(bullet('x', [T.treatment], journal), 'Chemo cycle 5 done', ctx), 'Date=Oct 20? · Cycle=5?');
+expect('a number before the name', piecesFor(bullet('x', [T.treatment], journal), 'Two more, 3 cycles left', ctx), 'Date=Oct 20? · Cycle=3?');
+expect('no number', piecesFor(bullet('x', [T.treatment], journal), 'Chemo done', ctx), 'Date=Oct 20?');
+expect('two numbers: nothing', piecesFor(bullet('x', [T.treatment], journal), 'cycle 5 of 8 cycles', ctx), 'Date=Oct 20?');
 const taggedGuess = piecesFor(bullet('x', [], journal), 'Wiped out all day.', ctx);
 if (taggedGuess.assume?.id !== T.log || taggedGuess.pieces[0]?.tag?.uuid !== 'tag-9' || !taggedGuess.pieces.slice(1).every(p => p.needsTag)) problem('untagged bullet: the shadow does not carry the tag to give, or the values do not wait for it');
 expect('untagged bullet, the tag assumed again when taken', piecesFor(bullet('x', [], journal), 'Wiped out all day.', ctx, new Set(), byId.get(T.log)), 'Tags=#Symptom log? · Date=Oct 20? · symptoms=Fatigue?');
@@ -180,11 +211,11 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   // 22. A page made and tagged a moment ago (Logseq tags [[Dr. Space Test]] when #Doctor is picked from its list) is not in
   //     the page list yet, read at most every 30 s: the linked pages are read fresh, so doctor gets it (0.4.210, seen
   //     empty in the app before).
-  expect('new page tagged a moment ago, before', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', ctx), '(nothing)');
+  expect('new page tagged a moment ago, before', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', ctx), 'Date=Oct 20?');
   answer = query => /:block\/name/.test(query) && query.includes('"dr. space test"') ? [[{ 'db/id': 600, 'block/uuid': 'page-600', 'block/title': 'Dr. Space Test', 'block/tags': [{ 'db/id': 999, 'block/title': 'Page', 'db/ident': ':logseq.class/Page' }, { 'db/id': T.doctor, 'block/title': 'Doctor', 'db/ident': ':user.class/Doctor' }] }]] : [];
   const freshCtx = await window.refinementShadowInner.withFreshLinks('Call with [[Dr. Space Test]] today', ctx);
   answer = () => [];
-  expect('new page tagged a moment ago', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', freshCtx), 'doctor=Dr. Space Test');
+  expect('new page tagged a moment ago', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', freshCtx), 'doctor=Dr. Space Test · Date=Oct 20?');
   cases++;
   if (ctx.byKey.has('dr. space test')) problem('new page tagged a moment ago: the shared page list was changed');
   const doc = window.document;

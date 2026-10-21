@@ -37,11 +37,15 @@
    that tag gives beside it, filled by the rules above as if the tag were there; every one of them a guess. Enter
    gives the bullet the tag and fills the values, under one Undo; leaving any other way takes nothing. The tag has
    its own, stricter limits in the engine (a wrong tag costs more than a wrong value).
+   Piece 3, stage E (0.4.214, docs/ALIKE.md): the plain-language reader. A date written in the words ("on Friday",
+   "the 4th", "4 Aug", "tomorrow", "in two weeks"), counted from the day the bullet is written on, is a guess for an
+   empty Date nothing else fills; one date, or nothing. A number beside a number property's name ("cycle 5") is a
+   guess for it. A journal page the day does not have yet is made when the guess is taken.
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
-let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike;
+let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -50,7 +54,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Provider:</span> <span class="m"><i><u style="text-decoration-style: dotted">Dr. Raj Patel</u></i></span> <span class="m">· Date: <i>Oct 20</i></span></div>',
     description: 'Changes here apply right away.' },
   { key: 'shadowProposals', type: 'boolean', title: 'Proposals while you write', default: true,
-    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far. A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
+    description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, with Undo in the bar at the bottom. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you next edit the bullet. Option-Enter opens the first property that is empty and has nothing proposed (a capsule or a row of its own; not yet a date); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
 ];
@@ -352,6 +356,44 @@ function namedIn(words, classIds, ctx, spoken) {
   for (const [page, n] of score) { if (n > top) { best = page; top = n; tie = false; } else if (n === top) tie = true; }
   return tie ? null : best;
 }
+/* The plain-language reader (stage E): what is literally in the words, read the same in every graph. */
+const WEEKDAY = '(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?';
+const MONTH = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*';
+const SMALL = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+const asDate = day => new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100);
+// The days the words name, as day numbers, each once, counted from `base` (the journal day the bullet is written on,
+// else today): a weekday is the coming one; "the 4th" the next 4th; a day and month the next such day; "in two weeks".
+function daysInWords(text, base) {
+  const words = ' ' + cleanWords(text).toLowerCase().replace(/[.,;:!?()]/g, ' ') + ' ', today = asDate(base), found = new Set();
+  const add = date => { if (date && !Number.isNaN(date.getTime())) found.add(dayNumber(date)); };
+  for (const [, word] of words.matchAll(/\s(today|tomorrow|tmr|yesterday)\s/g)) add(parseDay(word, today));
+  for (const [, next, day] of words.matchAll(new RegExp(`\\s(?:(next)\\s+|(?:on|this|by|until|till)\\s+)?(${WEEKDAY})\\s`, 'g'))) add(parseDay(`${next ? 'next ' : ''}${day}`, today));
+  for (const [, n] of words.matchAll(/\s(?:on|by|until|till)?\s*the\s+(\d{1,2})(?:st|nd|rd|th)\s/g)) {
+    const d = Number(n);
+    if (d < 1 || d > 31) continue;
+    let date = new Date(today.getFullYear(), today.getMonth(), d);
+    if (date.getDate() !== d || date < today) date = new Date(today.getFullYear(), today.getMonth() + 1, d);
+    if (date.getDate() === d) add(date);
+  }
+  for (const [, d, month] of words.matchAll(new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH})\\s`, 'g'))) add(parseDay(`${d} ${month.slice(0, 3)}`, today));
+  for (const [, month, d] of words.matchAll(new RegExp(`\\s(${MONTH})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s`, 'g'))) add(parseDay(`${month.slice(0, 3)} ${d}`, today));
+  for (const [, n, unit] of words.matchAll(/\sin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(day|days|week|weeks)\s/g)) add(dayAfter(today, (SMALL[n] ?? Number(n)) * (unit.startsWith('week') ? 7 : 1)));
+  for (const [, iso] of words.matchAll(/\s(\d{4}-\d{1,2}-\d{1,2})\s/g)) add(parseDay(iso, today));
+  return [...found];
+}
+// The number written beside a number property's name ("cycle 5", "5 cycles"), or null; two different ones, null.
+function numberInWords(text, prop) {
+  const words = ' ' + cleanWords(text).toLowerCase().replace(/[,;:!?()]/g, ' ') + ' ', found = new Set();
+  const name = prop.lower.replace(/[^\p{L}\p{N} ]/gu, ' ').trim();
+  if (!name) return null;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  for (const [, n] of words.matchAll(new RegExp(`\\s${esc}s?\\s+(?:no\\.?\\s*|#)?(\\d+(?:\\.\\d+)?)\\s`, 'g'))) found.add(Number(n));
+  for (const [, n] of words.matchAll(new RegExp(`\\s(\\d+(?:\\.\\d+)?)\\s+${esc}s?\\s`, 'g'))) found.add(Number(n));
+  return found.size === 1 ? [...found][0] : null;
+}
+// The journal page of a day, by its number, when the graph has one; ctx.days is read the other way round once.
+const dayIdFor = (ctx, day) => (ctx.dayIds ||= new Map([...(ctx.days || [])].map(([id, d]) => [d, id]))).get(day) ?? null;
+
 // The tag of the nodes an untagged bullet looks like (stage D): by its words and links alone, among every node under
 // a tag the model knows; the nearest vote, under the tag's own stricter limits. One tag, a tag page the plugin knows.
 function tagFor(b, text, ctx) {
@@ -384,9 +426,15 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
   const nodeOf = id => ctx.byId.get(id);
   for (const prop of fields) {
     if (!open(prop)) continue;
-    const isNode = prop.type === 'node' && prop.classes.length, isDate = prop.type === 'date';
-    if (!isNode && !isDate) continue;
+    const isNode = prop.type === 'node' && prop.classes.length, isDate = prop.type === 'date', isNumber = prop.type === 'number';
+    if (!isNode && !isDate && !isNumber) continue;
     const said = [];
+    // Stage E: a number beside the property's name ("cycle 5").
+    if (isNumber) {
+      const n = own ? numberInWords(text, prop) : null;
+      if (n != null) out.push({ ident: prop.ident, prop, kind: 'number', ids: [n], shown: String(n), how: 'words-number', guess: true });
+      continue;
+    }
     // The parent's values, for a property both have.
     if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
     if (isNode) {
@@ -401,12 +449,17 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
     // 5) but at least one, none of them dated another day (0.4.211, at the owner's word: "the date is not taking the date of journal";
     // a treatment had 3). A tag whose nodes are dated other days (an expectation, written ahead) still gets nothing.
     if (isDate && !said.length && prop.lower === 'date' && journalDay && fewDatedAllSameDay(recordTags, ctx)) said.push({ ids: [idOf(pick(b, 'block/page'))], how: 'day' });
+    // Stage E: a date written in the words, counted from the day the bullet is written on (else today); one, or nothing.
+    if (isDate && own && prop.lower === 'date') {
+      const days = daysInWords(text, journalDay || dayNumber(new Date()));
+      if (days.length === 1) { const id = dayIdFor(ctx, days[0]); said.push({ ids: [id ?? -days[0]], day: days[0], how: 'words-day' }); }
+    }
     if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids))) continue;
     const ids = said[0].ids;
     if (!prop.many && ids.length !== 1) continue;
     if (isDate) {
-      const day = ctx.days?.get(ids[0]);
-      if (day) out.push({ ident: prop.ident, prop, kind: 'day', ids, day, journalId: ids[0], shown: dayText(day), how: said.map(s => s.how).join('+'), guess: true });
+      const day = said.find(s => s.day)?.day || ctx.days?.get(ids[0]);
+      if (day) out.push({ ident: prop.ident, prop, kind: 'day', ids, day, journalId: ids[0] > 0 ? ids[0] : null, shown: dayText(day), how: said.map(s => s.how).join('+'), guess: true });
       continue;
     }
     const pages = ids.map(nodeOf);
@@ -895,7 +948,9 @@ function onPickKey(event) {
 
 // The saved words and the typed ones, links left out (a saved link is an id, a typed one a name, and a day's or a
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
-const linksOut = text => { const found = String(text || '').match(LINK) || []; return { n: found.length, words: plainWords(String(text || '').replace(LINK, ' ')) }; };
+// A tag typed in the words is saved by Logseq as #[[uuid]] (seen 0.4.214: "#Expectation" typed, Escape on its list), which
+// is not a link: the tags go first, or the saved words never match the typed ones and nothing is ever filled in.
+const linksOut = text => { const bare = String(text || '').replace(TAG, ' '); const found = bare.match(LINK) || []; return { n: found.length, words: plainWords(bare.replace(LINK, ' ')) }; };
 const sameWords = (saved, text) => { const a = linksOut(saved), b = linksOut(text); return a.n === b.n && a.words === b.words; };
 async function takeShadow(live) {
   if (!await allowed() || hushed.uuid === live.uuid) return;
@@ -927,7 +982,8 @@ async function takeShadow(live) {
       if (piece.kind === 'tag') { await logseq.Editor.addBlockTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
       if (piece.asPage) { if (await takeAsPage(piece, live.uuid, recordUuid)) written.push(piece); continue; }
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
-      if (piece.kind === 'day') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.journalId);
+      if (piece.kind === 'day') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.journalId ?? await journalPageFor(piece.day));
+      else if (piece.kind === 'number') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0]);
       else if (piece.prop.many) await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids, { entityId: true, reset: true });
       else await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0], { entityId: true });
       written.push(piece);
@@ -951,6 +1007,13 @@ async function takeShadow(live) {
     error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
 }
 
+// The journal page of a day a date in the words names (stage E), made when the graph has none yet, as Logseq would
+// (through the model, in the graph's own title format). The page stays after Undo, as an empty journal does.
+async function journalPageFor(day) {
+  const id = await journalIdFor(day, await journalTitleFor(Math.floor(day / 10000), Math.floor(day / 100) % 100, day % 100));
+  if (id == null) throw new Error(`no journal page for ${day}`);
+  return id;
+}
 /* [[Dr. New]]#Doctor taken (0.4.209): the page gets the tag (unless it has it), the record's property gets the page,
    and the tag goes from the bullet, from its words too, so the bullet is not made a doctor. The page is found among
    what the bullet links to, by its name: one made a moment ago is not in the page list yet. Whatever was done is put
@@ -1098,7 +1161,7 @@ const css = `
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
 function start() {
-  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike']));
+  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor']));
   void titleOf;
   applyStyles();
   forgetOld();

@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · Dates and numbers in the words, stage E (0.4.214)
+
+**The owner:** "build dates and numbers in words as guesses, the same systematic way". **Built:** `daysInWords` (a
+weekday, today/tomorrow/yesterday, "the 4th", a day and month, "in N days/weeks", ISO; counted from the journal day
+written on, through the model's `parseDay`) and `numberInWords` ("cycle 5", "3 cycles") in `parts/shadow.js`;
+`journalPageFor` makes the journal page on take when the day has none. **Measured:** the scorer counts number
+properties now (128 cases); guesses 26/1 → 32/1, silent 47 → 41; words-day 3/0, words-number 3/0. Found: a number
+value is an entity with `:logseq.property/value`; four pretend cases that said "nothing" now rightly get "today" or
+"next Tuesday" from the words. **Seen after:** "Scan on Friday … #Expectation" showed Date *Oct 23* dotted; Enter
+filled Oct 23rd, 2026 (journal page made), Undo took it off. "Chemo cycle 5 done #Treatment" showed Cycle *5*, Agent
+*Oxaliplatin, Leucovorin, Fluorouracil (5-FU)* (the engine), Date *Oct 20*; Enter filled all three, Undo took them
+off. **Found on screen:** the first Enter filled nothing: a typed tag is saved as `#[[uuid]]`, which `linksOut`
+counted as a link, so the saved words never matched; tags now go first in that check. Test bullets removed, the
+owner's empty bullet put back, a stray "tp" typed into another empty bullet of theirs cleared again.
+
 ## 2026-10-20 · The tag of an untagged bullet, stage D of the engine (0.4.213)
 
 **The owner:** "build the pencilled tag line for an untagged bullet, the same systematic way: design note, stage,

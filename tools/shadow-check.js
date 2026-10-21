@@ -101,13 +101,15 @@ async function plugin() {
   const valuesOf = (node, ident) => { const k = keyOf(node, ident); const v = k ? node[k] : null; return (Array.isArray(v) ? v : v == null ? [] : [v]).map(idOf).filter(id => id != null); };
   const hide = (node, ident) => { const copy = { ...node }; const k = keyOf(copy, ident); if (k) delete copy[k]; return copy; };
   const title = b => String(pick(b, 'block/title') ?? '').replace(/\[\[([0-9a-f-]{36})\]\]/gi, (m, u) => `[[${ctx.byKey.get(u.toLowerCase())?.title || u}]]`).slice(0, 50);
-  const name = id => byId.get(id)?.title || (ctx.days.get(id) ? 'the day ' + ctx.days.get(id) : String(id));
+  // A number property's value is an entity holding the number (Logseq's own shape, found by the scorer at 0.4.214).
+  const numberOf = new Map((await ask('[:find ?e ?v :where [?e :logseq.property/value ?v]]')).map(([e, v]) => [Number(e), Number(v)]));
+  const name = id => byId.get(id)?.title || (ctx.days.get(id) ? 'the day ' + ctx.days.get(id) : numberOf.has(id) ? String(numberOf.get(id)) : String(id));
   const tally = { right: 0, wrong: 0, silent: 0, guessRight: 0, guessWrong: 0 }, byHow = {};
   const fields = (tagIds) => { const seen = new Set(), out = [], q = [...tagIds]; while (q.length) { const c = q.shift(); if (seen.has(c)) continue; seen.add(c); for (const p of schema.classProps.get(c) || []) { const prop = schema.byId.get(p); if (prop && !out.includes(prop)) out.push(prop); } q.push(...(schema.parentsOf.get(c) || [])); } return out; };
   let cases = 0;
   for (const record of blocks) {
     const tags = (pick(record, 'block/tags') || []).map(idOf);
-    const props = fields(tags).filter(p => (p.type === 'node' && p.classes.length) || (p.type === 'date' && p.lower === 'date'));
+    const props = fields(tags).filter(p => (p.type === 'node' && p.classes.length) || (p.type === 'date' && p.lower === 'date') || p.type === 'number');
     for (const prop of props) {
       const actual = valuesOf(record, prop.ident);
       if (!actual.length) continue;
@@ -117,7 +119,8 @@ async function plugin() {
       const runs = [[hidden, String(pick(record, 'block/title') ?? '')]];
       for (const child of childrenOf.get(idOf(record)) || []) runs.push([{ ...child, 'block/parent': hidden }, String(pick(child, 'block/title') ?? '')]);
       // A property that holds several: a proposal that is part of them is right (the rest is still to add).
-      const judge = piece => piece.ids.every(id => actual.includes(id)) && (prop.many || piece.ids.length === actual.length) ? 'right' : 'wrong';
+      const judge = piece => piece.kind === 'number' ? (actual.length === 1 && numberOf.get(actual[0]) === piece.ids[0] ? 'right' : 'wrong')
+        : piece.ids.every(id => actual.includes(id)) && (prop.many || piece.ids.length === actual.length) ? 'right' : 'wrong';
       let verdict = 'silent', said = null, guess = null, guessVerdict = null;
       for (const [b, text] of runs) {
         const { record: target, pieces } = inner.piecesFor(b, text, ctx);

@@ -73,6 +73,31 @@ it is silent on a line of its own kind, and loosening the limits trades that sil
 neighbouring kinds (Consultation and Conversation, Expectation and Hospitalization), which the words alone cannot
 tell apart. Agreement of two or three nodes bought nothing the nearest-node floor did not.
 
+## Stage E: dates and numbers in words (0.4.214)
+
+The plain-language reader: what is literally in the words, read the same in every graph. Not the engine, but the
+same discipline: a stage, a scoreboard, the limits set by the scorer.
+
+- **A date in the words**, for an empty Date of a record that nothing sure or no other guess fills: a weekday ("on
+  Friday", "next Tuesday": the coming one, counted from the journal day the bullet is written on), "tomorrow",
+  "today", "yesterday", a day of the month ("on the 4th": the next 4th), a day and month ("4 Aug", "Aug 4th"),
+  "in 3 days", "in two weeks", a full date. One date found is a guess, dotted; two different ones, nothing. A
+  journal page the day does not have yet is made when the guess is taken, as Logseq would.
+- **A number in the words**, for an empty number property named beside it ("Chemo cycle 5 done" fills Cycle 5;
+  "3 cycles" too). A guess.
+
+The measure: the scorer now hides number properties as well (Cycle on treatments). Before this stage the silent
+cases that are dates in words: "Colonoscopy on Friday", "CT scan on Tuesday", "Operation on the 4th. In at 7." (all
+Expectations, planned ahead).
+
+| Stage | Sure right / wrong | Guess right / wrong | Silent | Note |
+|---|---|---|---|---|
+| 0.4.213, with number properties counted (128 cases) | 54 / 0 | 26 / 1 | 47 | Severity on every symptom log and Cycle on every treatment now count |
+| E dates and numbers in words (0.4.214) | 54 / 0 | 32 / 1 | 41 | words-day right 3, wrong 0 (the three planned Expectations); words-number right 3, wrong 0 (the chemo cycles). Found on the way: a number value is an entity holding the number, so the scorer reads it through `:logseq.property/value` |
+
+Still silent after stage E: Severity on symptom logs (a number never in the words; the engine could vote on it from
+the lines alike, a later stage), planned things with no date in the words ("Chemo cycle 5", "Flu jab"), Topic.
+
 ## Settings the engine has (in `parts/alike.js`, named so the scorer can try them)
 
 - `limits.stem`: a trailing s, ed or ing taken off words of five letters or more.
