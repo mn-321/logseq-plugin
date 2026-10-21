@@ -493,7 +493,6 @@ const css = `
 .refinement-tags [hidden] { display: none !important; }
 .refinement-tags .rtg-title { margin: 0 0 18px; padding: 0 10px; font-size: 2em; font-weight: 600; line-height: 1.2; }
 .refinement-tags header { display: flex; align-items: center; gap: 12px; padding: 0 0 12px 10px; border-bottom: 1px solid var(--rtg-border); }
-.refinement-tags .rtg-count { font-size: 14px; color: var(--rtg-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .refinement-tags .rtg-find { flex: 1; min-width: 100px; padding: 6px 12px; border: 1px solid var(--rtg-border); border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 15px; }
 .refinement-tags .rtg-find:focus, .refinement-tags .rtg-input:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
 .refinement-tags .rtg-tool { flex: none; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; cursor: pointer; color: var(--rtg-faint) !important; font-size: 13.5px !important; white-space: nowrap; }
@@ -557,8 +556,6 @@ const css = `
 .refinement-tags .rtg-pickbar .rtg-pickgo { color: var(--ls-primary-text-color) !important; font-weight: 600; }
 .refinement-tags .rtg-newroot { padding: 14px 8px 0 24px; }
 .refinement-tags .rtg-empty { padding: 4px 10px 4px 34px; font-size: 14px; color: var(--rtg-faint); }
-.refinement-tags footer { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 14px 10px 0; border-top: 1px solid var(--rtg-border); font-size: 12.5px; color: var(--rtg-faint); }
-.refinement-tags footer kbd { font: inherit; padding: 0 4px; border: 1px solid var(--rtg-line); border-radius: 3px; }
 /* The map: a tag's properties as rows under it, faded when they come from a tag above. */
 .refinement-tags .rtg-prow { padding-top: 2px; padding-bottom: 2px; font-size: 16px; }
 .refinement-tags .rtg-prow > .rtg-fold { height: 22px; }
@@ -598,8 +595,6 @@ const css = `
 .refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 4px 26px; font-size: 15px; }
 .refinement-tags .rtg-pointrow .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-off { font-style: italic; }
-.refinement-tags .rtg-newtag { display: flex; align-items: center; gap: 8px; padding: 12px 10px 0; font-size: 14px; color: var(--rtg-faint); }
-.refinement-tags .rtg-newtag + .rtg-guide { margin-left: 10px; }
 /* The main view: the tree as a page, scrolled with the page. */
 .refinement-tags-holder.rtg-holder-page { max-width: var(--ls-main-content-max-width, 900px); margin: 0 auto; padding: 24px 12px 80px; }
 /* The sidebar panel: smaller, no title or key list. */
@@ -671,7 +666,6 @@ function createView(doc, mode) {
   view.busy = false;
   view.loaded = false; // nothing is drawn until the tags have been read once
 
-  view.count = el(view.doc, 'span', { class: 'rtg-count' });
   view.find = el(view.doc, 'input', { class: 'rtg-find', type: 'text', placeholder: 'Find a tag', spellcheck: 'false', 'aria-label': 'Find a tag' });
   keepKeys(view.find);
   view.find.addEventListener('input', () => { view.cursorKey = null; view.cursorTag = null; view.draw(); });
@@ -680,7 +674,6 @@ function createView(doc, mode) {
   view.foldAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Fold every tag that has tags or properties inside', click: () => { for (const tag of view.data.tags.values()) if (tag.kids.length || view.hasRows(tag)) folded.add(tag.uuid); for (const top of view.topTags()) folded.delete(top.uuid); saveFolded(); view.draw(); } }, 'Fold');
   view.openAll = el(view.doc, 'button', { class: 'rtg-tool', title: 'Unfold every tag', click: () => { folded.clear(); saveFolded(); view.draw(); } }, 'Unfold');
   view.inherited = el(view.doc, 'button', { class: 'rtg-tool', title: 'List the properties each tag gets from the tags above it, faded', click: () => { showInherited = !showInherited; saveInherited(); view.draw(); } });
-  view.newTag = el(view.doc, 'div', { class: 'rtg-newtag' });
   view.moveButton = view.compact
     ? el(view.doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree as a full view in the main area', html: PAGE_ICON, click: () => openPage() })
     : el(view.doc, 'button', { class: 'rtg-tool', title: 'Show the tag tree in the right sidebar', html: SIDEBAR_ICON, click: () => openSidebar() });
@@ -691,10 +684,9 @@ function createView(doc, mode) {
     el(view.doc, 'button', { class: 'rtg-tool rtg-pickgo', title: 'Take the picked tags out of their parents, to the top level', click: () => view.topFromPicked() }, 'To the top level'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Put the picked tags inside another tag', click: event => view.movePicked(event.currentTarget) }, 'Move to …'),
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
-  view.footer = el(view.doc, 'footer', { html: '<span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>←</kbd> <kbd>→</kbd> fold, unfold</span><span><kbd>Enter</kbd> open tag · <kbd>⇧ Enter</kbd> in sidebar</span><span><kbd>n</kbd> new tag inside</span><span><kbd>m</kbd> move to … · <kbd>a</kbd> also under …</span><span><kbd>Tab</kbd> <kbd>⇧ Tab</kbd> in, out · <kbd>⌘ ⇧ ↑</kbd> <kbd>⌘ ⇧ ↓</kbd> move up, down</span><span><kbd>⌘</kbd> click or <kbd>x</kbd> pick several · <kbd>⇧</kbd> click a row: pick a run</span><span><kbd>p</kbd> add a property</span><span><kbd>r</kbd> rename · <kbd>j</kbd> merge into …</span><span>Click a property’s name, kind or choices to change them, or a description to edit it</span><span>Drag a tag as you would a bullet: above or below another to put it beside, below and to the right to put it inside; hold <kbd>⌥</kbd> to keep it where it was too</span>' });
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
   if (view.compact) view.box.append(el(view.doc, 'header', {}, view.find, view.moveButton), view.pickBar, view.body);
-  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.count, view.find, view.inherited, view.foldAll, view.openAll, view.moveButton), view.newTag, view.pickBar, view.body, view.footer);
+  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.find, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body);
 
   /* The note at the bottom after a change, with Undo */
   view.toast = null; view.toastTimer = 0;
@@ -1250,21 +1242,6 @@ function propGuide(view, tag, prop) {
   return box;
 }
 // "Setting up a new tag", above the tree, opened with its i.
-function drawNewTag(view) {
-  if (view.compact) return;
-  const key = 'newtag', roots = view.topTags().slice(0, 4).map(t => '#' + t.title);
-  view.newTag.replaceChildren(view.infoButton(key, 'setting up a new tag'), el(view.doc, 'span', {}, 'Setting up a new tag'));
-  if (view.newTag.nextElementSibling?.classList.contains('rtg-guide')) view.newTag.nextElementSibling.remove();
-  if (!infoOpen.has(key)) return;
-  const e = escapeHtml;
-  view.newTag.after(el(view.doc, 'div', { class: 'rtg-guide', role: 'note', html: `<ol>
-    <li><b>Find where it belongs.</b> Make it inside the closest tag${roots.length ? ` (under ${e(roots.join(', '))})` : ''}, with the + on that tag’s row.</li>
-    <li><b>Look at what it already gets.</b> The faded properties come from the tags above. Don’t add them again.</li>
-    <li><b>Add only what is different.</b> A property belongs on a tag when nearly every node with that tag would fill it in. If only some would, leave it in the text, or make a narrower tag inside.</li>
-    <li><b>Make things links, not text.</b> When the answer is a thing you might visit (a city, a person, a project), make the property a link to that thing’s tag.</li>
-    <li><b>Decide which way links go.</b> A link property goes on the side with one answer; the other side shows it by itself. Open a link property to see and change how it reads there.</li></ol>` }));
-}
-
 function passesDown(view, tag, prop) {
   const inside = [...below(tag)].map(id => view.data.tags.get(id)).filter(t => t && !t.propList.some(p => p.ident === prop.ident)).length;
   return inside ? `${prop.title}: on #${tag.title} and the ${plural(inside, 'tag')} inside it` : `${prop.title}: on #${tag.title}`;
@@ -1616,16 +1593,12 @@ function draw(view) {
   const heldTop = held?.row?.isConnected ? held.row.getBoundingClientRect().top : null;
   view.shown = [];
   const sections = [];
-  let tagTotal = 0;
-  for (const tag of view.data.tags.values()) if (!tag.builtIn) tagTotal++;
 
   drawTop(view, pass, sections);
   drawLogseq(view, pass, sections);
 
   view.morph(view.body, sections);
-  view.count.textContent = plural(tagTotal, 'tag');
   view.inherited.textContent = showInherited ? 'Hide inherited' : 'Show inherited';
-  view.drawNewTag();
   // Keep the cursor on its row, or on the tag it was on if that moved.
   if (view.cursorTag != null) {
     const again = view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag);
@@ -1720,7 +1693,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   line.append(input);
     setTimeout(() => { input.focus(); input.select(); });
   } else {
-    const name = el(view.doc, 'span', { class: 'rtg-name', title: `Open #${tag.title} (⇧ click: right sidebar)` });
+    const name = el(view.doc, 'span', { class: 'rtg-name', title: `Open #${tag.title} (⇧ click: right sidebar)${tag.count ? ` · ${plural(tag.count, 'node')}` : ''}${kids.length ? ` · ${plural(below(tag).size, 'tag')} inside` : ''}` });
     view.highlight(name, tag.title, pass.q);
     name.addEventListener('click', event => { event.stopPropagation(); if ((event.metaKey || event.ctrlKey) && !tag.builtIn) { view.pickClick(item, event); return; } view.setCursor(key); openTag(tag, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); });
     line.append(name);
@@ -1757,12 +1730,9 @@ function renameBox(view, tag, key) {
     input.addEventListener('blur', () => { if (view.renaming === key) { view.renaming = null; view.draw(); } });
     return input;
 }
-// The small grey words after a tag's name: what is inside, how many nodes, its other parents, a namesake.
+// The small grey words after a tag's name, only when they matter (0.4.223): its other parents, a namesake. How many
+// nodes and tags are inside it is in the name's tooltip.
 function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
-  const inside = below(tag).size;
-  if (isRoot) line.append(el(view.doc, 'span', { class: 'rtg-small' }, inside ? plural(inside, 'tag') + ' inside' : 'nothing inside yet'));
-  else if (!open && kids.length) line.append(el(view.doc, 'span', { class: 'rtg-small', title: 'Folded' }, `${inside} inside`));
-  if (tag.count) line.append(el(view.doc, 'span', { class: 'rtg-small', title: `${plural(tag.count, 'node')} tagged #${tag.title}` }, plural(tag.count, 'node')));
   const others = tag.parents.filter(p => p.id !== parent?.id);
   if (parent && others.length) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ' + others.map(p => '#' + p.title).join(', ')));
   if (view.data.sameName.has(tag.title.toLowerCase())) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-same', title: 'Another tag has the same name. Click to merge them.', click: event => { event.stopPropagation(); view.setCursor(key); view.askMerge(tag, parent, event.currentTarget); } }, 'same name as another tag'));
@@ -2046,7 +2016,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, drawNewTag, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';

@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The tag tree as just the outline (0.4.223)
+
+**The owner:** "clean this up and remove all thes shortcuts and text and make just an outline". **Built:** the footer,
+`drawNewTag` (the new-tag guide), the tag count and the inside/node-count labels in `rowLabels` removed; the counts moved
+to the name's `title`. Kept "also under" and "same name". **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · The window's top no longer cut off after a move (0.4.222)
 
 **The owner:** a screenshot after dragging Disease: "the top of view is cuttof", "the main view too". **Cause:**
