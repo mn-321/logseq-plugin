@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The top of the window no longer stays cut off (0.4.240)
+
+**The owner:** "there is a bug where view jumps up and top of view is cut off no matter what page", with two
+pictures. **Built:** `keepFrameInPlace` in `main.js`: a scroll listener on Logseq's window puts back any box holding
+the main view or a sidebar that does not scroll itself (the `html` element, overflow hidden, could be moved 883
+points). **Tests:** `tools/check.sh`; in the app a temporary step moved every box above the main view. **Seen:** see
+the CHANGELOG line. What moved it in the owner's graph is not known (0.4.222 fixed one such step in the tag map).
+
 ## 2026-10-21 · Proposals on a page's own properties (0.4.239)
 
 **The owner:** a picture of a report page with empty Written by and Prior reports: "are proposals possible on the

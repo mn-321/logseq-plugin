@@ -254,6 +254,24 @@ function registerCommands(parts) {
     if (menu) logseq.Editor.registerBlockContextMenuItem(label, run);
   }
 }
+/* Logseq's frame stays where it is (0.4.240). Its outer boxes (the window itself, and the boxes holding the main view
+   and the sidebars) do not scroll; only the views inside them do. A focus or scrollIntoView, the plugin's or
+   Logseq's, can still push one of them up, and then the top of every view, the toolbar and the titles, stays cut off
+   and the mouse cannot scroll it back (the owner, 0.4.222 and again 0.4.239: "view jumps up and top of view is cut off
+   no matter what page"). Whenever such a box is scrolled, it is put back at the top at once. */
+const SCROLLS = /^(auto|scroll|overlay)$/;
+function keepFrameInPlace() {
+  const doc = host(), win = doc.defaultView;
+  const frame = el => el === doc.scrollingElement || el === doc.body
+    || (el.querySelector?.('#main-content-container, #left-sidebar, #right-sidebar') && !SCROLLS.test(win.getComputedStyle(el).overflowY));
+  const onScroll = event => {
+    const el = event.target === doc ? doc.scrollingElement : event.target;
+    if (!el || el.nodeType !== 1 || !el.scrollTop || !frame(el)) return;
+    el.scrollTop = 0;
+  };
+  win.addEventListener('scroll', onScroll, true);
+  onUnload(() => win.removeEventListener('scroll', onScroll, true));
+}
 function main() {
   logseq.beforeunload(runUnloadTasks);
   moveOldDefaults();
@@ -284,6 +302,7 @@ function main() {
     try { part.ready?.(); } catch (error) { warnOnce(`the ${part.name} part could not get ready`, error); }
   }
   startSelfCheck();
+  keepFrameInPlace();
 
   // Every hook returns an "off" function; each is called when the plugin unloads. The core listens
   // once and runs what the parts registered (hooks) after its own housekeeping.
@@ -349,30 +368,3 @@ loadParts().then(() => {
   logseq.useSettingsSchema(schema);
   return logseq.ready(main);
 }).catch(console.error);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
