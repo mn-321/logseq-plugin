@@ -25,11 +25,11 @@ window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
 
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
-const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10 };
+const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10, treatment: 11 };
 const prop = (id, title, type, classes = [], many = false) => ({ id, ident: 'user.property/' + title.replace(/\W/g, '-').toLowerCase(), title, lower: title.toLowerCase(), type, many, classes: classes.map(c => ({ id: c, uuid: 'tag-' + c, title: 'Tag ' + c })) });
 const props = [prop(20, 'doctor', 'node', [T.doctor]), prop(21, 'with', 'node', [T.person], true), prop(22, 'hospital', 'node', [T.hospital]), prop(23, 'Date', 'date'), prop(24, 'symptoms', 'node', [T.symptom], true), prop(25, 'specialty', 'default')];
 const schema = { props, byId: new Map(props.map(p => [p.id, p])),
-  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]]]),
+  classProps: new Map([[T.appointment, [20, 21, 22, 23]], [T.log, [23, 24]], [T.doctor, [25]], [T.treatment, [23]]]),
   parentsOf: new Map([[T.person, [T.entity]], [T.doctor, [T.person]], [T.place, [T.entity]], [T.hospital, [T.place]], [T.appointment, [T.occurrence]], [T.consultation, [T.appointment]]]) };
 const page = (id, title, tags, extra = {}) => ({ id, uuid: 'page-' + id, title, lower: title.toLowerCase(), tags: tags.map(t => ({ id: t, title: 'Tag ' + t, ident: 'user.class/t' + t })), isTag: false, ...extra });
 const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel', [T.doctor]), page(102, 'Ruth Okoro', [T.person]), page(103, 'Hannah Reyes', [], { tags: [{ id: 999, title: 'Page', ident: 'logseq.class/Page' }] }),
@@ -38,7 +38,7 @@ const pages = [page(100, 'Dr. Mei Chen', [T.doctor]), page(101, 'Dr. Raj Patel',
   { id: T.log, uuid: 'tag-9', title: 'Symptom log', lower: 'symptom log', tags: [], isTag: true }, { id: T.doctor, uuid: 'tag-3', title: 'Doctor', lower: 'doctor', tags: [], isTag: true }, { id: T.symptom, uuid: 'tag-10', title: 'Symptom', lower: 'symptom', tags: [], isTag: true }];
 const byKey = new Map(), byId = new Map();
 for (const p of pages) { byKey.set(p.lower, p); byKey.set(p.uuid, p); byId.set(p.id, p); }
-const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }]]),
+const ctx = { schema, pages, byKey, byId, tagNames: pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length), days: new Map([[300, 20261020], [301, 20261019]]), dated: new Map([[T.log, { same: 18, other: 0 }], [T.appointment, { same: 3, other: 5 }], [T.treatment, { same: 3, other: 0 }], [T.consultation, { same: 3, other: 5 }]]),
   aliases: [[104, 106]] };
 // Lines written before, for "the same line written before": two symptom logs saying "Wiped out all day." with Fatigue,
 // and two "Bad day." that disagree.
@@ -79,6 +79,10 @@ expect('untagged link, two places', piecesFor(bullet('x', [T.appointment], journ
 // 5. The journal day: a symptom log (dated the day written, as the graph shows) gets it; an appointment (often written ahead) does not.
 expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journal), 'Nausea bad by evening', ctx), 'Date=Oct 20 · symptoms=Nausea?');
 expect('no day for an appointment', piecesFor(bullet('Review next month', [T.appointment], journal), 'Review next month', ctx), '(nothing)');
+// A tag with too few dated nodes to be sure, none dated another day (a treatment, 3 in the graph): the day as a guess (0.4.211).
+expect('day for a tag with few examples', piecesFor(bullet('Iron tablets started', [T.treatment], journal), 'Iron tablets started', ctx), 'Date=Oct 20?');
+expect('no day for a tag with no dated nodes yet', piecesFor(bullet('Scan next Tuesday', [T.hospital], journal), 'Scan next Tuesday', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), '(nothing)');
+expect('no day off a journal', piecesFor(bullet('Iron tablets started', [T.treatment], chenPage), 'Iron tablets started', ctx), '(nothing)');
 // 6. A note under an appointment: the pieces are the appointment's. A record nested under a record does not take
 //    its parent's values as sure pieces (a follow-up under its first visit would get that visit's date; second
 //    reading); they are guesses, and only where the child says nothing itself.

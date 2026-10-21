@@ -350,7 +350,7 @@ function similarBefore(text, tagIds, skip, ctx) {
 }
 const sameIds = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
 function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, done, ctx }) {
-  const own = record === b, parent = pick(b, 'block/parent');
+  const own = record === b, parent = pick(b, 'block/parent'), journalDay = Number(pick(pick(b, 'block/page'), 'block/journal-day') || 0);
   const parentTags = own && isBlock(parent) ? (pick(parent, 'block/tags') || []).map(idOf) : [];
   const before = own ? similarBefore(text, recordTags, new Set([idOf(b)]), ctx) : [];
   const words = freeWords(text), spoken = new Set(used), out = [];
@@ -371,6 +371,10 @@ function guessesFor({ b, text, record, fields, recordTags, free, used, quiet, do
       const named = namedIn(words, classIds, ctx, spoken);
       if (named) said.push({ ids: [named.id], how: 'words' });
     }
+    // The journal day, as a guess, for a "date" of a tag the graph has too few dated nodes of to be sure (fewer than
+    // 5) but at least one, none of them dated another day (0.4.211, at the owner's word: "the date is not taking the date of journal";
+    // a treatment had 3). A tag whose nodes are dated other days (an expectation, written ahead) still gets nothing.
+    if (isDate && !said.length && prop.lower === 'date' && journalDay && fewDatedAllSameDay(recordTags, ctx)) said.push({ ids: [idOf(pick(b, 'block/page'))], how: 'day' });
     if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids))) continue;
     const ids = said[0].ids;
     if (!prop.many && ids.length !== 1) continue;
@@ -451,12 +455,19 @@ async function daysFor(ctx) {
   for (const [t, same, count] of rows) { const n = ctx.dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; ctx.dated.set(t, n); }
   return ctx;
 }
-// Sure only with evidence: at least 5 such nodes under the tag (or a tag it extends), and 19 in 20 dated the day written.
+// Sure only with evidence: at least 5 such nodes under the record's own tags, and 19 in 20 dated the day written.
 const DATED_LEAST = 5, DATED_SHARE = .95;
 function datedWhenWritten(tagIds, ctx) {
   let same = 0, other = 0;
   for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }
   return same + other >= DATED_LEAST && same / (same + other) >= DATED_SHARE;
+}
+function fewDatedAllSameDay(tagIds, ctx) {
+  let same = 0, other = 0;
+  for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }
+  // At least one: no evidence is not permission (second reading: a new tag's first "Scan next Tuesday" would get today,
+  // and so would every tag while the counts are still being read).
+  return same >= 1 && same + other < DATED_LEAST && other === 0;
 }
 
 /* The bullet in edit: its shadow is worked out 40 ms after each key from the text box and one small pull of the

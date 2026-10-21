@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-20 · The journal day as a guess for tags with few examples (0.4.211)
+
+**The owner:** "the date is not taking the date of journal". **Why:** the day is sure only for tags with at least 5
+dated nodes, 19 in 20 dated the day written; #Treatment has 3. Now one to four, all the same day, give a guess. **Seen
+after:** "Iron tablets started" #Treatment on Oct 20 showed Date *Oct 20* dotted; Enter filled it. Scorer: the new guess
+right 4, wrong 0. Second reading: no dated nodes at all gives nothing (pretend-checked). Test bullet removed.
+
 ## 2026-10-20 · A page made and tagged a moment ago is seen at once (0.4.210)
 
 **The owner:** "currently properties do not recognize the new page on bullet". **Seen before:** "Phone call with
