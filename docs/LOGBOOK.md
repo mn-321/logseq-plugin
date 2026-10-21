@@ -14,7 +14,9 @@ sorted by day) and `--timing` (worker times from the command line's `--profile`,
 the tag vote (`tagLinks` false) and plain notes tagged (plain lines in the index vote 0), five misreadings in the date
 and number readers, the index rebuilt every 30 s (`data.index`), the dated counts waited for every 30 s (`daysCache`).
 **Scores:** in the CHANGELOG line. **Seen:** in the app before fixes 1 to 4, a temporary probe: 21 ms per key, 204 ms
-the first; removed, its settings key taken out. After the fixes: not on screen (the owner was in Logseq). Learned:
+the first; removed, its settings key taken out. After the fixes, at the owner's go-ahead: untagged "Flagged again by teatime, really tired" → Tags #Symptom Log, Date Oct 21,
+Symptom type Fatigue; a consultation "…I can drive in two weeks" → Date Oct 21 (not Nov 4), Provider Dr. Raj Patel; "CT scan
+on Friday" #Expectation → Oct 23. Escape each time; today's bullet put back. Learned:
 zsh does not split `$v` (my first combined sweep ran with defaults); a worktree of HEAD is the clean way to score
 yesterday's version.
 
