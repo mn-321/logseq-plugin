@@ -106,7 +106,7 @@ function fakeDb(graph, log) {
     [/:find \?c \?p :where \[\?c :logseq\.property\.class\/properties \?p\]/, () => all().flatMap(x => (x.fields || []).map(p => [x.id, p]))],
     [/:find \?child \?parent :where \[\?child :logseq\.property\.class\/extends \?parent\]/, () => all().flatMap(x => (x.extends || []).map(p => [x.id, p]))],
     // The tags and their idents (0.4.220: which are Logseq's own).
-    [/:find \?c \?i :where \[\?c :block\/tags :logseq\.class\/Tag\] \[\?c :db\/ident \?i\]/, () => all().filter(x => (x.tags || []).includes(2) && x.ident).map(x => [x.id, ':' + x.ident])],
+    [/:find \?t \?i :where \[\?t :block\/tags :logseq\.class\/Tag\] \[\?t :db\/ident \?i\]/, () => all().filter(x => (x.tags || []).includes(2) && x.ident).map(x => [x.id, ':' + x.ident])],
     [/:where \[\?p :block\/name _\] \(not \[\?p :block\/tags :logseq\.class\/Property\]\) \(not \[\?p :block\/journal-day _\]\)/,
       () => all().filter(x => x.name && !isProperty(x) && !x.journalDay).map(x => [{ id: x.id, uuid: x.uuid, title: x.title,
         ...(x.tags ? { tags: x.tags.map(t => ({ id: t, title: graph[t].title, ...(graph[t].ident ? { ident: ':' + graph[t].ident } : {}) })) } : {}) }])],

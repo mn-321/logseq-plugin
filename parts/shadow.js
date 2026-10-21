@@ -56,7 +56,7 @@
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made, .rfs-undo', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
-let dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
+let model, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
 const settingsSchema = [
@@ -146,16 +146,11 @@ async function contextFor() {
 async function withFreshLinks(text, ctx) {
   const names = [...new Set([...String(text || '').matchAll(LINK)].map(([, key]) => key.trim().toLowerCase()).filter(key => key && !UUID.test(key)))];
   if (!names.length) return ctx;
-  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title :db/ident]}])
-    :where [(ground [${names.map(name => JSON.stringify(name)).join(' ')}]) [?n ...]] [?p :block/name ?n] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`).catch(() => []);
   const fresh = [];
-  for (const [p] of rows) {
-    const title = String(pick(p, 'block/title') ?? ''), id = idOf(p);
-    if (!title || title.startsWith('$$$')) continue; // as the page list leaves them out (and properties, above; second reading)
-    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
-    const known = ctx.byId.get(id);
-    if (known && known.title === title && sameIds(known.tags.map(t => t.id), tags.map(t => t.id))) continue;
-    fresh.push({ ...known, id, uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, isTag: tags.some(t => t.ident === 'logseq.class/Tag') });
+  for (const page of await model.pagesNamed(names)) { // the model leaves out Logseq's hidden pages, as the page list does
+    const known = ctx.byId.get(page.id);
+    if (known && known.title === page.title && sameIds(known.tags.map(t => t.id), page.tags.map(t => t.id))) continue;
+    fresh.push({ ...known, ...page });
   }
   if (!fresh.length) return ctx;
   if (ctx.history) namesFor(ctx); // built once on the shared context, not again on each copy (second reading)
@@ -163,14 +158,9 @@ async function withFreshLinks(text, ctx) {
   for (const page of fresh) { byKey.set(page.lower, page); if (page.uuid) byKey.set(page.uuid.toLowerCase(), page); byId.set(page.id, page); }
   return { ...ctx, byKey, byId };
 }
-// The bullet in edit with what the rules read: its tags and values, its parent (and the parent's), its page.
-const PAGE_PULL = '[:db/id :block/uuid :block/title :block/journal-day {:block/tags [:db/id]}]';
-const BLOCK_PULL = `[* {:block/tags [:db/id]} {:block/page ${PAGE_PULL}} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]}]}]}]`;
-async function pullBlock(uuid) {
-  if (!UUID.test(uuid)) return null;
-  const [[b] = []] = await dsQuery(`[:find (pull ?b ${BLOCK_PULL}) :where [?b :block/uuid #uuid "${uuid}"]]`);
-  return b || null;
-}
+// The bullet in edit with what the rules read: its tags and values, its parent (and the parent's), its page (the
+// model's blockInEdit, 0.4.226).
+const pullBlock = uuid => model.blockInEdit(uuid);
 // The pages linked in the words ([[uuid]] as saved, [[Name]] in the text box), in order, each once; and the tags
 // written in the words (#Consultation, #[[Symptom log]]), as tag ids.
 const LINK = /\[\[([^\[\]]+)\]\]/g, TAG = /(?:^|\s)#(?:\[\[([^\]]+)\]\]|([^\s#\[\]]+))/g;
@@ -602,16 +592,14 @@ async function loadGuessData(ctx) {
   const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
   // Every tag of the owner's own (user.class/…), for stage D's tag votes: never Logseq's (Task, Card, Query), which
   // the schema knows too; before 0.4.213 only the tags with link properties.
-  const tagIds = (await dsQuery('[:find ?t ?i :where [?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]]').catch(() => []))
-    .filter(([, ident]) => /^:?user\.class\//.test(String(ident))).map(([t]) => Number(t));
+  const tagIds = await model.userTagIds();
   const [rows, aliases, plain] = await Promise.all([
-    tagIds.length ? dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${nodeProps.map(p => `{:${p.ident} [:db/id]}`).join(' ')}])
-      :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }) : [],
-    dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => []),
+    model.taggedNodes(tagIds, nodeProps.map(p => p.ident)).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }),
+    model.aliasPairs(),
     // Plain lines (no tag at all), for the tag's vote: they say "no tag" (the stress test, 2026-10-21).
-    dsQuery('[:find ?b ?t :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :block/tags _]) (not [?b :logseq.property/deleted-at _])]').catch(() => [])]);
-  return { aliases: aliases.map(([o, a]) => [Number(o), Number(a)]), tagIds,
-    entries: [...plain.map(([id, title]) => ({ id: Number(id), words: shownWords(String(title), ctx), links: linkIdsIn(String(title), ctx), tags: [], values: new Map() })), ...rows.map(([n]) => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
+    model.plainLines()]);
+  return { aliases, tagIds,
+    entries: [...plain.map(({ id, title }) => ({ id, words: shownWords(title, ctx), links: linkIdsIn(title, ctx), tags: [], values: new Map() })), ...rows.map(n => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
       values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) }))] };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
@@ -637,11 +625,8 @@ async function daysFor(ctx, { wait = true } = {}) {
 // The Date property the rules use is found by its title, so the counts use the same one (the code review, 2026-10-21:
 // it was named here as :user.property/date, which another graph's Date need not be).
 async function loadDays(schema) {
-  const days = new Map((await dsQuery('[:find ?p ?d :where [?p :block/journal-day ?d]]')).map(([p, d]) => [p, Number(d)]));
-  const dated = new Map();
   const date = schema?.props.find(p => p.type === 'date' && p.lower === 'date');
-  const rows = date ? await dsQuery(`[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :${date.ident} ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]`).catch(() => []) : [];
-  for (const [t, same, count] of rows) { const n = dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; dated.set(t, n); }
+  const [days, dated] = await Promise.all([model.journalDays(), model.datedByTag(date?.ident)]);
   return { days, dated };
 }
 // Sure only with evidence: at least 5 such nodes under the record's own tags, and 19 in 20 dated the day written.
@@ -980,8 +965,7 @@ function leaveBlank(rowUuid, name) {
       const schema = await propSchema();
       const prop = schema?.props.find(p => p.lower === name && (p.type === 'default' || p.type === 'url'));
       if (!prop || !UUID.test(rowUuid)) return;
-      const [[title] = []] = await dsQuery(`[:find ?t :where [?r :block/uuid #uuid "${rowUuid}"] [?r :${prop.ident} ?v] [?v :block/title ?t]]`);
-      if (title === '') await logseq.Editor.removeBlockProperty(rowUuid, prop.ident);
+      if (await model.valueTitle(rowUuid, prop.ident) === '') await logseq.Editor.removeBlockProperty(rowUuid, prop.ident);
     } catch (error) { warnOnce('an empty value could not be taken off again', error); }
   }, 300);
 }
@@ -1205,10 +1189,10 @@ async function takeShadow(live) {
 // what is compared).
 async function stillAsFilled(recordUuid, piece) {
   if (piece.kind === 'number') {
-    const now = (await dsQuery(`[:find ?n :where [?r :block/uuid #uuid "${recordUuid}"] [?r :${piece.ident} ?v] [?v :logseq.property/value ?n]]`)).map(([n]) => Number(n));
+    const now = await model.numberValues(recordUuid, piece.ident);
     return now.length === 1 && now[0] === Number(piece.ids[0]);
   }
-  const now = (await dsQuery(`[:find ?v :where [?r :block/uuid #uuid "${recordUuid}"] [?r :${piece.ident} ?v]]`)).map(([v]) => Number(v));
+  const now = (await model.valuesOf(recordUuid, piece.ident)).map(Number);
   return sameIds(now, (piece.wrote || piece.ids).map(Number));
 }
 // The journal page of a day a date in the words names (stage E), made when the graph has none yet, as Logseq would
@@ -1225,9 +1209,8 @@ async function journalPageFor(day) {
 async function takeAsPage(piece, bulletUuid, recordUuid) {
   const done = [];
   const undo = async () => { for (const step of [...done].reverse()) await step().catch(error => warnOnce('a step could not be undone', error)); };
-  const titleNow = async () => { const [[title] = []] = await dsQuery(`[:find ?t :where [?b :block/uuid #uuid "${bulletUuid}"] [?b :block/title ?t]]`); return title == null ? null : String(title); };
-  const rows = await dsQuery(`[:find ?p ?u ?t :where [?b :block/uuid #uuid "${bulletUuid}"] [?b :block/refs ?p] [?p :block/title ?t] [?p :block/uuid ?u]]`);
-  const linked = new Map(rows.map(([id, uuid, title]) => [String(title).toLowerCase(), { id: Number(id), uuid: String(uuid), title: String(title) }]));
+  const titleNow = () => model.titleNow(bulletUuid);
+  const linked = await model.linkedPages(bulletUuid);
   const pairs = piece.asPage.map(x => ({ x, page: linked.get(x.key) }));
   const before = await titleNow();
   // The saved words must still have each tag right after its page: Enter between them sends the tag to the next
@@ -1235,8 +1218,7 @@ async function takeAsPage(piece, bulletUuid, recordUuid) {
   if (before == null || pairs.some(pair => !pair.page || !pageTagIn(before, pair.page, pair.x.tag))) return false;
   try {
     for (const { x, page } of pairs) {
-      const has = await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${page.uuid}"] [?p :block/tags ?t] [?t :block/uuid #uuid "${x.tag.uuid}"]]`);
-      if (has.length) continue;
+      if (await model.hasTag(page.uuid, x.tag.uuid)) continue;
       await logseq.Editor.addBlockTag(page.uuid, x.tag.uuid);
       done.push(() => logseq.Editor.removeBlockTag(page.uuid, x.tag.uuid));
     }
@@ -1422,7 +1404,8 @@ const css = `
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); }
 function start() {
-  ({ dsQuery, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['dsQuery', 'UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor']));
+  ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag']));
+  model = window.refinementCore.provided; // the graph is read through the model (0.4.226)
   void titleOf;
   applyStyles();
   forgetOld();
@@ -1445,5 +1428,5 @@ function start() {
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, BLOCK_PULL, drawInPlace, css };
+window.refinementShadowInner = { piecesFor, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
 })();

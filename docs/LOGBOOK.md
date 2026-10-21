@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Proposals read through the model (0.4.226)
+
+**The owner:** the last of the three moves asked for with 0.4.224. **Built:** `parts/model.js` gained `pagesNamed`
+(with `pageOf`, the one shaper of a pulled page, shared with `propPages`), `blockInEdit` and `BLOCK_PULL`, `userTagIds`,
+`taggedNodes`, `aliasPairs`, `plainLines`, `journalDays`, `datedByTag`, `valueTitle`, `numberValues`, `linkedPages`,
+`hasTag`; `tagIdents` is the one reading of the tags' idents, shared with `propSchema`. `parts/shadow.js` no longer
+takes `dsQuery`; it reaches the readers as `model` (set at start; `refinementShadowInner.BLOCK_PULL` is a getter, since
+that line runs at load). No query text changed, so the tests' pretend databases still answer. **Tests:** shadow-test and
+shadow-write-test load the model and `tools/pretend-model.js`, which now keeps a core's own `dsQuery` and lets what a
+test put on the core win over the model's; model-test matches the tag idents query under its new variable; the write
+test accepts the model's `valuesOf`. All pass; the scorer on the Illness Test Graph is unchanged. **Seen:** see the
+CHANGELOG line. With this, no loaded part asks Logseq's database itself: `grep datascriptQuery parts/*.js` finds only
+the resting parts and the model's own `dsQuery` in main.js.
+
 ## 2026-10-21 · The two-way rows read through the model (0.4.225)
 
 **The owner:** the second of the three moves asked for with 0.4.224. **Built:** `parts/model.js` gained `linksInto(id)`

@@ -25,7 +25,9 @@
    - tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid, descriptionOf, titleNow,
      valuesOf, userValues, mergeFacts                               what a tag, property, choice or node holds right now
    - linksInto(pageId), nodeFields(uuid), firstLines(uuid, n)       the nodes pointing at a page through your properties,
-     pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines */
+     pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines
+   - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag,
+     valueTitle, numberValues, linkedPages, hasTag                  what the proposals read while a bullet is written */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -133,24 +135,66 @@ async function loadSchema() {
   for (const [child, parent] of await dsQuery(`[:find ?child ?parent :where [?child :logseq.property.class/extends ?parent]]`)) { if (!parentsOf.has(child)) parentsOf.set(child, []); parentsOf.get(child).push(parent); }
   // Logseq's own tags (Root, Page, Task, …; 0.4.220): every tag of yours extends Root in the end, so the top of your
   // own chains is the tag just under one of these.
-  const builtIn = new Set((await dsQuery('[:find ?c ?i :where [?c :block/tags :logseq.class/Tag] [?c :db/ident ?i]]').catch(() => []))
-    .filter(([, ident]) => !/^:?user\.class\//.test(String(ident))).map(([c]) => idOf(c)));
+  const builtIn = new Set((await tagIdents()).filter(([, ident]) => !/^:?user\.class\//.test(String(ident))).map(([c]) => idOf(c)));
   return { props, byId, classProps, parentsOf, builtIn };
 }
 // Pages a page-valued field can point at: every page with its tags (journals left out: a day is a Date's business).
+// A pulled page as the parts see it: null for Logseq's own hidden pages ($$$…).
+function pageOf(p) {
+  const title = String(pick(p, 'block/title') ?? '');
+  if (!title || title.startsWith('$$$')) return null;
+  const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
+  return { id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, icon: pick(p, 'logseq.property/icon'), isTag: tags.some(t => t.ident === 'logseq.class/Tag') };
+}
 async function loadPages() {
   const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title :logseq.property/icon {:block/tags [:db/id :block/title :db/ident]}])
     :where [?p :block/name _] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`);
-  const pages = [];
-  for (const [p] of rows) {
-    const title = String(pick(p, 'block/title') ?? '');
-    if (!title || title.startsWith('$$$')) continue;
-    const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
-    pages.push({ id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, icon: pick(p, 'logseq.property/icon'), isTag: tags.some(t => t.ident === 'logseq.class/Tag') });
-  }
+  const pages = rows.map(([p]) => pageOf(p)).filter(Boolean);
   pages.sort((a, b) => a.lower.localeCompare(b.lower));
   return pages;
 }
+// The same, for pages named now (by their lower-case names), read fresh: a page made a moment ago counts at once.
+async function pagesNamed(names) {
+  if (!names.length) return [];
+  const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title :db/ident]}])
+    :where [(ground [${names.map(name => JSON.stringify(name)).join(' ')}]) [?n ...]] [?p :block/name ?n] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`).catch(() => []);
+  return rows.map(([p]) => pageOf(p)).filter(Boolean);
+}
+
+/* What the proposals read (0.4.226, moved here from parts/shadow.js). blockInEdit(uuid): the block with its tags and
+   values, its page, its parent and the parent's parent (BLOCK_PULL). The earlier lines the "looks like" engine learns
+   from: userTagIds (your own tags, never Logseq's), taggedNodes (every node with one of those tags, with its links
+   under the given properties), aliasPairs, plainLines (nodes with no tag at all). journalDays: every journal page's day
+   by id; datedByTag(dateIdent): for each tag, how many of its nodes dated with that property are dated the day they are
+   written on, and how many another day. And what a node holds right now: valueTitle, numberValues, linkedPages, hasTag. */
+const PAGE_PULL = '[:db/id :block/uuid :block/title :block/journal-day {:block/tags [:db/id]}]';
+const BLOCK_PULL = `[* {:block/tags [:db/id]} {:block/page ${PAGE_PULL}} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]} {:block/parent [* {:block/tags [:db/id]} {:block/page [:db/id]}]}]}]`;
+async function blockInEdit(uuid) {
+  if (!UUID.test(uuid)) return null;
+  const [[b] = []] = await dsQuery(`[:find (pull ?b ${BLOCK_PULL}) :where [?b :block/uuid #uuid "${uuid}"]]`);
+  return b || null;
+}
+const tagIdents = () => dsQuery('[:find ?t ?i :where [?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]]').catch(() => []);
+const userTagIds = async () => (await tagIdents()).filter(([, ident]) => /^:?user\.class\//.test(String(ident))).map(([t]) => Number(t));
+const taggedNodes = (tagIds, idents) => !tagIds.length ? Promise.resolve([]) : dsQuery(`[:find (pull ?b [:db/id :block/title {:block/tags [:db/id]} ${idents.map(ident => `{:${ident} [:db/id]}`).join(' ')}])
+      :where [(ground #{${tagIds.join(' ')}}) [?t ...]] [?b :block/tags ?t] [?b :block/page _] (not [?b :logseq.property/deleted-at _])]`).then(rows => rows.map(([n]) => n));
+const aliasPairs = async () => (await dsQuery('[:find ?o ?a :where [?o :block/alias ?a]]').catch(() => [])).map(([o, a]) => [Number(o), Number(a)]);
+const plainLines = async () => (await dsQuery('[:find ?b ?t :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :block/tags _]) (not [?b :logseq.property/deleted-at _])]').catch(() => []))
+  .map(([id, title]) => ({ id: Number(id), title: String(title) }));
+const journalDays = async () => new Map((await dsQuery('[:find ?p ?d :where [?p :block/journal-day ?d]]')).map(([p, d]) => [p, Number(d)]));
+async function datedByTag(dateIdent) {
+  const dated = new Map();
+  const rows = dateIdent ? await dsQuery(`[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :${dateIdent} ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]`).catch(() => []) : [];
+  for (const [t, same, count] of rows) { const n = dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; dated.set(t, n); }
+  return dated;
+}
+// The title of a node's value under a property (a text value is a small block of its own); the numbers it holds;
+// the pages its words link, by lower-case title; whether a page has a tag.
+const valueTitle = async (uuid, ident) => { const [[title] = []] = await dsQuery(`[:find ?t :where [?r :block/uuid #uuid "${uuid}"] [?r :${ident} ?v] [?v :block/title ?t]]`); return title; };
+const numberValues = async (uuid, ident) => (await dsQuery(`[:find ?n :where [?r :block/uuid #uuid "${uuid}"] [?r :${ident} ?v] [?v :logseq.property/value ?n]]`)).map(([n]) => Number(n));
+const linkedPages = async uuid => new Map((await dsQuery(`[:find ?p ?u ?t :where [?b :block/uuid #uuid "${uuid}"] [?b :block/refs ?p] [?p :block/title ?t] [?p :block/uuid ?u]]`))
+  .map(([id, pageUuid, title]) => [String(title).toLowerCase(), { id: Number(id), uuid: String(pageUuid), title: String(title) }]));
+const hasTag = async (pageUuid, tagUuid) => (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${pageUuid}"] [?p :block/tags ?t] [?t :block/uuid #uuid "${tagUuid}"]]`)).length > 0;
 // The cache keys are the ones Properties in the line used, so nothing else changes (0.4.164).
 const propSchema = () => graphWide('inlinePropsSchema', loadSchema);
 const propPages = () => graphWide('inlinePropsPages', loadPages);
@@ -491,6 +535,7 @@ function provide(core) {
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
+    pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag,
     journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {

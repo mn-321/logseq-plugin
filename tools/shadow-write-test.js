@@ -50,8 +50,8 @@ async function dsQuery(q) {
   if (one.includes('?same (count ?b)') && one.includes(':user.property/date ')) return [[T.log, true, 18], [T.consultation, true, 3], [T.consultation, false, 5]];
   if (one.includes('[?t :block/tags :logseq.class/Tag] [?t :db/ident ?i]')) return [[T.consultation, 'user.class/consultation'], [T.log, 'user.class/log']];
   if (one.includes('(ground #{')) return [500, 501].map(id => [{ 'db/id': id, 'block/title': 'Wiped out all day.', 'block/tags': [{ 'db/id': T.log }], 'user.property/symptoms': [{ 'db/id': 107 }] }]);
-  // The value a record holds now, for Undo: [:find ?v :where [?r :block/uuid #uuid "…"] [?r :ident ?v]].
-  if ((m = one.match(/^\[:find \?v :where \[\?r :block\/uuid #uuid "([^"]+)"\] \[\?r :([^\s\]]+) \?v\]\]$/))) {
+  // The value a record holds now, for Undo (the model's valuesOf): [:find ?v :where [?b :block/uuid #uuid "…"] [?b :ident ?v]].
+  if ((m = one.match(/^\[:find \?v :where \[\?[br] :block\/uuid #uuid "([^"]+)"\] \[\?[br] :([^\s\]]+) \?v\]\]$/))) {
     const v = store.get(m[1])?.props.get(m[2]); return v == null ? [] : (Array.isArray(v) ? v : [v]).map(x => [x]); }
   // The [[Dr. New]]#Doctor fill: the pages the bullet links, its words now, whether a page has a tag.
   if ((m = one.match(/^\[:find \?p \?u \?t :where \[\?b :block\/uuid #uuid "([^"]+)"\] \[\?b :block\/refs \?p\]/))) {
@@ -72,12 +72,13 @@ window.logseq = {
     async insertBlock() { return null; }, async editBlock() {}, async createPage() { return null; },
   },
 };
-for (const file of ['parts/shared.js', 'parts/alike.js', 'parts/shadow.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 const core = window.refinementCore = { watchDomEarly() {}, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
   propSchema: async () => schema, propPages: async () => pages, bare: v => String(v ?? '').replace(/^:/, ''),
   pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '',
   parseDay: () => null, dayAfter: (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n), dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(),
   journalIdFor: async () => 300, journalTitleFor: async () => 'a day', provided: {}, provide: things => Object.assign(core.provided, things) };
+window.eval(require('./pretend-model')); // the model answers through dsQuery above; the stubs on the core win (0.4.226)
 const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));
 parts.alike.provide(core);
 parts.proposals.start();

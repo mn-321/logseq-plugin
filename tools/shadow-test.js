@@ -17,6 +17,7 @@ const { window } = dom;
 window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
 window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
+window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/alike.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
 let answer = () => []; // what the pretend database answers
@@ -36,6 +37,7 @@ const parseDay = (text, today) => {
 window.refinementCore = { watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
   parseDay, dayAfter, dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(), journalIdFor: async () => 999, journalTitleFor: async () => 'a day',
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {}, provide: things => Object.assign(window.refinementCore.provided, things) };
+window.eval(require('./pretend-model')); // the model answers through answer(query); the stubs above win (0.4.226)
 window.refinementParts.find(p => p.name === 'alike').provide(window.refinementCore);
 window.refinementParts.find(p => p.name === 'proposals').start();
 const { piecesFor, addHistory } = window.refinementShadowInner;
