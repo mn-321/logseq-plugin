@@ -153,7 +153,8 @@ function inWords(text, ctx) {
   for (const m of words.matchAll(TAG)) {
     // The longest tag name that follows the #: Logseq shows a two-word tag as "#Symptom log", no brackets.
     const at = m.index + m[0].indexOf('#') + 1, rest = lower.slice(at);
-    const name = m[1] ? m[1].trim().toLowerCase() : (ctx.tagNames || []).find(t => rest.startsWith(t) && !/[\w]/.test(rest.charAt(t.length))) || m[2].toLowerCase();
+    // "#Doctor's" is not #Doctor: Logseq reads the whole word as the tag (as pagesTaggedIn does, the code review 2026-10-21).
+    const name = m[1] ? m[1].trim().toLowerCase() : (ctx.tagNames || []).find(t => rest.startsWith(t) && !/[\w'’-]/.test(rest.charAt(t.length))) || m[2].toLowerCase();
     const page = ctx.byKey.get(name);
     if (page?.isTag && !tags.includes(page.id)) tags.push(page.id);
   }
@@ -392,7 +393,9 @@ function daysInWords(text, base) {
   const words = ' ' + cleanWords(text).toLowerCase().replace(/[.,;:!?()]/g, ' ') + ' ', today = asDate(base), found = new Set();
   const add = date => { if (date && !Number.isNaN(date.getTime())) found.add(dayNumber(date)); };
   for (const [, word] of words.matchAll(/\s(today|tomorrow|tmr|yesterday)\s/g)) add(parseDay(word, today));
-  for (const [, next, day] of words.matchAll(new RegExp(`\\s(?:(next)\\s+|(?:on|this|by|until|till)\\s+)?(${WEEKDAY})\\s`, 'g'))) add(parseDay(`${next ? 'next ' : ''}${day}`, today));
+  // A weekday: its whole name anywhere ("Friday"); a short one only after on, next, this, by, until (the code review,
+  // 2026-10-21: "Sat with Dr. Chen" and "Sun was out" were read as days).
+  for (const [, next, on, day] of words.matchAll(new RegExp(`\\s(?:(next)\\s+|(on|this|by|until|till)\\s+)?(${WEEKDAY})(?=\\s)`, 'g'))) if (next || on || day.endsWith('day')) add(parseDay(`${next ? 'next ' : ''}${day}`, today));
   for (const [, n] of words.matchAll(new RegExp(`\\s(?:on|by|until|till|from|before|after|for|${WEEKDAY})\\s+the\\s+(\\d{1,2})(?:st|nd|rd|th)${AFTER_DAY}`, 'g'))) {
     const d = Number(n);
     if (d < 1 || d > 31) continue;
@@ -401,16 +404,21 @@ function daysInWords(text, base) {
     if (date.getDate() === d) add(date);
   }
   // A day and a month, either way round ("4 Aug", "the 4th of December", "Aug 4th"); a day that does not exist (Feb 30) is none.
-  const dayMonth = (d, month) => { const date = parseDay(`${d} ${month.slice(0, 3)}`, today); if (date && date.getDate() === Number(d)) add(date); };
-  for (const [, d, month] of words.matchAll(new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH})`, 'g'))) dayMonth(d, month);
-  for (const [, month, d] of words.matchAll(new RegExp(`\\s(${MONTH})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?=\\s)`, 'g'))) dayMonth(d, month);
+  // "May" is a month only where a date can end: "Dose 4 may need lowering" is the verb (the code review, 2026-10-21).
+  const dayMonth = (d, month, rest) => {
+    if (month === 'may' && !new RegExp(`^${AFTER_DAY}`).test(rest)) return;
+    const date = parseDay(`${d} ${month.slice(0, 3)}`, today); if (date && date.getDate() === Number(d)) add(date);
+  };
+  for (const m of words.matchAll(new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH})`, 'g'))) dayMonth(m[1], m[2], words.slice(m.index + m[0].length));
+  for (const m of words.matchAll(new RegExp(`\\s(${MONTH})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?=\\s)`, 'g'))) dayMonth(m[2], m[1], words.slice(m.index + m[0].length));
   for (const [, n, unit] of words.matchAll(/\sin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|fortnights?)(?=\s)/g)) add(dayAfter(today, (SMALL[n] ?? Number(n)) * (unit.startsWith('fortnight') ? 14 : unit.startsWith('week') ? 7 : 1)));
   for (const [, iso] of words.matchAll(/\s(\d{4}-\d{1,2}-\d{1,2})\s/g)) add(parseDay(iso, today));
   return [...found];
 }
 // The number written beside a number property's name ("cycle 5", "5 cycles"), or null; two different ones, null.
 function numberInWords(text, prop) {
-  const words = ' ' + cleanWords(text).toLowerCase().replace(/[,;:!?()]/g, ' ') + ' ', found = new Set();
+  // A full stop ends a number ("Chemo cycle 5."), a point inside one does not (1.5).
+  const words = ' ' + cleanWords(text).toLowerCase().replace(/[,;:!?()]/g, ' ').replace(/\.(?=\s|$)/g, ' ') + ' ', found = new Set();
   const name = prop.lower.replace(/[^\p{L}\p{N} ]/gu, ' ').trim();
   if (!name) return null;
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
@@ -538,7 +546,9 @@ async function guessDataFor(ctx, { wait = true } = {}) {
   const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
   let data = guessCache.graph === graph ? guessCache.data : null;
   if (!data || Date.now() - guessCache.at > GUESS_DATA_EVERY) {
-    guessCache.loading ||= loadGuessData(ctx).then(fresh => Object.assign(guessCache, { graph, at: Date.now(), data: fresh }).data).finally(() => { guessCache.loading = null; });
+    // A failed reading is reported once and tried again next time; never left as an error nobody handles.
+    guessCache.loading ||= loadGuessData(ctx).then(fresh => Object.assign(guessCache, { graph, at: Date.now(), data: fresh }).data)
+      .catch(error => { warnOnce('the earlier lines could not be read', error); return guessCache.data; }).finally(() => { guessCache.loading = null; });
     if (!data && wait) data = await guessCache.loading;
   }
   if (!data) return ctx;
@@ -555,6 +565,7 @@ async function guessDataFor(ctx, { wait = true } = {}) {
 }
 async function loadGuessData(ctx) {
   const { schema } = ctx;
+  if (!schema) return { aliases: [], tagIds: [], entries: [] }; // the properties not read yet: nothing to learn from
   const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
   // Every tag of the owner's own (user.class/…), for stage D's tag votes: never Logseq's (Task, Card, Query), which
   // the schema knows too; before 0.4.213 only the tags with link properties.
@@ -581,7 +592,8 @@ async function daysFor(ctx, { wait = true } = {}) {
   const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
   let data = daysCache.graph === graph ? daysCache.data : null;
   if (!data || Date.now() - daysCache.at > GUESS_DATA_EVERY) {
-    daysCache.loading ||= loadDays().then(fresh => Object.assign(daysCache, { graph, at: Date.now(), data: fresh }).data).finally(() => { daysCache.loading = null; });
+    daysCache.loading ||= loadDays(ctx.schema).then(fresh => Object.assign(daysCache, { graph, at: Date.now(), data: fresh }).data)
+      .catch(error => { warnOnce('the journal days could not be read', error); return daysCache.data; }).finally(() => { daysCache.loading = null; });
     if (!data && wait) data = await daysCache.loading;
   }
   if (!data) return ctx;
@@ -589,10 +601,13 @@ async function daysFor(ctx, { wait = true } = {}) {
   ctx.dated = data.dated;
   return ctx;
 }
-async function loadDays() {
+// The Date property the rules use is found by its title, so the counts use the same one (the code review, 2026-10-21:
+// it was named here as :user.property/date, which another graph's Date need not be).
+async function loadDays(schema) {
   const days = new Map((await dsQuery('[:find ?p ?d :where [?p :block/journal-day ?d]]')).map(([p, d]) => [p, Number(d)]));
   const dated = new Map();
-  const rows = await dsQuery('[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :user.property/date ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]').catch(() => []);
+  const date = schema?.props.find(p => p.type === 'date' && p.lower === 'date');
+  const rows = date ? await dsQuery(`[:find ?t ?same (count ?b) :where [?b :block/tags ?t] [?b :${date.ident} ?dp] [?dp :block/journal-day ?d] [?b :block/page ?pg] [?pg :block/journal-day ?pd] [(= ?d ?pd) ?same]]`).catch(() => []) : [];
   for (const [t, same, count] of rows) { const n = dated.get(t) || { same: 0, other: 0 }; n[same ? 'same' : 'other'] += Number(count) || 0; dated.set(t, n); }
   return { days, dated };
 }
@@ -641,13 +656,40 @@ const takenIn = uuid => state.taken.uuid === uuid ? state.taken.keys : new Set()
 const OFF_KEY = 'refinementShadowOff';
 const forgetOld = () => { try { host().defaultView.localStorage.removeItem(OFF_KEY); } catch { /* nothing kept */ } };
 const hushed = state.hushed = { uuid: '' };
-function dismiss(uuid) { hushed.uuid = uuid; }
+// Escape: also drops any check still running, so the values cannot come back from it (the code review, 2026-10-21).
+function dismiss(uuid) { hushed.uuid = uuid; liveVersion++; }
 // The box of a bullet being written. A property value's box (a text value is drawn as a block of its own, inside the
 // record's properties) is not one: proposals are never worked out, shown or taken there (second reading).
 const VALUE_PLACE = '.property-pair, .bottom-property-pill, .property-block-container, .property-value-container';
 const editingBox = el => (el?.matches?.('textarea') && el.closest('.ls-block[blockid]') && !el.closest(VALUE_PLACE)) ? el : null;
 const uuidOf = box => box.closest('.ls-block[blockid]')?.getAttribute('blockid') || '';
 let liveTimer = 0, liveVersion = 0;
+// The plugin switched off: nothing waiting may write afterwards (the code review, 2026-10-21).
+let stopped = false;
+// Every timer that can write or take, kept so switching off clears them all.
+const pending = new Set();
+const later = (fn, ms) => { const t = setTimeout(() => { pending.delete(t); if (!stopped) fn(); }, ms); pending.add(t); return t; };
+// Whether the proposals may write in the graph open now, as last seen by a check (Option-Enter must decide at once,
+// while its key is still going; the check sets it on every key).
+state.allowedNow = false;
+// All the guesses shown on a bullet, as Enter takes them.
+const shownGuesses = live => new Set(live.pieces.filter(piece => piece.guess && live.drawn?.has(guessKey(piece))).map(guessKey));
+/* Leaving a bullet, the one way (the code review, 2026-10-21: four copies of this disagreed about what to check). The
+   shadow is taken off the screen, any check still running for it is dropped, and what was shown is filled in, unless
+   Escape had cleared it (looked at here, at once: Escape's clearing ends a moment later). taken: the guesses to fill
+   with the sure values. */
+function leave(live, taken = new Set()) {
+  if (!live || live.left) return;
+  live.left = true;
+  live.taken = taken;
+  live.dismissed = hushed.uuid === live.uuid;
+  state.left = live; // for tools/shadow-test.js
+  liveVersion++;
+  if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
+  if (state.live === live) { state.live = null; hide(); }
+  if (live.dismissed || stopped) return;
+  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+}
 // The bullet's own tags when its editing began (ownTagsAtStart), read again each time a bullet's box gets the focus.
 const startTags = { uuid: '', own: new Set() };
 async function allowed() {
@@ -660,10 +702,17 @@ async function compute(box) {
   if (!uuid || hushed.uuid === uuid) { clearLive(); return; }
   const version = ++liveVersion, text = box.value, t0 = performance.now();
   try {
-    if (!await allowed()) { clearLive(); return; }
+    const ok = await allowed();
+    state.allowedNow = ok;
+    if (!ok) { clearLive(); return; }
     const ctx = await withFreshLinks(text, await guessDataFor(await daysFor(await contextFor()), { wait: false }));
     const b = await pullBlock(uuid);
-    if (version !== liveVersion) return;
+    // Still the newest check, not cleared by Escape meanwhile, and the bullet still the one in edit (the code review,
+    // 2026-10-21: a check finishing after Escape brought the values back, and one finishing after the bullet was left
+    // drew them on a bullet no longer written in).
+    if (version !== liveVersion || stopped || hushed.uuid === uuid) return;
+    const now = editingBox(host().activeElement);
+    if (!now || uuidOf(now) !== uuid) return;
     if (!b) { clearLive(); return; }
     if (startTags.uuid !== uuid) Object.assign(startTags, { uuid, own: ownTagsAtStart(b, ctx) });
     const { record, pieces, skip, assume } = piecesFor(b, text, ctx, startTags.own);
@@ -694,26 +743,25 @@ function onFocusOut(event) {
   if (!box) return;
   const uuid = uuidOf(box);
   // Leaving a bullet whose proposals Escape cleared: they come back the next time it is edited.
-  if (hushed.uuid === uuid) setTimeout(() => { const now = editingBox(host().activeElement); if (!(now && uuidOf(now) === uuid) && picking.uuid !== uuid && picking.returning !== uuid) hushed.uuid = ''; }, 120);
+  // Leaving a bullet Escape cleared: nothing is taken (decided now, not by which timer runs first), and the clearing
+  // ends once the bullet is really left.
+  if (hushed.uuid === uuid) { liveVersion++; later(() => { const now = editingBox(host().activeElement); if (!(now && uuidOf(now) === uuid) && picking.uuid !== uuid && picking.returning !== uuid) hushed.uuid = ''; }, 120); return; }
   // Into a property's list with Option-Enter, or coming back from it: the proposals wait for the words.
   if (picking.uuid === uuid || picking.returning === uuid) return;
   if (!state.live || state.live.uuid !== uuid) { if (state.taken.uuid === uuid) state.taken = { uuid: '', keys: new Set() }; return; }
   // Enter's taking counts only when the bullet is left right after it: an Enter that kept the bullet in edit (at the
   // very start of its words, or in document mode) must not let a later click away fill in guesses (second reading).
   const live = state.live, taken = Date.now() - (state.taken.at || 0) < ENTER_LEAVES ? new Set(takenIn(uuid)) : new Set();
-  setTimeout(() => {
+  // A check still running for this bullet is dropped now: the bullet is being left (it would draw on it afterwards).
+  liveVersion++;
+  later(() => {
     const active = host().activeElement, now = editingBox(active);
     if (now && uuidOf(now) === live.uuid) return;
     if (live.left) return;
     // Into the bullet's own properties (Logseq's Down from the words, then Left/Right, Enter): not leaving it. The
     // proposals stay shown and wait (0.4.208, at the owner's word).
     if (inOwnProperties(active, live.recordUuid)) return visitProperties(live);
-    live.left = true;
-    live.taken = taken;
-    state.left = live; // for tools/shadow-test.js
-    if (state.live === live) { state.live = null; hide(); }
-    if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
-    takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+    leave(live, taken);
   }, 120);
 }
 /* Moving about the bullet's own properties with Logseq's keys (Down from the end of the words goes into its capsules;
@@ -728,15 +776,7 @@ function inOwnProperties(el, rowUuid) {
 }
 const visiting = state.visiting = { live: null, timer: 0, out: 0 };
 // The bullet visited is left: what is sure is filled in, as leaving the words does.
-function leaveVisited(live) {
-  if (live.left) return;
-  live.left = true;
-  live.taken = new Set();
-  state.left = live; // for tools/shadow-test.js
-  if (state.taken.uuid === live.uuid) state.taken = { uuid: '', keys: new Set() };
-  if (state.live === live) { state.live = null; hide(); }
-  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
-}
+function leaveVisited(live) { leave(live); }
 function visitProperties(live) {
   // A visit still going for another bullet ends as leaving it (second reading: it was dropped unfilled).
   if (visiting.live && visiting.live !== live) leaveVisited(visiting.live);
@@ -766,7 +806,7 @@ function onKey(event) {
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
   if (event.key === 'Enter') {
     if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
-    state.taken = { uuid: state.live.uuid, at: Date.now(), keys: new Set(state.live.pieces.filter(p => p.guess && state.live.drawn?.has(guessKey(p))).map(guessKey)) };
+    state.taken = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
     return;
   }
   event.preventDefault(); event.stopImmediatePropagation();
@@ -875,8 +915,9 @@ const OPEN_WAIT = 600, KEY_CLOSES = 400;
 // leaves nothing behind.
 function leaveBlank(rowUuid, name) {
   if (!rowUuid || !name) return;
-  setTimeout(async () => {
+  later(async () => {
     try {
+      if (!await allowed()) return; // writes only in the graphs named in the setting (the code review, 2026-10-21)
       const schema = await propSchema();
       const prop = schema?.props.find(p => p.lower === name && (p.type === 'default' || p.type === 'url'));
       if (!prop || !UUID.test(rowUuid)) return;
@@ -952,23 +993,18 @@ async function finishBullet() {
   endPicking(false);
   if (!UUID.test(uuid)) return;
   picking.returning = uuid;
-  if (hushed.uuid === uuid) hushed.uuid = ''; // the bullet is left: Escape's clearing ends (second reading)
   try {
     // The fill goes on behind the next bullet, as with Enter in the words (second reading: waiting for it left
     // nothing in edit for a moment).
-    if (live && !live.left) {
-      live.left = true;
-      live.taken = new Set(live.pieces.filter(piece => piece.guess && live.drawn?.has(guessKey(piece))).map(guessKey));
-      if (state.live === live) { state.live = null; hide(); }
-      takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
-    }
+    if (live) leave(live, shownGuesses(live));
+    if (hushed.uuid === uuid) hushed.uuid = ''; // the bullet is left: Escape's clearing ends (second reading)
     // Where Logseq's own Enter puts it: the first child of a bullet whose children show, else the next sibling.
     const row = recordRow(host(), uuid);
     const kids = row && [...row.querySelectorAll('.block-children-container .ls-block[blockid]')].some(el => el.parentElement?.closest('.ls-block[blockid]') === row);
     const next = kids ? await logseq.Editor.insertBlock(uuid, '', { sibling: false, before: true }) : await logseq.Editor.insertBlock(uuid, '', { sibling: true });
     if (next?.uuid) await logseq.Editor.editBlock(next.uuid);
   } catch (error) { warnOnce('could not go on to the next bullet', error); }
-  setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
+  later(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
 function endPicking(left) {
   if (left) passOn();
@@ -976,12 +1012,8 @@ function endPicking(left) {
   clearInterval(picking.timer); clearTimeout(picking.tab); clearInterval(picking.settle);
   markAt(host(), null);
   Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0, pickerRoot: null, settle: 0 });
-  if (!left || !live || live.left) return;
   // Left from the list: as leaving the words, the sure values only.
-  live.left = true;
-  live.taken = new Set();
-  if (state.live === live) { state.live = null; hide(); }
-  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+  if (left) leave(live);
 }
 // Closes what is open in the properties with an Escape of the plugin's own (Logseq closes its list, or saves and
 // closes a value's box), then does next.
@@ -1001,7 +1033,7 @@ function onPickKey(event) {
   // Option-Enter in the words (only while the proposals are on).
   if (plainEnter && event.altKey && !picking.uuid) {
     const box = editingBox(event.target);
-    if (!box || !setting('shadowProposals')) return;
+    if (!box || !setting('shadowProposals') || !state.allowedNow) return;
     const uuid = uuidOf(box), doc = box.ownerDocument;
     const rowUuid = state.live?.uuid === uuid ? state.live.recordUuid : uuid;
     const names = emptyNames(doc, rowUuid);
@@ -1046,7 +1078,7 @@ function onPickKey(event) {
 const linksOut = text => { const bare = String(text || '').replace(TAG, ' '); const found = bare.match(LINK) || []; return { n: found.length, words: plainWords(bare.replace(LINK, ' ')) }; };
 const sameWords = (saved, text) => { const a = linksOut(saved), b = linksOut(text); return a.n === b.n && a.words === b.words; };
 async function takeShadow(live) {
-  if (!await allowed() || hushed.uuid === live.uuid) return;
+  if (stopped || live.dismissed || !await allowed()) return;
   const ctx = await withFreshLinks(live.text, await guessDataFor(await daysFor(await contextFor()), { wait: false }));
   let b = null;
   let saved = false;
@@ -1065,7 +1097,7 @@ async function takeShadow(live) {
   const taken = live.taken || new Set(), shown = live.drawn || new Set();
   const pieces = found.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || taken.has(guessKey(piece))));
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
-  if (!pieces.length || !UUID.test(recordUuid)) return;
+  if (!pieces.length || !UUID.test(recordUuid) || stopped) return;
   const written = [];
   for (const piece of pieces) {
     const tagged = [];
@@ -1075,10 +1107,11 @@ async function takeShadow(live) {
       if (piece.kind === 'tag') { await logseq.Editor.addBlockTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
       if (piece.asPage) { if (await takeAsPage(piece, live.uuid, recordUuid)) written.push(piece); continue; }
       if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
-      if (piece.kind === 'day') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.journalId ?? await journalPageFor(piece.day));
+      if (piece.kind === 'day') { piece.wrote = [piece.journalId ?? await journalPageFor(piece.day)]; await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.wrote[0]); }
       else if (piece.kind === 'number') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0]);
       else if (piece.prop.many) await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids, { entityId: true, reset: true });
       else await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0], { entityId: true });
+      piece.wrote ||= piece.ids;
       written.push(piece);
     } catch (error) {
       // The tag a page was given for this fill goes again when the fill fails.
@@ -1088,18 +1121,34 @@ async function takeShadow(live) {
   }
   if (!written.length) return;
   const words = cleanWords(String(pick(record, 'block/title') ?? '')) || 'the bullet';
+  // Undo takes off only what is still as it was filled in: a value chosen by hand since is the owner's, and stays. Every
+  // step is tried even when one fails, and a failure is reported at the end (the code review, 2026-10-21).
   const undo = async () => {
+    const failed = [];
     for (const piece of [...written].reverse()) {
-      if (piece.undo) { await piece.undo(); continue; }
-      if (piece.kind === 'tag') { await logseq.Editor.removeBlockTag(recordUuid, piece.tag.uuid); continue; }
-      await logseq.Editor.removeBlockProperty(recordUuid, piece.ident);
-      if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid);
+      try {
+        if (piece.undo) { await piece.undo(); continue; }
+        if (piece.kind === 'tag') { await logseq.Editor.removeBlockTag(recordUuid, piece.tag.uuid); continue; }
+        if (await stillAsFilled(recordUuid, piece)) await logseq.Editor.removeBlockProperty(recordUuid, piece.ident);
+        if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid);
+      } catch (error) { failed.push(error); }
     }
+    if (failed.length) throw failed[0];
   };
   showUndoBar(`${written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · ')} filled in on “${words.length > 40 ? words.slice(0, 39) + '…' : words}”`, undo,
     error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
 }
 
+// Whether a property still holds what the fill wrote (Logseq keeps a number as a value of its own: the number in it is
+// what is compared).
+async function stillAsFilled(recordUuid, piece) {
+  if (piece.kind === 'number') {
+    const now = (await dsQuery(`[:find ?n :where [?r :block/uuid #uuid "${recordUuid}"] [?r :${piece.ident} ?v] [?v :logseq.property/value ?n]]`)).map(([n]) => Number(n));
+    return now.length === 1 && now[0] === Number(piece.ids[0]);
+  }
+  const now = (await dsQuery(`[:find ?v :where [?r :block/uuid #uuid "${recordUuid}"] [?r :${piece.ident} ?v]]`)).map(([v]) => Number(v));
+  return sameIds(now, (piece.wrote || piece.ids).map(Number));
+}
 // The journal page of a day a date in the words names (stage E), made when the graph has none yet, as Logseq would
 // (through the model, in the graph's own title format). The page stays after Undo, as an empty journal does.
 async function journalPageFor(day) {
@@ -1135,6 +1184,9 @@ async function takeAsPage(piece, bulletUuid, recordUuid) {
     done.push(() => logseq.Editor.removeBlockProperty(recordUuid, piece.ident));
     const removed = pairs.map(({ x, page }) => ({ page, text: pageTagIn(before, page, x.tag).text }));
     const after = pairs.reduce((title, { x, page }) => withoutPageTag(title, page, x.tag), before);
+    // The words read again just before they are changed: words written meanwhile are never lost (the code review,
+    // 2026-10-21); then the fill is put back and nothing is taken.
+    if (await titleNow() !== before) { await undo(); return false; }
     await logseq.Editor.updateBlock(bulletUuid, after);
     // Undo puts the words back as they were, or, when they were written on meanwhile, only the tags after their pages
     // (second reading: the whole old words would have lost what was written since).
@@ -1268,7 +1320,8 @@ function start() {
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); } }));
-  onUnload(() => { clearTimeout(liveTimer); endPicking(false); stopVisiting(); clearLive(); });
+  stopped = false;
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); });
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.

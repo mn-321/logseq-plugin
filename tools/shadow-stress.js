@@ -97,11 +97,18 @@ const cases = [
   ['"Feb 30" does not exist', [T.expectation], 'Scan Feb 30', '(nothing)'],
   ['"in a fortnight"', [T.expectation], 'Review in a fortnight', 'Date=Nov 3?'],
   ['a time is not a day: "at 4"', [T.expectation], 'Scan at 4', '(nothing)'],
+  ['"Sat with" is not Saturday', [T.expectation], 'Sat with Dr. Chen about the scan', '(nothing)'],
+  ['"Sun was out" is not Sunday', [T.expectation], 'Sun was out, scan went fine', '(nothing)'],
+  ['"on sat" is Saturday', [T.expectation], 'Scan on sat', 'Date=Oct 24?'],
+  ['"Dose 4 may" is the verb', [T.expectation], 'Dose 4 may need lowering', '(nothing)'],
+  ['"4 May at 9" is the month', [T.expectation], 'Bloods 4 May at 9', 'Date=May 4?'],
   ['"next week" is not one day: nothing', [T.expectation], 'Scan next week', '(nothing)'],
   ['a date in a link\'s name: "[[May Fair]]"', [T.expectation], 'Stall at [[May Fair]] on Friday', 'Date=Oct 23?'],
   // Numbers.
   // Treatments here have 8 nodes all dated the day written: the day is sure.
   ['a cycle number', [T.treatment], 'Chemo cycle 5 done', 'Date=Oct 20 · Cycle=5?'],
+  ['a cycle number at the end of a sentence', [T.treatment], 'Chemo cycle 5.', 'Date=Oct 20 · Cycle=5?'],
+  ['a cycle number with a point', [T.treatment], 'Dose at cycle 2.5 then', 'Date=Oct 20 · Cycle=2.5?'],
   ['"cycle 5 of 8"', [T.treatment], 'Chemo cycle 5 of 8', 'Date=Oct 20 · Cycle=5?'],
   ['"recycle 3" is not a cycle', [T.treatment], 'Put out the recycle 3 times', 'Date=Oct 20'],
   ['a severity "7/10" is not written beside its name: nothing', [T.log], 'Pain 7/10 tonight', 'Date=Oct 20'],

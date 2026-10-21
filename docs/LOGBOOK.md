@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The proposals' keys, leaving and writing fixed after a code review (0.4.217)
+
+**The owner:** "check quality of code", then "fix them in that order: tests for writing and Undo, one leave path with the
+Escape fix, then the date reader". **Review:** a second reader (a subagent given the code, not my view) plus my own
+measures; every finding checked before reporting. **Test first:** `tools/shadow-write-test.js` (pretend store and
+Editor, slowed database), 24 checks; on 0.4.216 it failed 6 (Escape race, late check, write after switching off, Undo
+over a hand choice, Undo stopping on a failure). **Fixed:** `leave(live, taken)` replaces four copies; `dismiss` and
+focus-out bump `liveVersion`; `compute` rechecks version, Escape and the bullet in edit after its awaits; `later` keeps
+timers for unload; `stillAsFilled` for Undo; `takeAsPage` rereads the words; `state.allowedNow` for Option-Enter;
+`leaveBlank` checks `allowed()`; the caches catch failures; `loadDays` uses the schema's Date. Reader: short weekdays,
+"may", "cycle 5.", "#Doctor's". Old checks updated: the Option-Enter section of `tools/shadow-test.js` now says its
+pretend graph is allowed. **Seen after:** Escape + click away filled nothing; Option-Enter → Set Topic; Enter filled,
+Undo took off. Learned: the Undo bar's 7 s run out across two tool calls; press Undo in the same batch as Enter.
+**Not done, noted for later:** the "most particular tag first" depth count when a tag extends two tags (possible, not
+shown); the shared state and timings still want one place that explains them.
+
 ## 2026-10-21 · The proposals stress tested on a large graph (0.4.216)
 
 **The owner:** "stress test them, both if they can work and timing", then "stress test on large graph". **Built:**

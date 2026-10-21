@@ -301,6 +301,9 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
 // 17. Option-Enter (0.4.204): from the words, Logseq's own list opens for the first property that is empty and has
 //     nothing proposed; Tab goes on to the next; Escape in the list comes back to the end of the words.
 {
+  // From here on the graph counts as one named in the setting (0.4.217: Option-Enter works only there), whatever the
+  // checks the focus starts say: this pretend graph has no name.
+  Object.defineProperty(window.refinementShadow, 'allowedNow', { get: () => true, set() {}, configurable: true });
   const doc = window.document, edited = [];
   window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push([uuid, opts?.pos]); };
   const pill = (name, inner) => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content">${inner}</span></div>`;
