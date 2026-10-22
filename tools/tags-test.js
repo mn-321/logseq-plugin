@@ -32,6 +32,7 @@ function pretendLogseq(window) {
   ];
   const choices = [['c-normal', 'Normal', 'a1'], ['c-abnormal', 'Abnormal', 'a2'], ['c-unclear', 'Unclear', 'a3']].map(([uuid, title, order]) => ({ uuid, title, order }));
   window.pretendChoices = choices;
+  window.pretendProps = props;
   const ref = p => ({ ':db/id': p[':db/id'], ':db/ident': p[':db/ident'], ':block/title': p[':block/title'], ':block/uuid': p[':block/uuid'] });
   const tags = [
     { ':db/id': 10, ':db/ident': ':user.class/Report', ':block/uuid': 't-Report', ':block/title': 'Report', parents: [], desc: '', props: props.slice(0, 3).map(ref) },
@@ -282,6 +283,65 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (JSON.stringify(window.pretendChoices) !== writesBefore) problem('grouping changed something in the pretend graph');
     }
   }
+  // The Properties view as an outline (0.4.305): an opened property's lines are the places to act (Holds with Change…,
+  // On with the tag and + Tag, Group with Change…), and + New property walks through the name, the kind and the tag,
+  // then makes the property with Logseq's own box (stood in for here) and puts the Undo arrow on the new row.
+  {
+    const fold = await until(() => doc.querySelector('.rtg-row[data-key="P22"] .rtg-fold'));
+    if (!fold) problem('the Properties view has no row for result');
+    else {
+      fold.click();
+      const info = await until(() => doc.querySelector('.rtg-row[data-key="P22"] + .rtg-pinfo'));
+      const labels = [...(info?.querySelectorAll('.rtg-plbl') || [])].map(l => l.textContent);
+      if (!labels.includes('Holds') || !labels.includes('On') || !labels.includes('Group')) problem(`result’s opened lines read ${JSON.stringify(labels)}; wanted Holds, On and Group among them`);
+      const chip = info?.querySelector('.rtg-onchip');
+      if (!chip || chip.textContent.replace('×', '').trim() !== '#Report') problem(`the On line shows “${chip?.textContent}” instead of #Report`);
+      if (!chip?.querySelector('.rtg-onx')) problem('the On line’s tag has no × to take the property off it');
+      if (![...(info?.querySelectorAll('button') || [])].some(b => b.textContent === '+ Tag')) problem('the On line has no + Tag');
+      const change = [...(info?.querySelectorAll('button') || [])].find(b => b.textContent === 'Change …');
+      change?.click();
+      const items = [...doc.querySelectorAll('.refinement-tags-menu button')].map(b => b.textContent);
+      if (!items.some(t => t.startsWith('Turn into links to pages'))) problem(`Holds’ Change… lists ${JSON.stringify(items)}; wanted Turn into links to pages among them`);
+      doc.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      [...doc.querySelectorAll('.refinement-tags-menu button')].length && view.node.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
+    // + New property: the name, Number, on #Report.
+    const made = [];
+    window.refinementTagMap.makeProperty = async (tag, name, kind) => {
+      made.push([tag.title, name, kind]);
+      const p = { ':db/id': 24, ':db/ident': ':user.property/' + name, ':block/title': name, ':block/uuid': 'p-' + name, ':logseq.property/type': ':' + kind, ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] };
+      window.pretendProps.push(p);
+      window.pretendTags[0].props.push({ ':db/id': 24, ':db/ident': p[':db/ident'], ':block/title': name, ':block/uuid': p[':block/uuid'] });
+      return { id: 24, uuid: p[':block/uuid'], ident: 'user.property/' + name, title: name, type: kind, many: false };
+    };
+    const newButton = [...doc.querySelectorAll('.rtg-newprops button')].find(b => b.textContent === '+ New property');
+    if (!newButton) problem('the Properties view has no + New property');
+    else {
+      newButton.click();
+      const input = await until(() => doc.querySelector('.rtg-addprop input'));
+      if (!input) problem('+ New property opened no line to type in');
+      else {
+        input.value = 'weight';
+        input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        const kind = await until(() => [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.startsWith('Number')));
+        if (!kind) problem('Enter on the name offered no kinds');
+        else {
+          kind.click();
+          const tagRow = await until(() => [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.includes('#Report')));
+          if (!tagRow) problem('the kind picked offered no tag to put the property on');
+          else {
+            tagRow.click();
+            const row = await until(() => doc.querySelector('.rtg-row[data-key="P24"]'));
+            if (made.length !== 1 || made[0].join('|') !== 'Report|weight|number') problem(`Logseq’s box was asked for ${JSON.stringify(made)}; wanted [["Report","weight","number"]]`);
+            if (!row) problem('the new property has no row after it was made');
+            const arrow = await until(() => row?.querySelector('.rf-undo'));
+            if (!arrow) problem('the new property’s row has no Undo arrow');
+            else if (!/Made weight on #Report/.test(arrow.title || arrow.getAttribute('aria-label') || '')) problem(`the Undo arrow says “${arrow.title || arrow.getAttribute('aria-label')}”`);
+          }
+        }
+      }
+    }
+  }
   // Renaming a tag takes its place in the order with it, and Undo brings the old name back there too (0.4.274: after
   // Undo the order kept the new name, so the tag lost its place).
   {
@@ -324,5 +384,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; an open tag’s adds line, its parents and the links into it act where they sit, with Undo on that line; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; an open tag’s adds line, its parents and the links into it act where they sit, with Undo on that line; groups of properties are drawn, moved and undone; a property’s lines act, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

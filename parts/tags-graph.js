@@ -328,20 +328,32 @@ async function freeName(base) {
   for (let n = 1; n < 50; n++) { const name = n === 1 ? base : `${base} ${n}`; if (!await logseq.Editor.getPage(name).catch(() => null)) return name; }
   throw new Error(`no free name like “${base}”`);
 }
-// Logseq's own Add tag property, on the tag's page in the right sidebar, so the map stays open where it is.
-async function makeLinkProperty(tag, name) {
+// Logseq's own Add tag property, on the tag's page in the right sidebar, so the map stays open where it is. Since
+// 0.4.305 it makes a property of any kind (the Properties view's + New property): the kind is picked in the box by
+// the word Logseq shows for it, and a link skips choosing a tag (the map sets what it accepts itself).
+const BOX_KINDS = { default: /^text$/i, number: /^number$/i, date: /^date$/i, datetime: /^date ?time$/i, checkbox: /^checkbox$/i, url: /^url$/i, node: /^node$/i };
+const KIND_WORDS = { default: 'Text', number: 'Number', date: 'Date', datetime: 'DateTime', checkbox: 'Checkbox', url: 'Url', node: 'Node' };
+async function makeProperty(tag, name, kind = 'node') {
   const doc = host(), win = doc.defaultView;
   const waitFor = async (find, tries = 40) => { for (let i = 0; i < tries; i++) { const node = find(); if (node) return node; await sleep(100); } return null; };
   const press = node => { for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) node.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, view: win })); };
-  const shown = node => node.getClientRects().length > 0;
+  // Only what floats over the page counts (the box and its lists): the tag's own page in the sidebar shows its
+  // properties and its table's columns, so a "Date" there would be pressed in place of the box's Date (second reading).
+  const shown = node => node.getClientRects().length > 0 && !node.closest('#right-sidebar, #main-content-container, #left-sidebar, .cp__header, .refinement-tags');
   const item = test => () => [...doc.querySelectorAll('[role="menuitem"], [role="option"], .menu-link, .cp__select-main .menu-link, button, li, a')]
     .filter(shown).find(node => test(node.textContent.trim()));
   await logseq.Editor.openInRightSidebar(tag.uuid);
   await logseq.App.setRightSidebarVisible?.(true);
   // On a tag's page in the sidebar the button under Tag Properties reads "Add property"; in the main view, above the
-  // title, "Add tag property" (both seen in the app). The tag just opened is the first item of the sidebar.
-  const button = await waitFor(() => [...doc.querySelectorAll('#right-sidebar button')].find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
-  if (!button) throw new Error('Logseq’s Add tag property button was not found on the tag’s page');
+  // title, "Add tag property" (both seen in the app). The button is taken from the sidebar item whose header names
+  // this tag (Logseq's .sidebar-item with its .sidebar-item-header, read in the app's own source): with another page
+  // open in the sidebar first, the first such button was that page's, and the property landed on the wrong tag
+  // (seen in the app, 0.4.305: a Date meant for #Report made on #Doctor).
+  const named = text => text.replace(/^[#\s]+/, '').trim().toLowerCase();
+  const button = await waitFor(() => [...doc.querySelectorAll('#right-sidebar .sidebar-item')]
+    .filter(item => named(item.querySelector('.sidebar-item-header')?.textContent || '').startsWith(tag.title.toLowerCase()))
+    .flatMap(item => [...item.querySelectorAll('button')]).find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
+  if (!button) throw new Error(`#${tag.title}’s page, with its Add property button, was not found in the right sidebar`);
   press(button);
   const input = await waitFor(() => doc.querySelector('input[placeholder="Add or change property"]') || (doc.activeElement?.matches?.('#right-sidebar input, .ui__popover-content input, [data-radix-popper-content-wrapper] input') ? doc.activeElement : null));
   if (!input) throw new Error('Logseq’s new property box did not open');
@@ -351,25 +363,38 @@ async function makeLinkProperty(tag, name) {
   const fresh = await waitFor(item(text => /^\+?\s*New option/i.test(text) && text.includes(name)));
   if (!fresh) throw fail(`“New option: ${name}”`);
   press(fresh);
-  const node = await waitFor(item(text => text === 'Node'));
-  if (!node) throw fail('the kind “Node”');
-  press(node);
-  const skip = await waitFor(item(text => text === 'Skip choosing tag'));
-  if (!skip) throw fail('“Skip choosing tag”');
-  press(skip);
-  for (let i = 0; i < 50; i++) { const made = await model().propNamed(name, 'node'); if (made) return made; await sleep(100); }
-  throw new Error(`Logseq did not make ${name}`);
+  const want = BOX_KINDS[kind] || BOX_KINDS.node;
+  const kindItem = await waitFor(item(text => want.test(text)));
+  if (!kindItem) throw fail(`the kind “${KIND_WORDS[kind] || kind}”`);
+  press(kindItem);
+  if (kind === 'node') {
+    const skip = await waitFor(item(text => text === 'Skip choosing tag'));
+    if (!skip) throw fail('“Skip choosing tag”');
+    press(skip);
+  }
+  let made = null;
+  for (let i = 0; i < 50 && !made; i++) { made = await model().propNamed(name, kind); if (!made) await sleep(100); }
+  if (!made) throw new Error(`Logseq did not make ${name}`);
+  // Logseq makes the property first and puts it on the tag a moment later; the map waits for that too, or its first
+  // reading would list the property on no tag (seen in the app, 0.4.305).
+  for (let i = 0; i < 30; i++) { if ((await tagPropIds(tag)).includes(made.id)) break; await sleep(100); }
+  return made;
 }
-async function runLinks(plan, tagName) {
+const makeLinkProperty = (tag, name) => makeProperty(tag, name, 'node');
+// Since 0.4.305 the new property may have a name of its own (the owner: "name of new property"); then the old one keeps
+// its name and its words, and only a new property of the same name sends the old one to "… (old)".
+async function runLinks(plan, tagName, propName = plan.prop.title) {
   const { prop, tag } = plan;
   const done = { oldTitle: prop.title, renamed: false, newProp: null, givers: [], madeTag: null, linkTag: null, made: [], tagged: [], filled: [] };
   const undo = () => undoLinks(plan, done);
   try {
-    const oldName = await freeName(`${prop.title} (old)`);
-    await logseq.Editor.renamePage(prop.uuid, oldName);
-    if (await model().titleNow(prop.uuid) !== oldName) throw new Error('Logseq kept the old name');
-    done.renamed = true;
-    done.newProp = await makeLinkProperty(tag, prop.title);
+    if (propName.toLowerCase() === prop.title.toLowerCase()) {
+      const oldName = await freeName(`${prop.title} (old)`);
+      await logseq.Editor.renamePage(prop.uuid, oldName);
+      if (await model().titleNow(prop.uuid) !== oldName) throw new Error('Logseq kept the old name');
+      done.renamed = true;
+    }
+    done.newProp = await makeLinkProperty(tag, propName);
     for (const giver of [...plan.data.tags.values()].filter(t => !t.builtIn && t.id !== tag.id && (t.propList || []).some(p => p.id === prop.id))) { await addTagProp(giver, done.newProp); done.givers.push(giver); }
     const existing = plan.data.byName.get(tagName.toLowerCase());
     if (existing && !existing.builtIn) done.linkTag = existing;
@@ -461,7 +486,8 @@ const HUES = 4;
 function anchoredPanel(view, panel, anchor, onKey) {
   const doc = view.doc;
   panel.classList.add('rf-anchored');
-  const away = event => { if (!panel.contains(event.target)) close(); };
+  // A pick list opened from the box (the pages' tag, 0.4.305) is the map's menu: a click in it keeps the box.
+  const away = event => { if (!panel.contains(event.target) && !view.menu?.contains(event.target)) close(); };
   const close = () => { panel.remove(); doc.removeEventListener('mousedown', away, true); view.box.focus({ preventScroll: true }); };
   panel.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close(); return; } onKey?.(event); });
   for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
@@ -471,7 +497,7 @@ function anchoredPanel(view, panel, anchor, onKey) {
   return close;
 }
 
-Object.assign(TM, { ACCEPTS, CHEVRON, CHOICE_TYPES, DESCRIPTION, DOTS, EXTENDS, FOLD_KEY, GROUPS_SHUT_KEY, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, PROPS_KEY, SIDEBAR_ICON, TAG_PROPS, TREE_ICON, acting, acts, addTagProp, anchoredPanel, below, childTagName, choicesOf, el, escapeHtml, flip, folded, freeName, fromHtml, groupOf, groupsOverride, groupsShut, infoOpen, inheritedProps, isAbove, keepKeys, loadProps, loadTags, makeLinkProperty, makeTag, model, openTag, openViews, parsed, pathOf, placeInGroup, planChildTag, planLinks, planMerge, plural, propsOpen, readGroups, removeChoice, removeTagProp, renameChoice, resetGroups, runChildTag, runLinks, runMerge, saveFolded, saveGroups, saveGroupsShut, saveInherited, saveProps, setAccepts, setDescription, setParents, setTagProps, setValues, shown, sleep, tagPropIds, twoWay, undoChildTag, undoLinks, userValues, valuesOf, writeGroups });
+Object.assign(TM, { ACCEPTS, CHEVRON, CHOICE_TYPES, DESCRIPTION, DOTS, EXTENDS, FOLD_KEY, GROUPS_SHUT_KEY, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, PROPS_KEY, SIDEBAR_ICON, TAG_PROPS, TREE_ICON, acting, acts, addTagProp, anchoredPanel, below, childTagName, choicesOf, el, escapeHtml, flip, folded, freeName, fromHtml, groupOf, groupsOverride, groupsShut, infoOpen, inheritedProps, isAbove, keepKeys, loadProps, loadTags, makeLinkProperty, makeProperty, makeTag, model, openTag, openViews, parsed, pathOf, placeInGroup, planChildTag, planLinks, planMerge, plural, propsOpen, readGroups, removeChoice, removeTagProp, renameChoice, resetGroups, runChildTag, runLinks, runMerge, saveFolded, saveGroups, saveGroupsShut, saveInherited, saveProps, setAccepts, setDescription, setParents, setTagProps, setValues, shown, sleep, tagPropIds, twoWay, undoChildTag, undoLinks, userValues, valuesOf, writeGroups });
 TM.graphLoaded = true;
 (window.refinementParts ||= []).push({ name: 'tag map: the graph', schema: [], start() {}, stop: runUnloadTasks });
 })();

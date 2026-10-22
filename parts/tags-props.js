@@ -3,7 +3,7 @@
 /* The tag map, piece 2 of 3 (split out of parts/tags.js at 0.4.295): the property map. A tag's properties as rows
    under it, what each holds and accepts, the menus and boxes that change them (rename, accepts, choices, a choice
    made its own child tag, turned into links, a description, adding or taking a property off), and the Properties
-   view with its groups. Its functions are the tree's view methods (view.propRows …), added by parts/tags.js.
+   view with its groups and its + New property (0.4.305). Its functions are the tree's view methods (view.propRows …), added by parts/tags.js.
    The pieces share one object, window.refinementTagMap (TM): parts/tags-graph.js and parts/tags-props.js put there what
    they have, loaded in that order before parts/tags.js, and each piece takes what it uses from there as it loads.
    parts/tags.js starts the map only when both are loaded, and says so otherwise; the other two alone do nothing. */
@@ -79,48 +79,85 @@ function propRow(view, tag, prop, from) {
   if (!from && infoOpen.has(infoKey)) nodes.push(view.propGuide(tag, prop));
   return nodes;
 }
-// A property opened: which tags give it, its choices, what a link accepts and how it reads from the other end.
-function propDetails(view, tag, prop, from) {
+/* A property opened: its lines, each the place to change that thing (0.4.305, the owner: "useful and not just seen …
+   creation, editing, conversion … like an actual outline"). Holds (the kind, one or several, how many nodes hold it;
+   Change… turns a used property into a new one), Choices (edit, or one made its own child tag), On (the tags that have
+   it, each with an × to take it off, and + to add one), what a link accepts, how it reads on the other page, and in
+   the Properties view its group. */
+function propDetails(view, tag, prop, from, alone) {
   const doc = view.doc, box = el(doc, 'div', { class: 'rtg-pinfo' });
   const line = (label, ...rest) => box.append(el(doc, 'div', {}, el(doc, 'span', { class: 'rtg-plbl' }, label), ...rest));
-  const tagNames = list => list.map(t => '#' + t.title).join(', ');
-  const givers = (prop.givenBy?.length ? prop.givenBy : [from || tag]).filter(Boolean);
-  line('Given by', el(doc, 'span', { class: givers.length ? 'rtg-val' : 'rtg-note' }, givers.length ? tagNames(givers) : 'no tag yet'), givers.some(t => t.kids.length) ? el(doc, 'span', { class: 'rtg-note' }, 'and the tags inside them') : null);
+  const note = text => el(doc, 'span', { class: 'rtg-note' }, text);
+  const button = (text, title, run) => el(doc, 'button', { class: 'rtg-make', title, click: event => { event.stopPropagation(); aim(); run(event.currentTarget); } }, text);
+  const aim = () => { if (alone) view.cursorKey = `P${prop.id}`; };
+  const givers = (prop.givenBy || []).slice().sort(view.data.byTitle);
+  const giver = (tag && !tag.builtIn ? tag : null) || givers.find(t => !t.builtIn) || null;
   const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ', from a list of choices' : '');
-  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), el(doc, 'span', { class: 'rtg-note' }, prop.many ? '· several at once' : '· one at a time'),
-    el(doc, 'button', { class: 'rtg-make', title: 'What kind of value it holds, and one or several, are changed in Logseq’s own settings for the property', click: event => { event.stopPropagation(); view.kindMenu(prop, event.currentTarget); } }, 'Change'));
+  const used = note('');
+  view.useOf(prop).then(n => { used.textContent = n == null ? '' : `· on ${plural(n, 'node')}`; }).catch(() => {});
+  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), note(prop.many ? '· several at once' : '· one at a time'), used,
+    button('Change …', 'Turn it into links to pages, or open what Logseq lets only itself change', at => view.kindMenu(prop, at, giver)));
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) line('Choices', el(doc, 'span', { class: prop.choices.length ? 'rtg-val' : 'rtg-note' }, prop.choices.length ? prop.choices.join(' · ') : 'none, anything can be typed'),
-    el(doc, 'button', { class: 'rtg-make', title: prop.choices.length ? 'Rename or remove choices; add or reorder them in its settings' : 'Give it a list to pick from', click: event => { event.stopPropagation(); view.askChoices(prop, event.currentTarget); } }, prop.choices.length ? 'Edit' : 'Add choices'));
-  if (prop.type !== 'node') return box;
-  const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
-  const inside = new Set(to.flatMap(t => [...below(t)]));
-  line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? tagNames(to) : 'any node'),
-    el(doc, 'button', { class: 'rtg-make', title: 'Choose the tags this link accepts', click: event => { event.stopPropagation(); view.askAccepts(prop, event.currentTarget); } }, 'Change'),
-    to.length && inside.size ? el(doc, 'span', { class: 'rtg-note' }, `and the ${plural(inside.size, 'tag')} inside`) : null);
-  const tw = twoWay();
-  if (!tw) return box;
-  const input = el(doc, 'input', { class: 'rtg-words', type: 'text', spellcheck: 'false', value: tw.backwardsLabel(prop.title), 'aria-label': `How ${prop.title} reads on the other page`,
-    title: 'Type how it should read on the page it points to, then press Enter. Empty: back to how it reads by itself.' });
-  keepKeys(input);
-  const save = () => {
-    const before = tw.backwardsLabel(prop.title), after = input.value.trim();
-    if (after === before) return;
-    tw.setBackwards(prop.title, after);
-    view.showToast(after ? `${prop.title} now reads “${after}” on the other page` : `${prop.title} reads as it does by itself on the other page again`, () => tw.setBackwards(prop.title, before));
-  };
-  input.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); input.blur(); }
-    if (event.key === 'Escape') { event.preventDefault(); input.value = tw.backwardsLabel(prop.title); input.blur(); }
-  });
-  input.addEventListener('blur', save);
-  const shown = tw.shownAtOtherEnd(prop.title);
-  const turn = el(doc, 'button', { class: 'rtg-make', title: shown
-    ? 'Off: the page it points to no longer lists these at the top. The link stays, in Linked references at the bottom and in searches.'
-    : 'On: the page it points to lists these at the top again.',
-    click: event => { event.stopPropagation(); tw.setShownAtOtherEnd(prop.title, !shown); view.showToast(shown ? `${prop.title} no longer shows on the other page; the links stay` : `${prop.title} shows on the other page again`, () => tw.setShownAtOtherEnd(prop.title, shown)); } },
-    shown ? 'Turn off' : 'Turn on');
-  line('On the other page', input, el(doc, 'span', { class: 'rtg-note' }, '→'), shown ? null : el(doc, 'span', { class: 'rtg-off rtg-note' }, 'not shown there'), turn);
+    button(prop.choices.length ? 'Edit' : 'Add choices', prop.choices.length ? 'Rename or remove choices; add or reorder them in its settings' : 'Give it a list to pick from', at => view.askChoices(prop, at)),
+    prop.choices.length && giver ? button('One its own tag …', `Make a choice its own child tag inside #${giver.title}: the nodes with it move there`, at => view.askChildTag(giver, prop, at)) : null);
+  // The tags that have it: each opens its tag, its × takes the property off it (values already filled in stay).
+  const on = el(doc, 'span', { class: 'rtg-onlist' });
+  for (const t of givers) {
+    const chip = el(doc, 'span', { class: 'rtg-onchip' }, el(doc, 'span', { class: 'rtg-ontag', title: `Open #${t.title} (⇧ click: right sidebar)`, click: event => { event.stopPropagation(); openTag(t, event.shiftKey).catch(error => warnOnce('a tag could not be opened', error)); } }, '#' + t.title));
+    if (!t.builtIn) chip.append(el(doc, 'button', { class: 'rtg-onx', title: `Take it off #${t.title}; values already filled in stay`, 'aria-label': `Take it off #${t.title}`, click: event => { event.stopPropagation(); aim(); view.takePropOff(t, prop); } }, '×'));
+    on.append(chip);
+  }
+  if (!givers.length) on.append(note('no tag yet'));
+  line('On', on, button('+ Tag', 'Put it on another tag too', at => view.askAddToTag(prop, at)), givers.some(t => t.kids.length) ? note('and the tags inside') : null);
+  if (prop.type === 'node') {
+    const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
+    const inside = new Set(to.flatMap(t => [...below(t)]));
+    line('Accepts', el(doc, 'span', { class: 'rtg-val' }, to.length ? to.map(t => '#' + t.title).join(', ') : 'any node'),
+      button('Change', 'Choose the tags this link accepts', at => view.askAccepts(prop, at)),
+      to.length && inside.size ? note(`and the ${plural(inside.size, 'tag')} inside`) : null);
+    const tw = twoWay();
+    if (tw) {
+      const input = el(doc, 'input', { class: 'rtg-words', type: 'text', spellcheck: 'false', value: tw.backwardsLabel(prop.title), 'aria-label': `How ${prop.title} reads on the other page`,
+        title: 'Type how it should read on the page it points to, then press Enter. Empty: back to how it reads by itself.' });
+      keepKeys(input);
+      const save = () => {
+        const before = tw.backwardsLabel(prop.title), after = input.value.trim();
+        if (after === before) return;
+        aim();
+        tw.setBackwards(prop.title, after);
+        view.showToast(after ? `${prop.title} now reads “${after}” on the other page` : `${prop.title} reads as it does by itself on the other page again`, () => tw.setBackwards(prop.title, before));
+      };
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); input.blur(); }
+        if (event.key === 'Escape') { event.preventDefault(); input.value = tw.backwardsLabel(prop.title); input.blur(); }
+      });
+      input.addEventListener('blur', save);
+      const shown = tw.shownAtOtherEnd(prop.title);
+      const turn = button(shown ? 'Turn off' : 'Turn on', shown
+        ? 'Off: the page it points to no longer lists these at the top. The link stays, in Linked references at the bottom and in searches.'
+        : 'On: the page it points to lists these at the top again.',
+        () => { tw.setShownAtOtherEnd(prop.title, !shown); view.showToast(shown ? `${prop.title} no longer shows on the other page; the links stay` : `${prop.title} shows on the other page again`, () => tw.setShownAtOtherEnd(prop.title, shown)); });
+      line('On the other page', input, note('→'), shown ? null : el(doc, 'span', { class: 'rtg-off rtg-note' }, 'not shown there'), turn);
+    }
+  }
+  if (alone) {
+    const group = groupOf(readGroups(), prop.title);
+    line('Group', group ? el(doc, 'span', { class: 'rtg-val' }, group.name) : note('none'), button('Change …', 'Put it in a group of this map; nothing in the graph changes', at => view.askPutInGroup(prop, at)));
+  }
   return box;
+}
+// How many nodes hold a property, read once per reading of the tags.
+function useOf(view, prop) {
+  if (view.useData !== view.data) { view.useData = view.data; view.useCounts = new Map(); }
+  if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propUse(prop.ident).catch(() => null));
+  return view.useCounts.get(prop.ident);
+}
+// Putting a property on another tag (the On line's +): the tags that do not have it yet.
+function askAddToTag(view, prop, anchor) {
+  const have = new Set((prop.givenBy || []).map(t => t.id));
+  const choices = [...view.data.tags.values()].filter(t => !t.builtIn && !have.has(t.id)).sort(view.data.byTitle).map(t => ({ tag: t, path: pathOf(t) }));
+  if (!choices.length) { logseq.UI.showMsg(`Every tag already has ${prop.title}`, 'info'); return; }
+  view.pickTag(anchor, `Put ${prop.title} on …`, choices, tag => view.addProp(tag, prop));
 }
 // The links that point at a tag from elsewhere, as the tag's page shows them.
 function pointerRow(view, tag) {
@@ -178,7 +215,7 @@ function propMenu(view, tag, prop, from, anchor, alone) {
   items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) });
   // In the by-property view (alone) the property is not under any one tag: taking it off each is offered by name.
   if (alone) {
-    items.push({ html: 'Put in a group …', run: () => view.askPutInGroup(prop, anchor) });
+    items.push({ html: 'Add to a tag …', run: () => view.askAddToTag(prop, anchor) }, { html: 'Put in a group …', run: () => view.askPutInGroup(prop, anchor) });
     const givers = (prop.givenBy || []).filter(t => !t.builtIn);
     if (givers.length) items.push('-');
     for (const giver of givers) items.push({ html: `Take it off #${escapeHtml(giver.title)}`, run: () => view.takePropOff(giver, prop) });
@@ -245,16 +282,21 @@ function askAccepts(view, prop, anchor) {
   });
 }
 
-// What kind of value a property holds, and one or several: Logseq lets plugins change these only for their own
-// properties, so this opens Logseq's own settings for it in the right sidebar, next to the map.
-function kindMenu(view, prop, anchor) {
+// What kind of value a property holds, and one or several. Logseq lets a plugin change those only on the plugin's own
+// properties, and lets itself change them only while the property holds nothing; so a property in use is turned into a
+// new one from here (0.4.305: the conversions sit in this menu too), and an empty one opens its own settings.
+function kindMenu(view, prop, anchor, giver) {
+  giver ||= (prop.givenBy || []).find(t => !t.builtIn) || null;
   const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ' from a list of choices' : '');
   const items = [];
   if (prop.type === 'node') items.push({ html: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
+  if (prop.type === 'default' && giver) items.push({ html: 'Turn into links to pages …', run: () => view.askLinks(giver, prop, anchor) });
+  if (prop.choices.length && giver) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(giver, prop, anchor) });
+  if (items.length) items.push('-');
   items.push({ html: `Open ${escapeHtml(prop.title)}’s settings in the sidebar`, run: () => logseq.Editor.openInRightSidebar(prop.uuid) });
   view.showMenu(anchor, `${prop.title} holds ${holds}, ${prop.many ? 'several at once' : 'one at a time'}`, items);
-  view.menu.append(el(view.doc, 'div', { class: 'rtg-mnote rf-pop-note' }, 'To make it hold another kind of value, or one instead of several, use its settings: Logseq lets only itself change those. They open in the right sidebar, so this map stays where it is.'));
+  view.menu.append(el(view.doc, 'div', { class: 'rtg-mnote rf-pop-note' }, 'Another kind of value, or one instead of several: Logseq changes those only in its own settings, and only while the property holds nothing. A property in use is turned into a new one from here; the old one stays as “… (old)” until you delete it.'));
   view.placeMenu(anchor);
 }
 
@@ -396,48 +438,65 @@ async function askLinks(view, tag, prop, anchor) {
   if (plan.several) { logseq.UI.showMsg(`Some nodes hold more than one ${prop.title}; that is not handled yet`, 'warning'); return; }
   const doc = view.doc, P = prop.title, T = '#' + tag.title;
   // The pages' tag is "… kind" by default (docs/MODELLING.md: the property "… type", the tag on its pages "… kind"):
-  // a tag cannot share its name with the property (Logseq hands back the property's page; seen in the app).
+  // a tag cannot share its name with the property (Logseq hands back the property's page; seen in the app). Since
+  // 0.4.305 the tag can be picked from the tags there are (the owner: "allow the choice of new #Tag to be used with
+  // pages and name of new property"), and the new property named: with another name the old one keeps its own.
   const input = el(doc, 'input', { class: 'rtg-input', type: 'text', value: `${P} kind`, spellcheck: 'false', 'aria-label': 'Tag for the pages' });
-  keepKeys(input);
+  const nameInput = el(doc, 'input', { class: 'rtg-input', type: 'text', value: P, spellcheck: 'false', 'aria-label': 'Name of the new property' });
+  keepKeys(input); keepKeys(nameInput);
+  const pick = el(doc, 'button', { class: 'rtg-make', title: 'Pick one of the tags there are; the pages get it', click: event => {
+    event.stopPropagation();
+    const tags = [...view.data.tags.values()].filter(t => !t.builtIn).sort(view.data.byTitle).map(t => ({ tag: t, path: pathOf(t) }));
+    view.pickTag(event.currentTarget, 'The pages are tagged …', tags, picked => { input.value = picked.title; fill().catch(() => {}); input.focus(); });
+  } }, 'Pick …');
   const lines = el(doc, 'ul'), note = el(doc, 'p'), go = el(doc, 'button', { class: 'rtg-go rf-btn rf-go' }, 'Turn into links'), cancel = el(doc, 'button', {}, 'Cancel');
   const newPages = plan.titles.filter(t => !plan.pages.has(t)).length;
   const first = [...plan.byNode][0];
   const firstName = await model().titleNow(first[0]).catch(() => '') || 'a node';
   const fill = async () => {
     const name = input.value.trim().replace(/^#/, '').trim(), G = '#' + (name || '…');
-    const items = [`${P} is renamed “${P} (old)” and keeps its values, so nothing is lost`,
-      `a new ${P} is made on ${T}, holding a link to a ${G} page (Logseq’s own new-property box opens in the right sidebar for a moment; the plugin fills it in)`,
-      `${plural(plan.titles.length, 'page')}: ${plan.titles.join(', ')}${newPages < plan.titles.length ? ` (${plan.titles.length - newPages} already there, given ${G})` : ''}`,
+    const newName = nameInput.value.trim(), N = newName || '…', same = newName.toLowerCase() === P.toLowerCase();
+    const tagNamed = plan.data.byName.get(name.toLowerCase());
+    const items = [same ? `${P} is renamed “${P} (old)” and keeps its values, so nothing is lost` : `${P} stays as it is, with its words; delete it yourself when ${N} looks right`,
+      `a new ${N} is made on ${T}, holding a link to a ${G} page (Logseq’s own new-property box opens in the right sidebar for a moment; the plugin fills it in)`,
+      `${plural(plan.titles.length, 'page')}: ${plan.titles.join(', ')}${newPages < plan.titles.length ? ` (${plan.titles.length - newPages} already there, given ${G})` : ''}${tagNamed && !tagNamed.builtIn ? ` (${G} is a tag already: used as it is)` : ''}`,
       `${plural(n, 'node')} get their link, for example ${firstName} → ${first[1][0]}`];
     lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
-    const tagNamed = plan.data.byName.get(name.toLowerCase());
     const page = name && !tagNamed ? await logseq.Editor.getPage(name).catch(() => null) : null;
-    const bad = !name ? 'Give the tag a name' : name.includes('/') ? 'A tag name cannot have a / in it'
+    const propNamed = !same && newName ? [...(view.data.propInfo?.values() || [])].find(p => p.title.toLowerCase() === newName.toLowerCase()) : null;
+    const namePage = !same && newName && !propNamed ? await logseq.Editor.getPage(newName).catch(() => null) : null;
+    const bad = !newName ? 'Give the new property a name'
+      : propNamed ? `There is already a property called ${propNamed.title}; pick another name, or keep “${P}”`
+      : namePage ? `“${namePage.title || newName}” is already a page; pick another name`
+      : !name ? 'Give the tag a name' : name.includes('/') ? 'A tag name cannot have a / in it'
       : tagNamed?.builtIn ? `#${name} is one of Logseq’s own tags`
-      : name.toLowerCase() === P.toLowerCase() || page ? `“${page?.title || name}” is already ${page?.uuid === prop.uuid || name.toLowerCase() === P.toLowerCase() ? 'the property’s own name' : 'a page that is not a tag'}; pick another name` : '';
-    note.textContent = bad || `When it looks right, delete “${P} (old)” yourself. The faded arrow on its row puts everything back.`;
+      : name.toLowerCase() === newName.toLowerCase() || name.toLowerCase() === P.toLowerCase() || page ? `“${page?.title || name}” is already ${page?.uuid === prop.uuid || name.toLowerCase() === P.toLowerCase() || name.toLowerCase() === newName.toLowerCase() ? 'the property’s own name' : 'a page that is not a tag'}; pick another name` : '';
+    note.textContent = bad || (same ? `When it looks right, delete “${P} (old)” yourself. The faded arrow on its row puts everything back.` : 'The faded arrow on its row puts everything back.');
     note.classList.toggle('rtg-warn', !!bad);
     go.disabled = !!bad;
   };
   const panel = el(doc, 'div', { class: 'rf-dialog', role: 'dialog', 'aria-label': 'Turn into links' },
     el(doc, 'h2', {}, `Turn ${P} into links to pages?`),
-    el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Pages tagged'), input), lines, note,
+    el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'New property'), nameInput),
+    el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Pages tagged'), input, pick), lines, note,
     el(doc, 'div', { class: 'rtg-btns rf-btns' }, cancel, go));
   panel.classList.add('refinement-tags-dialog');
-  const close = anchoredPanel(view, panel, anchor, event => { if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); } });
+  const close = anchoredPanel(view, panel, anchor, event => { if (event.key === 'Enter' && (event.target === input || event.target === nameInput) && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); } });
   cancel.addEventListener('click', close);
   input.addEventListener('input', () => { fill().catch(() => {}); });
+  nameInput.addEventListener('input', () => { fill().catch(() => {}); });
   go.addEventListener('click', async () => {
     if (go.disabled) return;
     go.disabled = true;
     await fill().catch(() => {});
     if (go.disabled && note.classList.contains('rtg-warn')) return;
-    const name = input.value.trim().replace(/^#/, '').trim();
+    const name = input.value.trim().replace(/^#/, '').trim(), newName = nameInput.value.trim();
     close();
     let result = null;
-    const done = await view.act(async () => { result = await runLinks(plan, name); }, `${P} could not be turned into links`);
+    const done = await view.act(async () => { result = await runLinks(plan, name, newName); }, `${P} could not be turned into links`);
     if (!done || !result) return;
-    view.showToast(`${P} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; the old one is “${P} (old)”`, result.undo);
+    const same = newName.toLowerCase() === P.toLowerCase();
+    view.showToast(`${newName} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; ${same ? `the old one is “${P} (old)”` : `${P} kept its words`}`, result.undo);
   });
   await fill().catch(() => {});
   input.focus(); input.select();
@@ -552,7 +611,61 @@ function drawProps(view, pass, sections) {
   if (onTags.length || groups.length) sections.push(el(doc, 'div', { class: 'rtg-section rtg-top', 'data-key': 'props' }, ...restHead, ...onTags.flatMap(prop => propTopRow(view, pass, prop))));
   if (loose.length) sections.push(el(doc, 'div', { class: 'rtg-section', 'data-key': 'props-loose' }, el(doc, 'h3', { class: 'rtg-group' }, 'On no tag'), ...loose.flatMap(prop => propTopRow(view, pass, prop))));
   if (!grouped.size && !onTags.length && !loose.length) sections.push(el(doc, 'div', { class: 'rtg-empty' }, pass.q ? 'No property by that name.' : 'No properties yet.'));
-  if (!pass.q) sections.push(el(doc, 'div', { class: 'rtg-newroot', 'data-key': 'newgroup' }, el(doc, 'button', { class: 'rtg-make', title: 'Make a group of properties, for your own order; nothing in the graph changes', click: event => view.askGroupName(null, event.currentTarget) }, '+ New group')));
+  if (!pass.q) sections.push(el(doc, 'div', { class: 'rtg-newroot rtg-newprops', 'data-key': 'newgroup' },
+    view.addingProp ? view.newPropRow() : el(doc, 'button', { class: 'rtg-make', title: 'Make a property: its name, what it holds, and the tag it goes on', click: () => view.startNewProp() }, '+ New property'),
+    el(doc, 'button', { class: 'rtg-make', title: 'Make a group of properties, for your own order; nothing in the graph changes', click: event => view.askGroupName(null, event.currentTarget) }, '+ New group')));
+}
+/* + New property (0.4.305): a line to type the name in, then what it holds, a link's tag, and the tag it goes on, each
+   a list under the line; the property is made with Logseq's own Add property box on that tag's page in the right
+   sidebar (makeProperty), since Logseq lets only itself make a property of yours, and a link is given what it accepts. */
+const NEW_KINDS = [['default', 'Text', ''], ['number', 'Number', ''], ['date', 'Date', ''], ['checkbox', 'Checkbox', 'yes or no'], ['url', 'Web address', ''], ['node', 'Link to nodes', 'picked from a tag']];
+function startNewProp(view) { view.closeMenu(); view.addingProp = { name: '' }; view.draw(); }
+function stopNewProp(view, focus) { view.addingProp = null; view.draw(); if (focus) view.box.focus({ preventScroll: true }); }
+function newPropRow(view) {
+  const input = el(view.doc, 'input', { class: 'rtg-input', type: 'text', spellcheck: 'false', placeholder: 'New property', 'aria-label': 'Name of the new property', value: view.addingProp.name });
+  keepKeys(input);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); const name = input.value.trim(); if (!name) return stopNewProp(view); view.addingProp.name = name; view.askNewPropKind(name, input); }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); stopNewProp(view, true); }
+  });
+  input.addEventListener('input', () => { if (view.addingProp) view.addingProp.name = input.value; });
+  input.addEventListener('blur', () => setTimeout(() => { if (view.addingProp && !input.value.trim() && !view.menu && view.doc.activeElement !== input) stopNewProp(view); }, 150));
+  setTimeout(() => input.focus({ preventScroll: true })); // redrawn with every draw while open; a fold higher up must not scroll here
+  return el(view.doc, 'div', { class: 'rtg-addrow rtg-addprop' }, input);
+}
+function askNewPropKind(view, name, anchor) {
+  const clash = [...(view.data.propInfo?.values() || [])].find(p => p.title.toLowerCase() === name.toLowerCase());
+  if (clash) { logseq.UI.showMsg(`There is already a property called ${clash.title}: put that one on a tag with + Tag on its On line`, 'warning'); return; }
+  view.showMenu(anchor, `${name} holds …`, NEW_KINDS.map(([kind, label, hint]) => ({ html: escapeHtml(label) + (hint ? `<kbd>${escapeHtml(hint)}</kbd>` : ''),
+    run: () => kind === 'node' ? view.askNewPropAccepts(name, anchor) : view.askNewPropTag(name, kind, [], anchor) })));
+}
+function askNewPropAccepts(view, name, anchor) {
+  const choices = [{ tag: { id: -1, title: '' }, label: 'Any node (no tag)', path: '' },
+    ...[...view.data.tags.values()].filter(t => !t.builtIn || PARENT_BUILT_INS.has(t.ident)).sort(view.data.byTitle).map(t => ({ tag: t, path: pathOf(t) }))];
+  view.pickTag(anchor, `${name} accepts …`, choices, picked => view.askNewPropTag(name, 'node', picked.id === -1 ? [] : [picked.id], anchor));
+}
+function askNewPropTag(view, name, kind, accepts, anchor) {
+  const tags = [...view.data.tags.values()].filter(t => !t.builtIn).sort(view.data.byTitle);
+  if (!tags.length) { logseq.UI.showMsg('Make a tag first: a property goes on a tag', 'warning'); return; }
+  view.pickTag(anchor, `Put ${name} on which tag?`, tags.map(t => ({ tag: t, path: pathOf(t) })), tag => view.makeNewProp(name, kind, accepts, tag));
+}
+async function makeNewProp(view, name, kind, accepts, tag) {
+  view.addingProp = null;
+  let made = null;
+  const done = await view.act(async () => { made = await TM.makeProperty(tag, name, kind); }, `${name} could not be made`); // looked up when called, so a test can stand in for Logseq's box
+  if (!done || !made) { view.draw(); return; }
+  // The property is on the tag now whatever happens next: what it accepts is a second step with its own message.
+  if (accepts.length) await view.act(() => setAccepts(made, accepts), `${name} is made, but what it accepts could not be set (it accepts any node)`);
+  propsOpen.add(`P${made.id}`); saveProps();
+  view.cursorKey = `P${made.id}`;
+  view.draw();
+  view.showToast(`Made ${name} on #${tag.title}`, async () => {
+    // Values filled in since would go with it (second reading): then it stays, and the message says why.
+    const used = await model().propUse(made.ident);
+    if (used) throw new Error(`${name} is on ${plural(used, 'node')} now; take it off them first`);
+    await removeTagProp(tag, made).catch(() => {});
+    await logseq.Editor.deletePage(made.uuid);
+  });
 }
 // A group's heading (group null: "Not in a group"): click to fold, its name opens its menu, a property dropped on it goes in.
 function groupHeading(view, group, i, count, members, shut) {
@@ -625,13 +738,15 @@ function propTopRow(view, pass, prop) {
   const tag = prop.givenBy?.[0] || null;
   const fold = el(doc, 'button', { class: 'rtg-fold' + (open ? '' : ' rtg-shut'), tabindex: '-1', 'aria-label': open ? 'Fold' : 'Unfold', html: CHEVRON,
     click: event => { event.stopPropagation(); flip(propsOpen, key); saveProps(); view.draw(); } });
-  const name = el(doc, 'span', { class: 'rtg-pname', title: 'Rename, or change what it holds',
-    click: event => { event.stopPropagation(); view.propMenu(tag, prop, null, event.currentTarget, true); } });
+  const aim = () => { view.cursorKey = key; }; // the Undo arrow of a change made here sits on this row (0.4.305)
+  const name = el(doc, 'span', { class: 'rtg-pname', title: 'Its menu; double-click to rename',
+    click: event => { event.stopPropagation(); aim(); view.propMenu(tag, prop, null, event.currentTarget, true); },
+    dblclick: event => { event.stopPropagation(); aim(); view.askRenameProp(prop, event.currentTarget); } });
   const words = el(doc, 'span');
   view.highlight(words, prop.title, pass.q);
   name.append(words);
   const type = el(doc, 'span', { class: 'rtg-ptype', html: view.typeHtml(prop), click: event => {
-    event.stopPropagation();
+    event.stopPropagation(); aim();
     const piece = event.target.closest('[data-act]');
     if (piece?.dataset.act === 'values') { if (prop.type === 'node') view.askAccepts(prop, piece); else view.askChoices(prop, piece); }
     else view.kindMenu(prop, piece || event.currentTarget);
@@ -650,14 +765,14 @@ function propTopRow(view, pass, prop) {
   row.addEventListener('dragstart', event => { view.draggingProp = prop; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', prop.title); event.stopPropagation(); });
   row.addEventListener('dragend', () => { view.draggingProp = null; for (const h of doc.querySelectorAll('.rtg-gdrop')) h.classList.remove('rtg-gdrop'); });
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag')) fold.click(); });
-  row.addEventListener('contextmenu', event => { event.preventDefault(); view.propMenu(tag, prop, null, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }, true); });
+  row.addEventListener('contextmenu', event => { event.preventDefault(); aim(); view.propMenu(tag, prop, null, { getBoundingClientRect: () => ({ left: event.clientX, top: event.clientY, bottom: event.clientY }) }, true); });
   const nodes = [row];
-  if (open) nodes.push(view.propDetails(tag, prop, null));
+  if (open) nodes.push(view.propDetails(tag, prop, null, true));
   return nodes;
 }
 
 
-Object.assign(TM, { KINDS, addProp, askAccepts, askChildTag, askChoices, askDescription, askGroupName, askLinks, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, groupHeading, groupMenu, hasRows, infoButton, kindMenu, movePropUp, newProperty, passesDown, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, takePropOff, typeHtml });
+Object.assign(TM, { KINDS, NEW_KINDS, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, groupHeading, groupMenu, hasRows, infoButton, kindMenu, makeNewProp, movePropUp, newPropRow, newProperty, passesDown, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, startNewProp, takePropOff, typeHtml, useOf });
 TM.propsLoaded = true;
 (window.refinementParts ||= []).push({ name: 'tag map: properties', schema: [], start() {}, stop: runUnloadTasks });
 })();

@@ -57,7 +57,7 @@ const setting = shared.settingReader(settingsSchema);
 TM.setting = setting;
 // What the other two pieces have (parts/tags-graph.js, parts/tags-props.js); undefined when one is not loaded, and then
 // start() below starts nothing.
-const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askChildTag, askChoices, askDescription, askGroupName, askLinks, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeTag, movePropUp, newProperty, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, takePropOff, twoWay, typeHtml } = TM;
+const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newProperty, newPropRow, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, startNewProp, takePropOff, twoWay, typeHtml, useOf } = TM;
 // (pointerRow, the "Shows up here as" line, is this piece's own since 0.4.306: each link on it opens a menu.)
 // An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
 let orderOverride = null;
@@ -160,6 +160,17 @@ const css = `
 .refinement-tags .rtg-pickcount { flex: 1; font-size: 14px; font-weight: 500; }
 .refinement-tags .rtg-pickbar .rtg-pickgo { color: var(--ls-primary-text-color) !important; font-weight: 600; }
 .refinement-tags .rtg-newroot { padding: 14px 8px 0 24px; }
+/* The Properties view's + New property and + New group side by side; the line being typed in takes the first one's place (0.4.305). */
+.refinement-tags .rtg-newprops { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.refinement-tags .rtg-addprop { flex: 1; min-width: 180px; max-width: 320px; padding: 0; }
+.refinement-tags .rtg-addprop::before { content: none; }
+/* The On line: the tags that have the property, each with an × that shows under the pointer. */
+.refinement-tags .rtg-onlist { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.refinement-tags .rtg-onchip { display: inline-flex; align-items: baseline; font-weight: 600; }
+.refinement-tags .rtg-onchip .rtg-ontag { color: inherit; }
+.refinement-tags .rtg-onx { border: 0; padding: 0 4px; background: none; color: var(--rtg-faint); font-size: 15px; line-height: 1; cursor: pointer; opacity: 0; }
+.refinement-tags .rtg-onchip:hover .rtg-onx, .refinement-tags .rtg-onx:focus-visible { opacity: 1; }
+.refinement-tags .rtg-onx:hover { color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-empty { padding: 4px 10px 4px 34px; font-size: 14px; color: var(--rtg-faint); }
 /* The map: a tag's properties as rows under it, faded when they come from a tag above. */
 .refinement-tags .rtg-prow { padding-top: 2px; padding-bottom: 2px; font-size: 16px; }
@@ -221,7 +232,7 @@ const css = `
 .refinement-tags.rtg-mode-sidebar .rtg-kids { margin-left: 10px; padding-left: 6px; }
 /* Menus and dialogs: the plugin's one pop-up and dialog look (.rf-pop, .rf-dialog, parts/shared.js, 0.4.257); here only
    what the tag map's own boxes add to it. */
-.refinement-tags-menu { min-width: 240px; max-width: 340px; }
+.refinement-tags-menu { min-width: 240px; max-width: 340px; z-index: 10004; } /* above a plan's box too: the pages' tag is picked from one (0.4.305) */
 .refinement-tags-menu button.rtg-on { background: var(--rf-ui-hover); }
 .refinement-tags-menu button kbd { margin-left: auto; font: inherit; font-size: 11px; opacity: .45; }
 .refinement-tags-menu .rtg-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -258,6 +269,7 @@ function createView(doc, mode) {
   view.cursorSubIn = null; // the key of the box that line is in
   view.menu = null;
   view.adding = null; // { key, parent } while a new tag is being typed
+  view.addingProp = null; // { name } while a new property is being typed in the Properties view (0.4.305)
   view.renaming = null; // key of the row being renamed
   view.picked = new Set(); // ids of tags picked with Cmd-click, Shift-click or x
   view.dragging = null; // { tag, parent }
@@ -318,7 +330,7 @@ function createView(doc, mode) {
     clearTimeout(view.timer);
     view.timer = setTimeout(function again() {
       if (view.busy) return;
-      if (view.menu || view.dragging || view.adding || view.renaming || view.doc.activeElement?.classList?.contains('rtg-words')) { view.timer = setTimeout(again, 800); return; }
+      if (view.menu || view.dragging || view.adding || view.addingProp || view.renaming || view.doc.activeElement?.classList?.contains('rtg-words')) { view.timer = setTimeout(again, 800); return; }
       view.refresh();
     }, 400);
   });
@@ -794,8 +806,9 @@ function draw(view) {
   view.byTags.setAttribute('aria-pressed', String(!byProp)); view.byProps.setAttribute('aria-pressed', String(byProp));
   for (const b of [view.inherited, view.foldAll, view.openAll]) b.hidden = byProp;
   view.box.classList.toggle('rtg-by-prop', byProp);
-  // Keep the cursor on its row, or on the tag it was on if that moved.
-  if (view.cursorTag != null) {
+  // Keep the cursor on its row, or on the tag it was on if that moved. (Not in the Properties view, where no row is a
+  // tag's: a tag remembered from a child-tag plan would clear the property row the Undo arrow sits on, second reading.)
+  if (view.cursorTag != null && !byProp) {
     const again = view.shown.find(item => item.key === view.cursorKey) || view.shown.find(item => item.tag.id === view.cursorTag);
     view.cursorKey = again?.key || null;
   }
@@ -1323,7 +1336,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
