@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The nodes that hold a property (0.4.307)
+
+**Asked:** the owner: "this can still be better. you can show the nodes that have the properties". **Built:**
+`parts/model.js`: `propHolders(ident)`, four finds in one round (the nodes with their words and raw values, the values
+with a title, the values with a number, the day each node is written on), newest day first. `parts/tags-props.js`: a
+Nodes line under Holds, `holdersOf` read once per reading of the tags (`useOf` is now its count), `fillNodes` draws the
+first eight with show all / show fewer (`view.nodesAll`), names cut at the first sentence (`firstSentence`, the two-way
+rows' rule), `readableTitle` for the links in them and the brackets taken off, a click `shared.openEntity`. The look in
+`parts/tags.js`. **Tests:** `tools/tags-test.js`: a pretend holder of result with the choice Normal is listed.
+`sh tools/check.sh`: all passed. **Seen:** as in the CHANGELOG line. The version skips 0.4.306, which the tag tree
+session took on its branch.
+
 ## 2026-10-22 · The Properties view as an outline that acts (0.4.305)
 
 **Asked:** the owner: "I want the Properties page to be useful and not just seen. It should allow creation, the

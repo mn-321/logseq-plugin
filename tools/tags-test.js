@@ -34,6 +34,8 @@ function pretendLogseq(window) {
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
     DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
+      // The nodes that hold result (0.4.307): one, with the choice Normal, written on a day.
+      : q.includes(':user.property/result ?v]') ? (q.includes('?vt') ? [['n-1', 60, 'Normal']] : q.includes('?day') ? [['n-1', 20261013]] : q.includes('logseq.property/value') ? [] : [['n-1', 'Blood count 2026-10-13', 60]])
       : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
       : q.includes('closed-value') ? choices.map(c => [22, { ':block/title': c.title, ':block/order': c.order }])
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
@@ -154,6 +156,9 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (!chip || chip.textContent.replace('×', '').trim() !== '#Report') problem(`the On line shows “${chip?.textContent}” instead of #Report`);
       if (!chip?.querySelector('.rtg-onx')) problem('the On line’s tag has no × to take the property off it');
       if (![...(info?.querySelectorAll('button') || [])].some(b => b.textContent === '+ Tag')) problem('the On line has no + Tag');
+      const nodeRow = await until(() => info?.querySelector('.rtg-pnoderow'));
+      if (!nodeRow) problem('result’s Nodes line lists no node');
+      else if (nodeRow.querySelector('.rtg-pnode')?.textContent !== 'Blood count 2026-10-13' || nodeRow.querySelector('.rtg-note')?.textContent !== 'Normal') problem(`the Nodes line reads “${nodeRow.textContent}”; wanted Blood count 2026-10-13 with Normal`);
       const change = [...(info?.querySelectorAll('button') || [])].find(b => b.textContent === 'Change …');
       change?.click();
       const items = [...doc.querySelectorAll('.refinement-tags-menu button')].map(b => b.textContent);
@@ -240,5 +245,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a property’s lines act, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a property’s lines act and list the nodes that hold it, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

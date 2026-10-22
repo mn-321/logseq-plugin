@@ -53,7 +53,7 @@ const setting = shared.settingReader(settingsSchema);
 TM.setting = setting;
 // What the other two pieces have (parts/tags-graph.js, parts/tags-props.js); undefined when one is not loaded, and then
 // start() below starts nothing.
-const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newPropRow, newProperty, openTag, openViews, passesDown, pathOf, planMerge, plural, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, setParents, shown, startNewProp, takePropOff, typeHtml, useOf } = TM;
+const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, fillNodes, folded, groupHeading, groupMenu, hasRows, holdersOf, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newPropRow, newProperty, openTag, openViews, passesDown, pathOf, planMerge, plural, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, setParents, shown, startNewProp, takePropOff, typeHtml, useOf } = TM;
 // An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
 let orderOverride = null;
 const topOrder = () => (orderOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
@@ -192,6 +192,13 @@ const css = `
 .refinement-tags .rtg-pinfo .rtg-plbl, .refinement-tags .rtg-pinfo .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-pinfo > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .refinement-tags .rtg-plbl { min-width: 9.5em; }
+/* The Nodes line (0.4.307): the nodes that hold the property, one a row with its value, a click opens it. */
+.refinement-tags .rtg-pnodes { flex: 1 1 16em; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.refinement-tags .rtg-pnoderow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.refinement-tags a.rtg-pnode { color: inherit; text-decoration: none; overflow-wrap: anywhere; border-bottom: 1px solid var(--rtg-line); }
+.refinement-tags a.rtg-pnode:hover { border-bottom-color: currentColor; }
+.refinement-tags a.rtg-pmore { align-self: flex-start; margin-top: 2px; font-size: 14px; color: var(--rtg-faint); text-decoration: none; }
+.refinement-tags a.rtg-pmore:hover { color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-pinfo .rtg-val, .refinement-tags .rtg-pointrow .rtg-val { font-weight: 600; }
 .refinement-tags .rtg-words { width: 13em; padding: 1px 7px; border: 1px solid var(--rtg-border); border-radius: 5px; background: transparent; color: var(--ls-primary-text-color); font: inherit; }
 .refinement-tags .rtg-words:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
@@ -1197,7 +1204,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, useOf, holdersOf, fillNodes, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
