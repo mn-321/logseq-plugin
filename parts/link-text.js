@@ -207,11 +207,16 @@ function onPress(event) {
 
 // The look is the plugin's one pop-up (.rf-pop, parts/shared.js); here only the field's caret and the words selected in it.
 const css = `
-.refinement-link-text .rlt-field { display: flex; align-items: baseline; font-size: 15px; }
+/* .rf-pop-field.rlt-field, not .rlt-field (0.4.284): the kit's rule for a text box (parts/shared.js, display: block) is
+   more particular than ".refinement-link-text .rlt-field" and won, so the field was never a flex row: the caret sat
+   after the placeholder and above the words' line (measured in the app: 2px higher, 2px shorter than the text). */
+.refinement-link-text .rf-pop-field.rlt-field { display: flex; align-items: baseline; font-size: 15px; }
 .refinement-link-text .rlt-typed { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .refinement-link-text .rlt-typed.rlt-fresh { background: var(--rf-ui-hover); border-radius: 2px; }
 .refinement-link-text .rlt-placeholder { color: var(--rf-ui-muted); }
-.refinement-link-text .rlt-caret { display: inline-block; width: 1.5px; height: 1.1em; margin-left: 1px; align-self: center; background: currentColor; animation: rlt-blink 1s steps(1) infinite; }
+/* The caret stands on the words' baseline (an empty box's baseline is its bottom) and reaches a little under it, as a
+   text caret does; drawn, not laid out, so it moves nothing. */
+.refinement-link-text .rlt-caret { display: inline-block; width: 1.5px; height: 1.1em; margin-left: 1px; transform: translateY(.2em); background: currentColor; animation: rlt-blink 1s steps(1) infinite; }
 .refinement-link-text .rlt-placeholder + .rlt-caret { order: -1; margin: 0 1px 0 0; }
 .refinement-link-text .rlt-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes rlt-blink { 50% { opacity: 0; } }

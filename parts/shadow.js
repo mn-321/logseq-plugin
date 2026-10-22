@@ -504,6 +504,10 @@ function ghostLook(piece) {
 }
 // The names of the properties Logseq itself shows filled on a row: a proposal for one of them is over.
 const filledNames = row => new Set(pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !(p.querySelector('.bottom-property-content') || p).querySelector('.empty-value')).map(pillName));
+// The names of the properties Logseq itself shows on a row, filled or empty: a pill the plugin made for one of them
+// gives way to Logseq's (0.4.284; seen: Enter in Option-Enter's list made Logseq draw its own row of capsules under
+// the plugin's made row, with Topic in both, and the words below moved down a line).
+const ownNames = row => new Set(pillsOf(row).filter(p => !p.classList.contains('rfs-made')).map(pillName));
 function drawInPlace(doc = host()) {
   const live = state.live;
   // What to draw: the bullet being written, and the bullets left a moment ago whose values are being filled in
@@ -518,7 +522,7 @@ function drawInPlace(doc = host()) {
   // Out with what is no longer proposed (another bullet, a value changed, the bullet left and its values written).
   for (const g of doc.querySelectorAll('.rfs-ghost:not(.rfs-page-ghost)')) {
     const row = g.closest('.ls-block[blockid]'), job = jobs.find(job => job.rows.includes(row)), piece = job?.want.get(g.dataset.rfsIdent);
-    const filled = !g.closest('.rfs-made') ? !g.parentElement?.querySelector('.empty-value') : piece && filledNames(row).has(piece.prop.lower);
+    const filled = !g.closest('.rfs-made') ? !g.parentElement?.querySelector('.empty-value') : piece && ownNames(row).has(piece.prop.lower);
     if (piece && !filled && g.dataset.rfsKey === guessKey(piece)) continue;
     g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal');
     g.remove();
@@ -530,7 +534,8 @@ function drawInPlace(doc = host()) {
     for (const piece of job.want.values()) {
       // Filled meanwhile in Logseq's own way (from the properties, or the write under way): the proposal for it goes.
       if (filled.has(piece.prop.lower)) continue;
-      const pill = pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
+      // Logseq's own pill first, then one the plugin made earlier, else one made now.
+      const pill = pills.find(p => pillName(p) === piece.prop.lower && !p.classList.contains('rfs-made')) || pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
       const target = pill && (pill.querySelector('.bottom-property-content') || pill);
       if (!target) continue;
       const look = ghostLook(piece);

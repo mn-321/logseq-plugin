@@ -2,6 +2,29 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Measured: a made capsule gives way, the link box's cursor (0.4.284)
+
+**Asked:** the owner, with two pictures: "Did you do a full UI analysis, using measurement …? cursor begins after
+placeholder and it is higher than the text; it still flashed; there isn't even an option to clear". **Method:** a
+TEMP-DEV block (removed before the commit) writing rects and computed styles of Logseq's open list, the link box and a
+capsule into the setting `tempMeasure`, read from the shell; bursts of zooms in the app for the flash. A code-fetching
+channel was tried first and refused by the Mac's safety check, rightly. **Found:** (1) the link box: the kit's text-box
+rule in `parts/shared.js` (`:is(.rf-pop-field, …)`, display block, specificity 0,2,1) beat `.refinement-link-text
+.rlt-field` (0,2,0), so the field was never a flex row: `order: -1` on the caret and baseline alignment never applied;
+caret measured at x 622 after a placeholder spanning 491–623, 2 px higher and 2 px shorter than the text. (2) Logseq's
+"Set Topic" box: 14 px text, 20 px line, 6 px padding, 32 px tall; its caret is the line's height, as in any text box;
+not the plugin's. (3) No Clear in the list: no element with that text existed in the open list at all (100 rows, and 14
+when narrowed), and Logseq's `select-aux` in `components/property/value.cljs` adds Clear only when `multiple-choices?`
+is false; Topic takes several values, so the ticked row is clicked to remove it. Logseq's, not the plugin's. (4) A click
+on a grey value: grey to solid in the next frame, nothing else moved. (5) Option-Enter then Enter in Logseq's list:
+Logseq drew its own row of capsules under the plugin's made row, Topic in both, the words below moved down a line: the
+flash. **Built:** `ownNames` in `parts/shadow.js`: a made pill gives way to Logseq's pill of the same name, empty or
+filled, and Logseq's pill is preferred when both exist; `.refinement-link-text .rf-pop-field.rlt-field` (0,3,0) for the
+link box's row, the caret on the baseline with a small translate below it. **Seen:** Fluorouracil, a bullet tagged
+Consultation, Option-Enter, Enter: one row of capsules, the grey Topic inside Logseq's capsule; the link box: cursor at
+491 before the placeholder at 493, on the words' line. Test bullets deleted on Colon cancer and Fluorouracil. **Next:**
+the owner asks for a full design audit: less padding, inline instead of central pop-ups (offered as its own task).
+
 ## 2026-10-22 · Smoother: no empty frame on a fill, a fade, the held room eased (0.4.283)
 
 **Asked:** the owner: "visual transitions are not smooth. you select a proposal and things flash, you open a pages and
