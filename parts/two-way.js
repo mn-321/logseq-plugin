@@ -216,6 +216,9 @@ function shortName(title) {
 const recordLink = item => { const short = shortName(item.title); return `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#"${short !== item.title ? ` title="${esc(item.title)}"` : ''}>${esc(short)}</a>`; };
 const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page">+</a>` : '';
 const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
+// A record's tag at the right opens the tag's page, Shift-click in the sidebar (0.4.297, the owner: "should be able to
+// click on tag in two-way area on right side"); the kind chips above an open list are what filter it.
+const tagLink = item => item.tag && item.tag !== 'note' ? `<a class="rf-tw-tag" data-tag-page="${esc(item.tag)}" href="#" title="Open #${esc(item.tag)} (Shift-click: in the sidebar)">${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
 const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
@@ -224,11 +227,11 @@ function rowHtml(group) {
   // A row that folds has its chevron just before its list, in the room left of the values (0.4.195, the owner's ask).
   const fold = group.items.length > INLINE ? `<a class="rf-tw-fold" data-key="${esc(key)}" href="#" title="${isOpen(key) ? 'Fold the list' : 'Open the list'}" aria-label="${isOpen(key) ? 'Fold' : 'Open'} ${esc(group.label)}"><span class="rf-tw-chevron"></span></a>` : '';
   const name = group.fieldUuid
-    ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
-    : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
+    ? `<div class="rf-tw-name">${addLink(group)}<a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
+    : `<div class="rf-tw-name" title="${tip}">${addLink(group)}${label}</div>`;
   if (group.items.length <= INLINE) {
-    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}<span class="rf-tw-tag">${esc(item.tag)}</span>${sideLink(item)}</span>`).join('');
-    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}${addLink(group)}</div></div>`;
+    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}${tagLink(item)}${sideLink(item)}</span>`).join('');
+    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div></div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
   const counts = new Map();
@@ -243,13 +246,13 @@ function rowHtml(group) {
     const today = todayNumber();
     const lines = shown.map((item, i) => {
       const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier">earlier</div>' : '';
-      const tag = counts.size > 1 ? `<a class="rf-tw-tag" data-key="${esc(key)}" data-tag="${esc(item.tag)}" href="#" title="Show only ${esc(plural(item.tag, 2))}">${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
+      const tag = tagLink(item);
       return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
     }).join('');
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
   }
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}</div>`;
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a></div>${list}</div>`;
 }
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
 const OPEN_KEY = 'refinementTwoWayOpen';
@@ -481,6 +484,12 @@ const drawEarly = (doc, records) => { if (performance.now() - settle.since < SET
 function onClick(event) {
   const pickEl = event.target.closest?.('.rf-tw-bar button') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
   if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act, pickEl) : togglePick(pickEl, event.shiftKey); }
+  // A click that just misses the box, anywhere in the room left of the record, ticks it too (0.4.297, the owner: "make
+  // checkbox tap area bigger"): before, it opened the record and took you off the page.
+  const rowEl = !event.target.closest?.('a') && event.target.closest?.('.rf-tw-line, .rf-tw-item');
+  const first = rowEl && rowEl.querySelector(':scope > :not(.rf-tw-pick)');
+  const box = rowEl && rowEl.querySelector(':scope > .rf-tw-pick');
+  if (box && first && event.clientX < first.getBoundingClientRect().left) { event.preventDefault(); event.stopPropagation(); hidePeek(); return togglePick(box, event.shiftKey); }
   const target = event.target.closest?.('a');
   const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   if (!target && !line) return;
@@ -489,11 +498,12 @@ function onClick(event) {
   if (line) return openEntity(line.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
+  if (target.matches('a.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
   if (target.matches('.rf-tw-add')) return openAdd(target).catch(error => { warnOnce('could not open the new record box', error); });
   const key = target.dataset.key;
   if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
-  else if (target.matches('.rf-tw-chip, .rf-tw-tag')) {
+  else if (target.matches('.rf-tw-chip')) {
     const tag = target.dataset.tag || '';
     if (!tag || state.only.get(key) === tag) state.only.delete(key); else state.only.set(key, tag);
   }
@@ -577,7 +587,7 @@ async function openAdd(button) {
   };
   doc.body.appendChild(el);
   const at = button.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
-  el.style.left = `${Math.round(Math.max(8, Math.min(at.right - size.width, win.innerWidth - size.width - 8)))}px`;
+  el.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
   el.style.top = `${Math.round(at.bottom + 6 + size.height < win.innerHeight - 8 ? at.bottom + 6 : Math.max(8, at.top - 6 - size.height))}px`;
   input.focus();
   // A click anywhere else closes the box.
@@ -865,8 +875,11 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line:hover a.rf-tw-tag:hover, .refinement-two-way .rf-tw-line:hover .rf-tw-side:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); }
 .refinement-two-way a.rf-tw-field { color: inherit; }
 .refinement-two-way .rf-tw-side { margin-left: .15em; }
-.refinement-two-way .rf-tw-add { margin-left: .6em; color: var(--ls-secondary-text-color); opacity: var(--rf-faint, .5); }
-.refinement-two-way .rf-tw-row:hover .rf-tw-add { opacity: 1; }
+/* The + (0.4.297, the owner: "plus should be placed to the left of the property name but on hover"): in the room left
+   of the name kept for Logseq's property icon, shown while the pointer is on the row. */
+.refinement-two-way .rf-tw-name { position: relative; }
+.refinement-two-way .rf-tw-name a.rf-tw-add { position: absolute; left: 0; top: 0; width: 16px; margin: 0; padding: 0; text-align: center; color: var(--ls-secondary-text-color); visibility: hidden; }
+.refinement-two-way .rf-tw-row:hover > .rf-tw-name a.rf-tw-add, .refinement-two-way .rf-tw-name a.rf-tw-add:focus-visible { visibility: visible; }
 .refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; font-size: var(--rf-small, .82em); }
 .refinement-two-way .rf-tw-chip { padding: 0 .45rem; border-radius: 999px; color: var(--ls-secondary-text-color); border: 1px solid color-mix(in srgb, var(--rf-tw-accent) 30%, transparent); }
 .refinement-two-way .rf-tw-chip { transition: background-color .1s ease, color .1s ease, border-color .1s ease; }
@@ -905,11 +918,20 @@ const twoWayCss = `
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
 .refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .38em; visibility: hidden; }
+/* The box answers 6px round it as well (0.4.297); the room left of the record ticks it too (onClick). */
+.refinement-two-way .rf-tw-row .rf-tw-pick::before { content: ''; position: absolute; inset: -6px; }
 /* In an open list the box sits left of the outline's line (0.4.229, the owner: "to the left of the outline, not within it"). */
 .refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.38em + 2px); }
 /* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
-.refinement-two-way .rf-tw-item:not(:last-of-type) { flex-basis: 100%; }
+/* Each record on a line of its own, its tag at the right edge as in an open list (0.4.297, the owner: "the tags under
+   decided should be right aligned"); the ⇥ keeps the list's last column. */
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.2em; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
+/* A record with no day still has its tag and ⇥ in the last two columns. */
+.refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
+.refinement-two-way .rf-tw-item .rf-tw-side { grid-column: 4; }
+.refinement-two-way .rf-tw-item a.rf-tw-record { justify-self: start; min-width: 0; } /* a long name wraps, never cut (0.4.263) */
 /* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
 .refinement-two-way .rf-tw-item::before { left: -26px; width: 26px; }

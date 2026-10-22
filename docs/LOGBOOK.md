@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Two-way rows: tags right and clickable, + by the name, a bigger tick target (0.4.297)
+
+**Asked:** the owner, with a picture of Dr. Mei Chen's rows: "the tags under decided should be right aligned and plus
+should be placed to the left of the property name but on hover"; then "should be able to click on tag in two-way area
+on right side"; then "make checkbox tap area bigger and it won't disappear if you accidentally click and have to go
+back to page". **Built:** `parts/two-way.js`: `.rf-tw-item` is a grid with the open list's columns (name, day, tag,
+⇥; tag and ⇥ pinned to columns 3 and 4 so a record with no day keeps them right); `addLink` moved into `.rf-tw-name`,
+absolute in its 19 px gap, visible on row hover; `openAdd` places the box from the +'s left edge; `tagLink` makes every
+tag an `a.rf-tw-tag[data-tag-page]` that `openPage`s it (Shift: sidebar), the chips keep the filter; `onClick` ticks the
+record when the click is left of its first child, and `.rf-tw-pick::before` widens the box by 6 px. **Measured:**
+headless Chromium, tags' right edges 852.8 px in both kinds of row, ⇥ 883.3. **Seen:** as in the CHANGELOG line;
+the first try opened the record, because the copy running had been reloaded before the gap-ticking was written; after a
+reload it ticked. Pictures re-approved after looking (the dateless Northgate row first showed its tag in the day's
+column; fixed before approval).
+
 ## 2026-10-22 · The tag map's Undo arrows: on their row, or in the corner with words (0.4.296)
 
 **Asked:** the owner, with a picture of eleven faded arrows after the map's title: "all these are useless".
