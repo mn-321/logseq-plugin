@@ -440,7 +440,7 @@ ${css('picker')}
 .px-chip:hover button { opacity: 1; }
 .px-kindline { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; }
 .px-kindicon { color: var(--px-faintc); font-size: 15px; display: inline-flex; }
-.px-lstag { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--ls-secondary-text-color); opacity: .85; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); }
+.px-lstag { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--ls-secondary-text-color); opacity: .7; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); }
 .px-lstag:hover { border-bottom-color: currentColor; }
 .px-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 2px 0 6px; margin-bottom: 6px; border-bottom: 1px solid var(--px-hair); font-size: 14px; }
 .px-count { display: inline-flex; align-items: center; gap: 6px; padding-right: 10px; font-weight: 600; }
@@ -470,7 +470,7 @@ ${css('picker')}
 .px-tagrow { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
 .px-chev { color: var(--px-faintc); display: inline-flex; }
 .px-proprow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 0 2px 22px; }
-.px-pname { color: var(--px-quiet); min-width: 70px; }
+.px-pname { color: var(--px-faintc); min-width: 70px; }
 .px-adds { display: flex; gap: 6px; padding: 1px 0 1px 18px; opacity: .55; }
 .px-adds-hover { opacity: 1; }
 .px-pick { display: inline-flex; flex-wrap: wrap; gap: 2px; }
@@ -562,7 +562,7 @@ ${css('picker')}
     'A tag is its name alone, no #, in the tag grey and a monospace face, as your old code drew it (0.4.114: no blue tag anywhere): it should feel like a class, not a tag. Not Logseq’s own blue #tag link, which 0.4.301 had switched to. Everything else is quiet words, not a chip: a filter is a greyed word that goes to the text colour when it is the one in force; a removable item is a word with a × that appears on hover. No edge, no pill. A value’s kind (link, date, text, number, choice, several) is not a chip at all but an icon from the list, left of the property’s name, with its name in the tooltip.',
     'The mono grey tag is yours and reads as a class, not a word; it costs four lines. The other chips differ only in whether they can be removed or pressed, which is state, not a new drawing. The uppercase kind box goes (you: “I don’t like this square”) and so do the pills: an icon says link or date at a glance, and a word in the right grey says chosen or not. Nothing on the page is a shape; it is all words at four weights.',
     'the tag map’s bold chip, the settings chip, the filter pill, the note pill'),
-  [prop(pxTag, 'a tag after a node: its name alone, mono, tag grey, the faint underline of a link; no #'), prop(pxRemovable, 'a removable item (a graph named in settings): a word; the × shows when the pointer is on it, as on the second'), prop(pxFilter, 'filters above a long list: the one in force in the text colour, the others grey'), prop(pxKinds, 'a property’s kind as an icon left of its name, then what it accepts; a second icon at the end when it holds several')])}
+  [prop(pxTag, 'a tag after a node: its name alone, mono, tag grey, the faint underline of a link; no #'), prop(pxRemovable, 'a removable item (a graph named in settings): a word; the × shows when the pointer is on it, as on the second'), prop(pxFilter, 'filters above a long list: the one in force in the text colour, the others grey'), prop(pxKinds, 'a property’s kind as an icon left of its name, the name faded like the names on a bullet’s pills, then what it accepts; a second icon at the end when it holds several')])}
 
   ${section('bars', 'Picking bars', '2', 'The bar that appears when several things are ticked. Two of them, with different buttons.', bars, '', rec('One bar: a line of words, not a box',
     'One kit bar: the count with its tick box, then the actions as quiet words with icons where an action is a common one (sidebar, tag, copy, delete), on one line above the list with a hairline under it. No box, no background. Each part hands the bar its list of actions.',
