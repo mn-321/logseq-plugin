@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Export: no status words, wording links (0.4.246)
+
+**The owner:** "Why does it say Open:", then "get rid of that. also, it doesn't get rid of in-line alias
+[alia]([[page]]). just keep alias". **Built:** `taskMark` returns nothing; the `[label](target)` pattern in
+`inlineHtml`/`inlinePlain` takes `[[page name with spaces]]` and `((ref))`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Preview with edits before PDF (0.4.245)
 
 **The owner:** "but if I export it, it loses its design", then "ok lets do that. how can i export based on a query".

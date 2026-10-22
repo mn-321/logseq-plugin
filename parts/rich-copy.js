@@ -141,7 +141,7 @@ function inlineHtml(raw) {
   let text = String(raw);
   text = text.replace(/`([^`\n]+)`/g, (m, code) => keep(`<code style="${STYLE.code}">${escapeHtml(code)}</code>`));
   // [label](url), and [label]([[page]]) which in Logseq is a labelled link to a page: just the label.
-  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, target) => /^\[\[.*\]\]$|^\(\(.*\)\)$/.test(target)
+  text = text.replace(/\[([^\]]+)\]\((\[\[[^\]]*\]\]|\(\([^)]*\)\)|[^)\s]+)\)/g, (m, label, target) => /^\[\[.*\]\]$|^\(\(.*\)\)$/.test(target)
     ? keep(inlineHtml(label))
     : keep(`<a href="${escapeHtml(target)}" style="${STYLE.a}">${inlineHtml(label)}</a>`));
   text = text.replace(bareUrl, url => keep(`<a href="${escapeHtml(url)}" style="${STYLE.a}">${escapeHtml(url)}</a>`));
@@ -162,7 +162,7 @@ function inlineHtml(raw) {
 // The same text without formatting, for apps that only take plain text.
 function inlinePlain(raw) {
   return String(raw)
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, target) => /^\[\[|^\(\(/.test(target) ? label : `${label} (${target})`)
+    .replace(/\[([^\]]+)\]\((\[\[[^\]]*\]\]|\(\([^)]*\)\)|[^)\s]+)\)/g, (m, label, target) => /^\[\[|^\(\(/.test(target) ? label : `${label} (${target})`)
     .replace(/#?\[\[([^\]]*)\]\]/g, '$1')
     .replace(/\*\*(.+?)\*\*|__(.+?)__/g, '$1$2')
     .replace(/~~(.+?)~~|==(.+?)==|\^\^(.+?)\^\^/g, '$1$2$3')
@@ -172,14 +172,8 @@ function inlinePlain(raw) {
 }
 
 /* ---------- One block, made simple for outside readers ---------- */
-// A task's status is shown as a quiet word in front: "Open: …", "Done: …". A chose words over boxes or circles.
-const STATUS_WORD = { backlog: 'Backlog', todo: 'Open', doing: 'In progress', 'in-review': 'In review', done: 'Done', canceled: 'Cancelled', cancelled: 'Cancelled' };
-function taskMark(statusId) {
-  if (!statusId) return { html: '', plain: '', afterHtml: '', afterPlain: '' };
-  const ident = entityCache.get(statusId)?.ident?.replace(/^logseq\.property\/status\./, '') || 'todo';
-  const word = STATUS_WORD[ident] || 'Open';
-  return { html: `<span style="color:#6b6b6b;">${escapeHtml(word)}:</span> `, plain: word + ': ', afterHtml: '', afterPlain: '' };
-}
+// A task's status is left out: outside readers see the task's words only (the owner, 2026-10-21).
+const taskMark = () => ({ html: '', plain: '', afterHtml: '', afterPlain: '' });
 
 async function describeBlock(node, attrs, shown) {
   const text = await resolveRefs(titleOf(node));
