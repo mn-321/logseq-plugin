@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The audit of layers 1 and 2: done (report)
+
+**The owner:** "close layers 1 and 2" (`docs/LAYERS-1-2-AUDIT.md`). **Verdict: yes, done.** Every feature of both layers
+seen in Logseq on the Illness Test Graph, light and dark, with what could not be checked named; the parts' doors and
+stylesheets read by two helpers (no breach, one borderline rule); speed measured on the pretend graphs, in the app and on
+Stress Check. Seven plain bugs fixed, 0.4.273 to 0.4.279 (one entry each above). Five decisions left to the owner
+(CLAUDE.md section 7). **The report:** https://claude.ai/artifact/UE8XQ3WfRg1DDT911Tt2c3 (private until shared).
+Working notes in the shared session notes folder (`audit-progress.md`, `audit-partA-doors.md`,
+`audit-partA-css-dead-size.md`). **Mistakes of mine:** a Cmd+K meant for the console went to Logseq's search and made
+a page "wait R('nb')" (removed for good with the command line, as was "Audit test drug" after its Undo put it in
+Recycle); the 0.4.277 commit went through while the tag map timings failed on the busy Mac (the previous version
+timed the same back to back; noted in the 0.4.278 entry). **Left as found:** the graph compared with its fingerprint
+by query (only Logseq's own view blocks differ), the settings as they were (the performance report overwritten by the
+troubleshooting box, by design), the light theme, the scratch graphs' servers stopped.
+
 ## 2026-10-22 · The boot test watches timers and listeners; an unload closes the settings window (0.4.279)
 
 **Found** by extending `tools/boot-test.js` as the audit brief asked (part A, 4 and 6): timers and listeners are now
