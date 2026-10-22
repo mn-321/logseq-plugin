@@ -33,7 +33,9 @@ P.links.push(core => {
    words. Tab works the same from Logseq's own Down into the properties (0.4.208).
    Down at the end of the words goes to the bullet's first property, filled or empty (0.4.271): Logseq's own Down aims
    at the first capsule, and when the plugin hides it (empty, nothing proposed) the keyboard fell out of the bullet,
-   which left it and filled in what was sure (seen in the app on Jul 30th). From there it is the same stepping. */
+   which left it and filled in what was sure (seen in the app on Jul 30th). From there it is the same stepping.
+   Left and Right on a capsule step as Shift-Tab and Tab do, stopping at either end (0.4.272): Logseq's own Left and
+   Right could not reach a capsule the plugin hides (the owner, on a bullet in their own graph: Right never got to an empty property; Tab did). */
 const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], stops: new Set(), restEl: null, wasOpen: false, at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '', pickerRoot: null, settle: 0, guesses: null, prefill: '' };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
 // An empty value's own trigger, for the kinds whose list, box or picker is followed here: a link, a text (or choice),
@@ -301,13 +303,18 @@ function onPickKey(event) {
   }
   // Down at the very end of the words: into the bullet's first property, filled or empty (0.4.271).
   if (event.key === 'ArrowDown' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && downIntoProperties(event)) return;
-  // Tab in the bullet's properties reached with Logseq's own Down (0.4.208): the same stepping from there (0.4.270).
-  if (event.key === 'Tab' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && startFromVisit(event)) return;
+  // Tab in the bullet's properties reached with Logseq's own Down (0.4.208): the same stepping from there (0.4.270);
+  // Left and Right too, stopping at the ends (0.4.272).
+  const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
+  if (event.key === 'Tab' && !picking.uuid && plainKey && startFromVisit(event, event.shiftKey ? -1 : 1, backToWords)) return;
+  const side = plainKey && !event.shiftKey ? { ArrowRight: 1, ArrowLeft: -1 }[event.key] : 0;
+  if (side && !picking.uuid && startFromVisit(event, side, () => endPicking(false))) return;
   // On a filled property the ring rests on (0.4.270): Enter opens it, Escape goes back to the words, Tab moves on,
   // Option-Enter finishes the bullet; other keys (Logseq's Left and Right) are Logseq's.
   if (picking.uuid && picking.restEl?.contains(event.target)) {
     const doc = event.target.ownerDocument;
     if (event.key === 'Tab') { event.preventDefault(); event.stopImmediatePropagation(); const step = event.shiftKey ? -1 : 1; openAt(doc, picking.at + step, step, backToWords, true); }
+    else if (side) { event.preventDefault(); event.stopImmediatePropagation(); openAt(doc, picking.at + side, side, () => {}, true); } // at an end: it stays
     else if (plainEnter && event.altKey) { event.preventDefault(); event.stopImmediatePropagation(); finishBullet(); }
     else if (plainEnter) { event.preventDefault(); event.stopImmediatePropagation(); openRested(doc); }
     else if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); backToWords(); }
@@ -345,9 +352,9 @@ function onPickKey(event) {
 // A tag typed in the words is saved by Logseq as #[[uuid]] (seen 0.4.214: "#Expectation" typed, Escape on its list), which
 // is not a link: the tags go first, or the saved words never match the typed ones and nothing is ever filled in.
 
-// Tab on one of a bullet's own properties that Logseq's Down put the keyboard on: stepping starts from there, with the
-// bullet's proposals kept as they are (the same conditions as Option-Enter).
-function startFromVisit(event) {
+// Tab, Left or Right on one of a bullet's own properties that Logseq's keys put the keyboard on: stepping starts from
+// there, with the bullet's proposals kept as they are (the same conditions as Option-Enter); past an end, pastEnd.
+function startFromVisit(event, step, pastEnd) {
   const target = event.target;
   if (!target?.closest || target.matches('input, textarea, [contenteditable="true"]')) return false;
   if (!setting('shadowProposals') || !state.allowedNow) return false;
@@ -361,8 +368,7 @@ function startFromVisit(event) {
   const live = [state.visiting?.live, state.live].find(l => l?.recordUuid === rowUuid) || null;
   endPicking(false);
   Object.assign(picking, { uuid: live?.uuid || rowUuid, text: live?.text || '', live, rowUuid, names: places.map(p => p.name), stops: new Set(emptyNames(doc, rowUuid)), guesses: guessesAt(rowUuid) });
-  const step = event.shiftKey ? -1 : 1;
-  openAt(doc, at + step, step, backToWords, true);
+  openAt(doc, at + step, step, pastEnd, true);
   return true;
 }
 

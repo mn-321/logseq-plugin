@@ -568,7 +568,31 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   if (!down.defaultPrevented || !ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc') || pressed.length) problem(`Down at the end of the words: ring on the doctor ${ringOn('v-doc')}, keyboard on ${doc.activeElement?.id || doc.activeElement?.tagName}, pressed ${pressed.join()}; wanted the ring and the keyboard on the first property, nothing opened`);
   key(doc.getElementById('p-v-doc'), 'Escape');
   await wait(300);
+  // Left and Right on a capsule step as Shift-Tab and Tab (0.4.272), and stop at the ends.
+  pressed.length = 0;
+  doc.getElementById('p-v-date').focus(); // Logseq's own keys put the keyboard there
+  const left = key(doc.getElementById('p-v-date'), 'ArrowLeft');
+  await wait(50);
+  cases++;
+  if (!left.defaultPrevented || pressed.join() !== 't-hosp3') problem(`Left from the date: opened ${pressed.join() || 'nothing'}; wanted the hospital`);
+  input = openList();
+  await wait(150);
+  key(input, 'Tab', { shiftKey: true });
+  await wait(150);
+  key(doc.getElementById('p-v-doc'), 'ArrowLeft');
+  await wait(150);
+  cases++;
+  if (!ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc') || window.refinementShadow.picking.uuid !== U) problem('Left on the first property: the ring did not stay on it');
+  key(doc.getElementById('p-v-doc'), 'ArrowRight');
+  await wait(50);
+  cases++;
+  if (pressed.join() !== 't-hosp3,t-hosp3') problem(`Right from the doctor: opened ${pressed.join()}; wanted the hospital`);
+  input = openList();
+  await wait(150);
+  key(input, 'Escape');
+  await wait(300);
   // The first property empty (hidden by the plugin until something is proposed): Down opens it.
+  pressed.length = 0;
   doc.querySelector('.bottom-properties-row').insertAdjacentHTML('afterbegin', emptyPill('topic', 't-topic'));
   doc.getElementById('t-topic').addEventListener('pointerdown', () => pressed.push('t-topic'));
   box.focus();

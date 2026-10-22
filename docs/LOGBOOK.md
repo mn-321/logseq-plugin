@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Left and Right through hidden properties (0.4.272)
+
+**The owner:** "the side arrow sometimes get stuck on a hidden property", then pictures from their own graph (a bullet: Right never reached an empty property; Tab did) and "this is on my own".
+**Built:** in `parts/shadow-steps.js` Left and Right on a capsule go through `startFromVisit(event, step, pastEnd)`
+(stopping at the ends) or, while stepping, `openAt(…, side, () => {}, true)`. `tools/shadow-test.js` case 21, 3 more
+checks. **Seen:** tests only; the app had the owner's own graph open, so nothing was tried there.
+
 ## 2026-10-22 · Down into the first property (0.4.271)
 
 **The owner:** "how do I enter first property, irrespective if it is filled or not? down doesn't work with capsules";
