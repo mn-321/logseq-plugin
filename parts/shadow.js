@@ -605,7 +605,9 @@ function start() {
   // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
   const offRoute = logseq.App.onRouteChanged?.(() => { state.undos.clear(); schedulePage(); });
   if (typeof offRoute === 'function') onUnload(offRoute);
-  const offGraph = logseq.App.onCurrentGraphChanged?.(() => applyHide());
+  // Another graph: the answer to "may this graph be written in" is not known yet (the audit, 0.4.276: Option-Enter
+  // or Down right after a switch started stepping on the old answer), and nothing shown belongs to the new one.
+  const offGraph = logseq.App.onCurrentGraphChanged?.(() => { state.allowedNow = false; clearLive(); applyHide(); });
   if (typeof offGraph === 'function') onUnload(offGraph);
   watchDomEarly(drawEarly);
   onUnload(logseq.DB.onChanged(({ blocks } = {}) => { learnSoon(blocks); const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));

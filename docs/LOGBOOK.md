@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A graph change forgets the write answer (0.4.276)
+
+**Found** in the audit of layers 1 and 2 (part A, writes): `state.allowedNow` in `parts/shadow.js` is set by `compute`
+and never cleared on `onCurrentGraphChanged`, so the keys in `parts/shadow-steps.js` could start stepping right after a
+switch on the old graph's answer (an empty next bullet could be made; values are re-checked before any write).
+**Built:** the graph hook now also sets `allowedNow` false and clears what is shown. `tools/shadow-write-test.js`
+case 16 (fails on 0.4.275). **Seen:** tests only; switching graphs was refused by the Mac's safety check here.
+
 ## 2026-10-22 · A cold start no longer warns about the two-way rows (0.4.275)
 
 **Found** in the audit of layers 1 and 2: after the Mac restarted, the console showed "Refinements (two-way): could not

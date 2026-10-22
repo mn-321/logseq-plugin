@@ -62,7 +62,7 @@ async function dsQuery(q) {
 }
 window.logseq = {
   settings: { shadowProposals: true, shadowGraphs: 'Test' }, updateSettings() {}, onSettingsChanged: () => () => {},
-  App: { getCurrentGraph: async () => ({ name: 'Test' }), getUserConfigs: async () => ({}) }, UI: { showMsg() {} }, DB: { onChanged: () => () => {} },
+  App: { getCurrentGraph: async () => ({ name: 'Test' }), getUserConfigs: async () => ({}), onCurrentGraphChanged: fn => { window.graphChanged = fn; return () => {}; } }, UI: { showMsg() {} }, DB: { onChanged: () => () => {} },
   Editor: {
     async upsertBlockProperty(uuid, ident, value, opts) { writes.push(['set', uuid, ident, value]); store.get(uuid)?.props.set(ident, Array.isArray(value) ? [...value] : opts?.entityId ? [value] : value); },
     async removeBlockProperty(uuid, ident) { if (failRemoves > 0) { failRemoves--; throw new Error('pretend failure'); } writes.push(['remove', uuid, ident]); store.get(uuid)?.props.delete(ident); },
@@ -327,6 +327,18 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     window.logseq.Editor.exitEditingMode = before;
     const sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
     check(sets === 'user.property/date,user.property/symptoms', `15. Cmd-Option-Enter wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
+  }
+  // 16. Another graph opened while a bullet showed proposals (0.4.276): nothing shown stays, and the answer to "may this
+  //     graph be written in" is forgotten until the next check (Option-Enter and Down right after the switch stay Logseq's).
+  {
+    reset();
+    const b = addBlock(1016, 'Saw [[Dr. Mei Chen]] again', [T.consultation]);
+    const box = onScreen(b, b.title);
+    await type(box);
+    check(ghosts().length === 1 && state.allowedNow === true, `16. before the switch: shown ${JSON.stringify(ghosts())}, allowed ${state.allowedNow}`);
+    window.graphChanged();
+    await wait(100);
+    check(!ghosts().length && !state.live && state.allowedNow === false, `16. after the switch: shown ${JSON.stringify(ghosts())}, allowed ${state.allowedNow}; wanted nothing shown and the graph check forgotten`);
   }
   // 9. Switched off with a fill still waiting: nothing is written afterwards.
   {
