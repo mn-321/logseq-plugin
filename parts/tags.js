@@ -651,6 +651,7 @@ const css = `
 .refinement-tags .rtg-same { color: var(--rtg-warn) !important; cursor: pointer; }
 .refinement-tags .rtg-same:hover { text-decoration: underline; text-underline-offset: 2px; }
 .refinement-tags-dialog li { margin: 2px 0; }
+.rf-dialog.rf-anchored.refinement-tags-dialog { width: min(440px, 92vw); }
 .refinement-tags-dialog .rtg-namefield { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
 .refinement-tags-dialog .rtg-namefield input { flex: 1; min-width: 0; width: auto; }
 .refinement-tags-dialog .rtg-note { color: var(--rf-ui-muted); }
@@ -955,10 +956,25 @@ function askMerge(view, tag, parent, anchor) {
   const choices = [];
   for (const [t, why] of first) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: why }); }
   for (const t of [...view.data.tags.values()].filter(t => !t.builtIn).sort(view.data.byTitle)) if (!seen.has(t.id)) { seen.add(t.id); choices.push({ tag: t, path: pathOf(t) }); }
-  view.pickTag(anchor, `Merge #${tag.title} into …`, choices, target => view.confirmMerge(tag, target));
+  view.pickTag(anchor, `Merge #${tag.title} into …`, choices, target => view.confirmMerge(tag, target, anchor));
 }
 
-async function confirmMerge(view, source, target) {
+/* A plan's box sits under the row or menu it came from (0.4.288, the audit: no box in the middle of the window over a
+   darkened page): the kit's anchored dialog (.rf-dialog.rf-anchored, parts/shared.js). A click anywhere else, Escape or
+   Cancel closes it; onKey sees the other keys. Returns close(). */
+function anchoredPanel(view, panel, anchor, onKey) {
+  const doc = view.doc;
+  panel.classList.add('rf-anchored');
+  const away = event => { if (!panel.contains(event.target)) close(); };
+  const close = () => { panel.remove(); doc.removeEventListener('mousedown', away, true); view.box.focus({ preventScroll: true }); };
+  panel.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close(); return; } onKey?.(event); });
+  for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
+  doc.body.append(view.paint(panel));
+  shared.placeBelow(panel, anchor?.isConnected ? anchor : view.box);
+  doc.addEventListener('mousedown', away, true);
+  return close;
+}
+async function confirmMerge(view, source, target, anchor) {
   source = view.fresh(source); target = view.fresh(target);
   let plan;
   try { plan = await planMerge(source, target, view.data.tags); }
@@ -986,11 +1002,9 @@ async function confirmMerge(view, source, target) {
     el(doc2, 'ul', {}, ...lines.map(line => el(doc2, 'li', {}, line))),
     el(doc2, 'p', {}, 'The moves cannot be undone in one step, and Logseq deletes a tag for good (it does not go to the Recycle).'),
     el(doc2, 'div', { class: 'rtg-btns rf-btns' }, cancel, go));
-  const backdrop = el(doc2, 'div', { class: 'refinement-tags-dialog rf-dialog-backdrop' }, panel);
-  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  panel.classList.add('refinement-tags-dialog');
+  const close = anchoredPanel(view, panel, anchor);
   cancel.addEventListener('click', close);
-  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
-  backdrop.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close(); } });
   go.addEventListener('click', async () => {
     close();
     view.cursorTag = target.id; view.cursorKey = null;
@@ -998,7 +1012,6 @@ async function confirmMerge(view, source, target) {
     await view.act(() => runMerge(plan), `#${source.title} could not be merged into #${target.title}`);
     if (!view.data.tags.has(source.id)) view.showToast(`#${source.title} is merged into #${target.title}`);
   });
-  doc2.body.append(view.paint(backdrop));
   cancel.focus();
 }
 
@@ -1281,7 +1294,7 @@ function propMenu(view, tag, prop, from, anchor, alone) {
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ html: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
   if (prop.choices.length && tag && !tag.builtIn && !alone) items.push({ html: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });
   const linkFrom = tag && !tag.builtIn ? tag : (prop.givenBy || []).find(t => !t.builtIn);
-  if (prop.type === 'default' && linkFrom) items.push({ html: 'Turn into links to pages …', run: () => view.askLinks(linkFrom, prop) });
+  if (prop.type === 'default' && linkFrom) items.push({ html: 'Turn into links to pages …', run: () => view.askLinks(linkFrom, prop, anchor) });
   items.push({ html: 'Kind of value, one or several …', run: () => view.kindMenu(prop, anchor) });
   // In the by-property view (alone) the property is not under any one tag: taking it off each is offered by name.
   if (alone) {
@@ -1435,11 +1448,11 @@ async function askChildTag(view, tag, prop, anchor) {
   } catch (error) { warnOnce('the choices could not be read', error); logseq.UI.showMsg('The choices could not be read: ' + (error?.message || error), 'warning'); return; }
   if (!list.length) { logseq.UI.showMsg(`${prop.title} has no choices yet`, 'warning'); return; }
   view.showMenu(anchor, `Which ${prop.title} becomes its own tag inside #${tag.title}?`, list.map(choice => ({
-    html: `${escapeHtml(choice.title)}<kbd>${plural(choice.count, 'node')}</kbd>`, run: () => view.confirmChildTag(tag, prop, choice) })));
+    html: `${escapeHtml(choice.title)}<kbd>${plural(choice.count, 'node')}</kbd>`, run: () => view.confirmChildTag(tag, prop, choice, anchor) })));
   view.menu.append(el(view.doc, 'div', { class: 'rtg-mnote rf-pop-note' }, `Best for a short list of broad kinds that rarely changes. The nodes move to the new tag and keep all their values.`));
   view.placeMenu(anchor);
 }
-async function confirmChildTag(view, tag, prop, choice) {
+async function confirmChildTag(view, tag, prop, choice, anchor) {
   let plan;
   try { plan = await planChildTag(view.fresh(tag), prop, choice, view.data); }
   catch (error) { warnOnce('a child tag could not be prepared', error); logseq.UI.showMsg('Could not look up what it would change: ' + (error?.message || error), 'warning'); return; }
@@ -1469,15 +1482,9 @@ async function confirmChildTag(view, tag, prop, choice) {
     el(doc, 'h2', {}, `Make “${choice.title}” its own tag inside ${T}?`),
     el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Name'), input), lines, note,
     el(doc, 'div', { class: 'rtg-btns rf-btns' }, cancel, go));
-  const backdrop = el(doc, 'div', { class: 'refinement-tags-dialog rf-dialog-backdrop' }, panel);
-  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  panel.classList.add('refinement-tags-dialog');
+  const close = anchoredPanel(view, panel, anchor, event => { if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); } });
   cancel.addEventListener('click', close);
-  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
-  backdrop.addEventListener('keydown', event => {
-    event.stopPropagation();
-    if (event.key === 'Escape') { event.preventDefault(); close(); }
-    if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); }
-  });
   input.addEventListener('input', () => { fill().catch(() => {}); });
   go.addEventListener('click', async () => {
     if (go.disabled) return;
@@ -1494,13 +1501,12 @@ async function confirmChildTag(view, tag, prop, choice) {
     if (child) { view.cursorTag = child.id; view.cursorKey = null; view.draw(); }
     view.showToast(`${n ? plural(n, 'node') + ' moved to' : 'Made'} #${name}; “${choice.title}” is still a choice of ${prop.title}`, result.undo);
   });
-  doc.body.append(view.paint(backdrop));
   await fill().catch(() => {});
   input.focus(); input.select();
 }
 
 // What turning a property into links would change, and the go-ahead.
-async function askLinks(view, tag, prop) {
+async function askLinks(view, tag, prop, anchor) {
   view.closeMenu();
   let plan;
   try { plan = await planLinks(view.fresh(tag), prop, view.data); }
@@ -1537,15 +1543,9 @@ async function askLinks(view, tag, prop) {
     el(doc, 'h2', {}, `Turn ${P} into links to pages?`),
     el(doc, 'div', { class: 'rtg-namefield' }, el(doc, 'span', { class: 'rtg-note' }, 'Pages tagged'), input), lines, note,
     el(doc, 'div', { class: 'rtg-btns rf-btns' }, cancel, go));
-  const backdrop = el(doc, 'div', { class: 'refinement-tags-dialog rf-dialog-backdrop' }, panel);
-  const close = () => { backdrop.remove(); view.box.focus({ preventScroll: true }); };
+  panel.classList.add('refinement-tags-dialog');
+  const close = anchoredPanel(view, panel, anchor, event => { if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); } });
   cancel.addEventListener('click', close);
-  backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) close(); });
-  backdrop.addEventListener('keydown', event => {
-    event.stopPropagation();
-    if (event.key === 'Escape') { event.preventDefault(); close(); }
-    if (event.key === 'Enter' && event.target === input && !event.isComposing) { event.preventDefault(); if (!go.disabled) go.click(); }
-  });
   input.addEventListener('input', () => { fill().catch(() => {}); });
   go.addEventListener('click', async () => {
     if (go.disabled) return;
@@ -1560,7 +1560,6 @@ async function askLinks(view, tag, prop) {
     // A larger change gets a minute to be undone (seen in the app: seven seconds went by while the result was looked at).
     view.showToast(`${P} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; the old one is “${P} (old)”`, result.undo, 60000);
   });
-  doc.body.append(view.paint(backdrop));
   await fill().catch(() => {});
   input.focus(); input.select();
 }

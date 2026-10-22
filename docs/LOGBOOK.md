@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the tag map's plans beside their rows (0.4.288)
+
+**Asked:** the audit's verdict on Merge, Make a child tag and Turn into links. **Built:** `parts/tags.js`:
+`anchoredPanel(view, panel, anchor, onKey)` puts a plan's box under its anchor through `shared.placeBelow`, with the
+kit's `.rf-anchored` look, a capture mousedown on the document to close on a click elsewhere, Escape, and the panel's
+own keys (Enter in the name box); the three dialogs use it instead of their backdrop, and `confirmMerge`,
+`confirmChildTag` and `askLinks` take the anchor their menus already had. `.rf-dialog.rf-anchored.refinement-tags-dialog`
+is 440 px, room for the plan's lines. **Measured:** the merge plan 440 × 167.6 px instead of 460 × 198.4. **Not seen:**
+the app; check in the tag map: a tag's menu → Merge into… → pick a target: the plan under the row; Escape closes.
+
 ## 2026-10-22 · Design audit: the picking bar's questions beside the bar (0.4.287)
 
 **Asked:** the audit's verdict: a question about the picked records belongs beside the bar that asked it.

@@ -72,7 +72,7 @@ beside its +. `shared.modal` takes an anchor now (0.4.285) and draws the box the
 
 | | before | after |
 |---|---|---|
-| where | a 460 px box in the middle, over a darkened page | a 400 px box under the row or menu that opened it |
+| where | a 460 px box in the middle, over a darkened page | a 440 px box under the row or menu that opened it (the merge plan 168 px tall instead of 198) |
 | padding | 16 / 18 / 14 px | 8 / 10 px |
 | heading | 16 px, 10 px under | 14 px bold, 6 px under |
 | the list and the note | 12 px under each | 8 px |
