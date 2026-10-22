@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Escape until the next letter typed (0.4.293)
+
+**Asked:** the owner, on the audit's decision 4 (Escape's clearing lasted until the bullet was left; the README said
+"until you next edit the bullet"): "What is usually normal in general". In editors' suggestions (code completion,
+mail address lists, phone keyboards) a dismissed suggestion comes back with the next letter typed. **Built:**
+`parts/shadow.js`: `onInput` ends the clearing (`hushed`) for the bullet typed in; Escape, leaving after Escape and the
+clearing ending when the bullet is left are as before. README and the setting's description say "until you type in
+the bullet again". **Seen:** on today's journal (Oct 22nd), a test bullet "Saw Dr. Patel about fatigue #Consultation": grey Provider Dr. Raj Patel and Date Oct 22 shown; Escape cleared them with the caret kept; a space and one letter brought them back. Escape again and the bullet deleted: nothing filled. Twice my letters went to Logseq as shortcuts while the caret was not in a bullet (to All pages, and to Jun 22nd); `node tools/graph-check.js compare` lists only the owner's bullets, an older fill and Logseq's view blocks since the 2026-10-20 fingerprint, nothing from this check.
+
 ## 2026-10-22 · Choice guesses dropped (0.4.292)
 
 **Asked:** the owner, on the audit's decision 5 (choice guesses wrong 255 times on Stress Check): "Drop". **Built:**
