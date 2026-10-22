@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.279.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.280.
 
 **For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -66,8 +66,12 @@ The files in `parts/`:
 
 ## Install
 
-1. Unzip the download. In Logseq Desktop, turn on **Developer mode** in Settings.
-2. Open Plugins (`t p`), choose **Load unpacked plugin**, and pick the unzipped `logseq-db-refinements` folder. Keep the `parts` folder next to `main.js`.
+**From GitHub (any computer):** in Logseq, run **Install plugin from GitHub release** from the command palette, paste `https://github.com/mn-321/logseq-plugin` and press Install. Logseq downloads the newest release's zip and runs it; **Check update** on the plugin's card in the Plugins panel (`t p`) brings the next version. Every version pushed to GitHub with a tag (`v0.4.280` and so on) becomes such a release; `.github/workflows/publish.yml` builds its zip. Installed this way, Logseq names the copy after the repository (`logseq-plugin`) and keeps its settings in `~/.logseq/settings/logseq-plugin.json`.
+
+**Unpacked (the owner's Mac):**
+
+1. Unzip the download, or use the repository folder itself. In Logseq Desktop, turn on **Developer mode** in Settings.
+2. Open Plugins (`t p`), choose **Load unpacked plugin**, and pick the `logseq-db-refinements` folder. Keep the `parts` folder next to `main.js`.
 3. If an earlier copy is loaded, replace its files and press **Reload** on the plugin in the Plugins panel. The plugin needs no internet connection.
 
 ## Settings

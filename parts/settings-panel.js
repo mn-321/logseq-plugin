@@ -12,7 +12,9 @@
 const { host } = window.refinementShared; // the shared plumbing (parts/shared.js)
 const PANEL_CLASS = 'refinement-settings-backdrop';
 const ITEM_CLASS = 'refinement-settings-menu-item';
-const PLUGIN_ID = 'logseq-db-refinements';
+// The id Logseq runs this copy under: 'logseq-db-refinements' when loaded unpacked, the repo's name when installed
+// from a GitHub release (seen 0.4.280: 'logseq-plugin'), so the Reload button asks Logseq rather than assuming.
+const PLUGIN_ID = logseq.baseInfo?.id || 'logseq-db-refinements';
 const COPY = String(Date.now()); // tells this copy's menu item from one left by an earlier copy
 const SLIDERS_ICON = '<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 6l8 0"/><path d="M16 6l4 0"/>' +
   '<path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M4 12l2 0"/><path d="M10 12l10 0"/>' +

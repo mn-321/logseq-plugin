@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Installable from GitHub (0.4.280)
+
+**The owner:** "are you able to do this so I can install this on my other computer from my private github repo?",
+then a picture of Logseq's own command **Install plugin from GitHub release** ("It has it"), then "ok it is public. try
+it now". **Found:** Logseq's installer goes through plugins.logseq.io, which reads the repo's releases with GitHub's
+public API: a private repo gave "GitHub API Failed (500)"; public, it worked. The first tag push went out while the
+repo was private and never ran the workflow; the tag was pushed again. An installed copy is named after the
+repository (`logseq-plugin`), so `PLUGIN_ID` in `parts/settings-panel.js` (the Reload button) now reads
+`logseq.baseInfo.id`. **Built:** `.github/workflows/publish.yml` (a Release with the zip on every `v*` tag, the same
+files as `tools/release.sh`), the README's Install section, CLAUDE.md section 1. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · The audit of layers 1 and 2: done (report)
 
 **The owner:** "close layers 1 and 2" (`docs/LAYERS-1-2-AUDIT.md`). **Verdict: yes, done.** Every feature of both layers
