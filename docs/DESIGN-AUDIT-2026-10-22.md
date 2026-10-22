@@ -121,8 +121,8 @@ box is narrower. It is already beside the words it is about.
 | | before | after |
 |---|---|---|
 | the window | 840 × 660 px, 7 vh from the top | 800 × 640 px |
-| header | 60 px (12 / 14 / 12 / 20 px) | 48 px (8 / 12 px) |
-| the side list | 200 px wide, rows 33 px | 180 px, rows 30 px |
+| header | 60 px (12 / 14 / 12 / 20 px) | 52 px (8 / 10 / 8 / 14 px) |
+| the side list | 200 px wide, rows 33 px | 180 px, rows 29 px |
 | the body's padding | 4 / 24 / 24 px | 4 / 16 / 16 px |
 | a setting's row | 64 px (11 px padding, 20 px gap) | 58 px (8 px, 16 px) |
 | footer | 50 px | 42 px |

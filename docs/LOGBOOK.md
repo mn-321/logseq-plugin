@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the settings window trimmed (0.4.290)
+
+**Asked:** the audit's verdict on the settings window: central is right (it is about no one thing on the page), its
+edges and rows wider than Logseq's own. **Built:** `parts/settings-panel.js`: 800 × 640, header 8/10/8/14 px, side list
+180 px with 4/8 px rows, body 4/16/16 px, rows 8 px with a 16 px gap, footer 6/10/6/14 px. **Measured:** header 52 px
+(60 before), side rows 29 (33), a setting's row 58.1 (64.1), footer 41.8 (49.8). **Not seen:** the app; open
+Refinements settings from the palette and look.
+
 ## 2026-10-22 · Design audit: the link box trimmed (0.4.289)
 
 **Asked:** the audit's verdict on the link box: a size larger than Logseq's own text box for a value, and wide.
