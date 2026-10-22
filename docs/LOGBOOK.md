@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A slow list no longer ends the stepping (0.4.273)
+
+**Found** in the audit of layers 1 and 2 (`docs/LAYERS-1-2-AUDIT.md`, B5): on Oct 20th, "Spoke with Dr. Chen about Blood in
+stool" (Provider, Topic empty with a guess, Date), Down, Right, Escape left the keyboard on the Provider capsule, and a
+second Escape left the bullet. A record of the stepping every 50 ms showed why: Right pressed Topic's value, Logseq's
+popover box took the keyboard at once, but the list's own field only 1.7 s later; `watchPicker` ends the stepping as
+"nothing opened" after `OPEN_WAIT` (600 ms). **Built:** in `parts/shadow-steps.js` the watch waits while Logseq's popover
+box (`.ui__popover-content`) has the keyboard, up to `SLOW_OPEN` (4 s). `tools/shadow-test.js` case 21: a list whose field
+comes 1.5 s late (2 checks, both failing on 0.4.272). **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · Left and Right through hidden properties (0.4.272)
 
 **The owner:** "the side arrow sometimes get stuck on a hidden property", then pictures from their own graph (a bullet: Right never reached an empty property; Tab did) and "this is on my own".

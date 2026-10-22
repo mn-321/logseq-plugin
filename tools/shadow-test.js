@@ -603,6 +603,26 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   if (pressed.join() !== 't-topic' || !ringOn('t-topic')) problem(`Down with an empty first property: opened ${pressed.join() || 'nothing'}; wanted the empty topic, ringed`);
   key(openList(), 'Escape');
   await wait(300);
+  // A slow list (0.4.273, seen in the app: Topic's box had the keyboard 1.7 s before its field did): Right from the
+  // doctor opens the hospital; the stepping waits for the field, and Escape there goes back to the words.
+  window.refinementProposals.endPicking(false);
+  for (const el of doc.querySelectorAll('.cp__select')) el.remove();
+  await wait(200);
+  pressed.length = 0; edited.length = 0;
+  doc.getElementById('p-v-doc').focus();
+  key(doc.getElementById('p-v-doc'), 'ArrowRight');
+  const slow = doc.createElement('div'); slow.className = 'ui__popover-content'; slow.tabIndex = -1; doc.body.appendChild(slow); slow.focus();
+  await wait(1500);
+  cases++;
+  if (pressed.join() !== 't-hosp3' || window.refinementShadow.picking.uuid !== U) problem(`a slow list: pressed ${pressed.join() || 'nothing'}, stepping ${window.refinementShadow.picking.uuid || 'ended'}; wanted the hospital opened and the stepping still on`);
+  const late = openList(); slow.appendChild(late.closest('.cp__select'));
+  late.focus();
+  await wait(150);
+  key(late, 'Escape');
+  slow.remove();
+  await wait(300);
+  cases++;
+  if (window.refinementShadow.picking.uuid || !edited.includes(U)) problem(`Escape in a slow list: stepping ${window.refinementShadow.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
 }
 // 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
 {

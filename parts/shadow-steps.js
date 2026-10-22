@@ -137,7 +137,7 @@ function inPicker(el) {
 // The bullet's own words: Logseq names the box it edits a block in "edit-block-<its id>" (read in the app); a value's
 // box inside the bullet's properties is another block's and has another id.
 const ownWords = el => !!el && el.matches?.('textarea') && (el.id ? el.id === `edit-block-${picking.uuid}` : uuidOf(el) === picking.uuid);
-const OPEN_WAIT = 600, KEY_CLOSES = 400;
+const OPEN_WAIT = 600, SLOW_OPEN = 4000, KEY_CLOSES = 400;
 // A text value's box makes the value as soon as it opens (seen in the app: Tab past an untouched Notes left an empty
 // Notes on the bullet). Moving on from one left blank takes that empty value off again, so passing through a property
 // leaves nothing behind.
@@ -220,6 +220,9 @@ function watchPicker() {
       return;
     }
     if (picking.moving && Date.now() - picking.moving < OPEN_WAIT) return;
+    // A long list (Topic takes 15 tags) has its box, with the keyboard on it, open well before Logseq puts the
+    // keyboard in the list's field (seen 0.4.273: 1.7 s): while that box has the keyboard, the list is still opening.
+    if (picking.moving && !picking.wasOpen && active?.closest?.('.ui__popover-content') && Date.now() - picking.moving < SLOW_OPEN) return;
     if (ownWords(active)) return endPicking(false);
     if (picking.wasOpen && picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) {
       if (picking.lastKey === 'Enter') return openAt(doc, picking.at + 1, 1, finishBullet);
