@@ -104,7 +104,7 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   check(box.value === 'Spoke with  today', 'typing the words should not change the bullet');
   key('Enter');
   check(/Link “my oncologist” to/.test(doc.querySelector('.refinement-link-text')?.textContent || ''), 'after Enter, the page is asked for');
-  key('Backspace');
+  check(!doc.querySelector('.rlt-typed') && !doc.querySelector('.rlt-row'), 'after Enter, the page field should start empty');
   for (const ch of 'mei') key(ch);
   key('Enter');
   check(box.value === 'Spoke with [my oncologist]([[Dr. Mei Chen]]) today', 'the link goes in at the cursor: ' + box.value);

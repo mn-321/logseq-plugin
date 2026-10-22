@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Link text: the page field starts empty (0.4.255)
+
+**The owner:** a picture, "I hit enter after yes, but appears still in input". **Built:** the words step's Enter sets
+`looked: ''`, `fresh: false`; an empty page list says "Type the page’s name". `tools/link-text-test.js` 35 checks.
+**Seen:** not in Logseq (the owner was in it).
+
 ## 2026-10-21 · Link selected text: wider, a field, words first (0.4.254)
 
 **The owner:** a picture from a dark theme, "too short width … hard to see the alias being typed … without any selected text,

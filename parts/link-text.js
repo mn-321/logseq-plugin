@@ -148,7 +148,7 @@ function draw() {
   open.el.innerHTML = `<div class="rlt-head">Link “${esc(open.words.trim())}” to</div>` + field(open.looked, 'Type a page’s name', open.fresh)
     + (open.rows.length ? open.rows.map((row, i) => `<div class="rlt-row${i === open.at ? ' rlt-on' : ''}${row.kind === 'new' ? ' rlt-new' : ''}" role="option" data-i="${i}" title="${esc(row.title)}">`
       + `<span class="rlt-title">${row.kind === 'new' ? `New page “${esc(row.title)}”` : esc(row.title)}</span>${row.right ? `<span class="rlt-kind">${esc(row.right)}</span>` : ''}</div>`).join('')
-      : '');
+      : '<div class="rlt-none">Type the page’s name</div>');
 }
 function close() {
   if (!open) return;
@@ -186,7 +186,8 @@ function onKey(event) {
       own();
       if (open.step === 'page') { choose(open.at); return; }
       if (!open.looked.trim()) return; // no words yet
-      Object.assign(open, { step: 'page', words: open.looked.trim(), fresh: true, at: 0 });
+      // The page is looked for from an empty field (0.4.255, the owner: "I hit enter after yes, but appears still in input").
+      Object.assign(open, { step: 'page', words: open.looked.trim(), looked: '', fresh: false, at: 0 });
       draw();
       return;
     }
