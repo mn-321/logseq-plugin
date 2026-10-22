@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Two-way tags in one column (0.4.299)
+
+**Asked:** the owner, with a picture where the Decision tags stopped short of the Consultation tags: "make tags right
+aligned". **Found (measured in the app, from the console):** open-list lines 524–1284 px, nodes outside a list
+514–1274, tags 1175–1245 against 1153–1255. A `.rf-tw-item` is a flex item with `flex-basis: 100%` in `.rf-tw-value`;
+its `margin: 0 -.3rem` moved it left instead of widening it, as a block's negative margins do for the list's lines.
+The headless check of 0.4.297 used the same rules but did not show it. **Built:** `parts/two-way.js`:
+`.rf-tw-value > .rf-tw-item` gets the lines' `margin: 0 -.35rem; padding: 0 .35rem` and `flex-basis: calc(100% + .7rem)`.
+**Seen:** after a reload, Consultation and Decision end in one column on Dr. Mei Chen.
+
 ## 2026-10-22 · The + box: one heading line, a tag list, where it goes (0.4.298)
 
 **Asked:** the owner, with a picture of the + box: "shouldn't you be able to add which page to add it to on bottom left

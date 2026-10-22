@@ -956,6 +956,9 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
 /* Each record on a line of its own, its tag at the right edge as in an open list (0.4.297, the owner: "the tags under
    decided should be right aligned"); the ⇥ keeps the list's last column. */
+/* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
+   5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
+.refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
 .refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.2em; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
 /* A record with no day still has its tag and ⇥ in the last two columns. */
