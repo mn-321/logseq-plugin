@@ -14,7 +14,7 @@ const { host, notify, openEntity, perf } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements: ',
   leaves: { elements: '.refinement-child-assets, .refinement-usage, .refinement-prop-icon, .refinement-value-icon',
     attributes: ['ref-row', 'date', 'date-heading', 'tag-page', 'pdf', 'pdf-line', 'pdf-citation-block', 'citation', 'block-link', 'prop-label', 'via', 'via-value', 'ref-count', 'here', 'below',
-      'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type', 'value', 'value-kind', 'value-day', 'proposed'].map(name => 'data-refinement-' + name) } });
+      'mention', 'tense', 'usage-dim', 'pick', 'pick-tags', 'prop', 'prop-type', 'value', 'value-kind', 'value-day'].map(name => 'data-refinement-' + name) } });
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, storedRef, titleOf, trailingTags, UUID, isEntityId, idsIn, uuidsIn, graphWide, watchDom, watchDomEarly, addsElements, sendStyle, PAGE_TITLE, REFERENCE_AREAS, referenceAreas, wash, applyTagPageStyle, blockLink, blockLinkPlain, viaLook;
 let provided, escapeHtml;
@@ -609,15 +609,6 @@ async function sidebarIncoming(doc) {
    popup: the slash menu and the (( menu share the id and are left alone. A page and a tag with the same name
    cannot be told apart by name alone. */
 const pickerMarks = { marked: new Set(), tags: new Map() };  // tags: row -> { node, original }
-// The values Proposals in the pills has pencilled into the record in edit, by name (0.4.123): a row that is one says so.
-function proposedTitles(doc) {
-  const box = doc.activeElement;
-  const uuid = box?.matches?.('textarea') ? box.closest('.ls-block[blockid]')?.getAttribute('blockid') : null;
-  if (!uuid || !provided.proposalsFor) return null;
-  const set = new Set();
-  for (const item of provided.proposalsFor(uuid)) for (const t of String(item.shown).split(', ')) set.add(t.trim().toLowerCase());
-  return set.size ? set : null;
-}
 const PICKER_TAGS = /(?:^|\s+)#[^#\s\[\]]+(?:\s+#[^#\s\[\]]+)*\s*$/;
 function pickerKind(row) {
   const line = row.querySelector('.flex-col > .items-start');
@@ -662,7 +653,7 @@ function unmarkPickerTags(row) {
   pickerMarks.tags.delete(row);
 }
 function unmarkPickerRow(row) {
-  if (row.isConnected) { row.removeAttribute('data-refinement-pick'); row.removeAttribute('data-refinement-proposed'); if (!pickerMarks.tags.has(row)) row.removeAttribute('data-refinement-pick-tags'); }
+  if (row.isConnected) { row.removeAttribute('data-refinement-pick'); if (!pickerMarks.tags.has(row)) row.removeAttribute('data-refinement-pick-tags'); }
   unmarkPickerTags(row);
   pickerMarks.marked.delete(row);
 }
@@ -692,7 +683,7 @@ function hashtagKind(row) {
 }
 function updatePickerMarks(doc) {
   const menus = setting('pickerMarks') ? doc.querySelectorAll(':is([data-editor-popup-ref="page-search"], [data-editor-popup-ref="page-search-hashtag"]) #ui__ac') : [];
-  const seen = new Set(), proposed = proposedTitles(doc);
+  const seen = new Set();
   for (const menu of menus) {
     const hashtag = !!menu.closest('[data-editor-popup-ref="page-search-hashtag"]');
     if (hashtag) loadTagInfo(doc);
@@ -700,7 +691,6 @@ function updatePickerMarks(doc) {
       const kind = hashtag ? hashtagKind(row) : pickerKind(row);
       if (!kind) continue;
       if (row.getAttribute('data-refinement-pick') !== kind) row.setAttribute('data-refinement-pick', kind);
-      if (!hashtag) { const name = (row.querySelector('.flex-col > .items-start')?.textContent || row.textContent).replace(PICKER_TAGS, '').trim().toLowerCase(); row.toggleAttribute('data-refinement-proposed', kind !== 'new' && !!proposed?.has(name)); }
       if (hashtag) {
         const info = kind === 'tag' ? tagInfo.byLower?.get(row.textContent.trim().toLowerCase()) || '' : '';
         if (info) { if (row.getAttribute('data-refinement-pick-tags') !== info) row.setAttribute('data-refinement-pick-tags', info); } else row.removeAttribute('data-refinement-pick-tags');
@@ -774,7 +764,6 @@ function loadValuePages(doc) {
 function updateValuePicker(doc) {
   const rows = setting('valuePickerMarks') && provided.propPages ? doc.querySelectorAll('.property-select .cp__select-results .menu-link') : [];
   if (rows.length) loadValuePages(doc);
-  // No "proposed" here (0.4.137): the picker's own field holds the caret, so the record in edit cannot be known.
   const seen = new Set();
   for (const row of rows) {
     const main = row.querySelector('.justify-between > .items-center');

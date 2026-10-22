@@ -1,7 +1,7 @@
 /* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
 (() => {
 /* Proposals, piece 1 (0.4.197): what the plugin is sure of while a bullet is written. Rebuilt on the foundation and the
-   model; the old proposals part (parts/proposals.js, resting) pencilled values into the pills and took them with Tab.
+   model; the old proposals part pencilled values into the pills and took them with Tab (removed at 0.4.250).
 
    While you write a bullet, what the plugin is sure of shows faintly in the bullet's own properties (since 0.4.201;
    it was a line under the bullet), and is filled in when you leave the bullet (Enter, a click elsewhere, the

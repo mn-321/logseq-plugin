@@ -18,15 +18,13 @@
    caret where it was, and the dark bar offers Undo. Escape closes the list and leaves the words as typed.
    Only names the graph has are ever written to; a new page is made only through a pencilled "Make …" row, never
    the first row, and a new property still comes from Logseq's own Add property (see unknownRows).
-   Since 0.4.118 the list opens on what Proposals in the pills has pencilled into the field (proposalsFor, from
-   parts/proposals.js): that value first, highlighted, with why beside it, and one pencilled value per pill.
-   It runs only in the graphs named in its settings, as Journal day as date does. */
+   It runs only in the graphs named in its settings. */
 const shared = window.refinementShared;
 const { host, notify, showUndoBar } = shared;
 const { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, listen } = shared.lifecycle({ prefix: 'Refinements (inline properties): ', stopKey: '__refinementInlinePropsStop',
   leaves: { elements: '.rip-menu, .rip-ghost', attributes: ['data-rip-ghost'] } });
 const { graphNamedIn } = shared;
-let dsQuery, graphWide, journalTitleFor, coreSetting, proposalsFor, undoBeside;
+let dsQuery, graphWide, journalTitleFor, coreSetting;
 // The Logseq model (parts/model.js, since 0.4.164): the schema, the pages, the fields of a record, days and journal pages.
 let propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
@@ -48,8 +46,6 @@ const settingsSchema = [
     description: 'Escape closes the list and takes p:: or name:: out of the text (Cmd+Z brings it back); leaving the block with the list open, by Tab or a click elsewhere, does the same, so a block is never saved with the token in it. Off, Escape keeps the words as typed. Applies at once.' },
   { key: 'inlinePropsKeep', type: 'boolean', title: 'Two semicolons keep the value in the words', default: true,
     description: 'name;;value works as name::value and also leaves the value in your words where the token was: deadline;;today sets Deadline and leaves a link to the day, attendees;;joe a link to Joe, room;;Blue room the words Blue room. A page or a day stays as its link, anything else as typed. Off, ;; is plain text. Applies at once.' },
-  { key: 'inlinePropsProposedFirst', type: 'boolean', title: 'The list opens on the proposal', default: true,
-    description: 'When Proposals in the pills has pencilled a value into the field you name (c:: on a record whose words name Lumen Labs), the list opens on that value, first and highlighted, with why beside it, so Enter takes it with no more letters; the pill shows one pencilled value at a time. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -170,34 +166,20 @@ async function nameRows(filter, prefix = '') {
   if (!rows.length && f) rows.push(...unknownRows(filter.trim()));
   return rows;
 }
-// What Proposals in the pills has pencilled into this field of the record (0.4.118): the list opens on it.
-const proposedHere = prop => setting('inlinePropsProposedFirst') && proposalsFor ? proposalsFor(state.uuid, prop.ident) : [];
 async function valueRows(prop, filter) {
   const f = filter.trim(), lower = f.toLowerCase();
   switch (prop.type) {
-    case 'date': {
-      const rows = await dayRows(f, false);
-      // The journal day proposed for this record goes first, with why, when it is not already a row (today is).
-      for (const item of proposedHere(prop)) {
-        if (!item.day || rows.some(r => r.value.day === item.day)) { const r = rows.find(r => r.value.day === item.day); if (r) { r.why = item.why; rows.splice(rows.indexOf(r), 1); rows.unshift(r); } continue; }
-        if (lower && !item.shown.toLowerCase().includes(lower) && !'journal day'.includes(lower)) continue;
-        rows.unshift({ kind: 'value', label: 'Journal day', right: item.shown, day: true, icon: svg('calendar'), why: item.why, value: { day: item.day, title: item.shown, when: null, shown: item.shown } });
-      }
-      return rows;
-    }
+    case 'date': return dayRows(f, false);
     case 'datetime': return dayRows(f, true);
     case 'node': {
       const pages = await propPages();
       const classIds = new Set(prop.classes.map(c => c.id));
       const ofClass = classIds.size ? pages.filter(p => p.tags.some(t => classIds.has(t.id))) : pages;
       const hits = lower ? ofClass.filter(p => p.lower.includes(lower)) : ofClass.slice(0, 12);
-      // The proposed pages first (0.4.118), then an exact match, then names that start with the letters.
-      const proposed = new Map();
-      for (const item of proposedHere(prop)) for (const id of item.ids) proposed.set(id, item.why);
-      for (const p of ofClass) if (proposed.has(p.id) && !hits.includes(p) && (!lower || p.lower.includes(lower))) hits.push(p);
-      hits.sort((a, b) => proposed.has(b.id) - proposed.has(a.id) || (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
+      // An exact match first, then names that start with the letters.
+      hits.sort((a, b) => (b.lower === lower) - (a.lower === lower) || b.lower.startsWith(lower) - a.lower.startsWith(lower) || a.lower.localeCompare(b.lower));
       const kindOf = p => p.tags.find(t => t.title !== 'Page')?.title || 'page';
-      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: pageIcon(p), why: proposed.get(p.id) || '', value: { id: p.id, uuid: p.uuid, title: p.title } }));
+      const rows = hits.slice(0, 9).map(p => ({ kind: 'value', label: p.title, right: p.isTag ? 'tag' : kindOf(p), mono: !p.isTag && kindOf(p) !== 'page', icon: pageIcon(p), value: { id: p.id, uuid: p.uuid, title: p.title } }));
       if (f && !hits.some(p => p.lower === lower)) {
         const cls = prop.classes[0];
         rows.push({ kind: 'make-page', label: `Make ${cls ? cls.title : 'page'} “${f}”`, dashed: true, icon: svg('plus'), value: { title: f, cls } });
@@ -482,9 +464,7 @@ async function pickSelected() {
       if (made) await logseq.Editor.deletePage(made.title).catch(error => warnOnce('the new page could not be removed again', error));
     };
     const onFail = error => { warnOnce('the value could not be taken off again', error); notify('The value could not be taken off again', 'warning'); };
-    // The quiet undo beside the value (0.4.121, parts/proposals.js), else the bar at the bottom.
-    if (undoBeside) undoBeside(uuid, prop.ident, prop.title, `${prop.title}: ${value.shown || value.title}`, undoAll, onFail);
-    else showUndoBar(`${prop.title}: ${value.shown || value.title} set on “${words || 'this block'}”`, undoAll, onFail);
+    showUndoBar(`${prop.title}: ${value.shown || value.title} set on “${words || 'this block'}”`, undoAll, onFail);
     if (box.isConnected) box.focus();
   } catch (error) {
     warnOnce('the value could not be written', error);
@@ -626,8 +606,8 @@ function provide(core) {
 }
 function start() {
   const core = window.refinementCore;
-  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, proposalsFor, undoBeside, propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf } = take(core,
-    ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'proposalsFor', 'undoBeside', 'propSchema', 'propPages', 'fieldsOf', 'parseDay', 'dayNumber', 'sameDay', 'dayAfter', 'DAYS', 'journalIdFor', 'bare', 'pick', 'idOf']));
+  ({ dsQuery, graphWide, journalTitleFor, setting: coreSetting, propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf } = take(core,
+    ['dsQuery', 'graphWide', 'journalTitleFor', 'setting', 'propSchema', 'propPages', 'fieldsOf', 'parseDay', 'dayNumber', 'sameDay', 'dayAfter', 'DAYS', 'journalIdFor', 'bare', 'pick', 'idOf']));
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'refinements-inline-props', style: menuCss });
   const win = host().defaultView;

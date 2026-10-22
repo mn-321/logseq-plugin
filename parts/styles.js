@@ -594,8 +594,6 @@ mark a.page-ref:not(.tag):not([data-refinement-date], [data-uuid^="00000001-"]):
 [data-editor-popup-ref="page-search-hashtag"] #ui__ac .menu-link[data-refinement-pick-tags]::after { font-family: inherit !important; }
 #ui__ac .menu-link[data-refinement-pick-tags]::after { content: attr(data-refinement-pick-tags); flex: 0 0 auto; margin-left: auto; padding-left: 1em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--rf-small); color: var(--ls-secondary-text-color); white-space: pre; }
 #ui__ac .menu-link[data-refinement-pick="relative"] { color: var(--ls-secondary-text-color) !important; }
-/* A row that is a value Proposals in the pills has pencilled into the record in edit says so, in plain quiet words after the name (0.4.123). */
-#ui__ac .menu-link[data-refinement-proposed] .flex-col > .items-start::after { content: 'proposed'; margin-left: .6em; font-size: var(--rf-small); font-style: normal; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start { position: relative; align-self: flex-start; margin-left: 1.5em; font-style: italic; color: var(--ls-secondary-text-color); }
 #ui__ac .menu-link[data-refinement-pick="new"] .flex-col > .items-start > .opacity-50 { position: absolute; left: -1.5em; top: 0; }
 /* The # picker (0.4.107): no icon slot, so the # is drawn before the words; the New tag row needs no room for a +. */

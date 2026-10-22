@@ -1,5 +1,7 @@
 # The grammar of DB Refinements
 
+**0.4.250:** Proposals in the pills (`proposals.js`) and Journal day as date (`journal-dates.js`) were deleted; what this file says about them, the ghost value and `j`/`k`, is history. Today's proposals are `parts/shadow.js`.
+
 Written 2026-10-16 at 0.4.63, revised at 0.4.64 to 0.4.66, and brought up to date at 0.4.79, 0.4.87, 0.4.93, 0.4.131 and 0.4.152 (the status paragraphs under the ten changes, the housekeeping and Logseq's drawing still say what was built, dropped or open at 0.4.91; the cue table, Part 2 and the commands are the plugin at 0.4.152), from what the plugin does. Nothing here is new; it is the rules the code already follows, written in one place, and a list of where the code departs from them. The departures are proposals. Nothing was changed to write this.
 
 Seen on screen while writing it, in the Plugin Test Graph: the page **Plugin Visual Cues** (every cue with its example), and the page **Ada Okafor** (its property list, its `#Project` tab and its Linked references). The rest was read in the code and the README.

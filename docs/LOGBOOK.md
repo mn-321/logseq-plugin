@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Old pencilled proposals and journal-day filler removed (0.4.250)
+
+**The owner:** "lets get rid of the old code related to pencil and old proposals". **Built:** `parts/proposals.js` and
+`parts/journal-dates.js` deleted (both resting, replaced by `parts/shadow.js`); `inline-props.js` loses `proposalsFor`,
+`undoBeside` and the setting `inlinePropsProposedFirst`; `links.js` loses `proposedTitles` and `data-refinement-proposed`;
+its CSS line in `styles.js` gone; README, boot test and RESTING_FILES follow. **Seen:** nothing loaded changed; not
+looked at in Logseq.
+
 ## 2026-10-21 · Live preview beside the export window (0.4.249)
 
 **The owner:** "there should be a generic preview next to settings setting up doc". **Built:** `chooseProperties` takes a

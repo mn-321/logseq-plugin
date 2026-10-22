@@ -24,7 +24,7 @@ const PART_FILES = (() => {
 
 // Which parts main.js loads now (0.4.175: the resting parts are left out); checks of a feature run only when it is loaded.
 const has = name => PART_FILES.includes('parts/' + name + '.js');
-const ALL_PARTS = ['editor', 'pages', 'properties', 'links', 'chrome', 'sidebar', 'styles', 'search', 'journal-dates', 'inline-props', 'proposals', 'rich-copy', 'todos'].every(has);
+const ALL_PARTS = ['editor', 'pages', 'properties', 'links', 'chrome', 'sidebar', 'styles', 'search', 'inline-props', 'rich-copy', 'todos'].every(has);
 const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
