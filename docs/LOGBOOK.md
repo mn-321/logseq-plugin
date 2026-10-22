@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Live preview beside the export window (0.4.249)
+
+**The owner:** "there should be a generic preview next to settings setting up doc". **Built:** `chooseProperties` takes a
+`build` function; `readChoice` reads the window; a debounced `refresh` writes `pageHtml` into an iframe beside the card
+(`.rc-pair`, `.rc-live`); `rememberHidden` writes `titleLines` in the same save (two `updateSettings` at once lost
+`layout`). **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Export styles, style buttons, clearer window (0.4.248)
 
 **The owner:** sent a timeline PDF as the model, then "create a couple different style too. one just 1 column. one

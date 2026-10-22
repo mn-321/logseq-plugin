@@ -886,8 +886,9 @@ const savedSorts = () => {
   try { const value = logseq.settings?.querySorts; return value && typeof value === 'object' ? { ...value } : {}; }
   catch (error) { return {}; }
 };
-const rememberHidden = hidden => {
-  try { logseq.updateSettings({ hiddenProperties: [...hidden], layout: chosenLayout, querySorts: chosenSorts, ...chosenFormat }); } catch (error) { console.warn('Copy as Rich Text: could not remember the choice', error); }
+const rememberHidden = (hidden, titleLines) => {
+  const { kicker, subtitle, ...kept } = chosenFormat; // these two are kept per page, in titleLines
+  try { logseq.updateSettings({ hiddenProperties: [...hidden], layout: chosenLayout, querySorts: chosenSorts, ...kept, ...(titleLines ? { titleLines } : {}) }); } catch (error) { console.warn('Copy as Rich Text: could not remember the choice', error); }
 };
 
 const CHOOSER_CSS = `
@@ -926,6 +927,12 @@ const CHOOSER_CSS = `
   .rc-foot button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
   .rc-foot button.rc-primary { font-weight: 600; border-color: currentColor; }
   .rc-card { width: 440px; max-height: 84vh; }
+  /* The live preview beside the window: a white page at about two thirds of its size. */
+  .rc-pair { display: flex; gap: 14px; align-items: stretch; max-height: 84vh; }
+  .rc-live { width: min(520px, calc(100vw - 500px)); display: flex; flex-direction: column; }
+  .rc-live-head { color: #fff; font-size: .85em; padding: 0 0 6px; opacity: .9; }
+  .rc-live iframe { flex: 1; border: 0; background: #fff; border-radius: 6px; box-shadow: 0 8px 28px rgba(0,0,0,.25); }
+  @media (max-width: 900px) { .rc-live { display: none; } }
   .rc-backdrop { padding-top: 6vh; }
   .rc-body { overflow: auto; padding-bottom: 8px; border-top: 1px solid var(--ls-border-color, #eee); }
   .rc-section { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; font-weight: 600; font-size: .95em; }
@@ -936,7 +943,7 @@ const CHOOSER_CSS = `
   .rc-dated[hidden] { display: none; }
   .rc-field span { width: 104px; flex: none; }`;
 
-function chooseProperties({ properties, queries, title, timetableDates = [] }, what, onChoose) {
+function chooseProperties({ properties, queries, title, timetableDates = [] }, what, onChoose, build) {
   return new Promise(resolve => {
     let style = document.getElementById('rc-style');
     if (!style) {
@@ -967,7 +974,7 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
     const lines = (logseq.settings?.titleLines || {})[title] || {};
     const section = (n, text, cls = '') => `<div class="rc-section ${cls}"><span class="rc-num">${n}</span>${text}</div>`;
     const props = properties.filter(p => ['date', 'datetime'].includes(p.type) === false);
-    root.innerHTML = `<div class="rc-card" role="dialog" aria-label="Export options">
+    root.innerHTML = `<div class="rc-pair"><div class="rc-card" role="dialog" aria-label="Export options">
       <div class="rc-head">Export ${escapeHtml(what)}</div>
       <div class="rc-sub">Choose a style, then <b>Preview</b> to see it, change any words and save a PDF. Your notes are never changed.</div>
       <div class="rc-body">
@@ -998,7 +1005,8 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
       <div class="rc-list">${properties.map(p => `<label><input type="checkbox" value="${escapeHtml(p.ident)}" ${hidden.has(p.ident) ? '' : 'checked'}>
         <span>${escapeHtml(p.name)}</span><span class="rc-count">${p.count}</span></label>`).join('')}</div>` : ''}
       </div>
-      <div class="rc-foot"><button class="rc-cancel">Cancel</button><button class="rc-go">Copy</button><button class="rc-pdf rc-primary">Preview and PDF…</button></div></div>`;
+      <div class="rc-foot"><button class="rc-cancel">Cancel</button><button class="rc-go">Copy</button><button class="rc-pdf rc-primary">Preview and PDF…</button></div></div>
+      <div class="rc-live"><div class="rc-live-head">Preview: changes as you choose</div><iframe title="Preview"></iframe></div></div>`;
     document.body.appendChild(root);
     const boxes = [...root.querySelectorAll('.rc-list input[type=checkbox]')];
     let finished = false;
@@ -1008,7 +1016,7 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
       document.removeEventListener('keydown', onKey, true);
       let shown = null;
       if (go) {
-        shown = new Set(boxes.filter(b => b.checked).map(b => b.value));
+        ({ shown } = readChoice());
         chosenLayout = root.querySelector('input[name=rc-layout]:checked')?.value || 'document';
         chosenSorts = savedSorts();
         chosenFormat = { titleBlock: root.querySelector('.rc-title')?.checked ?? format.titleBlock,
@@ -1017,16 +1025,13 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
           kicker: root.querySelector('.rc-kicker')?.value || '', subtitle: root.querySelector('.rc-subtitle')?.value || '',
           timetable: { dateKey: root.querySelector('.rc-datekey').value, under: root.querySelector('.rc-under').value,
             newestFirst: root.querySelector('.rc-newest').checked } };
-        if (title) try {
-          const all = { ...(logseq.settings?.titleLines || {}) };
-          all[title] = { kicker: chosenFormat.kicker, subtitle: chosenFormat.subtitle };
-          logseq.updateSettings({ titleLines: all });
-        } catch (error) { /* not remembered */ }
+        const titleLines = { ...(logseq.settings?.titleLines || {}) };
+        if (title) titleLines[title] = { kicker: chosenFormat.kicker, subtitle: chosenFormat.subtitle };
         for (const row of root.querySelectorAll('.rc-sort[data-query]')) chosenSorts[row.dataset.query] =
           { sortKey: row.querySelector('select').value, newestFirst: row.querySelector('input').checked };
         const nextHidden = hiddenProperties();
         for (const b of boxes) b.checked ? nextHidden.delete(b.value) : nextHidden.add(b.value);
-        rememberHidden(nextHidden);
+        rememberHidden(nextHidden, titleLines); // one write: two at once lose one of them
       }
       if (go && action === 'pdf') root.style.display = 'none'; // the preview takes its place
       try { if (shown) await onChoose({ shown, layout: chosenLayout, sorts: chosenSorts, format: chosenFormat }, action); } // copied here, while this frame still has the click
@@ -1037,6 +1042,36 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
         resolve();
       }
     };
+    // What the window says now, for the small preview beside it (nothing is remembered from here).
+    function readChoice() {
+      const q = sel => root.querySelector(sel);
+      const sorts = { ...savedSorts() };
+      for (const row of root.querySelectorAll('.rc-sort[data-query]')) sorts[row.dataset.query] =
+        { sortKey: row.querySelector('select').value, newestFirst: row.querySelector('input').checked };
+      return { shown: new Set(boxes.filter(b => b.checked).map(b => b.value)),
+        layout: q('input[name=rc-layout]:checked')?.value || 'document', sorts,
+        format: { titleBlock: q('.rc-title')?.checked ?? format.titleBlock, preparedBy: q('.rc-by')?.value ?? format.preparedBy,
+          footer: q('.rc-footer').value, pageNumbers: q('.rc-pages').checked,
+          kicker: q('.rc-kicker')?.value || '', subtitle: q('.rc-subtitle')?.value || '',
+          timetable: { dateKey: q('.rc-datekey').value, under: q('.rc-under').value, newestFirst: q('.rc-newest').checked } } };
+    }
+    const live = root.querySelector('.rc-live iframe');
+    let liveTimer = null, liveRun = 0;
+    const refresh = () => {
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(async () => {
+        const run = ++liveRun;
+        try {
+          const result = await build(readChoice());
+          if (run !== liveRun || finished) return;
+          live.srcdoc = pageHtml(result.html, title || what, {}, 'body { padding: 14mm; zoom: .62; }');
+        } catch (error) { console.warn('Export preview', error); }
+      }, 200);
+    };
+    root.addEventListener('input', refresh);
+    root.addEventListener('change', refresh);
+    root.addEventListener('click', event => { if (event.target.closest('[data-all]')) refresh(); });
+    refresh();
     const onKey = event => {
       if (event.key === 'Escape') { event.preventDefault(); finish(false); }
       if (event.key === 'Enter' && event.target.tagName !== 'SELECT') { event.preventDefault(); finish(true, 'pdf'); }
@@ -1067,7 +1102,7 @@ async function copy(source, what) {
       if (await writeClipboard(result)) notify(`Copied ${what} as rich text`);
       else notify('Could not reach the clipboard', 'error');
     };
-    await chooseProperties({ ...prepared, title: source.title }, what, run);
+    await chooseProperties({ ...prepared, title: source.title }, what, run, choice => buildDocument(prepared, choice));
   } catch (error) {
     console.error(error);
     notify(`Copy stopped: ${error.message}`, 'error');
