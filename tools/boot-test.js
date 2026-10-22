@@ -127,8 +127,23 @@ async function main() {
   const host = new JSDOM(PAGE_HTML, { pretendToBeVisual: true });
   const doc = host.window.document;
   process.on('unhandledRejection', error => problem('unhandled rejection: ' + (error && error.stack || error)));
-  host.window.addEventListener('error', event => problem('error in the window: ' + event.message));
+  const onWindowError = event => problem('error in the window: ' + event.message);
+  host.window.addEventListener('error', onWindowError);
 
+  // Timers the plugin sets and listeners it adds to Logseq's window and document, so the unload can be checked for
+  // what boot-test.js could not see before (0.4.279, the audit): every interval cleared, every listener removed.
+  const timers = { intervals: new Set(), timeouts: new Set() };
+  const realSetInterval = global.setInterval, realClearInterval = global.clearInterval, realSetTimeout = global.setTimeout, realClearTimeout = global.clearTimeout;
+  global.setInterval = (fn, ms, ...rest) => { const id = realSetInterval(fn, ms, ...rest); timers.intervals.add(id); return id; };
+  global.clearInterval = id => { timers.intervals.delete(id); return realClearInterval(id); };
+  global.setTimeout = (fn, ms, ...rest) => { const id = realSetTimeout((...a) => { timers.timeouts.delete(id); return fn(...a); }, ms, ...rest); timers.timeouts.add(id); return id; };
+  global.clearTimeout = id => { timers.timeouts.delete(id); return realClearTimeout(id); };
+  const listeners = new Map();
+  for (const target of [host.window, doc, doc.body]) {
+    const add = target.addEventListener.bind(target), remove = target.removeEventListener.bind(target);
+    target.addEventListener = (type, fn, opts) => { listeners.set(fn, type + ' @ ' + (new Error().stack.split('\n').slice(2, 5).map(l => l.trim().replace(/^at /, '')).join(' < '))); return add(type, fn, opts); };
+    target.removeEventListener = (type, fn, opts) => { listeners.delete(fn); return remove(type, fn, opts); };
+  }
   // 1. Load and start.
   const logseq = fakeLogseq(log);
   const pluginWindow = loadPlugin(host, logseq);
@@ -149,6 +164,15 @@ async function main() {
   if (has('editor') && menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
   const keys = palette.map(c => c.key);
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
+  // Each feature does something of its own at start (0.4.279, the audit): its stylesheet goes to Logseq and the tag
+  // map's command is registered, exactly when the part is loaded; left out, nothing of it shows (parts-apart-test).
+  const styleKeys = logseq.calls.filter(call => call.name === 'provideStyle').map(call => call.args[0]?.key);
+  const SIGNS = { 'two-way': 'refinement-two-way', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'link-text': 'refinement-link-text', 'settings-panel': 'refinement-settings-panel' };
+  // The bullet's piece of the proposals stays off, and says so, without the rules (0.4.269).
+  const expected = part => part === 'shadow' ? has('shadow') && has('shadow-rules') : has(part);
+  for (const [part, key] of Object.entries(SIGNS)) if (expected(part) !== styleKeys.includes(key)) problem(`${expected(part) ? 'with' : 'without'} ${part}, its stylesheet ${key} was ${styleKeys.includes(key) ? 'still' : 'not'} sent`);
+  if (has('tags') !== keys.includes('show-tag-tree')) problem(`${has('tags') ? 'with' : 'without'} the tag map, its command was ${keys.includes('show-tag-tree') ? 'still' : 'not'} registered`);
+  if (has('two-way') !== logseq.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinement-two-way' && /rf-tw-row/.test(call.args[0]?.style || ''))) problem('the two-way rows did not send their look');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
   const wantTools = ['check-what-is-found', 'copy-perf-report', 'copy-styling-details', 'copy-warnings', 'take-the-tour', 'toggle-perf',
@@ -203,6 +227,12 @@ async function main() {
   if (left.length) problem('left on screen after unload: ' + [...new Set(left)].join(', '));
   const hooksLeft = Object.entries(logseq.hooks).filter(([, list]) => list.length).map(([name, list]) => `${name} × ${list.length}`);
   if (hooksLeft.length) problem('Logseq hooks still registered after unload: ' + hooksLeft.join(', '));
+  if (timers.intervals.size) problem(`${timers.intervals.size} interval timer(s) still running after unload`);
+  for (const id of timers.intervals) realClearInterval(id);
+  // Only what the plugin's own code added (jsdom adds listeners of its own to the window).
+  const left3 = [...listeners.entries()].filter(([, where]) => /eval at loadPlugin/.test(where)).map(([, where]) => where.split(' @ ')[0]);
+  if (left3.length) problem('listeners still on Logseq\'s window or document after unload: ' + [...new Set(left3)].join(', '));
+  listeners.clear();
 
   // 4. A second copy loaded over a first that was never unloaded (a reload cut short).
   const logseq2 = fakeLogseq(log);

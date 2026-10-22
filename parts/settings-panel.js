@@ -256,8 +256,12 @@ function sectionsOf(items) {
     .sort((a, b) => !!a.heading.last - !!b.heading.last); // such as shortcuts, looked up least often
 }
 
+// The window open now, so an unload can close it (0.4.279: a reload from Logseq's Plugins panel with the window open
+// left its Escape listener on Logseq's document; the window's own Reload button already closes it first).
+let closeOpen = null;
 function open() {
   const doc = host();
+  closeOpen?.();
   doc.querySelector('.' + PANEL_CLASS)?.remove();
   let reloadWanted = false;
   const backdrop = el(doc, 'div', { class: PANEL_CLASS });
@@ -523,7 +527,8 @@ function open() {
     if (event.key !== 'Escape') event.stopPropagation();
   });
 
-  const close = () => { backdrop.remove(); doc.removeEventListener('keydown', onKey, true); };
+  const close = () => { backdrop.remove(); doc.removeEventListener('keydown', onKey, true); if (closeOpen === close) closeOpen = null; };
+  closeOpen = close;
   // Escape empties the search box, then closes; / or Cmd/Ctrl+F goes to the search box. Other keys stay out of Logseq while the panel is open.
   const onKey = event => {
     if (event.key === 'Escape') {
@@ -624,6 +629,7 @@ function start() {
 }
 function stop() {
   stopWatching?.();
+  closeOpen?.();
   const doc = host();
   doc.querySelector('.' + PANEL_CLASS)?.remove();
   for (const item of doc.querySelectorAll('.' + ITEM_CLASS)) item.remove();

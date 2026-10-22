@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The boot test watches timers and listeners; an unload closes the settings window (0.4.279)
+
+**Found** by extending `tools/boot-test.js` as the audit brief asked (part A, 4 and 6): timers and listeners are now
+tracked, and each feature's stylesheet (and the tag map's command) must be present exactly when its part is loaded.
+The listener check caught one leak: the settings window's `keydown` handler on Logseq's document outlived an unload
+when the window was open (its own Reload button closes it first; a reload from Logseq's Plugins panel does not).
+**Built:** `parts/settings-panel.js` keeps the open window's `close` and `stop()` calls it. `tools/boot-test.js`:
+the timer and listener wrappers (jsdom's own listeners left out), the signs-of-life check; `tools/parts-apart-test.js`
+runs it 14 ways as before. **Seen:** tests only.
+
 ## 2026-10-22 · The keyboard lands in the date picker's box again (0.4.278)
 
 **Found** in the audit of layers 1 and 2 (B5, the kinds): Option-Enter on an expectation with an empty Date opened
