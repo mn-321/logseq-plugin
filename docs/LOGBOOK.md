@@ -24,8 +24,10 @@ two-way wordings kept as `parts/two-way.js` keeps them): the adds line and its t
 the parent menu with Undo on #Scan's row, the links menu, the wording box with Undo on the links line, turning off
 and on, Go to, and a change in a property's own box with Undo on that property's row. Ran: tags-test, tag-drag-test,
 parts-apart-test, pictures (tag map re-approved after looking, light and dark), then `sh tools/check.sh` in full
-(node and jsdom through a link to the main checkout's node_modules). **Seen:** the pictures only; Logseq itself was
-held by the other session at the time of the commit, so the look in the app is not checked yet. **Merged** with
+(node and jsdom through a link to the main checkout's node_modules). **Seen:** the pictures at the time of the commit (Logseq itself was
+held by the other session); then, after the merge into `main` and a plugin reload, in Logseq on the Illness Test Graph:
+the line under each open tag, Symptom's three links, the topic of menu under Consultation, the description box and the
+new tag line (closed with Escape), a test description written on Consultation with its Undo arrow on the row, and undone. **Merged** with
 `main`'s 0.4.305 afterwards (both sides changed the two name lists in `parts/tags.js`, the documents and the test;
 its + New property check now uses id 24 and the test's merged tag shape); the checks were run again on the merge. The
 commit hook's rule that changed code comes with a version bump does not fit a merge commit (0.4.310 was already set on
