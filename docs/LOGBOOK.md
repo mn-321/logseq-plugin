@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · An installed copy needs Logseq's "effect" (0.4.281)
+
+**The owner:** "Why don't I see the custom setting panel in the 3 dot menu nor tag button on top bar on right" (on the
+other computer, after installing from GitHub). **Found:** Logseq's plugin core (read in app.asar) serves an installed
+plugin from `lsp://logseq.io/plugins/…` unless its package.json's top-level `effect` is true, then from
+`lsp://logseq.com/plugins/…`, the same origin as Logseq's window; an unpacked plugin gets `logseq.com/external/…`
+unless effect is false. The plugin draws through `window.parent.document`, so on `logseq.io` every part threw
+SecurityError at start (seen in the console). The install dialog's "effect" box writes that key into the installed
+package.json. **Built:** `"effect": true` in package.json; README and CLAUDE.md say to tick the box. **Seen:** see the
+CHANGELOG line. **Mistakes of mine:** keys meant for the command palette went to the page while the Plugins panel was
+still closing: a page "Install. pluginfrom GitHub release" (removed for good with the command line) and the theme
+toggled (put back).
+
 ## 2026-10-22 · Installable from GitHub (0.4.280)
 
 **The owner:** "are you able to do this so I can install this on my other computer from my private github repo?",
