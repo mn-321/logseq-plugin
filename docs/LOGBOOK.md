@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The troubleshooting box counts every mark and draws its borders (0.4.277)
+
+**Found** in the audit of layers 1 and 2 (part A, a helper's reading): `checkWhatIsFound` in `parts/diagnostics.js`
+counted only `refinement-*` classes and `data-refinement-*` attributes, so the "three reloads leave one of
+everything" check could not see the layer-2 marks; and its dialog used `var(--rf-line)`, defined only by the settings
+window, so the buttons and the report box had no border. **Built:** the count takes every prefix the parts use
+(`rf-`, `rfs-`, `rfp-`, `rtg-`, `rs-`, `data-rf-`, `data-rfs-`), and the dialog uses the kit's `--rf-ui-field`.
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · A graph change forgets the write answer (0.4.276)
 
 **Found** in the audit of layers 1 and 2 (part A, writes): `state.allowedNow` in `parts/shadow.js` is set by `compute`
