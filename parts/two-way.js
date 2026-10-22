@@ -306,7 +306,7 @@ async function showPeek(link) {
   const doc = link.ownerDocument;
   hidePeek();
   const el = peek.el = doc.createElement('div');
-  el.className = 'refinement-two-way-peek';
+  el.className = 'refinement-two-way-peek rf-pop';
   el.innerHTML = peekHtml(item, group.name, data);
   el.addEventListener('mouseenter', () => clearTimeout(peek.hide));
   el.addEventListener('mouseleave', hidePeekSoon);
@@ -481,11 +481,11 @@ async function openAdd(button) {
   const asPage = pages * 2 > uuids.length;
   const title = page.title || page.originalName || page.name || 'this page';
   const el = adding.el = doc.createElement('div');
-  el.className = 'refinement-two-way-add';
+  el.className = 'refinement-two-way-add rf-pop';
   el.innerHTML = `<div class="rf-tw-add-head">New record · <span class="rf-tw-add-field">${esc(group.name)}: ${esc(title)}</span></div>
     ${kinds.length ? `<div class="rf-tw-add-kinds">${kinds.map(tag => `<button type="button" data-tag="${esc(tag)}"${tag === kind ? ' data-on=""' : ''}>${esc(tag)}</button>`).join('')}</div>` : ''}
     <input type="text" placeholder="Name, e.g. ${esc(group.items[0]?.title || 'a new visit')}" spellcheck="false">
-    <div class="rf-tw-add-foot"><span>${asPage ? 'As a new page' : 'On today’s journal'}</span><button type="button" data-act="open">Add and open</button><button type="button" data-act="add" data-main="">Add</button></div>`;
+    <div class="rf-tw-add-foot"><span>${asPage ? 'As a new page' : 'On today’s journal'}</span><button type="button" class="rf-btn" data-act="open">Add and open</button><button type="button" class="rf-btn rf-go" data-act="add" data-main="">Add</button></div>`;
   const input = el.querySelector('input');
   el.addEventListener('mousedown', event => event.stopPropagation());
   el.addEventListener('click', event => {
@@ -605,13 +605,13 @@ const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = fal
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); done(); } });
   box.append(label, input, list);
   if (hint) box.append(modalHint(doc, hint));
-  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, done]]);
-  row.style.marginTop = '10px'; box.append(row);
+  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, done, 'go']]);
+  box.append(row);
   input.focus(); input.select();
 });
 const sure = (heading, button) => modal(false, (box, finish, doc) => {
   const label = doc.createElement('label'); label.textContent = heading;
-  const row = modalButtons(doc, [['Cancel', () => finish(false)], [button, () => finish(true)]]);
+  const row = modalButtons(doc, [['Cancel', () => finish(false)], [button, () => finish(true), 'go']]);
   box.append(label, row); row.lastChild.focus();
 });
 // What a node holds under a property, as ids, so it can be put back exactly (the tag tree's way, parts/tags.js).
@@ -806,11 +806,8 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-chip[data-on] { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 9%, transparent); }
 .refinement-two-way .rf-tw-earlier { margin: .2rem 0 .1rem; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); display: flex; align-items: center; gap: .5em; }
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
-/* The card a record shows when the pointer rests on it: the popup look of the plugin's other popups. */
-.refinement-two-way-peek { position: fixed; z-index: 999; width: max-content; max-width: 360px; padding: 8px 10px; cursor: pointer;
-  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px);
-  box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); font-size: var(--rf-row, .875rem); line-height: 1.45; }
+/* The card a record shows when the pointer rests on it: the plugin's one pop-up look (.rf-pop, parts/shared.js). */
+.refinement-two-way-peek { z-index: 999; width: max-content; max-width: 360px; padding: 8px 10px; cursor: pointer; }
 .refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; text-decoration: underline transparent; transition: text-decoration-color .1s ease; }
 .refinement-two-way-peek:hover .rf-tw-peek-title { text-decoration-color: currentColor; }
 .refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
@@ -818,25 +815,18 @@ const twoWayCss = `
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
 .refinement-two-way-peek .rf-tw-peek-lines { margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
-/* The box the + opens: the same popup look, a row of kinds, a name and two buttons. */
-.refinement-two-way-add { position: fixed; z-index: 999; width: 340px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
-  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); border-radius: var(--rf-popup-radius, 6px);
-  box-shadow: var(--rf-popup-shadow, 0 4px 6px -1px rgba(0, 0, 0, .1), 0 2px 4px -2px rgba(0, 0, 0, .1));
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); font-size: var(--rf-row, .875rem); line-height: 1.4; }
+/* The box the + opens: the one pop-up look (.rf-pop), a row of kinds, a name and the dialog's buttons (.rf-btn). */
+.refinement-two-way-add { z-index: 999; width: 340px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .refinement-two-way-add .rf-tw-add-head { font-weight: 600; }
 .refinement-two-way-add .rf-tw-add-field { font-weight: 400; color: var(--ls-secondary-text-color); }
 .refinement-two-way-add .rf-tw-add-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
-.refinement-two-way-add button { font: inherit; color: inherit; cursor: pointer; border-radius: 5px; padding: 2px 9px; background: transparent; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); transition: background-color .1s ease, border-color .1s ease; }
-.refinement-two-way-add button:hover { background: color-mix(in srgb, currentColor 9%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-two-way-add .rf-tw-add-kinds button { font: inherit; color: inherit; cursor: pointer; border-radius: 5px; padding: 2px 9px; background: transparent; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); transition: background-color .1s ease, border-color .1s ease; }
+.refinement-two-way-add .rf-tw-add-kinds button:hover { background: color-mix(in srgb, currentColor 9%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
 .refinement-two-way-add .rf-tw-add-kinds button { border-radius: 999px; font-size: .92em; color: var(--ls-secondary-text-color); }
 .refinement-two-way-add .rf-tw-add-kinds button[data-on] { color: inherit; background: color-mix(in srgb, currentColor 12%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
-.refinement-two-way-add input { width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 5px; font: inherit; color: inherit; background: color-mix(in srgb, currentColor 5%, transparent); border: 1px solid color-mix(in srgb, currentColor 22%, transparent); outline: none; }
-.refinement-two-way-add input:focus { border-color: color-mix(in srgb, currentColor 50%, transparent); }
 .refinement-two-way-add input[data-empty] { border-color: #d9534f; }
 .refinement-two-way-add .rf-tw-add-foot { display: flex; align-items: center; gap: 6px; }
 .refinement-two-way-add .rf-tw-add-foot span { flex: 1; white-space: nowrap; color: var(--ls-secondary-text-color); font-size: .9em; }
-.refinement-two-way-add .rf-tw-add-foot button[data-main] { background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; }
-.refinement-two-way-add .rf-tw-add-foot button[data-main]:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
 /* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }

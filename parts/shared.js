@@ -21,11 +21,14 @@
    - sweepLeftovers(doc)          removes what every part declared in its leaves, part by part.
        updaterFailed(fn, error, list)  retires a screen updater that threw five times;
        listen(win, types, handler)     a capture-phase listener on Logseq's window, removed on unload.
-   - modal(cancelValue, build, width, classes)   a small dialog box in Logseq's window; build(box, finish, doc)
-                                       fills it, the promise resolves with what finish() is given, Escape
-                                       or a click outside resolves with cancelValue; classes names the
+   - modal(cancelValue, build, width, classes)   THE dialog box of the plugin, in Logseq's window (.rf-dialog); build(box,
+                                       finish, doc) fills it, the promise resolves with what finish() is given, Escape
+                                       or a click outside resolves with cancelValue; classes adds a part's own
                                        backdrop and box classes (refinement-prompt-* unless given).
-   - modalButtons(doc, [[text, onClick], …]) and modalHint(doc, text)   rows for a modal.
+   - dialogCss                    THE look of every pop-up (.rf-pop: .rf-pop-head, .rf-pop-field, .rf-pop-row with
+                                  .rf-on, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list) and dialog (.rf-dialog,
+                                  .rf-btns, .rf-btn, .rf-go): Logseq's pop-up colours, one size, corner and shadow.
+   - modalButtons(doc, [[text, onClick, 'go'?], …]) and modalHint(doc, text)   rows for a modal; 'go' fills the one that does it.
    - showUndoBar(text, undo, onFail)   after a write: a dark bar at the bottom with Undo for seven seconds; undo()
                                   is awaited on the press, onFail(error) (or a warning note) runs if it throws.
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
@@ -158,9 +161,9 @@ function modal(cancelValue, build, width, classes = {}) {
   const doc = host();
   return new Promise(resolve => {
     const backdrop = doc.createElement('div');
-    backdrop.className = classes.backdrop || 'refinement-prompt-backdrop';
+    backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
     const box = doc.createElement('div');
-    box.className = classes.box || 'refinement-prompt';
+    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}`;
     if (width) box.style.width = width;
     let finished = false;
     const finish = value => { if (finished) return; finished = true; backdrop.remove(); resolve(value); };
@@ -178,12 +181,48 @@ function modal(cancelValue, build, width, classes = {}) {
 /* The dialog's own look (0.4.169, moved from parts/styles.js): the foundation's dialogs (the troubleshooting box,
    the settings window's questions) must be drawn right when the look parts are not running (Foundation only), so it
    goes out with the core at start (main.js), before any part. The look parts may refine it, never be needed for it. */
-const dialogCss = `/* Small page-title box (window.prompt is unreliable inside plugin sandboxes). */
-.refinement-prompt-backdrop { --rf-bg: var(--ls-primary-background-color, hsl(var(--popover))); --rf-fg: var(--ls-primary-text-color, hsl(var(--popover-foreground))); --rf-line: var(--ls-border-color, hsl(var(--border))); position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 18vh; background: rgba(0, 0, 0, .25); }
-.refinement-prompt { width: min(420px, 90vw); padding: 14px 16px; border: 1px solid var(--rf-line); border-radius: var(--rf-window-radius, 8px); background: var(--rf-bg); color: var(--rf-fg); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
-.refinement-prompt label { display: block; margin-bottom: 8px; font-size: .95em; }
-.refinement-prompt input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--rf-line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.refinement-prompt-hint { margin-top: 6px; font-size: var(--rf-small, .85em); opacity: var(--rf-quiet, .6); }
+const dialogCss = `/* One look for the plugin's pop-ups and dialog boxes (0.4.257, at the owner's word: "we have created a lot of things
+   that use different elements instead of a consistency"). The colours are Logseq's own pop-up colours (--popover and
+   --popover-foreground, set in both themes; its older --ls-* names are empty in some, which left a white box on a dark
+   theme), the greys mixed from the text colour. One size of text, one corner, one shadow. Every part draws its
+   pop-ups with .rf-pop (a head, a field, rows, notes) and its dialogs through modal() (.rf-dialog). */
+:is(.rf-pop, .rf-dialog) {
+  --rf-ui-bg: hsl(var(--popover, 0 0% 100%)); --rf-ui-fg: hsl(var(--popover-foreground, 0 0% 9%));
+  --rf-ui-line: color-mix(in srgb, var(--rf-ui-fg) 14%, transparent); --rf-ui-field: color-mix(in srgb, var(--rf-ui-fg) 24%, transparent);
+  --rf-ui-muted: color-mix(in srgb, var(--rf-ui-fg) 55%, transparent); --rf-ui-hover: color-mix(in srgb, var(--rf-ui-fg) 8%, transparent);
+  box-sizing: border-box; background: var(--rf-ui-bg); color: var(--rf-ui-fg); border: 1px solid var(--rf-ui-line); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .14); font-size: 14px; line-height: 1.4; text-align: left; }
+.rf-pop { position: fixed; z-index: 10001; padding: 4px; }
+.rf-pop-head { padding: 4px 8px 6px; font-size: 12px; color: var(--rf-ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:is(.rf-pop-field, .rf-pop input[type=text], .rf-pop input:not([type]), .rf-pop textarea) { display: block; box-sizing: border-box; width: calc(100% - 8px);
+  min-height: 2em; margin: 0 4px 4px; padding: 5px 8px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent;
+  color: inherit; font: inherit; outline: none; box-shadow: none; }
+:is(.rf-pop input, .rf-pop textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
+:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 10px;
+  border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button):is(:hover, :focus-visible, .rf-on) { background: var(--rf-ui-hover); outline: none; }
+.rf-pop-kind { flex: none; margin-left: auto; padding-left: 12px; font-size: 12px; color: var(--rf-ui-muted); }
+.rf-pop-new { font-style: italic; color: var(--rf-ui-muted); }
+.rf-pop-note { padding: 5px 10px; font-size: 12px; line-height: 1.45; color: var(--rf-ui-muted); }
+.rf-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--rf-ui-line); }
+.rf-pop-list { max-height: 300px; overflow-y: auto; }
+/* A dialog box: the same look, near the top in the middle, over a faint backdrop; Escape or a click outside closes it. */
+.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 16vh; background: rgba(0, 0, 0, .25); }
+.rf-dialog { width: min(460px, 92vw); padding: 16px 18px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
+.rf-dialog h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+.rf-dialog label { display: block; margin-bottom: 8px; }
+.rf-dialog p, .rf-dialog-note { margin: 0 0 12px; color: var(--rf-ui-muted); }
+.rf-dialog ul { margin: 0 0 12px; padding-left: 18px; }
+:is(.rf-dialog input[type=text], .rf-dialog input:not([type]), .rf-dialog textarea) { box-sizing: border-box; width: 100%; padding: 5px 8px; border: 1px solid var(--rf-ui-field);
+  border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
+:is(.rf-dialog input, .rf-dialog textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
+.rf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+:is(.rf-btn, .rf-btns > button) { padding: 4px 12px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+:is(.rf-btn, .rf-btns > button):hover { background: var(--rf-ui-hover); }
+.rf-btn.rf-go { border-color: transparent; background: var(--rf-ui-fg); color: var(--rf-ui-bg); font-weight: 600; }
+:is(.rf-btn, .rf-btns > button):disabled { opacity: .45; cursor: default; }
+:is(.rf-btn, .rf-btns > button):focus-visible { outline: 2px solid color-mix(in srgb, var(--rf-ui-fg) 40%, transparent); outline-offset: 1px; }
+.refinement-prompt-hint { margin-top: 6px; font-size: 12px; color: var(--rf-ui-muted); }
 /* The bar at the bottom after a write, with Undo (showUndoBar): the popover's colours the other way round. Only Logseq's
    newer colour names: its --ls-primary-text-color and siblings are empty or unset in 2.0.2, so a bar built on them
    was see-through, its words lying over the page (0.4.197, seen in both themes). */
@@ -195,11 +234,13 @@ const dialogCss = `/* Small page-title box (window.prompt is unreliable inside p
 `;
 function modalButtons(doc, buttons) {
   const row = doc.createElement('div');
-  row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
-  for (const [text, onClick] of buttons) {
+  row.className = 'rf-btns';
+  for (const [text, onClick, go] of buttons) {
     const b = doc.createElement('button');
+    b.type = 'button';
     b.textContent = text;
-    b.style.cssText = 'padding:4px 12px;border:1px solid var(--rf-line, var(--ls-border-color));border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
+    // The button that does what the box asks (OK, Delete) is marked 'go' and drawn filled; the others plain.
+    b.className = go === 'go' ? 'rf-btn rf-go' : 'rf-btn';
     b.addEventListener('click', event => { event.preventDefault(); onClick(); });
     row.append(b);
   }

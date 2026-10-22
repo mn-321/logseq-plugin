@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · One look for pop-ups and dialogs (0.4.257)
+
+**The owner:** "we have created a lot of things that use different elements instead of a consistency", then "make one
+pop-up, one Undo and one dialog, and move every layer 2 part onto them". **Found:** four Undo forms, three pop-up
+forms, text from 10 to 16 points, corners from 2 to 8, three shadows, colours from `--ls-*` (empty in some themes).
+**Built:** `dialogCss` in `parts/shared.js` holds the kit: `.rf-pop` (head, field, row with `.rf-on`, kind, new,
+note, list), `.rf-dialog` (`modal()` adds it), `.rf-btns`/`.rf-btn`/`.rf-go` (`modalButtons` takes a third 'go');
+`--rf-ui-*` from `--popover`. Moved onto it: `tags.js` menus and dialogs (their shell CSS removed), `two-way.js` peek and
++ box, `link-text.js` (its own colours removed). **Seen:** pictures only (dialog light and dark approved). **Next:** one
+Undo.
+
 ## 2026-10-21 · Link text: the page field empty for selected words too (0.4.256)
 
 **The owner:** a picture, "it should be empty not test which was the selected text". **Built:** `openList` starts

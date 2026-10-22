@@ -100,10 +100,8 @@ async function openList(box) {
   if (box.ownerDocument.activeElement !== box || box.selectionStart !== start || box.selectionEnd !== end) return; // moved on meanwhile
   close();
   const doc = box.ownerDocument, el = doc.createElement('div');
-  el.className = 'refinement-link-text';
+  el.className = 'refinement-link-text rf-pop';
   el.setAttribute('role', 'listbox');
-  el.style.background = backgroundOf(box);
-  el.style.color = box.ownerDocument.defaultView.getComputedStyle(box).color;
   doc.body.append(el);
   // Nothing selected (0.4.254): first the words to show, typed here, then the page, as for selected words. The page
   // field starts empty either way (0.4.256, the owner: "it should be empty not test which was the selected text").
@@ -111,16 +109,6 @@ async function openList(box) {
   open = { box, start, end, selected: words, words: label ? words : '', step: label ? 'page' : 'words', pages, looked: '', fresh: false, rows: [], at: 0, el };
   place(el, wordsRect(box, start, end));
   draw();
-}
-// The page's own background, read from the bullet up: Logseq's colour variables are not set in every theme (dark mode
-// fell back to white, seen 2026-10-21).
-function backgroundOf(el) {
-  const view = el.ownerDocument.defaultView;
-  for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
-    const bg = view.getComputedStyle(node).backgroundColor;
-    if (bg && !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(bg)) return bg;
-  }
-  return '';
 }
 function place(el, at) {
   const win = el.ownerDocument.defaultView, width = Math.min(520, win.innerWidth - 16);
@@ -133,23 +121,23 @@ function place(el, at) {
 // What is typed shows in a field of its own at the top, in the text colour, with a caret; while it is still the
 // selected words untouched it shows selected, since the first letter typed replaces it.
 function field(text, placeholder, fresh) {
-  return `<div class="rlt-field">${text ? `<span class="rlt-typed${fresh ? ' rlt-fresh' : ''}">${esc(text)}</span>` : `<span class="rlt-placeholder">${esc(placeholder)}</span>`}<span class="rlt-caret"></span></div>`;
+  return `<div class="rlt-field rf-pop-field">${text ? `<span class="rlt-typed${fresh ? ' rlt-fresh' : ''}">${esc(text)}</span>` : `<span class="rlt-placeholder">${esc(placeholder)}</span>`}<span class="rlt-caret"></span></div>`;
 }
 function draw() {
   if (!open) return;
   if (open.step === 'words') {
     open.rows = [];
-    open.el.innerHTML = '<div class="rlt-head">The words to show</div>' + field(open.looked, 'Type the words, then Enter', false)
-      + '<div class="rlt-none">Enter: choose the page they link to</div>';
+    open.el.innerHTML = '<div class="rlt-head rf-pop-head">The words to show</div>' + field(open.looked, 'Type the words, then Enter', false)
+      + '<div class="rlt-none rf-pop-note">Enter: choose the page they link to</div>';
     return;
   }
   open.rows = rowsFor(open.pages, open.looked);
   // "New page …" is never the default while a page fits.
   open.at = Math.min(open.at, Math.max(0, open.rows.length - 1));
-  open.el.innerHTML = `<div class="rlt-head">Link “${esc(open.words.trim())}” to</div>` + field(open.looked, 'Type a page’s name', open.fresh)
-    + (open.rows.length ? open.rows.map((row, i) => `<div class="rlt-row${i === open.at ? ' rlt-on' : ''}${row.kind === 'new' ? ' rlt-new' : ''}" role="option" data-i="${i}" title="${esc(row.title)}">`
-      + `<span class="rlt-title">${row.kind === 'new' ? `New page “${esc(row.title)}”` : esc(row.title)}</span>${row.right ? `<span class="rlt-kind">${esc(row.right)}</span>` : ''}</div>`).join('')
-      : '<div class="rlt-none">Type the page’s name</div>');
+  open.el.innerHTML = `<div class="rlt-head rf-pop-head">Link “${esc(open.words.trim())}” to</div>` + field(open.looked, 'Type a page’s name', open.fresh)
+    + (open.rows.length ? open.rows.map((row, i) => `<div class="rlt-row rf-pop-row${i === open.at ? ' rlt-on rf-on' : ''}" role="option" data-i="${i}" title="${esc(row.title)}">`
+      + `<span class="rlt-title${row.kind === 'new' ? ' rf-pop-new' : ''}">${row.kind === 'new' ? `New page “${esc(row.title)}”` : esc(row.title)}</span>${row.right ? `<span class="rlt-kind rf-pop-kind">${esc(row.right)}</span>` : ''}</div>`).join('')
+      : '<div class="rlt-none rf-pop-note">Type the page’s name</div>');
 }
 function close() {
   if (!open) return;
@@ -217,26 +205,15 @@ function onPress(event) {
   close();
 }
 
-// Logseq's own theme only (layer 2): greys mixed from the text colour, so dark mode works too.
+// The look is the plugin's one pop-up (.rf-pop, parts/shared.js); here only the field's caret and the words selected in it.
 const css = `
-.refinement-link-text { position: fixed; z-index: 9999; padding: 4px; border-radius: 8px; font-size: 14px; line-height: 1.35;
-  background: var(--ls-primary-background-color, Canvas); color: var(--ls-primary-text-color, CanvasText);
-  border: 1px solid color-mix(in srgb, currentColor 14%, transparent); box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
-.refinement-link-text .rlt-head { padding: 4px 8px 6px; font-size: 12px; color: color-mix(in srgb, currentColor 55%, transparent); }
-.refinement-link-text .rlt-looked { color: color-mix(in srgb, currentColor 85%, transparent); }
-.refinement-link-text .rlt-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
-.refinement-link-text .rlt-row.rlt-on { background: color-mix(in srgb, currentColor 9%, transparent); }
-.refinement-link-text .rlt-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-link-text .rlt-new .rlt-title { font-style: italic; color: color-mix(in srgb, currentColor 65%, transparent); }
-.refinement-link-text .rlt-kind { flex: none; font-size: 12px; color: color-mix(in srgb, currentColor 50%, transparent); }
-.refinement-link-text .rlt-none { padding: 5px 8px; color: color-mix(in srgb, currentColor 50%, transparent); }
-.refinement-link-text .rlt-field { display: flex; align-items: baseline; margin: 0 4px 4px; padding: 5px 8px; border-radius: 5px; font-size: 15px;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent); min-height: 1.4em; }
+.refinement-link-text .rlt-field { display: flex; align-items: baseline; font-size: 15px; }
 .refinement-link-text .rlt-typed { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-.refinement-link-text .rlt-typed.rlt-fresh { background: color-mix(in srgb, currentColor 16%, transparent); border-radius: 2px; }
-.refinement-link-text .rlt-placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-link-text .rlt-typed.rlt-fresh { background: var(--rf-ui-hover); border-radius: 2px; }
+.refinement-link-text .rlt-placeholder { color: var(--rf-ui-muted); }
 .refinement-link-text .rlt-caret { display: inline-block; width: 1.5px; height: 1.1em; margin-left: 1px; align-self: center; background: currentColor; animation: rlt-blink 1s steps(1) infinite; }
 .refinement-link-text .rlt-placeholder + .rlt-caret { order: -1; margin: 0 1px 0 0; }
+.refinement-link-text .rlt-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes rlt-blink { 50% { opacity: 0; } }
 `;
 
