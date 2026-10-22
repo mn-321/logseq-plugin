@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Short names in two-way rows (0.4.261)
+
+**The owner:** "go on to item 5, long names in two-way rows". **Built:** `shortName` in `parts/two-way.js`: the first
+sentence (not after an abbreviation), cut at a word past 60 letters; `recordLink` shows it and keeps the whole line as
+the tip; the hover card is unchanged. **Seen:** not in Logseq; tried on seven test-graph lines with node.
+
 ## 2026-10-21 · Tag and property pages keep their empty rows (0.4.260)
 
 **The owner:** a picture of #Consultation, Tag Properties with only Add property, "Why aren't properties showing at top?".
