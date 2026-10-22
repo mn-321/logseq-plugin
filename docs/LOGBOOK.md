@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the two-way rows' band gone, card and + box trimmed (0.4.286)
+
+**Asked:** the audit's verdict on the two-way rows (docs/DESIGN-AUDIT-2026-10-22.md). **Built:** `parts/two-way.js`:
+`.refinement-two-way` has no background, no padding and no negative margin (margin .15rem above plus the held room,
+.5rem below); the hover card 6/8 px, 4 px between its parts; the + box 300 px, 6 px of edge, 6 px gaps, its text box
+with no margins (`.refinement-two-way-add.rf-pop input`, more particular than the kit's text-box rule, the trap 0.4.284
+found). **Measured (headless Chromium, the audit's script):** the box 136.1 px for two rows instead of 145.7; rows
+108.1 and 28 px as before; name column 150 px; the values' left edge the same as Logseq's own row beside it (162 px
+from the box's edge, both); the card 142.6 instead of 152.6; the + box 134.8 instead of 154.8. **Not seen:** the app;
+check Dr. Mei Chen and the Consultation tag page for a jump on reopening (the band's 5 px above and below are gone,
+so the words under the rows sit 10 px higher than before, once, by design).
+
 ## 2026-10-22 · Design audit: the kit trimmed, dialogs can sit beside what they are about (0.4.285)
 
 **Asked:** the owner, through the session that started this one: "remove excess design and padding and make things

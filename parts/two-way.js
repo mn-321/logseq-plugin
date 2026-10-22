@@ -803,7 +803,8 @@ async function act(what) {
 }
 
 const twoWayCss = `
-/* Under the page's own properties, on the same light field: these rows are the far end of a field held by other
+/* Under the page's own properties, as more property rows (the light field around them went at the design audit,
+   0.4.286, docs/DESIGN-AUDIT-2026-10-22.md: a box around rows meant to read as rows): these rows are the far end of a field held by other
    records, so they read like properties but are not this page's own; the → after the name, pointing at the records that hold the field, says so (a ← before the name until 0.4.186). The names are
    the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box).
    Sizes and columns are Logseq's own property rows above, as measured in 2.0.2 (0.4.144): the text at the page's
@@ -811,12 +812,11 @@ const twoWayCss = `
    after their bullet, 28px rows; the name starts where theirs does, after the room of their property icon (15px and a 4px gap), and the → follows it. */
 .refinement-two-way {
   --rf-tw-accent: var(--ls-secondary-text-color, currentColor);
-  margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .6rem -.5rem; padding: .3rem .9rem .3rem .5rem;
-  background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-field-pct, 3%), transparent);
+  margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .5rem; padding: 0;
   line-height: 1.5; user-select: text;
 }
 /* Only holding room while the page settles: no field, no rows. */
-.refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; padding: 0; background: none; }
+.refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; }
 /* The room held while the page settled eases away (0.4.283), only then: while the page settles the held room shrinks in the same frame Logseq's list grows, and must not lag. */
 .refinement-two-way[data-rf-settling] { transition: margin-top .25s ease; }
 .refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
@@ -874,7 +874,7 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-earlier { margin: .2rem 0 .1rem; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); display: flex; align-items: center; gap: .5em; }
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
 /* The card a record shows when the pointer rests on it: the plugin's one pop-up look (.rf-pop, parts/shared.js). */
-.refinement-two-way-peek { z-index: 999; width: max-content; max-width: 360px; padding: 8px 10px; cursor: pointer; }
+.refinement-two-way-peek { z-index: 999; width: max-content; max-width: 360px; padding: 6px 8px; cursor: pointer; }
 .refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; }
 /* Every piece that opens something is underlined under the pointer, as a link is (0.4.262). */
 .refinement-two-way-peek .rf-tw-peek-open { text-decoration: underline transparent; text-underline-offset: 2px; transition: text-decoration-color .1s ease; }
@@ -882,12 +882,14 @@ const twoWayCss = `
 .refinement-two-way-peek .rf-tw-peek-line { border-radius: 4px; margin: 0 -4px; padding: 0 4px; }
 .refinement-two-way-peek .rf-tw-peek-line:hover { background: var(--rf-ui-hover); }
 .refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
-.refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 6px; }
+.refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 4px; }
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
-.refinement-two-way-peek .rf-tw-peek-lines { margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.refinement-two-way-peek .rf-tw-peek-lines { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
-/* The box the + opens: the one pop-up look (.rf-pop), a row of kinds, a name and the dialog's buttons (.rf-btn). */
-.refinement-two-way-add { z-index: 999; width: 340px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+/* The box the + opens: the one pop-up look (.rf-pop), a row of kinds, a name and the dialog's buttons (.rf-btn). Trimmed at the
+   audit (0.4.286): 300px, 6px of edge; the kit's text-box margins taken off (the rule is more particular than the kit's). */
+.refinement-two-way-add { z-index: 999; width: 300px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+.refinement-two-way-add.rf-pop input { width: 100%; margin: 0; }
 .refinement-two-way-add .rf-tw-add-head { font-weight: 600; }
 .refinement-two-way-add .rf-tw-add-field { font-weight: 400; color: var(--ls-secondary-text-color); }
 .refinement-two-way-add .rf-tw-add-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
