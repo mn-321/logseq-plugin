@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Queries exported as their table (0.4.247)
+
+**The owner:** "Yes, make query exports follow the current table view." **Built:** in `parts/rich-copy.js`: `queryView`
+reads the drawn table (column titles, row `blockid`s when all rows are drawn, else the view node's
+`logseq.property.table/sorting` or newest change first), `cellText`, `viewTable`, styles `vTable`/`vHead`/`vCell`.
+Logseq stores a view's settings on a node with `logseq.property/view-for`; columns are not stored until changed, hence
+reading the page. **Tests:** `tools/check.sh`. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Export: no status words, wording links (0.4.246)
 
 **The owner:** "Why does it say Open:", then "get rid of that. also, it doesn't get rid of in-line alias

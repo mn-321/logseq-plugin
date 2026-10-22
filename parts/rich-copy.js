@@ -35,6 +35,10 @@ const STYLE = {
   month: 'padding:9pt 0 3pt;font-weight:600;font-size:10.5pt;border-bottom:0.75pt solid #d0d0d0;',
   when: 'width:58pt;padding:4pt 10pt 3pt 0;vertical-align:top;color:#6b6b6b;white-space:nowrap;',
   what: 'padding:4pt 0 3pt;vertical-align:top;',
+  // A query's table: a header line, thin rules between rows.
+  vTable: 'border-collapse:collapse;width:100%;margin:2pt 0 10pt;font-size:10pt;',
+  vHead: 'text-align:left;font-weight:600;padding:4pt 8pt 4pt 0;border-bottom:1pt solid #1f1f1f;vertical-align:bottom;',
+  vCell: 'padding:4pt 8pt 4pt 0;border-bottom:0.5pt solid #e2e2e2;vertical-align:top;',
   // Timetable: a month heading, then one row per day, the day on the left and that day's bullets on the right.
   ttMonth: 'font-size:13pt;font-weight:600;margin:16pt 0 2pt;padding-bottom:3pt;border-bottom:1pt solid #1f1f1f;',
   ttTable: 'border-collapse:collapse;width:100%;margin:0 0 6pt;',
@@ -195,13 +199,14 @@ async function describeBlock(node, attrs, shown) {
     .sort((x, y) => x.order.localeCompare(y.order) || x.name.localeCompare(y.name));
   // Blocks that only hold a property's value (a URL, a text value) are shown with the property instead.
   const isValue = first('logseq.property/created-from-property') != null;
-  return { node, body, heading: Math.min(heading, 3), display, tagIds, statusId, properties, isValue };
+  const allProperties = [...a.values()].filter(p => p.name);
+  return { node, body, heading: Math.min(heading, 3), display, tagIds, statusId, properties, allProperties, isValue };
 }
 
 function propertyText(property) {
   const values = property.values.map(v => {
     if (typeof v === 'boolean') return v ? 'yes' : 'no';
-    if (property.type === 'datetime' && typeof v === 'number') return new Date(v).toLocaleString();
+    if (property.type === 'datetime' && typeof v === 'number') return showDate(v);
     const id = idOf(v);
     if (id != null && entityCache.get(id)?.journalDay) return showDate(entityCache.get(id).journalDay);
     if (id != null && property.type !== 'number' && property.type !== 'checkbox' || (id != null && entityCache.has(id))) {
@@ -243,6 +248,52 @@ function scan(attrs, uuids, found, pending) {
   }
 }
 
+/* A query as it shows on the page: Logseq draws it as a table whose columns, sort, filters and search are kept
+   in a view node. The export reads the drawn table: its column names, and its rows in their order when every row
+   is drawn (Logseq draws only the rows near the screen in a long list). Otherwise the rows are the query's own,
+   sorted by the view's sort if it has one, else newest change first, as Logseq does. */
+async function queryView(node, results) {
+  const view = { columns: null, order: null };
+  try {
+    const block = hostWindow().document.querySelector(`.ls-block[blockid="${String(node.uuid)}"]`);
+    const table = block?.querySelector('.ls-table');
+    if (table) {
+      view.columns = [...table.querySelectorAll('.ls-table-header .ls-table-header-cell [title]')].map(e => e.getAttribute('title')).filter(Boolean);
+      const ids = [...new Set([...table.querySelectorAll('[blockid]')].map(e => e.getAttribute('blockid')))];
+      const count = Number(block.querySelector('.ls-view-head')?.textContent.match(/\((\d+)\)/)?.[1]);
+      if (ids.length && ids.length === count) view.order = ids;
+    }
+  } catch (error) { /* the query's own rows stand */ }
+  if (!view.order && results.length) {
+    let sorting = null;
+    try {
+      const rows = await dsQuery(`[:find (pull ?v [:logseq.property.table/sorting]) :in $ :where ${uuidsIn([node.uuid])} [?q :block/uuid ?u] [?v :logseq.property/view-for ?q]]`);
+      const value = rows[0]?.[0];
+      sorting = value?.['logseq.property.table/sorting'] ?? value?.[':logseq.property.table/sorting'] ?? value?.sorting ?? null;
+    } catch (error) { /* default order */ }
+    const first = Array.isArray(sorting) ? sorting[0] : null;
+    const key = keyName(first?.id ?? first?.[':id'] ?? 'block/updated-at');
+    const asc = first ? (first['asc?'] ?? first[':asc?'] ?? false) : false;
+    const valueOf = r => { const v = r[key.split('/').pop().replace(/-([a-z])/g, (m, c) => c.toUpperCase())] ?? r[key.split('/').pop()] ?? r[key];
+      return typeof v === 'object' && v ? (v.title ?? v.id ?? '') : v ?? ''; };
+    view.order = [...results].sort((a, b) => { const x = valueOf(a), y = valueOf(b);
+      return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1); }).map(r => String(r.uuid));
+  }
+  return view;
+}
+
+/* One cell of a query's table, by its column name. */
+function cellText(described, column) {
+  const name = column.toLowerCase();
+  if (name === 'name' || name === 'block' || name === 'title') return null; // the row's words, shown as they are
+  if (name === 'tags') return described.tagIds.map(id => entityCache.get(idOf(id))?.title).filter(Boolean).join(', ');
+  const property = [...(described.allProperties || [])].find(p => (p.name || '').toLowerCase() === name ||
+    p.ident.split('/').pop().replace(/-/g, ' ') === name);
+  if (!property) return '';
+  const text = propertyText(property);
+  return text.slice(text.indexOf(': ') + 2);
+}
+
 /* Live queries: their results are read once and copied as a plain list, so outside readers see what
    the query showed. Simple queries ("(task todo)") go through DB.q, advanced ones through customQuery. */
 async function runQuery(text) {
@@ -278,8 +329,13 @@ async function prepare({ title, titleNode, roots }) {
     const value = query.values[0];
     const text = typeof value === 'string' ? value : entityText(idOf(value));
     node.queryResults = (await runQuery(text)).filter(row => String(row.uuid) !== String(node.uuid));
+    node.queryView = await queryView(node, node.queryResults);
+    if (node.queryView.order) {
+      const byId = new Map(node.queryResults.map(r => [String(r.uuid), r]));
+      node.queryResults = node.queryView.order.map(u => byId.get(u)).filter(Boolean);
+    }
     results.push(...node.queryResults);
-    queries.push({ uuid: String(node.uuid), label: (await resolveRefs(titleOf(node))).trim() || text, node });
+    queries.push({ uuid: String(node.uuid), label: (await resolveRefs(titleOf(node))).trim() || inlinePlain(await resolveRefs(text)), node });
   }
   if (results.length) {
     const more = await attributesOf(results.map(r => r.uuid));
@@ -436,6 +492,13 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
       plain.push((asList ? indent + '• ' : '') + inlinePlain(label));
     }
     const inner = asList && label ? indent + '    ' : (asList ? indent : '');
+    const columns = block.node.queryView?.columns;
+    if (columns?.length && sortKey === 'none') {
+      viewTable(rows, columns, inner);
+      if (asList && label) html.push('</li>');
+      if (!asList) plain.push('');
+      return;
+    }
     if (sortKey !== 'none') {
       timeline(rows, sortKey, inner);
       if (asList && label) html.push('</li>');
@@ -456,6 +519,20 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
     html.push('</ul>');
     if (asList && label) html.push('</li>');
     if (!asList) plain.push('');
+  }
+
+  // A query as its table on the page: the same columns, in the same order, the rows as drawn.
+  function viewTable(rows, columns, inner) {
+    html.push(`<table style="${STYLE.vTable}"><thead><tr>${columns.map(c => `<th style="${STYLE.vHead}${cellText({ tagIds: [] }, c) === null ? 'width:38%;' : ''}">${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>`);
+    plain.push(inner + columns.join(' | '));
+    for (const { described } of rows) {
+      const cells = columns.map(c => { const text = cellText(described, c);
+        return text === null ? { html: inlineHtml(described.body.split('\n')[0]), plain: inlinePlain(described.body.split('\n')[0]), name: true } : { html: escapeHtml(text), plain: text }; });
+      // Short values (dates, a name) stay on one line.
+      html.push(`<tr>${cells.map(c => `<td style="${STYLE.vCell}${c.plain.length <= 14 && !c.name ? 'white-space:nowrap;' : ''}">${c.html}</td>`).join('')}</tr>`);
+      plain.push(inner + cells.map(c => c.plain).join(' | '));
+    }
+    html.push('</tbody></table>');
   }
 
   // Sorted results as a timeline: month rows ("October 2026"), then one row per result with its
@@ -747,7 +824,7 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
     // Timelines: each query sorts by its first date unless you chose otherwise for it before.
     const sortOf = q => {
       const last = saved[q.uuid] || {};
-      const key = last.sortKey === 'none' ? 'none' : (q.dates.find(d => d.key === last.sortKey) || q.dates[0] || { key: 'none' }).key;
+      const key = (q.dates.find(d => d.key === last.sortKey) || { key: 'none' }).key;
       return { key, newest: last.newestFirst === true };
     };
     const root = document.createElement('div');
@@ -777,7 +854,7 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
       ${queries.length ? `<div class="rc-sub">Query results, sorted by date as a timeline:</div>
       ${queries.map(q => { const { key, newest } = sortOf(q); return `<div class="rc-sort" data-query="${escapeHtml(q.uuid)}">
         <span class="rc-qname">${escapeHtml(inlinePlain(q.label).slice(0, 60))}</span>
-        <select><option value="none" ${key === 'none' ? 'selected' : ''}>Logseq's order</option>
+        <select><option value="none" ${key === 'none' ? 'selected' : ''}>As on the page</option>
         ${q.dates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === key ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}</select>
         <label><input type="checkbox" ${newest ? 'checked' : ''}> newest first</label></div>`; }).join('')}` : ''}
       ${properties.length ? `<div class="rc-sub">Ticked properties are included. Your choices are remembered.</div>
