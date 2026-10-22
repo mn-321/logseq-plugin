@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Export styles, style buttons, clearer window (0.4.248)
+
+**The owner:** sent a timeline PDF as the model, then "create a couple different style too. one just 1 column. one
+just like this … button to make text a certain style … traditional document style with paragraphs … make the settings
+much clearer how to use". **Built:** in `parts/rich-copy.js`: `LAYOUTS` (document, outline, timeline, column,
+timetable), `timeline()` for the two new styles (range from a later date property, "Under the date" property), end-like
+dates last in `timetableKeys`, paragraphs and section headings in Document, `TEXT_STYLES` and the preview's style bar,
+the window in numbered sections, `titleLines` kept per page title, menu items renamed. **Tests:** `tools/check.sh`.
+**Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · Queries exported as their table (0.4.247)
 
 **The owner:** "Yes, make query exports follow the current table view." **Built:** in `parts/rich-copy.js`: `queryView`

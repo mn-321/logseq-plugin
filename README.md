@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.247.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Four parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Journal day as date** fills an empty Date property, only in the graphs and for the tags named in its settings and, by default, after asking; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.248.
 
 **For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -168,7 +168,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Undo beside the value | `undoBesideValue` | on | Proposals in the pills |
 | Show the key hint until this many takes | `proposalHintTakes` | 20 | Proposals in the pills |
 | While you type | `pillProposalsLive` | on | Proposals in the pills |
-| Layout | `layout` | document (or outline, timetable) | Copy as rich text |
+| Style | `layout` | document (or outline, timeline, column, timetable) | Export as document |
 | Use Todos and Expectations | `todosEnabled` | off | Todos |
 | Todos button in the toolbar | `todosToolbarButton` | on | Todos |
 | The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
@@ -396,39 +396,41 @@ After you write a record, what the graph can already tell is pencilled in, itali
 | Undo beside the value | After a value is written into a record, a small grey “undo ⌘z” sits beside it in the record’s row for seven seconds; a click, or `Cmd+Z` while the caret is still in that block, takes it back to pencilled. Off, the dark bar at the bottom offers Undo. Applies at once. |
 | While you type | The proposals are read from the text box as you type, so a name is pencilled in the moment its word is finished and goes when the word goes; the record you are writing gets them whatever its age. Off, they come a second or two after each save. Applies at once. |
 
-## Copy as rich text
+## Export as document
 
-Copies a page or a block as tidy formatted text for people who don't use Logseq. Paste it into Pages, Word, Mail or Google Docs, or save it straight to a PDF. It only reads your notes.
+Turns a page or some bullets into a tidy document for people who don't use Logseq: a PDF, or text to
+paste into Pages, Word, Mail or Google Docs. It only reads your notes.
 
 ### How to use it
 
-- **A whole page:** the page's "..." menu (top right) > **Copy page as rich text**.
-- **One block and everything under it:** right-click its bullet > **Copy as rich text**.
-- **Several blocks:** select them, then the command palette > **Copy selected blocks as rich text**.
+- **A whole page:** the page's "..." menu (top right) > **Export page as document…**.
+- **One bullet and everything under it:** right-click its bullet > **Export as document…**.
+- **Several bullets:** select them, then the command palette > **Export selected blocks as document**.
 
-Each copy opens a small window. Pick a layout:
+A window opens, in numbered steps:
 
-- **Document:** top-level blocks become paragraphs, nested blocks become indented bullets.
-- **Outline:** every block is a bullet, indented exactly as in Logseq.
-- **Timetable:** bullets grouped by day under month headings, the weekday and day on the left and
-  that day's bullets on the right, with their children under them. **Date from** picks the date:
-  Automatic (a Date property first, then Logseq's scheduled or deadline date, then the journal day
-  the bullet was written on) or one of them; **newest first** turns the order round. Bullets with no
-  date come last under "No date".
+1. **Style.**
+   - **Document:** paragraphs, like a letter or a report. A short line with lines under it becomes a heading.
+   - **Outline:** bullets, indented as in Logseq.
+   - **Timeline:** the date on the left (and, if you pick one, a property such as a hospital under it),
+     a line with dots, the event on the right with its details in small text. A bullet with a second,
+     later date of its own (an End date) shows as a range, "Aug 4 – 8", in a shaded box.
+   - **Timeline, one column:** month headings, then each event under its date.
+   - **Calendar table:** one row per day, the day on the left and that day's bullets on the right.
+   For the last three, **Dates** sets where the date comes from (Automatic: a Date property, then
+   Logseq's scheduled or deadline date, then the journal day; an End date only closes a range),
+   what shows **under the date**, and **newest first**.
+2. **Title:** a line above the title, a subtitle (both kept for that page), today's date, Prepared by.
+3. **PDF pages:** a footer and page numbers.
+4. **Properties to show:** tick the ones to include. Remembered.
 
-On a tag page, the nodes with that tag (Logseq's table) are included after the page's own bullets.
-In a timetable, a query's results are placed by their dates like any other bullet.
+**Preview and PDF…** shows the result on a white page. Click any text to change its words; the
+buttons above it make the line with the cursor a **Title**, **Subtitle**, **Heading**, **Text** or
+**Small** line, or **B** for bold. Then **Save as PDF…** or **Copy**. The changes go only into this
+export, never into your notes. **Copy** in the window copies without a preview.
 
-A query is exported as its table on the page: the same columns, and the rows in the order shown
-(with the table's own sort, filters and search). In the copy window, a query can instead be sorted
-by one of its dates, which makes a timeline.
-
-**Save as PDF…** first shows a preview, laid out as it will print. Click any text in it to change
-the words; the changes go only into this PDF (or **Copy** from the preview), never into your notes.
-
-If what you copy has properties, the window also lists them with tick boxes. Only ticked ones are
-included. Your choices are remembered for next time; properties you haven't seen before start ticked.
-Press Return to copy, Escape to cancel.
+On a tag page, the nodes with that tag are included. A query is exported as its table on the page
+(same columns and order), or, if you choose, as a timeline by one of its dates.
 
 #### Title and pages
 

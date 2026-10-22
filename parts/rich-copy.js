@@ -35,6 +35,26 @@ const STYLE = {
   month: 'padding:9pt 0 3pt;font-weight:600;font-size:10.5pt;border-bottom:0.75pt solid #d0d0d0;',
   when: 'width:58pt;padding:4pt 10pt 3pt 0;vertical-align:top;color:#6b6b6b;white-space:nowrap;',
   what: 'padding:4pt 0 3pt;vertical-align:top;',
+  // Title block extras: a small line above the title, a subtitle under it.
+  kicker: 'color:#6b6b6b;font-size:10pt;margin:0 0 2pt;',
+  subtitle: 'color:#6b6b6b;font-size:11pt;margin:0 0 6pt;',
+  // Document: a traditional page of paragraphs; a short line with lines under it becomes a section heading.
+  docSection: 'font-size:14pt;font-weight:600;margin:16pt 0 6pt;',
+  docP: 'margin:0 0 9pt;line-height:1.55;',
+  // Timeline (date on the left, a line with dots, the event on the right) and its one-column form.
+  tlTable: 'border-collapse:collapse;border-spacing:0;width:100%;margin:6pt 0 10pt;',
+  tlWhen: 'width:110pt;padding:0 12pt 16pt 0;vertical-align:top;text-align:right;',
+  tlDate: 'display:block;font-weight:700;font-size:11pt;',
+  tlUnder: 'display:block;color:#6b6b6b;font-size:9.5pt;',
+  tlRail: 'width:14pt;padding:0;vertical-align:top;text-align:center;background:linear-gradient(#9a9a9a,#9a9a9a) no-repeat center top/1pt 100%;',
+  tlDot: 'display:inline-block;width:8pt;height:8pt;border-radius:50%;background:#1f1f1f;margin-top:3pt;',
+  tlWhat: 'padding:0 0 16pt 12pt;vertical-align:top;',
+  tlBox: 'background:#efefef;border-left:2.5pt solid #1f1f1f;padding:7pt 10pt;',
+  tlTitle: 'font-size:12pt;margin:0;',
+  tlDetail: 'font-size:9.5pt;margin:2pt 0 0;color:#1f1f1f;',
+  colMonth: 'font-size:13pt;font-weight:600;margin:16pt 0 6pt;padding-bottom:3pt;border-bottom:1pt solid #1f1f1f;',
+  colEntry: 'margin:0 0 12pt;padding:0 0 10pt;border-bottom:0.5pt solid #e2e2e2;',
+  colDate: 'color:#6b6b6b;font-size:9pt;text-transform:uppercase;letter-spacing:0.5pt;margin:0 0 2pt;',
   // A query's table: a header line, thin rules between rows.
   vTable: 'border-collapse:collapse;width:100%;margin:2pt 0 10pt;font-size:10pt;',
   vHead: 'text-align:left;font-weight:600;padding:4pt 8pt 4pt 0;border-bottom:1pt solid #1f1f1f;vertical-align:bottom;',
@@ -378,7 +398,10 @@ function timetableKeys(attrs, roots) {
   const keys = new Set();
   for (const node of withResults(roots)) for (const p of (attrs.get(String(node.uuid).toLowerCase()) || new Map()).values())
     if (p.ident.startsWith('user.property/') && ['date', 'datetime'].includes(p.type)) keys.add(p.ident);
-  return [...keys, 'logseq.property/scheduled', 'logseq.property/deadline', 'journal'];
+  // A date named like an end (End, Until, Finish, Discharged) is the last choice: it closes a range, it doesn't open one.
+  const isEnd = ident => /(^|[-/])(end|ends|until|to|finish|finished|discharged?|out)([-]|$)/i.test(ident.split('/').pop());
+  const all = [...keys];
+  return [...all.filter(k => !isEnd(k)), 'logseq.property/scheduled', 'logseq.property/deadline', 'journal', ...all.filter(isEnd)];
 }
 
 // The date a block is sorted by, as a number (yyyymmdd for days, or a timestamp), or null.
@@ -404,11 +427,16 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
   const plain = [];
   if (title) {
     const words = await resolveRefs(title);
-    if (format.titleBlock) {
-      const byline = [new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })];
-      if (format.preparedBy?.trim()) byline.push(`Prepared by ${format.preparedBy.trim()}`);
-      html.push(`<h1 style="${STYLE.title}">${inlineHtml(words)}</h1><p style="${STYLE.byline}">${byline.map(escapeHtml).join(' · ')}</p>`);
-      plain.push(inlinePlain(words), byline.join(' · '), '');
+    const kicker = format.kicker?.trim(), subtitle = format.subtitle?.trim();
+    if (kicker) { html.push(`<p style="${STYLE.kicker}">${escapeHtml(kicker)}</p>`); plain.push(kicker); }
+    if (format.titleBlock || subtitle) {
+      const byline = format.titleBlock ? [new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })] : [];
+      if (format.titleBlock && format.preparedBy?.trim()) byline.push(`Prepared by ${format.preparedBy.trim()}`);
+      html.push(`<h1 style="${STYLE.title}">${inlineHtml(words)}</h1>`);
+      plain.push(inlinePlain(words));
+      if (subtitle) { html.push(`<p style="${STYLE.subtitle}">${escapeHtml(subtitle)}</p>`); plain.push(subtitle); }
+      html.push(`<p style="${STYLE.byline}">${byline.map(escapeHtml).join(' · ')}</p>`);
+      plain.push(byline.join(' · '), '');
     } else {
       html.push(`<h1 style="${STYLE.h[1]}">${inlineHtml(words)}</h1>`);
       plain.push(inlinePlain(words), '');
@@ -436,7 +464,8 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
       items.push({ block, children });
     }
     if (!items.length) return;
-    const asList = depth > 0 || layout === 'outline';
+    // Document: the first level under a top-level line is paragraphs too; bullets start one level deeper.
+    const asList = layout === 'outline' || depth > (layout === 'document' ? 1 : 0);
     if (asList) html.push(`<ul style="${STYLE.ul}">`);
     for (const { block, children, results } of items) {
       if (results) { await renderResults(block, results, depth, asList); continue; }
@@ -462,7 +491,10 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
           const level = Math.min(block.heading + (title ? 1 : 0), 3);
           html.push(`<h${level} style="${STYLE.h[level]}">${inner.html}</h${level}>`);
         }
-        else html.push(`<p style="${STYLE.p}">${inner.html}</p>`);
+        // A short top-level line with lines under it reads as a section heading.
+        else if (layout === 'document' && depth === 0 && children.length && block.body.length <= 70 && !/[.!?:]$/.test(block.body.trim()) && !meta.length)
+          html.push(`<h2 style="${STYLE.docSection}">${inner.html}</h2>`);
+        else html.push(`<p style="${layout === 'document' ? STYLE.docP : STYLE.p}">${inner.html}</p>`);
         if (meta.length) html.push(`<p style="${STYLE.p}${STYLE.meta}">${meta.map(escapeHtml).join(' · ')}</p>`);
         await render(children, depth + 1);
         if (!block.heading) plain.push('');
@@ -565,11 +597,12 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
   /* Timetable: every bullet with a date of its own (by the chosen date) becomes an entry; its children go
      with it. A bullet without one that holds dated bullets is passed through; one with nothing dated is listed
      under "No date". Entries are grouped by day, under month headings, earliest first (or newest first). */
-  async function timetable({ dateKey = 'auto', newestFirst = false }) {
+  async function timetable({ dateKey = 'auto', newestFirst = false, under = '' }, style = 'timetable') {
     const entries = [];
+    const keyOf = new Map();
     const dateOf = node => {
       const keys = dateKey === 'auto' ? autoKeys : [dateKey];
-      for (const key of keys) { const when = sortDate(attrs, node.uuid, key); if (when != null) return when; }
+      for (const key of keys) { const when = sortDate(attrs, node.uuid, key); if (when != null) { keyOf.set(node, key); return when; } }
       return null;
     };
     const hasDated = node => (node.children || []).some(c => c && !Array.isArray(c) && (dateOf(c) != null || hasDated(c)));
@@ -587,6 +620,7 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
     const scale = n => n == null ? null : sameScale(n);
     entries.sort((x, y) => (x.when == null) - (y.when == null) ||
       (newestFirst ? scale(y.when) - scale(x.when) : scale(x.when) - scale(y.when)));
+    if (style === 'timeline' || style === 'column') return timeline(entries, { dateKey, under, keyOf }, style);
     let month = null, day = null, open = false;
     const closeDay = () => { if (open) html.push('</td></tr>'); open = false; };
     for (const { node, when } of entries) {
@@ -627,9 +661,63 @@ async function buildDocument({ title, titleNode, roots, attrs }, { shown, layout
     closeDay();
     if (month !== null) html.push('</table>');
   }
+  /* The two timeline styles. An entry with a second, later date of its own (an End date) shows as a range,
+     "Sep 9 – 12", in a shaded box. The property chosen as "Under the date" shows under the date (a place). */
+  async function timeline(entries, { dateKey, under, keyOf }, style) {
+    const isDate = p => ['date', 'datetime'].includes(p.type);
+    const valueOf = p => { const t = propertyText(p); return t.slice(t.indexOf(': ') + 2); };
+    const span = (from, to) => {
+      const a = toDate(from), b = to == null ? null : toDate(to);
+      const md = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      if (!b) return md(a);
+      return a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear() ? `${md(a)} – ${b.getDate()}` : `${md(a)} – ${md(b)}`;
+    };
+    let month = null;
+    if (style === 'timeline') html.push(`<table style="${STYLE.tlTable}" cellspacing="0">`);
+    for (const { node, when } of entries) {
+      const block = await describeBlock(node, attrs, shown);
+      const children = (node.children || []).filter(c => c && !Array.isArray(c));
+      if (block.isValue || (!block.body.trim() && !children.length)) continue;
+      const used = keyOf.get(node);
+      const a = attrs.get(String(node.uuid).toLowerCase()) || new Map();
+      // A later date among the bullet's own date properties makes a range.
+      let end = null, endKey = null;
+      if (when != null) for (const p of a.values()) {
+        if (!p.ident.startsWith('user.property/') || !isDate(p) || p.ident === used) continue;
+        const v = sortDate(attrs, node.uuid, p.ident);
+        if (v != null && sameScale(v) > sameScale(when)) { end = v; endKey = p.ident; break; }
+      }
+      const underProp = under ? [...a.values()].find(p => p.ident === under) : null;
+      const underText = underProp ? valueOf(underProp) : '';
+      const meta = block.properties.filter(p => ![used, endKey, under, ...(dateKey === 'auto' ? autoKeys : [dateKey])].includes(p.ident)).map(propertyText).filter(Boolean);
+      const dateText = when == null ? 'No date' : span(when, end);
+      const details = [];
+      for (const child of collect(children)) {
+        const d = await describeBlock(child, attrs, shown);
+        if (!d.isValue && d.body.trim()) details.push(d.body);
+      }
+      const detailHtml = [...(meta.length ? [escapeHtml(meta.join(' · '))] : []), ...details.map(inlineHtml)]
+        .map(h => `<div style="${STYLE.tlDetail}">${h}</div>`).join('');
+      const titleHtml = `<div style="${STYLE.tlTitle}${end != null ? 'font-weight:700;' : ''}">${inlineHtml(block.body)}</div>`;
+      plain.push('', `${dateText}${underText ? ' · ' + underText : ''}`, `  ${inlinePlain(block.body)}`, ...meta.map(m => '    ' + m), ...details.map(d => '    ' + inlinePlain(d)));
+      if (style === 'timeline') {
+        html.push(`<tr><td style="${STYLE.tlWhen}"><span style="${STYLE.tlDate}">${escapeHtml(dateText)}</span>` +
+          `${underText ? `<span style="${STYLE.tlUnder}">${escapeHtml(underText)}</span>` : ''}</td>` +
+          `<td style="${STYLE.tlRail}"><span style="${STYLE.tlDot}"></span></td>` +
+          `<td style="${STYLE.tlWhat}">${end != null ? `<div style="${STYLE.tlBox}">${titleHtml}${detailHtml}</div>` : titleHtml + detailHtml}</td></tr>`);
+      } else {
+        const monthName = when == null ? 'No date' : toDate(when).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        if (monthName !== month) { html.push(`<h2 style="${STYLE.colMonth}">${escapeHtml(monthName)}</h2>`); month = monthName; }
+        const weekday = when == null ? '' : toDate(when).toLocaleDateString(undefined, { weekday: 'short' }) + ' ';
+        html.push(`<div style="${STYLE.colEntry}"><div style="${STYLE.colDate}">${escapeHtml(when == null ? '' : weekday + dateText)}${underText ? ' · ' + escapeHtml(underText) : ''}</div>` +
+          `${end != null ? `<div style="${STYLE.tlBox}">${titleHtml}${detailHtml}</div>` : titleHtml + detailHtml}</div>`);
+      }
+    }
+    if (style === 'timeline') html.push('</table>');
+  }
   const autoKeys = timetableKeys(attrs, roots);
 
-  if (layout === 'timetable') await timetable(format.timetable || {});
+  if (['timetable', 'timeline', 'column'].includes(layout)) await timetable(format.timetable || {}, layout);
   else await render(roots, 0);
 
   return {
@@ -711,9 +799,14 @@ const PREVIEW_CSS = `
   .rc-preview-bar { display: flex; align-items: center; gap: 8px; width: min(820px, 96vw); padding: 10px 0; color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 13px; }
   .rc-preview-bar span { flex: 1; opacity: .85; }
+  .rc-preview-bar.rc-styles { padding-top: 0; }
   .rc-preview-bar button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; cursor: pointer; }
   .rc-preview-bar button.rc-go { background: #fff; color: #1f1f1f; font-weight: 600; }
   .rc-preview iframe { flex: 1; width: min(820px, 96vw); border: 0; background: #fff; border-radius: 4px 4px 0 0; box-shadow: 0 8px 28px rgba(0,0,0,.3); }`;
+const TEXT_STYLES = {
+  Title: STYLE.title, Subtitle: STYLE.subtitle, Heading: STYLE.docSection, Text: STYLE.docP,
+  Small: 'font-size:9.5pt;color:#6b6b6b;margin:0 0 6pt;'
+};
 function preview(result, title, format = {}) {
   return new Promise(resolve => {
     if (!document.getElementById('rc-preview-style'))
@@ -721,7 +814,9 @@ function preview(result, title, format = {}) {
     const box = document.createElement('div');
     box.className = 'rc-preview';
     box.innerHTML = `<div class="rc-preview-bar"><span>Click any text to change it. Your notes stay as they are.</span>
-      <button class="rc-cancel">Close</button><button class="rc-copy">Copy</button><button class="rc-go">Save as PDF…</button></div><iframe title="Preview"></iframe>`;
+      <button class="rc-cancel">Close</button><button class="rc-copy">Copy</button><button class="rc-go">Save as PDF…</button></div>
+      <div class="rc-preview-bar rc-styles"><span>Make the line with the cursor:</span>${Object.keys(TEXT_STYLES).map(k => `<button data-style="${k}">${k}</button>`).join('')}<button data-bold="1"><b>B</b></button></div>
+      <iframe title="Preview"></iframe>`;
     document.body.appendChild(box);
     const frame = box.querySelector('iframe');
     const doc = frame.contentDocument;
@@ -735,6 +830,17 @@ function preview(result, title, format = {}) {
     const onKey = event => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
     document.addEventListener('keydown', onKey, true);
     doc.addEventListener('keydown', onKey, true);
+    // The style buttons keep the cursor in the page: they act on mouse down, before focus could move.
+    box.addEventListener('mousedown', event => {
+      const button = event.target.closest('[data-style], [data-bold]');
+      if (!button) return;
+      event.preventDefault();
+      if (button.dataset.bold) { doc.execCommand('bold'); return; }
+      const node = doc.getSelection()?.anchorNode;
+      const line = (node?.nodeType === 1 ? node : node?.parentElement)?.closest('h1, h2, h3, p, li, div, td');
+      if (!line || line === doc.body) return notify('Click into a line of the page first', 'warning');
+      line.style.cssText = TEXT_STYLES[button.dataset.style];
+    });
     box.addEventListener('click', async event => {
       if (event.target.closest('.rc-cancel')) close();
       else if (event.target.closest('.rc-copy')) notify(await writeClipboard(edited()) ? 'Copied' : 'Could not reach the clipboard', 'info');
@@ -753,14 +859,24 @@ const hiddenProperties = () => {
   } catch (error) { return new Set(); }
 };
 const savedLayout = () => {
-  try { return ['outline', 'timetable'].includes(logseq.settings?.layout) ? logseq.settings.layout : 'document'; } catch (error) { return 'document'; }
+  try { return LAYOUTS.some(l => l.key === logseq.settings?.layout) ? logseq.settings.layout : 'document'; } catch (error) { return 'document'; }
 };
 let chosenLayout = 'document';
+// The styles, as the export window offers them. The last three place bullets by their date.
+const LAYOUTS = [
+  { key: 'document', name: 'Document', about: 'Paragraphs, like a letter or a report. Short lines with lines under them become headings.' },
+  { key: 'outline', name: 'Outline', about: 'Bullets, indented as in Logseq.' },
+  { key: 'timeline', name: 'Timeline', about: 'Date on the left, a line with dots, the event on the right. Stays with an end date are shaded.' },
+  { key: 'column', name: 'Timeline, one column', about: 'Month headings, then each event under its date. Good for narrow pages and email.' },
+  { key: 'timetable', name: 'Calendar table', about: 'One row per day, the day on the left, that day’s bullets on the right.' }
+];
+const DATED = ['timeline', 'column', 'timetable'];
 // Title block and PDF page options, remembered.
 const savedFormat = () => {
   const s = logseq.settings || {};
   return { titleBlock: s.titleBlock !== false, preparedBy: typeof s.preparedBy === 'string' ? s.preparedBy : '',
     footer: typeof s.footer === 'string' ? s.footer : '', pageNumbers: s.pageNumbers !== false,
+
     timetable: s.timetable && typeof s.timetable === 'object' ? { ...s.timetable } : { dateKey: 'auto', newestFirst: false } };
 };
 let chosenFormat = { titleBlock: true, preparedBy: '', footer: '', pageNumbers: true, timetable: { dateKey: 'auto', newestFirst: false } };
@@ -795,7 +911,7 @@ const CHOOSER_CSS = `
   .rc-sort[hidden] { display: none; }
   .rc-sort select { font: inherit; padding: 2px 4px; background: transparent; color: inherit; border: 1px solid var(--ls-border-color, #ccc); border-radius: 4px; }
   .rc-sort label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-  .rc-layout { padding: 4px 8px 10px; font-size: .92em; }
+  .rc-layout { padding: 0 8px 4px; font-size: .92em; }
   .rc-layout label { display: flex; align-items: flex-start; gap: 9px; padding: 5px 8px; border-radius: 4px; cursor: pointer; line-height: 1.35; }
   .rc-layout label:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 8%, transparent); }
   .rc-layout input { margin-top: 3px; }
@@ -808,7 +924,17 @@ const CHOOSER_CSS = `
   .rc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px 14px; }
   .rc-foot button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--ls-border-color, #ccc); background: transparent; color: inherit; cursor: pointer; }
   .rc-foot button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, #222) 6%, transparent); }
-  .rc-foot button.rc-go { font-weight: 600; }`;
+  .rc-foot button.rc-primary { font-weight: 600; border-color: currentColor; }
+  .rc-card { width: 440px; max-height: 84vh; }
+  .rc-backdrop { padding-top: 6vh; }
+  .rc-body { overflow: auto; padding-bottom: 8px; border-top: 1px solid var(--ls-border-color, #eee); }
+  .rc-section { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; font-weight: 600; font-size: .95em; }
+  .rc-section.rc-minor { padding-top: 8px; font-size: .88em; color: var(--ls-secondary-text-color, #666); }
+  .rc-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid currentColor; font-size: .78em; }
+  .rc-num:empty { display: none; }
+  .rc-about { color: var(--ls-secondary-text-color, #777); font-size: .9em; }
+  .rc-dated[hidden] { display: none; }
+  .rc-field span { width: 104px; flex: none; }`;
 
 function chooseProperties({ properties, queries, title, timetableDates = [] }, what, onChoose) {
   return new Promise(resolve => {
@@ -837,31 +963,42 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
         if (value) root.style.setProperty(name, value);
       }
     } catch (error) { /* the fallbacks in the stylesheet stand */ }
-    root.innerHTML = `<div class="rc-card" role="dialog" aria-label="Copy options">
-      <div class="rc-head">Copy ${escapeHtml(what)} as rich text</div>
-      <div class="rc-layout">
-        <label><input type="radio" name="rc-layout" value="document" ${layout === 'document' ? 'checked' : ''}><span><b>Document</b>: top level as paragraphs, nested blocks as indented bullets</span></label>
-        <label><input type="radio" name="rc-layout" value="outline" ${layout === 'outline' ? 'checked' : ''}><span><b>Outline</b>: every block a bullet, indented as in Logseq</span></label>
-        <label><input type="radio" name="rc-layout" value="timetable" ${layout === 'timetable' ? 'checked' : ''}><span><b>Timetable</b>: bullets grouped by day, under month headings</span></label>
+    // The lines above and under the title are kept per page, by its title.
+    const lines = (logseq.settings?.titleLines || {})[title] || {};
+    const section = (n, text, cls = '') => `<div class="rc-section ${cls}"><span class="rc-num">${n}</span>${text}</div>`;
+    const props = properties.filter(p => ['date', 'datetime'].includes(p.type) === false);
+    root.innerHTML = `<div class="rc-card" role="dialog" aria-label="Export options">
+      <div class="rc-head">Export ${escapeHtml(what)}</div>
+      <div class="rc-sub">Choose a style, then <b>Preview</b> to see it, change any words and save a PDF. Your notes are never changed.</div>
+      <div class="rc-body">
+      ${section(1, 'Style')}
+      <div class="rc-layout">${LAYOUTS.map(l => `<label><input type="radio" name="rc-layout" value="${l.key}" ${layout === l.key ? 'checked' : ''}><span><b>${escapeHtml(l.name)}</b><br><span class="rc-about">${escapeHtml(l.about)}</span></span></label>`).join('')}</div>
+      <div class="rc-dated" ${DATED.includes(layout) ? '' : 'hidden'}>
+        ${section('', 'Dates', 'rc-minor')}
+        <label class="rc-field"><span>Date from</span><select class="rc-datekey"><option value="auto">Automatic</option>${timetableDates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === format.timetable.dateKey ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}</select></label>
+        <label class="rc-field"><span>Under the date</span><select class="rc-under"><option value="">Nothing</option>${props.map(p => `<option value="${escapeHtml(p.ident)}" ${p.ident === format.timetable.under ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}</select></label>
+        <label class="rc-check"><input type="checkbox" class="rc-newest" ${format.timetable.newestFirst ? 'checked' : ''}> Newest first</label>
       </div>
-      <div class="rc-sort rc-tt" ${layout === 'timetable' ? '' : 'hidden'}><span>Date from</span>
-        <select><option value="auto">Automatic</option>${timetableDates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === format.timetable.dateKey ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}</select>
-        <label><input type="checkbox" ${format.timetable.newestFirst ? 'checked' : ''}> newest first</label></div>
-      ${title ? `<label class="rc-check"><input type="checkbox" class="rc-title" ${format.titleBlock ? 'checked' : ''}> Title block with today's date</label>
+      ${title ? `${section(2, 'Title')}
+      <label class="rc-field"><span>Line above</span><input type="text" class="rc-kicker" placeholder="optional, e.g. a name and date of birth" value="${escapeHtml(lines.kicker || '')}"></label>
+      <label class="rc-field"><span>Subtitle</span><input type="text" class="rc-subtitle" placeholder="optional, a line under the title" value="${escapeHtml(lines.subtitle || '')}"></label>
+      <label class="rc-check"><input type="checkbox" class="rc-title" ${format.titleBlock ? 'checked' : ''}> Today's date under the title</label>
       <label class="rc-field"><span>Prepared by</span><input type="text" class="rc-by" placeholder="optional" value="${escapeHtml(format.preparedBy)}"></label>` : ''}
-      <label class="rc-field"><span>PDF footer</span><input type="text" class="rc-footer" placeholder="optional, e.g. Confidential" value="${escapeHtml(format.footer)}"></label>
-      <label class="rc-check" style="padding-bottom:10px"><input type="checkbox" class="rc-pages" ${format.pageNumbers ? 'checked' : ''}> Page numbers on the PDF</label>
-      ${queries.length ? `<div class="rc-sub">Query results, sorted by date as a timeline:</div>
+      ${section(title ? 3 : 2, 'PDF pages')}
+      <label class="rc-field"><span>Footer</span><input type="text" class="rc-footer" placeholder="optional, e.g. Confidential" value="${escapeHtml(format.footer)}"></label>
+      <label class="rc-check"><input type="checkbox" class="rc-pages" ${format.pageNumbers ? 'checked' : ''}> Page numbers</label>
+      ${queries.length ? `${section('', 'Queries', 'rc-minor')}
       ${queries.map(q => { const { key, newest } = sortOf(q); return `<div class="rc-sort" data-query="${escapeHtml(q.uuid)}">
         <span class="rc-qname">${escapeHtml(inlinePlain(q.label).slice(0, 60))}</span>
-        <select><option value="none" ${key === 'none' ? 'selected' : ''}>As on the page</option>
-        ${q.dates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === key ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}</select>
+        <select><option value="none" ${key === 'none' ? 'selected' : ''}>As its table on the page</option>
+        ${q.dates.map(d => `<option value="${escapeHtml(d.key)}" ${d.key === key ? 'selected' : ''}>As a timeline by ${escapeHtml(d.name)}</option>`).join('')}</select>
         <label><input type="checkbox" ${newest ? 'checked' : ''}> newest first</label></div>`; }).join('')}` : ''}
-      ${properties.length ? `<div class="rc-sub">Ticked properties are included. Your choices are remembered.</div>
+      ${properties.length ? `${section(title ? 4 : 3, 'Properties to show')}
       <div class="rc-all"><a data-all="1">Tick all</a><a data-all="0">Untick all</a></div>
       <div class="rc-list">${properties.map(p => `<label><input type="checkbox" value="${escapeHtml(p.ident)}" ${hidden.has(p.ident) ? '' : 'checked'}>
         <span>${escapeHtml(p.name)}</span><span class="rc-count">${p.count}</span></label>`).join('')}</div>` : ''}
-      <div class="rc-foot"><button class="rc-cancel">Cancel</button><button class="rc-pdf">Save as PDF…</button><button class="rc-go">Copy</button></div></div>`;
+      </div>
+      <div class="rc-foot"><button class="rc-cancel">Cancel</button><button class="rc-go">Copy</button><button class="rc-pdf rc-primary">Preview and PDF…</button></div></div>`;
     document.body.appendChild(root);
     const boxes = [...root.querySelectorAll('.rc-list input[type=checkbox]')];
     let finished = false;
@@ -877,13 +1014,21 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
         chosenFormat = { titleBlock: root.querySelector('.rc-title')?.checked ?? format.titleBlock,
           preparedBy: root.querySelector('.rc-by')?.value ?? format.preparedBy,
           footer: root.querySelector('.rc-footer').value, pageNumbers: root.querySelector('.rc-pages').checked,
-          timetable: { dateKey: root.querySelector('.rc-tt select').value, newestFirst: root.querySelector('.rc-tt input').checked } };
-        for (const row of root.querySelectorAll('.rc-sort')) chosenSorts[row.dataset.query] =
+          kicker: root.querySelector('.rc-kicker')?.value || '', subtitle: root.querySelector('.rc-subtitle')?.value || '',
+          timetable: { dateKey: root.querySelector('.rc-datekey').value, under: root.querySelector('.rc-under').value,
+            newestFirst: root.querySelector('.rc-newest').checked } };
+        if (title) try {
+          const all = { ...(logseq.settings?.titleLines || {}) };
+          all[title] = { kicker: chosenFormat.kicker, subtitle: chosenFormat.subtitle };
+          logseq.updateSettings({ titleLines: all });
+        } catch (error) { /* not remembered */ }
+        for (const row of root.querySelectorAll('.rc-sort[data-query]')) chosenSorts[row.dataset.query] =
           { sortKey: row.querySelector('select').value, newestFirst: row.querySelector('input').checked };
         const nextHidden = hiddenProperties();
         for (const b of boxes) b.checked ? nextHidden.delete(b.value) : nextHidden.add(b.value);
         rememberHidden(nextHidden);
       }
+      if (go && action === 'pdf') root.style.display = 'none'; // the preview takes its place
       try { if (shown) await onChoose({ shown, layout: chosenLayout, sorts: chosenSorts, format: chosenFormat }, action); } // copied here, while this frame still has the click
       catch (error) { console.error(error); notify(`Copy stopped: ${error.message}`, 'error'); }
       finally {
@@ -894,11 +1039,11 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
     };
     const onKey = event => {
       if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === 'Enter' && event.target.tagName !== 'SELECT') { event.preventDefault(); finish(true, 'pdf'); }
     };
     document.addEventListener('keydown', onKey, true);
     root.addEventListener('change', event => {
-      if (event.target.name === 'rc-layout') root.querySelector('.rc-tt').hidden = event.target.value !== 'timetable';
+      if (event.target.name === 'rc-layout') root.querySelector('.rc-dated').hidden = !DATED.includes(event.target.value);
     });
     root.addEventListener('click', event => {
       if (event.target === root || event.target.closest('.rc-cancel')) finish(false);
@@ -908,7 +1053,7 @@ function chooseProperties({ properties, queries, title, timetableDates = [] }, w
       if (all) boxes.forEach(b => { b.checked = all.dataset.all === '1'; });
     });
     logseq.showMainUI({ autoFocus: true });
-    setTimeout(() => root.querySelector('.rc-go').focus(), 50);
+    setTimeout(() => root.querySelector('.rc-pdf').focus(), 50);
   });
 }
 
@@ -981,10 +1126,10 @@ async function copyBlock(event) {
 }
 
 function main() {
-  logseq.Editor.registerBlockContextMenuItem('Copy as rich text', copyBlock);
-  logseq.App.registerPageMenuItem?.('Copy page as rich text', event => copyPage(event?.page));
-  logseq.App.registerCommandPalette({ key: 'rich-copy-page', label: 'Copy page as rich text' }, () => copyPage());
-  logseq.App.registerCommandPalette({ key: 'rich-copy-selection', label: 'Copy selected blocks as rich text' }, () => copyBlock());
+  logseq.Editor.registerBlockContextMenuItem('Export as document…', copyBlock);
+  logseq.App.registerPageMenuItem?.('Export page as document…', event => copyPage(event?.page));
+  logseq.App.registerCommandPalette({ key: 'rich-copy-page', label: 'Export page as document' }, () => copyPage());
+  logseq.App.registerCommandPalette({ key: 'rich-copy-selection', label: 'Export selected blocks as document' }, () => copyBlock());
 }
 
 const settingsSchema = [{
@@ -993,8 +1138,8 @@ const settingsSchema = [{
     zone: '<div class="row"><span><i class="b"></i>Kickoff call</span><span class="m">Copy as rich text</span></div> <div class="doc"><b>Kickoff call</b><br><span class="m">Attendees: Mateo Ruiz · Oct 14th, 2026</span></div>',
   description: 'Bullet right-click menu, page “…” menu or command palette. Title block, footer, page numbers and query sort order are chosen in the copy window and remembered.'
 }, {
-  key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline', 'timetable'], default: 'document', title: 'Layout',
-  description: 'document: top-level blocks as paragraphs, nested ones as bullets. outline: every block a bullet, indented as in Logseq. timetable: bullets grouped by day under month headings. Also chosen in the copy window.'
+  key: 'layout', type: 'enum', enumPicker: 'radio', enumChoices: ['document', 'outline', 'timeline', 'column', 'timetable'], default: 'document', title: 'Style',
+  description: 'The style the export window starts on: document (paragraphs), outline (bullets), timeline (date, line and dots), column (one-column timeline), timetable (calendar table). Chosen in the export window.'
 }, {
   key: 'hiddenProperties', type: 'object', default: [], title: 'Properties left out',
   description: 'Property names unticked in the copy window. Change them there, not here.'
