@@ -349,6 +349,8 @@ const titleNow = async uuid => { const [[title] = []] = await dsQuery(`[:find ?t
 const valuesOf = async (uuid, ident) => (await dsQuery(`[:find ?v :where [?b :block/uuid #uuid "${uuid}"] [?b :${ident} ?v]]`)).map(([v]) => idOf(v) ?? v);
 const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uuid #uuid "${uuid}"] [?b ?a _] [?p :db/ident ?a] [?p :block/tags :logseq.class/Property]]`))
   .map(([a]) => bare(a)).filter(a => TREE_PROP.test(a));
+// How many nodes hold a property at all (the property map's "on 12 nodes", 0.4.305).
+const propUse = async ident => Number((await dsQuery(`[:find (count ?b) :where [?b :${ident} _] (not [?b :logseq.property/deleted-at _])]`))[0]?.[0]) || 0;
 // Everything that points at a tag or sits on its page, for merging it into another: the nodes tagged with it, the
 // nodes whose words link it, the property values that point at it, the blocks on its page in order, the values set
 // on its own page, and which properties the other tag's page already has.
@@ -559,7 +561,7 @@ function provide(core) {
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
-    propTextValues, propNamed, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
+    propTextValues, propNamed, propUse, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));

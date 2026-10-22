@@ -2,6 +2,45 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The Properties view as an outline that acts (0.4.305)
+
+**Asked:** the owner: "I want the Properties page to be useful and not just seen. It should allow creation, the
+editing, the convesion, for example of a list of choise to a linked property of nodes. You can design it like an actual
+outline logseq if that makes code easier". **Found:** the view already had rename, accepts, choices, a choice made its own
+child tag, Turn into links (text and choice properties alike: a choice's value has a title) and groups, all behind the
+menu on the name; nothing made a property, and the tags that have one were words, not a thing to change. **Built:**
+`parts/tags-props.js`: `propDetails` rewritten as lines that act (Holds with the node count from `model().propUse`,
+read once per reading in `useOf`; Choices; On as chips with × and `askAddToTag`; Accepts; the other page; Group),
+`kindMenu` carries the conversions and the plain note on what Logseq locks, `propTopRow` sets `view.cursorKey` so the
+Undo arrow sits on the row and double-click renames; `+ New property`: `startNewProp`, `newPropRow`, `askNewPropKind`
+(`NEW_KINDS`), `askNewPropAccepts`, `askNewPropTag`, `makeNewProp` (calls `TM.makeProperty` through the shared object,
+so a test can stand in for the box). `parts/tags-graph.js`: `makeLinkProperty` generalised to `makeProperty(tag, name,
+kind)`, the kind picked in Logseq's box by the word it shows, waiting until the tag's list has the property (the first
+try in the app listed it on no tag: Logseq puts it on the tag a moment after making it, inside the map's quiet window).
+`parts/model.js`: `propUse`. `parts/tags.js`: `view.addingProp` holds the redraw, the stylesheet. **Tests:**
+`tools/tags-test.js`: the opened lines, Change … listing Turn into links, + New property through name, Number, #Report
+with the stand-in and the arrow on the new row; the × title had to stay generic so the first check's two boxes stay
+alike. `sh tools/check.sh` with node: every check ran. **Second reading** (a fresh agent): three real problems, fixed: the
+kind's word was looked for in the whole window (the tag's page in the sidebar shows "Date" too); a made property's Undo
+deleted it with its values (now it stays, with the message, once any node holds it); a link's accepts failing after the
+property was made read as "could not be made" (now its own message, and the Undo stays). Also fixed: the typed line's
+focus no longer scrolls on redraw, and the Properties view no longer clears the row the arrow sits on. **Then the
+owner, mid-work:** "for the choice to pages feature. allow the choice of new #Tag to be used with pages and name of new
+property": `askLinks` got a New property field and Pick … beside the tag field (`view.pickTag`; the map's menus now sit
+above a plan's box, `z-index` in `parts/tags.js`, and `anchoredPanel` keeps the box while the menu is clicked);
+`runLinks(plan, tagName, propName)` renames the old one only when the names are the same. **Found in the app and
+fixed:** the first Date went on #Doctor, not #Report: `makeProperty` pressed the first "Add property" button in the
+sidebar, which was another page's, before the tag's page had drawn; it now finds the sidebar item whose
+`.sidebar-item-header` names the tag (Logseq's own source, read from `app.asar`) and fails plainly otherwise. **Seen:**
+as in the CHANGELOG line. The properties made in the test are gone (read back by the command line); the three address
+pages made by the first Location run are in the Recycle with the #Entity tag the run gave them, as any deleted page
+keeps its tags, and the command line refuses to change a recycled page ("page is recycled"); a second run counted them
+as there and linked to them: a loose end, not fixed. Also in the graph, not mine: "Specialized in" (link, #Specialty) on
+#Doctor, "Specialty (old)" and "Test choice to links" on #Phenomena, made at 13:24 and 13:26 while no session held the
+computer: the owner's own trial of Turn into links, left as they are. The right sidebar the box opens was closed again.
+The same day the owner asked for a separate session for the Tags view ("consolidated the design and editability of the
+tags trees"); it runs on its own branch, `tag-tree-editable`, and will merge this version first.
+
 ## 2026-10-22 · Date first or name first, per property, by right-click (0.4.304)
 
 **Asked:** the owner: "allow name or date to be chosen for each group through a right click" (after asking why
