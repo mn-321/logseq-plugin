@@ -6,7 +6,7 @@
    - renaming a choice offers Undo, like every other change on the map (0.4.194);
    - the choices panel offers no moving of choices (0.4.193): Logseq 2.0.2 refuses a plugin's move up and garbles a
      move down (the choice lands last and the property's own page gets the choice as a value);
-   - an open tag's own lines act where they sit (0.4.306): the adds line (+ Property, + Tag inside, + Description, the
+   - an open tag's own lines act where they sit (0.4.310): the adds line (+ Property, + Tag inside, + Description, the
      last gone once a description is written), "also under #Visit" with its menu, "Shows up here as doctor of" with
      its menu and wording box, each change's Undo arrow on the line that changed, and no box under a leaf.
 
@@ -21,7 +21,7 @@ const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 
 // The pretend graph: #Report with summary, notes and result; #Visit with doctor, a link that accepts #Report (so #Report
-// shows "Shows up here as doctor of"); #Scan inside both (0.4.306). Parents and the description change with the plugin's
+// shows "Shows up here as doctor of"); #Scan inside both (0.4.310). Parents and the description change with the plugin's
 // own calls.
 function pretendLogseq(window) {
   const props = [
@@ -47,14 +47,17 @@ function pretendLogseq(window) {
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
     DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
+      // The nodes that hold result (0.4.307): one, with the choice Normal, written on a day.
+      : q.includes(':user.property/result ?v]') && !q.includes('count') ? (q.includes('?vt') ? [['n-1', 60, 'Normal']] : q.includes('?day') ? [['n-1', 20261013]] : q.includes('logseq.property/value') ? [] : [['n-1', 'Blood count 2026-10-13', 60]])
       : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
       : q.includes('closed-value') ? choices.map(c => [22, { ':block/title': c.title, ':block/order': c.order }])
       : q.includes('class/extends [:db/id]') ? tags.map(t => [row(t)])
       : q.includes('logseq.property/description ?d') ? (byUuid(/#uuid "([^"]+)"/.exec(q)?.[1])?.desc ? [[byUuid(/#uuid "([^"]+)"/.exec(q)[1]).desc]] : [])
-      : q.includes('count') ? [[10, 3]] : [], onChanged: () => () => {} },
+      : q.includes('count') ? (q.includes('#uuid "c-') ? [[0]] : [[10, 3]]) : [], onChanged: () => () => {} },
     UI: { showMsg() {} }, App: { pushState() {} },
     Editor: {
       openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; },
+      removeBlock: async uuid => { const at = choices.findIndex(c => c.uuid === uuid); if (at >= 0) choices.splice(at, 1); },
       addTagExtends: async (uuid, parent) => { const t = byUuid(uuid), p = byUuid(parent); if (!t.parents.includes(p[':db/id'])) t.parents.push(p[':db/id']); },
       removeTagExtends: async (uuid, parent) => { const t = byUuid(uuid); t.parents = t.parents.filter(id => id !== byUuid(parent)[':db/id']); },
       upsertBlockProperty: async (uuid, key, value) => { if (key === 'logseq.property/description') byUuid(uuid).desc = value; },
@@ -76,7 +79,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   const { window } = dom;
   window.addEventListener('error', event => problem('error in the page: ' + (event.error?.stack || event.message)));
   // Both properties open before the map is drawn, the way the map remembers them; #Visit's doctor too (its box has the
-  // "On the other page" line, for the Undo arrow check of 0.4.306).
+  // "On the other page" line, for the Undo arrow check of 0.4.310).
   window.localStorage.setItem('refinement-tags-props-open', JSON.stringify(['t-Report|20', 't-Report|21', 't-Visit|23']));
   pretendLogseq(window);
   const source = fs.readFileSync(path.join(root, 'parts/tags.js'), 'utf8');
@@ -139,7 +142,29 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       }
     }
   }
-  /* An open tag's own lines, editable where they sit (0.4.306): the adds line (+ Property, + Tag inside, + Description),
+  // A new choice (0.4.309): typed in the panel's New choice field, made through Logseq's own box (stood in for here),
+  // listed in the panel again, and Undo removes it.
+  {
+    const made = [];
+    window.refinementTagMap.makeChoice = async (prop, title) => { made.push([prop.title, title]); const c = { uuid: 'c-' + title.toLowerCase(), title, order: 'a9' }; window.pretendChoices.push(c); return c; };
+    const fresh = doc.querySelector('.rtg-choices input.rtg-newchoice');
+    if (!fresh) problem('the choices panel has no New choice field');
+    else {
+      fresh.value = 'Pending';
+      fresh.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      const row = await until(() => [...doc.querySelectorAll('.rtg-choices .rtg-crow input')].find(i => i.value === 'Pending'));
+      if (made.length !== 1 || made[0].join('|') !== 'result|Pending') problem(`Logseq’s box was asked for ${JSON.stringify(made)}; wanted [["result","Pending"]]`);
+      if (!row) problem('the new choice Pending is not listed in the panel');
+      const arrow = await until(() => [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].find(a => /Pending/.test(a.title || a.getAttribute('aria-label') || '')));
+      if (!arrow) problem('the new choice has no Undo arrow');
+      else {
+        arrow.click();
+        await until(() => !window.pretendChoices.some(c => c.title === 'Pending'));
+        if (window.pretendChoices.some(c => c.title === 'Pending')) problem('Undo left the new choice Pending in place');
+      }
+    }
+  }
+  /* An open tag's own lines, editable where they sit (0.4.310): the adds line (+ Property, + Tag inside, + Description),
      "also under #Visit" with its menu, the "Shows up here as" line with its menu and wording box, the Undo arrow on
      the line that changed, and no adds line under a leaf. */
   {
@@ -298,7 +323,14 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (!chip || chip.textContent.replace('×', '').trim() !== '#Report') problem(`the On line shows “${chip?.textContent}” instead of #Report`);
       if (!chip?.querySelector('.rtg-onx')) problem('the On line’s tag has no × to take the property off it');
       if (![...(info?.querySelectorAll('button') || [])].some(b => b.textContent === '+ Tag')) problem('the On line has no + Tag');
-      const change = [...(info?.querySelectorAll('button') || [])].find(b => b.textContent === 'Change …');
+      if (info?.querySelector('.rtg-pnoderow')) problem('the nodes are listed before show nodes is pressed');
+      const showNodes = await until(() => [...(info?.querySelectorAll('a.rtg-pmore') || [])].find(a => a.textContent === 'show nodes' && !a.hidden));
+      if (!showNodes) problem('result’s Holds line has no show nodes');
+      else showNodes.click();
+      const nodeRow = await until(() => doc.querySelector('.rtg-row[data-key="P22"] + .rtg-pinfo .rtg-pnoderow'));
+      if (!nodeRow) problem('show nodes listed no node under result');
+      else if (nodeRow.querySelector('.rtg-pnode')?.textContent !== 'Blood count 2026-10-13' || nodeRow.querySelector('.rtg-note')?.textContent !== 'Normal') problem(`the Nodes line reads “${nodeRow.textContent}”; wanted Blood count 2026-10-13 with Normal`);
+      const change = [...(doc.querySelectorAll('.rtg-row[data-key="P22"] + .rtg-pinfo button') || [])].find(b => b.textContent === 'Change …');
       change?.click();
       const items = [...doc.querySelectorAll('.refinement-tags-menu button')].map(b => b.textContent);
       if (!items.some(t => t.startsWith('Turn into links to pages'))) problem(`Holds’ Change… lists ${JSON.stringify(items)}; wanted Turn into links to pages among them`);
@@ -384,5 +416,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; an open tag’s adds line, its parents and the links into it act where they sit, with Undo on that line; groups of properties are drawn, moved and undone; a property’s lines act, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; an open tag’s adds line, its parents and the links into it act where they sit, with Undo on that line; groups of properties are drawn, moved and undone; a new choice is made through the stood-in box and undone; a property’s lines act and list the nodes that hold it when asked, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

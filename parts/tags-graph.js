@@ -333,32 +333,40 @@ async function freeName(base) {
 // the word Logseq shows for it, and a link skips choosing a tag (the map sets what it accepts itself).
 const BOX_KINDS = { default: /^text$/i, number: /^number$/i, date: /^date$/i, datetime: /^date ?time$/i, checkbox: /^checkbox$/i, url: /^url$/i, node: /^node$/i };
 const KIND_WORDS = { default: 'Text', number: 'Number', date: 'Date', datetime: 'DateTime', checkbox: 'Checkbox', url: 'Url', node: 'Node' };
-async function makeProperty(tag, name, kind = 'node') {
-  const doc = host(), win = doc.defaultView;
+// The hands that press Logseq's own boxes (0.4.309, shared by makeProperty and makeChoice): waiting for an element,
+// pressing one as a pointer would, finding a floating item by its words, finding a page's item in the right sidebar.
+function boxHands(doc) {
+  const win = doc.defaultView;
   const waitFor = async (find, tries = 40) => { for (let i = 0; i < tries; i++) { const node = find(); if (node) return node; await sleep(100); } return null; };
   const press = node => { for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) node.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, view: win })); };
   // Only what floats over the page counts (the box and its lists): the tag's own page in the sidebar shows its
   // properties and its table's columns, so a "Date" there would be pressed in place of the box's Date (second reading).
-  const shown = node => node.getClientRects().length > 0 && !node.closest('#right-sidebar, #main-content-container, #left-sidebar, .cp__header, .refinement-tags');
-  const item = test => () => [...doc.querySelectorAll('[role="menuitem"], [role="option"], .menu-link, .cp__select-main .menu-link, button, li, a')]
-    .filter(shown).find(node => test(node.textContent.trim()));
+  const floating = node => node.getClientRects().length > 0 && !node.closest('#right-sidebar, #main-content-container, #left-sidebar, .cp__header, .refinement-tags');
+  const item = test => () => [...doc.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemcheckbox"], .menu-link, .cp__select-main .menu-link, button, li, a')]
+    .filter(floating).find(node => test(node.textContent.trim()));
+  // The sidebar item whose header names a page (Logseq's .sidebar-item with its .sidebar-item-header, read in the
+  // app's own source): with another page open in the sidebar first, the first button found was that page's, and a
+  // property landed on the wrong tag (seen in the app, 0.4.305: a Date meant for #Report made on #Doctor).
+  const named = text => text.replace(/^[#\s]+/, '').trim().toLowerCase();
+  const sidebarItems = title => [...doc.querySelectorAll('#right-sidebar .sidebar-item')].filter(item => named(item.querySelector('.sidebar-item-header')?.textContent || '').startsWith(title.toLowerCase()));
+  const setValue = (input, text) => { Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, text); input.dispatchEvent(new win.Event('input', { bubbles: true })); };
+  const key = (node, name) => node?.dispatchEvent(new win.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+  // Closes what floats: Escape to each open menu and to whatever has the keyboard (a menu left open was seen in the app).
+  const escape = () => { for (const menu of [...doc.querySelectorAll('[role="menu"], [role="dialog"]')].filter(floating)) key(menu, 'Escape'); key(doc.activeElement, 'Escape'); };
+  return { win, waitFor, press, floating, item, sidebarItems, setValue, key, escape };
+}
+async function makeProperty(tag, name, kind = 'node') {
+  const doc = host(), { win, waitFor, press, item, sidebarItems, setValue } = boxHands(doc);
   await logseq.Editor.openInRightSidebar(tag.uuid);
   await logseq.App.setRightSidebarVisible?.(true);
   // On a tag's page in the sidebar the button under Tag Properties reads "Add property"; in the main view, above the
-  // title, "Add tag property" (both seen in the app). The button is taken from the sidebar item whose header names
-  // this tag (Logseq's .sidebar-item with its .sidebar-item-header, read in the app's own source): with another page
-  // open in the sidebar first, the first such button was that page's, and the property landed on the wrong tag
-  // (seen in the app, 0.4.305: a Date meant for #Report made on #Doctor).
-  const named = text => text.replace(/^[#\s]+/, '').trim().toLowerCase();
-  const button = await waitFor(() => [...doc.querySelectorAll('#right-sidebar .sidebar-item')]
-    .filter(item => named(item.querySelector('.sidebar-item-header')?.textContent || '').startsWith(tag.title.toLowerCase()))
-    .flatMap(item => [...item.querySelectorAll('button')]).find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
+  // title, "Add tag property" (both seen in the app).
+  const button = await waitFor(() => sidebarItems(tag.title).flatMap(item => [...item.querySelectorAll('button')]).find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
   if (!button) throw new Error(`#${tag.title}’s page, with its Add property button, was not found in the right sidebar`);
   press(button);
   const input = await waitFor(() => doc.querySelector('input[placeholder="Add or change property"]') || (doc.activeElement?.matches?.('#right-sidebar input, .ui__popover-content input, [data-radix-popper-content-wrapper] input') ? doc.activeElement : null));
   if (!input) throw new Error('Logseq’s new property box did not open');
-  Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set.call(input, name);
-  input.dispatchEvent(new win.Event('input', { bubbles: true }));
+  setValue(input, name);
   const fail = what => { doc.activeElement?.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return new Error(`Logseq’s new property box did not show ${what}`); };
   const fresh = await waitFor(item(text => /^\+?\s*New option/i.test(text) && text.includes(name)));
   if (!fresh) throw fail(`“New option: ${name}”`);
@@ -381,6 +389,42 @@ async function makeProperty(tag, name, kind = 'node') {
   return made;
 }
 const makeLinkProperty = (tag, name) => makeProperty(tag, name, 'node');
+/* A new choice (0.4.309, the owner: "I cannot add choices … not via the property page"): Logseq lets only itself
+   make a choice on a property of yours ("Plugins can only upsert its own properties" in its code; seen at 0.4.188), so
+   the plugin presses Logseq's own box: the property's page in the right sidebar, the header of the column with the
+   property's name, Available choices, Add choice, the title typed in, Save (the path seen in the app). The choice is
+   read back before it counts. */
+async function makeChoice(prop, title) {
+  const doc = host(), { waitFor, press, floating, item, sidebarItems, setValue, key, escape } = boxHands(doc);
+  await logseq.Editor.openInRightSidebar(prop.uuid);
+  await logseq.App.setRightSidebarVisible?.(true);
+  // The column's header: the innermost element on the property's page (not the item's own header) whose words are
+  // the property's name.
+  const header = await waitFor(() => sidebarItems(prop.title).flatMap(item => [...item.querySelectorAll('*')])
+    .find(node => !node.closest('.sidebar-item-header') && node.getClientRects().length > 0 && node.textContent.trim() === prop.title && ![...node.children].some(c => c.textContent.trim() === prop.title)));
+  if (!header) throw new Error(`${prop.title}’s column was not found on its page in the right sidebar (a property on no node shows none)`);
+  press(header);
+  const fail = what => { escape(); escape(); return new Error(`Logseq’s column menu did not show ${what}`); };
+  const choices = await waitFor(item(text => /^Available choices/i.test(text)));
+  if (!choices) throw fail('Available choices');
+  press(choices);
+  const add = await waitFor(item(text => /Add choice$/i.test(text)));
+  if (!add) throw fail('Add choice');
+  // Its box opens on Enter (a pointer's click closed the menus instead, seen in the app).
+  const titleBox = () => [...doc.querySelectorAll('input')].find(input => floating(input) && /title/i.test(input.placeholder || ''));
+  add.focus?.(); key(add, 'Enter');
+  let input = await waitFor(titleBox, 15);
+  if (!input) { press(add); input = await waitFor(titleBox, 15); }
+  if (!input) throw fail('the new choice’s box');
+  setValue(input, title);
+  const save = await waitFor(item(text => text === 'Save'), 10);
+  if (save) press(save); else key(input, 'Enter');
+  let made = null;
+  for (let i = 0; i < 50 && !made; i++) { made = (await choicesOf(prop)).find(c => c.title === title); if (!made) await sleep(100); }
+  escape();
+  if (!made) throw new Error(`Logseq did not make the choice “${title}”`);
+  return made;
+}
 // Since 0.4.305 the new property may have a name of its own (the owner: "name of new property"); then the old one keeps
 // its name and its words, and only a new property of the same name sends the old one to "… (old)".
 async function runLinks(plan, tagName, propName = plan.prop.title) {
@@ -497,7 +541,7 @@ function anchoredPanel(view, panel, anchor, onKey) {
   return close;
 }
 
-Object.assign(TM, { ACCEPTS, CHEVRON, CHOICE_TYPES, DESCRIPTION, DOTS, EXTENDS, FOLD_KEY, GROUPS_SHUT_KEY, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, PROPS_KEY, SIDEBAR_ICON, TAG_PROPS, TREE_ICON, acting, acts, addTagProp, anchoredPanel, below, childTagName, choicesOf, el, escapeHtml, flip, folded, freeName, fromHtml, groupOf, groupsOverride, groupsShut, infoOpen, inheritedProps, isAbove, keepKeys, loadProps, loadTags, makeLinkProperty, makeProperty, makeTag, model, openTag, openViews, parsed, pathOf, placeInGroup, planChildTag, planLinks, planMerge, plural, propsOpen, readGroups, removeChoice, removeTagProp, renameChoice, resetGroups, runChildTag, runLinks, runMerge, saveFolded, saveGroups, saveGroupsShut, saveInherited, saveProps, setAccepts, setDescription, setParents, setTagProps, setValues, shown, sleep, tagPropIds, twoWay, undoChildTag, undoLinks, userValues, valuesOf, writeGroups });
+Object.assign(TM, { ACCEPTS, CHEVRON, CHOICE_TYPES, DESCRIPTION, DOTS, EXTENDS, FOLD_KEY, GROUPS_SHUT_KEY, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, PROPS_KEY, SIDEBAR_ICON, TAG_PROPS, TREE_ICON, acting, acts, addTagProp, anchoredPanel, below, childTagName, choicesOf, el, escapeHtml, flip, folded, freeName, fromHtml, groupOf, groupsOverride, groupsShut, infoOpen, inheritedProps, isAbove, keepKeys, loadProps, loadTags, makeChoice, makeLinkProperty, makeProperty, makeTag, model, openTag, openViews, parsed, pathOf, placeInGroup, planChildTag, planLinks, planMerge, plural, propsOpen, readGroups, removeChoice, removeTagProp, renameChoice, resetGroups, runChildTag, runLinks, runMerge, saveFolded, saveGroups, saveGroupsShut, saveInherited, saveProps, setAccepts, setDescription, setParents, setTagProps, setValues, shown, sleep, tagPropIds, twoWay, undoChildTag, undoLinks, userValues, valuesOf, writeGroups });
 TM.graphLoaded = true;
 (window.refinementParts ||= []).push({ name: 'tag map: the graph', schema: [], start() {}, stop: runUnloadTasks });
 })();

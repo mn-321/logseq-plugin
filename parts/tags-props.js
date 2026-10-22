@@ -94,9 +94,20 @@ function propDetails(view, tag, prop, from, alone) {
   const giver = (tag && !tag.builtIn ? tag : null) || givers.find(t => !t.builtIn) || null;
   const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ', from a list of choices' : '');
   const used = note('');
-  view.useOf(prop).then(n => { used.textContent = n == null ? '' : `· on ${plural(n, 'node')}`; }).catch(() => {});
-  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), note(prop.many ? '· several at once' : '· one at a time'), used,
+  // The nodes that hold it, when asked (0.4.307, the owner: "show the nodes that have the properties"; 0.4.308: "i don't
+  // need them present all the time"): show nodes lists the first few with their values, show all the rest, hide nodes
+  // folds them away. view.nodesShown keeps each property's state for the session.
+  view.nodesShown ||= new Map();
+  const state = view.nodesShown.get(prop.id) || '';
+  const toggle = el(doc, 'a', { class: 'rtg-pmore', href: '#', hidden: true, click: event => { event.preventDefault(); event.stopPropagation(); view.nodesShown.set(prop.id, state ? '' : 'some'); view.draw(); } }, state ? 'hide nodes' : 'show nodes');
+  view.useOf(prop).then(n => { used.textContent = n ? `· on ${plural(n, 'node')} ·` : ''; toggle.hidden = !n; }).catch(() => {});
+  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), note(prop.many ? '· several at once' : '· one at a time'), used, toggle,
     button('Change …', 'Turn it into links to pages, or open what Logseq lets only itself change', at => view.kindMenu(prop, at, giver)));
+  if (state) {
+    const nodesBox = el(doc, 'div', { class: 'rtg-pnodes' }, note('…'));
+    line('Nodes', nodesBox);
+    view.holdersOf(prop).then(list => view.fillNodes(nodesBox, prop, list)).catch(() => { nodesBox.replaceChildren(note('could not be read')); });
+  }
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) line('Choices', el(doc, 'span', { class: prop.choices.length ? 'rtg-val' : 'rtg-note' }, prop.choices.length ? prop.choices.join(' · ') : 'none, anything can be typed'),
     button(prop.choices.length ? 'Edit' : 'Add choices', prop.choices.length ? 'Rename or remove choices; add or reorder them in its settings' : 'Give it a list to pick from', at => view.askChoices(prop, at)),
     prop.choices.length && giver ? button('One its own tag …', `Make a choice its own child tag inside #${giver.title}: the nodes with it move there`, at => view.askChildTag(giver, prop, at)) : null);
@@ -146,11 +157,39 @@ function propDetails(view, tag, prop, from, alone) {
   }
   return box;
 }
-// How many nodes hold a property, read once per reading of the tags.
+// How many nodes hold a property, and which (read only when they are shown), each once per reading of the tags.
 function useOf(view, prop) {
   if (view.useData !== view.data) { view.useData = view.data; view.useCounts = new Map(); }
   if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propUse(prop.ident).catch(() => null));
   return view.useCounts.get(prop.ident);
+}
+function holdersOf(view, prop) {
+  view.useOf(prop);
+  const key = 'nodes|' + prop.ident;
+  if (!view.useCounts.has(key)) view.useCounts.set(key, model().propHolders(prop.ident));
+  return view.useCounts.get(key);
+}
+// A node's name in the Nodes line: its first sentence, as the two-way rows name a node (0.4.261); the whole line is its tip.
+const ABBREVIATION = /\b(?:dr|mr|mrs|ms|prof|st|vs|no|approx|e\.g|i\.e|etc)\.$/i;
+function firstSentence(title) {
+  const text = String(title || '').trim();
+  for (const m of text.matchAll(/[.!?](?=\s+\S)/g)) if (!ABBREVIATION.test(text.slice(0, m.index + 1))) return text.slice(0, m.index + 1);
+  return text;
+}
+const NODES_SHOWN = 8;
+function fillNodes(view, box, prop, list) {
+  const doc = view.doc, note = text => el(doc, 'span', { class: 'rtg-note' }, text);
+  const all = view.nodesShown.get(prop.id) === 'all', shown = all ? list : list.slice(0, NODES_SHOWN);
+  box.replaceChildren();
+  if (!list.length) { box.append(note('none yet')); return; }
+  // The words come readable from the model (every link resolved in one question, 0.4.308); only the cut is done here.
+  for (const node of shown) {
+    const short = firstSentence(node.title) || '…';
+    const link = el(doc, 'a', { class: 'rtg-pnode', href: '#', title: short !== node.title ? node.title : 'Open it (⇧ click: right sidebar)',
+      click: event => { event.preventDefault(); event.stopPropagation(); shared.openEntity(node.uuid, event.shiftKey); } }, short);
+    box.append(el(doc, 'div', { class: 'rtg-pnoderow' }, link, node.values.length ? note(node.values.join(', ')) : null));
+  }
+  if (list.length > NODES_SHOWN) box.append(el(doc, 'a', { class: 'rtg-pmore', href: '#', click: event => { event.preventDefault(); event.stopPropagation(); view.nodesShown.set(prop.id, all ? 'some' : 'all'); view.fillNodes(box, prop, list); } }, all ? 'show fewer' : `show all ${list.length}`));
 }
 // Putting a property on another tag (the On line's +): the tags that do not have it yet.
 function askAddToTag(view, prop, anchor) {
@@ -307,9 +346,11 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   view.closeMenu();
   const panel = el(doc, 'div', { class: 'rf-pop refinement-tags-menu rtg-choices', role: 'dialog', 'aria-label': `Choices for ${prop.title}` }, el(doc, 'div', { class: 'rtg-mh rf-pop-head' }, `Choices for ${prop.title}`));
   view.menu = panel;
-  const again = index => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
+  // The panel is opened again after a change, even when the box the plugin pressed for a new choice closed it (its
+  // presses are mousedowns outside the panel, 0.4.309).
+  const again = index => { if (view.menu === panel || !view.menu) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
   const run = async (job, failText, said, undo) => {
-    const index = Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement));
+    const index = doc.activeElement === fresh ? 99 : Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement)); // 99: past the last, the new-choice field
     if (await view.act(job, failText) && said) view.showToast(said, undo);
     again(index);
   };
@@ -320,10 +361,11 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   });
   for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
   const box = el(doc, 'div', { class: 'rtg-list rf-pop-list' }, el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'Reading the choices …'));
-  // A new choice is added, and the order changed, in the property's own settings (0.4.191, 0.4.193): Logseq 2.0.2
-  // lets only itself make a choice or move one.
-  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add or reorder in its settings ⇥');
-  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote rf-pop-note' }, `Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added, and the order changed, in Logseq’s own list, which only Logseq may change: in the right sidebar, click the column headed ${prop.title}, then Available choices.`));
+  // A new choice (0.4.309): typed here, made by the plugin through Logseq's own box on the property's page in the
+  // right sidebar (makeChoice), since Logseq lets only itself make one; the order is still changed in its settings.
+  const fresh = el(doc, 'input', { class: 'rtg-newchoice', type: 'text', placeholder: 'New choice', spellcheck: 'false', 'aria-label': 'New choice' });
+  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Reorder in its settings ⇥');
+  panel.append(box, el(doc, 'div', { class: 'rtg-newrow' }, fresh), add, el(doc, 'div', { class: 'rtg-mnote rf-pop-note' }, `Enter saves a name, or makes the new choice (Logseq’s own box opens on ${prop.title}’s page in the right sidebar for a moment; the plugin fills it in). A choice that nodes still use can be renamed, not removed. The order is changed in Logseq’s own settings.`));
   const keys = (input, onEnter, reset) => {
     keepKeys(input);
     input.addEventListener('keydown', event => {
@@ -332,6 +374,15 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
       if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); onEnter(); }
     });
   };
+  keys(fresh, () => {
+    const title = fresh.value.trim();
+    if (!title) return;
+    choicesOf(prop).then(list => {
+      if (list.some(c => c.title.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
+      let made = null;
+      run(async () => { made = await TM.makeChoice(prop, title); }, `“${title}” could not be made a choice`, `“${title}” is a choice of ${prop.title} now`, () => removeChoice(prop, made));
+    }).catch(error => { warnOnce('the choices could not be read', error); });
+  });
   choicesOf(prop).then(list => {
     if (view.menu !== panel) return;
     box.replaceChildren(...(list.length ? [] : [el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'No choices yet: anything can be typed.')]));
@@ -349,7 +400,7 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
         button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
     });
     const inputs = box.querySelectorAll('input');
-    (inputs[Math.min(focusAt, inputs.length - 1)] || add).focus({ preventScroll: true });
+    (focusAt >= inputs.length ? fresh : inputs[focusAt] || fresh).focus({ preventScroll: true });
   }).catch(error => { warnOnce('the choices could not be read', error); box.replaceChildren(el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'The choices could not be read.')); });
   doc.body.append(view.paint(panel));
   const win = doc.defaultView;
@@ -772,7 +823,7 @@ function propTopRow(view, pass, prop) {
 }
 
 
-Object.assign(TM, { KINDS, NEW_KINDS, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, groupHeading, groupMenu, hasRows, infoButton, kindMenu, makeNewProp, movePropUp, newPropRow, newProperty, passesDown, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, startNewProp, takePropOff, typeHtml, useOf });
+Object.assign(TM, { KINDS, NEW_KINDS, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, fillNodes, groupHeading, groupMenu, hasRows, holdersOf, infoButton, kindMenu, makeNewProp, movePropUp, newPropRow, newProperty, passesDown, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, startNewProp, takePropOff, typeHtml, useOf });
 TM.propsLoaded = true;
 (window.refinementParts ||= []).push({ name: 'tag map: properties', schema: [], start() {}, stop: runUnloadTasks });
 })();

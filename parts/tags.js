@@ -18,7 +18,7 @@
    it reads from the other end, which can be changed there and turned off. Under the properties, the
    links that point at the tag from elsewhere. An i beside a property, and beside "Setting up a new tag",
    opens a short explanation; nothing else is explained unless asked.
-   Editable in place like the Properties view (0.4.306): an open tag's own lines end with a faint line of what can be
+   Editable in place like the Properties view (0.4.310): an open tag's own lines end with a faint line of what can be
    made there (+ Property, + Tag inside, + Description), "also under #X" opens a menu for that parent, each link on
    "Shows up here as" opens a menu (go to the property, change how it reads here, turn it off here), and the Undo
    arrow of a change made on one of those lines sits on that line.
@@ -57,8 +57,8 @@ const setting = shared.settingReader(settingsSchema);
 TM.setting = setting;
 // What the other two pieces have (parts/tags-graph.js, parts/tags-props.js); undefined when one is not loaded, and then
 // start() below starts nothing.
-const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newProperty, newPropRow, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, startNewProp, takePropOff, twoWay, typeHtml, useOf } = TM;
-// (pointerRow, the "Shows up here as" line, is this piece's own since 0.4.306: each link on it opens a menu.)
+const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, fillNodes, folded, groupHeading, groupMenu, hasRows, holdersOf, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newProperty, newPropRow, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, startNewProp, takePropOff, twoWay, typeHtml, useOf } = TM;
+// (pointerRow, the "Shows up here as" line, is this piece's own since 0.4.310: each link on it opens a menu.)
 // An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
 let orderOverride = null;
 const topOrder = () => (orderOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
@@ -197,6 +197,13 @@ const css = `
 .refinement-tags .rtg-pinfo .rtg-plbl, .refinement-tags .rtg-pinfo .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-pinfo > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .refinement-tags .rtg-plbl { min-width: 9.5em; }
+/* The Nodes line (0.4.307): the nodes that hold the property, one a row with its value, a click opens it. */
+.refinement-tags .rtg-pnodes { flex: 1 1 16em; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.refinement-tags .rtg-pnoderow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.refinement-tags a.rtg-pnode { color: inherit; text-decoration: none; overflow-wrap: anywhere; border-bottom: 1px solid var(--rtg-line); }
+.refinement-tags a.rtg-pnode:hover { border-bottom-color: currentColor; }
+.refinement-tags a.rtg-pmore { align-self: flex-start; margin-top: 2px; font-size: 14px; color: var(--rtg-faint); text-decoration: none; }
+.refinement-tags a.rtg-pmore:hover { color: var(--ls-primary-text-color); }
 .refinement-tags .rtg-pinfo .rtg-val, .refinement-tags .rtg-pointrow .rtg-val { font-weight: 600; }
 .refinement-tags .rtg-words { width: 13em; padding: 1px 7px; border: 1px solid var(--rtg-border); border-radius: 5px; background: transparent; color: var(--ls-primary-text-color); font: inherit; }
 .refinement-tags .rtg-words:focus { border-color: color-mix(in srgb, var(--ls-primary-text-color) 40%, transparent); outline: none; box-shadow: none; }
@@ -211,7 +218,7 @@ const css = `
 .refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 4px 26px; font-size: 15px; }
 .refinement-tags .rtg-pointrow .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-off { font-style: italic; }
-/* An open tag's own lines, editable where they sit (0.4.306). The adds line ends the tag's rows: faint, full under the
+/* An open tag's own lines, editable where they sit (0.4.310). The adds line ends the tag's rows: faint, full under the
    pointer or with the cursor on the tag, always in the flow so nothing moves when it brightens. */
 .refinement-tags .rtg-adds { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 1px 8px 3px 26px; font-size: 13px; line-height: 1.5; opacity: .55; }
 .refinement-tags .rtg-row:hover + .rtg-kids > .rtg-adds, .refinement-tags .rtg-row.rtg-current + .rtg-kids > .rtg-adds, .refinement-tags .rtg-adds:hover, .refinement-tags .rtg-adds:focus-within { opacity: 1; }
@@ -237,8 +244,9 @@ const css = `
 .refinement-tags-menu button kbd { margin-left: auto; font: inherit; font-size: 11px; opacity: .45; }
 .refinement-tags-menu .rtg-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refinement-tags-menu.rtg-choices { width: 320px; }
-.refinement-tags-menu .rtg-crow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
-.refinement-tags-menu .rtg-crow input { flex: 1; min-width: 0; width: auto; margin: 2px 4px; }
+.refinement-tags-menu .rtg-crow, .refinement-tags-menu .rtg-newrow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+.refinement-tags-menu .rtg-crow input, .refinement-tags-menu .rtg-newrow input { flex: 1; min-width: 0; width: auto; margin: 2px 4px; }
+.refinement-tags-menu input.rtg-newchoice::placeholder { color: var(--rf-ui-muted); }
 .refinement-tags-menu button.rtg-cb { flex: none; display: flex; justify-content: center; align-items: center; width: 26px; height: 26px; padding: 0; border: 0;
   border-radius: 5px; background: none; color: inherit; font: inherit; cursor: pointer; opacity: .75; }
 .refinement-tags-menu button.rtg-cb:hover { opacity: 1; background: var(--rf-ui-hover); }
@@ -265,7 +273,7 @@ function createView(doc, mode) {
   view.shown = []; // visible rows in order, for the arrow keys: { key, tag, parent, row, depth }
   view.cursorKey = null;
   view.cursorTag = null; // kept so the cursor finds a tag again after it moved
-  view.cursorSub = null; // the key of one of the tag's own lines last pressed (a property row, the links into it), for the Undo arrow (0.4.306)
+  view.cursorSub = null; // the key of one of the tag's own lines last pressed (a property row, the links into it), for the Undo arrow (0.4.310)
   view.cursorSubIn = null; // the key of the box that line is in
   view.menu = null;
   view.adding = null; // { key, parent } while a new tag is being typed
@@ -310,7 +318,7 @@ function createView(doc, mode) {
   // Clicking a blank part of the tree gives it the keyboard, for the arrow keys.
   view.box.addEventListener('mousedown', event => { if (!event.target.closest('input, button')) view.box.focus({ preventScroll: true }); });
   // A press on one of a tag's own lines in the tree (a property row, its open details, the links into the tag) is
-  // remembered, so the Undo arrow of what is changed there sits on that line (0.4.306). The tag row itself, and the
+  // remembered, so the Undo arrow of what is changed there sits on that line (0.4.310). The tag row itself, and the
   // keys, clear it (setCursor, onKey).
   view.body.addEventListener('mousedown', event => {
     if (byProp) return;
@@ -433,7 +441,7 @@ function showToast(view, text, undo) {
   const at = () => {
     if (!view.box?.isConnected) return null;
     const css = view.doc.defaultView.CSS;
-    // A change made on one of the tag's own lines keeps its arrow on that line (0.4.306); with the line gone (the
+    // A change made on one of the tag's own lines keeps its arrow on that line (0.4.310); with the line gone (the
     // property taken off), on the tag's row as before.
     if (sub) {
       const box = subIn ? view.box.querySelector(`.rtg-kids[data-key="${css.escape(subIn)}"]`) : view.body;
@@ -917,7 +925,7 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   view.dragRow(row, item);
   const nodes = [row];
   const kidNodes = [];
-  // Under an open tag: its property rows and the links into it, the line of what can be made there (0.4.306; not
+  // Under an open tag: its property rows and the links into it, the line of what can be made there (0.4.310; not
   // while searching, and not under a tag that is only a leaf, so a leaf stays one line), the box for a new tag
   // being typed, then the tags inside it.
   const rows = open ? view.propRows(tag) : [];
@@ -947,7 +955,7 @@ function renameBox(view, tag, key) {
 // nodes and tags are inside it is in the name's tooltip.
 function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
   const others = tag.parents.filter(p => p.id !== parent?.id);
-  // Each other parent can be acted on where it is named (0.4.306): go there, take the tag out of it, keep it only here.
+  // Each other parent can be acted on where it is named (0.4.310): go there, take the tag out of it, keep it only here.
   if (parent && others.length) {
     const also = el(view.doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ');
     others.forEach((p, i) => also.append(i ? ', ' : '', el(view.doc, 'span', { class: 'rtg-alsotag', title: `#${tag.title} is also under #${p.title}: click to go there or take it out`,
@@ -1019,7 +1027,7 @@ function setCursor(view, key, scroll = true) {
   view.mark(scroll);
 }
 
-/* An open tag's own lines (0.4.306) */
+/* An open tag's own lines (0.4.310) */
 // The line that ends a tag's rows: what can be made there, each the same move as the row's menu or its key.
 function addsRow(view, tag, key) {
   const doc = view.doc;
@@ -1053,7 +1061,7 @@ function goToProp(view, giver, prop) {
   propsOpen.add(giver.uuid + '|' + prop.id); saveProps();
   view.revealTag(giver);
 }
-// The links that point at a tag from elsewhere, as the tag's page shows them: each opens its menu (0.4.306).
+// The links that point at a tag from elsewhere, as the tag's page shows them: each opens its menu (0.4.310).
 function pointerRow(view, tag) {
   const doc = view.doc, tw = twoWay();
   const row = el(doc, 'div', { class: 'rtg-pointrow', 'data-key': 'ptr' }, el(doc, 'span', { class: 'rtg-note' }, 'Shows up here as'));
@@ -1336,7 +1344,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp, holdersOf, fillNodes];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';

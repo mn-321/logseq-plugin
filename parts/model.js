@@ -351,6 +351,46 @@ const userValues = async uuid => (await dsQuery(`[:find ?a :where [?b :block/uui
   .map(([a]) => bare(a)).filter(a => TREE_PROP.test(a));
 // How many nodes hold a property at all (the property map's "on 12 nodes", 0.4.305).
 const propUse = async ident => Number((await dsQuery(`[:find (count ?b) :where [?b :${ident} _] (not [?b :logseq.property/deleted-at _])]`))[0]?.[0]) || 0;
+// The nodes that hold a property, newest day first, each with its words and the words of its values (a page's or
+// choice's title, a day's title, a number, yes or no): the property map's Nodes line (0.4.307, the owner: "show the
+// nodes that have the properties").
+async function propHolders(ident) {
+  const where = `[?b :${ident} ?v] [?b :block/uuid ?u] [?b :block/title ?t] (not [?b :logseq.property/deleted-at _]) (not-join [?b] [?b :block/page ?pg] [?pg :logseq.property/deleted-at _])`;
+  const [raw, titled, numbered, written] = await Promise.all([
+    dsQuery(`[:find ?u ?t ?v :where ${where}]`),
+    dsQuery(`[:find ?u ?v ?vt :where ${where} [?v :block/title ?vt]]`),
+    dsQuery(`[:find ?u ?v ?n :where ${where} [?v :logseq.property/value ?n]]`),
+    dsQuery(`[:find ?u ?day :where ${where} [?b :block/page ?p] [?p :block/journal-day ?day]]`),
+  ]);
+  const nodes = new Map(), known = new Set();
+  const node = (u, t) => { const key = String(u); if (!nodes.has(key)) nodes.set(key, { uuid: key, title: String(t ?? ''), values: [], day: 0 }); return nodes.get(key); };
+  for (const [u, t] of raw) node(u, t);
+  for (const [u, v, vt] of titled) { known.add(`${u}|${v}`); node(u).values.push(String(vt)); }
+  for (const [u, v, n] of numbered) { if (known.has(`${u}|${v}`)) continue; known.add(`${u}|${v}`); node(u).values.push(String(n)); }
+  for (const [u, , v] of raw) if (typeof v === 'boolean') node(u).values.push(v ? 'yes' : 'no');
+  for (const [u, day] of written) { const n = nodes.get(String(u)); if (n) n.day = Number(day) || 0; }
+  // Links in the words read as their names, resolved in one question for all the nodes at once (hundreds of nodes
+  // would otherwise be hundreds of look-ups), and brackets taken off.
+  const names = await namesOfRefs([...nodes.values()].flatMap(n => [n.title, ...n.values]));
+  const plain = text => String(text).replace(storedRef, (m, open, uuid) => names.get(uuid.toLowerCase()) ?? m).replace(/\[\[([^\]]*)\]\]/g, '$1').trim();
+  for (const n of nodes.values()) { n.title = plain(n.title); n.values = n.values.map(plain); }
+  return [...nodes.values()].sort((a, b) => b.day - a.day || a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }));
+}
+// The titles of the pages and blocks that some texts link, by uuid, in one question (two rounds: a title can link on).
+async function namesOfRefs(texts, depth = 2) {
+  const names = new Map();
+  let pending = texts;
+  for (let round = 0; round < depth && pending.length; round++) {
+    const uuids = [...new Set(pending.flatMap(t => [...String(t || '').matchAll(storedRef)].map(m => m[2].toLowerCase())))].filter(u => !names.has(u));
+    if (!uuids.length) break;
+    const rows = await dsQuery(`[:find ?u ?t :where [(ground [${uuids.map(u => `#uuid "${u}"`).join(' ')}]) [?u ...]] [?b :block/uuid ?u] [?b :block/title ?t]]`).catch(() => []);
+    for (const [u, t] of rows) names.set(String(u).toLowerCase(), String(t ?? ''));
+    pending = rows.map(([, t]) => String(t ?? ''));
+  }
+  // A name that links on reads as its own words too.
+  for (const [u, t] of names) names.set(u, t.replace(storedRef, (m, open, uuid) => names.get(uuid.toLowerCase()) ?? m));
+  return names;
+}
 // Everything that points at a tag or sits on its page, for merging it into another: the nodes tagged with it, the
 // nodes whose words link it, the property values that point at it, the blocks on its page in order, the values set
 // on its own page, and which properties the other tag's page already has.
@@ -561,7 +601,7 @@ function provide(core) {
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
-    propTextValues, propNamed, propUse, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
+    propTextValues, propNamed, propUse, propHolders, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));
