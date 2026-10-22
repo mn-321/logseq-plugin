@@ -62,7 +62,10 @@ function settleInDatePicker(doc) {
     const root = box ? box.closest('body > *') : active && active !== doc.body && !(main || doc.body).contains(active) ? active.closest('body > *') : null;
     if (!root) return;
     picking.pickerRoot = root;
-    if (box && active !== box) box.focus();
+    // The calendar's day button has the keyboard before the box is drawn (seen 0.4.278: typed words went to the
+    // calendar and Enter set today): keep looking for the box while there is time.
+    if (!box) return;
+    if (active !== box) box.focus();
     clearInterval(picking.settle); picking.settle = 0;
   }, 50);
 }

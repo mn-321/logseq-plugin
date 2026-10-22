@@ -321,12 +321,13 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push([uuid, opts?.pos]); };
   const pill = (name, inner) => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content">${inner}</span></div>`;
   const empty = id => `<div class="empty-value" data-type="node"><div class="jtrigger" id="${id}">—</div></div>`;
-  doc.body.innerHTML = '<div class="ls-block" blockid="b-opt"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
+  // Inside Logseq's main area, as in the app (0.4.278): the date picker opens outside it.
+  doc.body.innerHTML = '<div id="main-content-container"><div class="ls-block" blockid="b-opt"><div class="block-main-container"><div class="flex-col"><div class="flex-col">'
     + '<textarea>Post-op check with Dr. Patel</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">'
     + pill('doctor', empty('t-doctor')) + pill('with', empty('t-with')) + pill('hospital', empty('t-hospital'))
     + pill('Date', '<div class="empty-value" data-type="date"><div class="jtrigger" id="t-date">—</div></div>') + '</div></div></div></div>'
     // A property shown as a row of its own ("bullet style"), after the capsules: reached too (0.4.205).
-    + '<div class="ls-block-properties"><div class="property-pair" data-property-title="Notes"><div class="empty-value" data-type="default"><div class="jtrigger" id="t-notes"></div></div></div></div></div></div>';
+    + '<div class="ls-block-properties"><div class="property-pair" data-property-title="Notes"><div class="empty-value" data-type="default"><div class="jtrigger" id="t-notes"></div></div></div></div></div></div></div>';
   const box = doc.querySelector('textarea');
   box.focus();
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
@@ -363,9 +364,10 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   // Tab again: the date is next (stage F, 0.4.215). Logseq's date picker opens, a popup outside the page with a
   // calendar and a text box "e.g. Next week"; the keyboard must land in that box.
   let popup = null;
-  doc.getElementById('t-date').addEventListener('pointerdown', () => { popup = doc.createElement('div'); popup.className = 'ui__popover'; popup.innerHTML = '<button id="cal-today">21</button><input placeholder="e.g. Next week">'; doc.body.appendChild(popup); popup.querySelector('button').focus(); popup.addEventListener('keydown', e => { if (e.key === 'Escape') { popup.remove(); popup = null; } }); });
+  // As in the app (0.4.278): the calendar's day button has the keyboard at once, the text box is drawn a moment later.
+  doc.getElementById('t-date').addEventListener('pointerdown', () => { popup = doc.createElement('div'); popup.className = 'ui__popover'; popup.innerHTML = '<button id="cal-today">21</button>'; doc.body.appendChild(popup); popup.querySelector('button').focus(); popup.addEventListener('keydown', e => { if (e.key === 'Escape') { popup.remove(); popup = null; } }); setTimeout(() => { if (popup) popup.insertAdjacentHTML('beforeend', '<input placeholder="e.g. Next week">'); }, 200); });
   list.querySelector('input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-  await new Promise(resolve => setTimeout(resolve, 250));
+  await new Promise(resolve => setTimeout(resolve, 450));
   cases++;
   if (pressed.join() !== 't-doctor,t-with,t-hospital,t-date') problem(`Tab past hospital: opened ${pressed.join()}; wanted the date next`);
   cases++;

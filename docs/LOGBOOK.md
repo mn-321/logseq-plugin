@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The keyboard lands in the date picker's box again (0.4.278)
+
+**Found** in the audit of layers 1 and 2 (B5, the kinds): Option-Enter on an expectation with an empty Date opened
+Logseq's picker, "next fri" vanished and Enter set today. A 100 ms probe showed the calendar's day button holding
+the keyboard from the first frame and the "e.g. Next week" box drawn after it; `settleInDatePicker` in
+`parts/shadow-steps.js` took the first focused thing outside the main area as the picker and stopped looking for the
+box. **Built:** it keeps looking for the box while `OPEN_WAIT` lasts, and only then stops. `tools/shadow-test.js`: the
+pretend picker draws its box 200 ms late and the page sits in `#main-content-container` (the old test had no main
+area, so the early stop never happened there). **Also seen:** the 0.4.277 timing checks failed on a busy Mac (load 3.3,
+Logseq with its developer tools open); 0.4.276 timed in a worktree straight after was slower still (1016 ms first
+drawing against 1000; 429, 508, 452 ms against 400), so the Mac, not the change; the quiet first run of the day gave
+376, 164, 149, 121 ms. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · The troubleshooting box counts every mark and draws its borders (0.4.277)
 
 **Found** in the audit of layers 1 and 2 (part A, a helper's reading): `checkWhatIsFound` in `parts/diagnostics.js`
