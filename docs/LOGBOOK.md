@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The + box from the plugin's own pop-up (0.4.300)
+
+**Asked:** the owner, with a picture of 0.4.298's box: "that is really an odd and ugly menu. use default elements from
+logseq or elements we have built from other to construct it". **Built:** `openAdd` in `parts/two-way.js` draws from
+`.rf-pop`'s own pieces only (`rf-pop-head`, `rf-pop-field`, `rf-pop-row` with `rf-pop-kind` at the right, `rf-pop-list`,
+`hr`, `rf-on`), as `parts/link-text.js` and the tag map's menus do: Tag and Goes on rows open their choices beneath
+(indented with a hairline); Another page gives a field whose matches (`propPages`, up to six, the start of a name
+first) are rows; Add and Add and open are rows with ↵ and ⌘↵. Its stylesheet keeps only the width, monospace for the
+tag and the choices' indent. **Seen:** as in the CHANGELOG line. Nothing added. While measuring the next piece, the
+console window had shrunk and typed letters reached Logseq as shortcuts: the Flashcards window, Settings and the theme
+list opened and the journal moved to Oct 23rd; closed by their ×; the theme stayed Default Light; the graph's only
+changes in those minutes were Logseq's view blocks (and an edit on Dr. Mei Chen at 12:10:42, before the typing).
+
 ## 2026-10-22 · Two-way tags in one column (0.4.299)
 
 **Asked:** the owner, with a picture where the Decision tags stopped short of the Consultation tags: "make tags right
