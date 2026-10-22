@@ -200,23 +200,15 @@ const INLINE = 3, LISTED = 5;
    name opens the field's own page. In an open list, a row of kinds ("All 13 · Infusion 8 · Scan 1") shows only
    that kind, as does a kind at the end of a line; a line marked "earlier" parts what is coming up from what is
    past; "show all 13" folds back with "show fewer". Whether a list is open is kept across restarts. */
-/* A node's name in a row (0.4.261, layer 2 item 5, "long names in two-way rows"): its first sentence, and no more than
-   about 60 letters, cut at a word with "…"; the whole line shows when the pointer rests on it (the card, and the
-   name's own tip). "Post-op check with Dr. Patel. Wounds fine, I can drive" reads "Post-op check with Dr. Patel."; a
-   full stop after Dr, Mr, St and the like is not an end. */
-const SHORT = 60;
+/* A node's name in a row (0.4.261, layer 2 item 5, "long names in two-way rows"): its first sentence; the whole line
+   shows when the pointer rests on it (the card, and the name's own tip). "Post-op check with Dr. Patel. Wounds fine, I
+   can drive" reads "Post-op check with Dr. Patel."; a full stop after Dr, Mr, St and the like is not an end. No limit
+   on its length (0.4.263, the owner: "get rid of the sentence character limit"). */
 const ABBREVIATION = /\b(?:dr|mr|mrs|ms|prof|st|vs|no|approx|e\.g|i\.e|etc)\.$/i;
 function shortName(title) {
   const text = String(title || '').trim();
-  let cut = text;
-  for (const m of text.matchAll(/[.!?](?=\s+\S)/g)) {
-    if (ABBREVIATION.test(text.slice(0, m.index + 1))) continue;
-    cut = text.slice(0, m.index + 1);
-    break;
-  }
-  if (cut.length <= SHORT) return cut;
-  const room = cut.slice(0, SHORT + 1), space = room.lastIndexOf(' ');
-  return (space > SHORT / 2 ? room.slice(0, space) : cut.slice(0, SHORT)).replace(/[\s,;:–-]+$/, '') + '…';
+  for (const m of text.matchAll(/[.!?](?=\s+\S)/g)) if (!ABBREVIATION.test(text.slice(0, m.index + 1))) return text.slice(0, m.index + 1);
+  return text;
 }
 const recordLink = item => { const short = shortName(item.title); return `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#"${short !== item.title ? ` title="${esc(item.title)}"` : ''}>${esc(short)}</a>`; };
 const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page">+</a>` : '';

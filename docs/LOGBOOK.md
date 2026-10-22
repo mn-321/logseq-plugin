@@ -2,6 +2,11 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · No length limit on two-way names (0.4.263)
+
+**The owner:** "get rid of the sentence character limit". **Built:** `shortName` keeps the first sentence only; `SHORT`
+and the cut with "…" removed. **Seen:** not in Logseq.
+
 ## 2026-10-21 · The hover card's pieces open what they name (0.4.262)
 
 **The owner:** "would it be better if the hover on two-way link area have the same as default hover as logseq", then
