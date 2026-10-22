@@ -81,6 +81,9 @@ function valuesOf(node, ident) {
   for (const key of Object.keys(node || {})) if (bare(key) === ident) { const v = node[key]; return (Array.isArray(v) ? v : v == null ? [] : [v]).map(idOf).filter(id => id != null); }
   return [];
 }
+// A number property, and a property of choices (Status: Planned, Done …; not a link, whose choices are pages).
+const isNumberProp = p => p.type === 'number';
+const isChoiceProp = p => p.type !== 'node' && p.choices?.length > 0;
 // The properties the tags give, own first, then what they inherit, without repeats.
 function fieldsOfTags(tagIds, schema) {
   const seen = new Set(), fields = [], queue = [...tagIds];
@@ -512,13 +515,25 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
   const nodeOf = id => ctx.byId.get(id);
   for (const prop of fields) {
     if (!open(prop)) continue;
-    const isNode = prop.type === 'node' && prop.classes.length, isDate = prop.type === 'date', isNumber = prop.type === 'number';
-    if (!isNode && !isDate && !isNumber) continue;
+    const isNode = prop.type === 'node' && prop.classes.length, isDate = prop.type === 'date', isNumber = isNumberProp(prop), isChoice = isChoiceProp(prop);
+    if (!isNode && !isDate && !isNumber && !isChoice) continue;
     const said = [];
-    // Stage E: a number beside the property's name ("cycle 5").
+    // Stage E: a number beside the property's name ("cycle 5"). Not from the bullets it looks like (tried 0.4.265: on the
+    // test graph every Severity voted that way was wrong, 6 of 6, each by one: how bad a day was is not in its words).
     if (isNumber) {
       const n = own ? numberInWords(text, prop) : null;
       if (n != null) out.push({ ident: prop.ident, prop, kind: 'number', ids: [n], shown: String(n), how: 'words-number', guess: true });
+      continue;
+    }
+    // A choice (0.4.265): what the bullets it looks like held, by their vote; the parent's, when it has the property.
+    if (isChoice) {
+      if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
+      const voted = own ? alike?.vote(looksLike(text, links, recordTags, prop, skip, ctx), prop.ident) : null;
+      if (voted) said.push({ ids: voted.ids, how: 'alike' });
+      if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids)) || (!prop.many && said[0].ids.length !== 1)) continue;
+      const titles = said[0].ids.map(id => prop.choices.find(c => c.id === id)?.title);
+      if (titles.some(t => !t)) continue;
+      out.push({ ident: prop.ident, prop, kind: 'choice', ids: said[0].ids, shown: titles.join(', '), how: said.map(s => s.how).join('+'), guess: true });
       continue;
     }
     // The parent's values, for a property both have.
@@ -615,17 +630,20 @@ async function loadGuessData(ctx) {
   const { schema } = ctx;
   if (!schema) return { aliases: [], tagIds: [], entries: [] }; // the properties not read yet: nothing to learn from
   const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
+  // Choices are learned too (0.4.265, layer 2 item 7): what the bullets a new one looks like held, as a vote, like a
+  // link (Status Planned on an expectation written like earlier planned ones). Numbers were tried and left out (below).
+  const learned = [...nodeProps, ...schema.props.filter(isChoiceProp)];
   // Every tag of the owner's own (user.class/…), for stage D's tag votes: never Logseq's (Task, Card, Query), which
   // the schema knows too; before 0.4.213 only the tags with link properties.
   const tagIds = await model.userTagIds();
   const [rows, aliases, plain] = await Promise.all([
-    model.taggedNodes(tagIds, nodeProps.map(p => p.ident)).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }),
+    model.taggedNodes(tagIds, learned.map(p => p.ident)).catch(error => { warnOnce('the earlier lines could not be read', error); return []; }),
     model.aliasPairs(),
     // Plain lines (no tag at all), for the tag's vote: they say "no tag" (the stress test, 2026-10-21).
     model.plainLines()]);
   return { aliases, tagIds,
     entries: [...plain.map(({ id, title }) => ({ id, words: shownWords(title, ctx), links: linkIdsIn(title, ctx), tags: [], values: new Map() })), ...rows.map(n => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
-      values: new Map(nodeProps.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) }))] };
+      values: new Map(learned.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) }))] };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
 // page carry that page's day (a small look-up kept with the context).

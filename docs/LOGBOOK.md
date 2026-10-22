@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Proposals guess choices (0.4.265)
+
+**The owner:** "go on to item 7, proposals for numbers and choices". **Built:** `loadGuessData` learns choice properties
+(`isChoiceProp`: not a link, has choices) with the link ones; `guessesFor` votes on them (`alike.vote`) and takes the
+parent's, `kind: 'choice'`, written like a link (`entityId`). Numbers by vote were built and scored: Severity 0 right, 6
+wrong (each by one), so taken out again, with a note in the code. `tools/shadow-check.js` scores choices too, with
+`CHOICE_WRONG_LIMIT` 2 for Status that changed since, and names choices. **Seen:** scores only.
+
 ## 2026-10-21 · Past forms read "… in" (0.4.264)
 
 **The owner:** "go on to item 6, the odd wordings". **Found:** of the graph's 11 link properties only "Agent used" read

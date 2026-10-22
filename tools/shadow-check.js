@@ -40,6 +40,10 @@ const WRONG_LIMIT = 0, RIGHT_LEAST = 45;
 // Guesses (0.4.200), on the same graph: right 19 (15 from earlier lines like it, 4 from plain words), wrong 1 (“about
 // the tingling” guesses Tingling fingers as the Topic, which holds Peripheral neuropathy); silent went from 46 to 26.
 const GUESS_WRONG_LIMIT = 1, GUESS_RIGHT_LEAST = 15;
+// Choices (0.4.265, Status): counted on their own. On the test graph at 0.4.265: right 7, wrong 2, both expectations
+// written as Planned that have happened since (Done now): Planned was right when they were written, and a choice like
+// Status changes with time, which hiding today's value cannot tell. Two such misses are let through.
+const CHOICE_WRONG_LIMIT = 2;
 // Stage D (0.4.213): every record's tag hidden in turn, and every plain note (no tag, no record above) must get none.
 // On the seed graph at 0.4.213: right 22, wrong 0, silent 34 of 56; one plain note ("Blood again this morning. Third
 // time this month.", left untagged in the seed on purpose) is offered #Symptom Log, which is the feature working.
@@ -137,7 +141,8 @@ async function plugin() {
   const title = b => String(pick(b, 'block/title') ?? '').replace(/\[\[([0-9a-f-]{36})\]\]/gi, (m, u) => `[[${ctx.byKey.get(u.toLowerCase())?.title || u}]]`).slice(0, 50);
   // A number property's value is an entity holding the number (Logseq's own shape, found by the scorer at 0.4.214).
   const numberOf = new Map((await ask('[:find ?e ?v :where [?e :logseq.property/value ?v]]')).map(([e, v]) => [Number(e), Number(v)]));
-  const name = id => byId.get(id)?.title || (ctx.days.get(id) ? 'the day ' + ctx.days.get(id) : numberOf.has(id) ? String(numberOf.get(id)) : String(id));
+  const choiceTitle = new Map(ctx.schema.props.flatMap(p => (p.choices || []).map(c => [c.id, c.title])));
+  const name = id => byId.get(id)?.title || choiceTitle.get(id) || (ctx.days.get(id) ? 'the day ' + ctx.days.get(id) : numberOf.has(id) ? String(numberOf.get(id)) : String(id));
   const tally = { right: 0, wrong: 0, silent: 0, guessRight: 0, guessWrong: 0 }, byHow = {};
   const fields = (tagIds) => { const seen = new Set(), out = [], q = [...tagIds]; while (q.length) { const c = q.shift(); if (seen.has(c)) continue; seen.add(c); for (const p of schema.classProps.get(c) || []) { const prop = schema.byId.get(p); if (prop && !out.includes(prop)) out.push(prop); } q.push(...(schema.parentsOf.get(c) || [])); } return out; };
   let cases = 0;
@@ -160,7 +165,7 @@ async function plugin() {
   const countMonth = (record, verdict) => { const m = month(record); const t = byMonth.get(m) || { right: 0, wrong: 0, silent: 0, guessRight: 0, guessWrong: 0 }; t[verdict]++; byMonth.set(m, t); };
   for (const record of blocks) {
     const tags = (pick(record, 'block/tags') || []).map(idOf);
-    const props = fields(tags).filter(p => (p.type === 'node' && p.classes.length) || (p.type === 'date' && p.lower === 'date') || p.type === 'number');
+    const props = fields(tags).filter(p => (p.type === 'node' && p.classes.length) || (p.type === 'date' && p.lower === 'date') || p.type === 'number' || (p.type !== 'node' && p.choices?.length > 0));
     for (const prop of props) {
       const actual = valuesOf(record, prop.ident);
       if (!actual.length) continue;
@@ -186,6 +191,7 @@ async function plugin() {
         verdict = 'right'; said = piece;
       }
       if (verdict === 'silent' && guess) { verdict = guessVerdict === 'right' ? 'guessRight' : 'guessWrong'; said = guess; }
+      if (verdict === 'guessWrong' && said?.kind === 'choice') tally.choiceWrong = (tally.choiceWrong || 0) + 1;
       tally[verdict]++;
       countMonth(record, verdict);
       const how = said ? (said.guess ? 'guess ' : '') + said.how : null;
@@ -245,7 +251,9 @@ async function plugin() {
   if (tally.right < RIGHT_LEAST) problem(`right proposals: ${tally.right}, under the least of ${RIGHT_LEAST}; the rules have stopped firing`);
   // On a large graph (tools/shadow-check.js on "Stress Check") the limits are shares: a wrong guess in a hundred.
   const guessLimit = Math.max(GUESS_WRONG_LIMIT, Math.floor((tally.guessRight + tally.guessWrong) / 100));
-  if (tally.guessWrong > guessLimit) problem(`wrong guesses: ${tally.guessWrong}, over the limit of ${guessLimit}`);
+  const choiceWrong = tally.choiceWrong || 0;
+  if (choiceWrong > CHOICE_WRONG_LIMIT) problem(`wrong choice guesses: ${choiceWrong}, over the limit of ${CHOICE_WRONG_LIMIT}`);
+  if (tally.guessWrong - choiceWrong > guessLimit) problem(`wrong guesses: ${tally.guessWrong - choiceWrong} (choices apart), over the limit of ${guessLimit}`);
   if (tally.guessRight < GUESS_RIGHT_LEAST) problem(`right guesses: ${tally.guessRight}, under the least of ${GUESS_RIGHT_LEAST}; the guesses have stopped firing`);
   if (problems.length) { console.log(`proposals check: FAILED (${problems.length})`); process.exit(1); }
   console.log('proposals check: OK');
