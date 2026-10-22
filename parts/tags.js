@@ -228,8 +228,9 @@ const css = `
 .refinement-tags-menu button kbd { margin-left: auto; font: inherit; font-size: 11px; opacity: .45; }
 .refinement-tags-menu .rtg-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refinement-tags-menu.rtg-choices { width: 320px; }
-.refinement-tags-menu .rtg-crow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
-.refinement-tags-menu .rtg-crow input { flex: 1; min-width: 0; width: auto; margin: 2px 4px; }
+.refinement-tags-menu .rtg-crow, .refinement-tags-menu .rtg-newrow { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+.refinement-tags-menu .rtg-crow input, .refinement-tags-menu .rtg-newrow input { flex: 1; min-width: 0; width: auto; margin: 2px 4px; }
+.refinement-tags-menu input.rtg-newchoice::placeholder { color: var(--rf-ui-muted); }
 .refinement-tags-menu button.rtg-cb { flex: none; display: flex; justify-content: center; align-items: center; width: 26px; height: 26px; padding: 0; border: 0;
   border-radius: 5px; background: none; color: inherit; font: inherit; cursor: pointer; opacity: .75; }
 .refinement-tags-menu button.rtg-cb:hover { opacity: 1; background: var(--rf-ui-hover); }

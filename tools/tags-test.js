@@ -35,13 +35,14 @@ function pretendLogseq(window) {
     settings, updateSettings: o => Object.assign(settings, o),
     DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
       // The nodes that hold result (0.4.307): one, with the choice Normal, written on a day.
-      : q.includes(':user.property/result ?v]') ? (q.includes('?vt') ? [['n-1', 60, 'Normal']] : q.includes('?day') ? [['n-1', 20261013]] : q.includes('logseq.property/value') ? [] : [['n-1', 'Blood count 2026-10-13', 60]])
+      : q.includes(':user.property/result ?v]') && !q.includes('count') ? (q.includes('?vt') ? [['n-1', 60, 'Normal']] : q.includes('?day') ? [['n-1', 20261013]] : q.includes('logseq.property/value') ? [] : [['n-1', 'Blood count 2026-10-13', 60]])
       : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
       : q.includes('closed-value') ? choices.map(c => [22, { ':block/title': c.title, ':block/order': c.order }])
       : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
-      : q.includes('count') ? [[10, 3]] : [], onChanged: () => () => {} },
+      : q.includes('count') ? (q.includes('#uuid "c-') ? [[0]] : [[10, 3]]) : [], onChanged: () => () => {} },
     UI: { showMsg() {} }, App: { pushState() {} },
-    Editor: { openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; } },
+    Editor: { openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; },
+      removeBlock: async uuid => { const at = choices.findIndex(c => c.uuid === uuid); if (at >= 0) choices.splice(at, 1); } },
   };
   window.refinementCore = { provided: { backwardsLabel: n => n + ' of', setBackwards() {}, shownAtOtherEnd: () => true, setShownAtOtherEnd() {} } };
 }
@@ -112,6 +113,28 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
         undo.click();
         await until(() => window.pretendChoices[2].title === 'Unclear');
         if (window.pretendChoices[2].title !== 'Unclear') problem(`Undo after renaming a choice left “${window.pretendChoices[2].title}”`);
+      }
+    }
+  }
+  // A new choice (0.4.309): typed in the panel's New choice field, made through Logseq's own box (stood in for here),
+  // listed in the panel again, and Undo removes it.
+  {
+    const made = [];
+    window.refinementTagMap.makeChoice = async (prop, title) => { made.push([prop.title, title]); const c = { uuid: 'c-' + title.toLowerCase(), title, order: 'a9' }; window.pretendChoices.push(c); return c; };
+    const fresh = doc.querySelector('.rtg-choices input.rtg-newchoice');
+    if (!fresh) problem('the choices panel has no New choice field');
+    else {
+      fresh.value = 'Pending';
+      fresh.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      const row = await until(() => [...doc.querySelectorAll('.rtg-choices .rtg-crow input')].find(i => i.value === 'Pending'));
+      if (made.length !== 1 || made[0].join('|') !== 'result|Pending') problem(`Logseq’s box was asked for ${JSON.stringify(made)}; wanted [["result","Pending"]]`);
+      if (!row) problem('the new choice Pending is not listed in the panel');
+      const arrow = await until(() => [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].find(a => /Pending/.test(a.title || a.getAttribute('aria-label') || '')));
+      if (!arrow) problem('the new choice has no Undo arrow');
+      else {
+        arrow.click();
+        await until(() => !window.pretendChoices.some(c => c.title === 'Pending'));
+        if (window.pretendChoices.some(c => c.title === 'Pending')) problem('Undo left the new choice Pending in place');
       }
     }
   }
@@ -249,5 +272,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a property’s lines act and list the nodes that hold it when asked, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a new choice is made through the stood-in box and undone; a property’s lines act and list the nodes that hold it when asked, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

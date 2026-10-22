@@ -346,9 +346,11 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   view.closeMenu();
   const panel = el(doc, 'div', { class: 'rf-pop refinement-tags-menu rtg-choices', role: 'dialog', 'aria-label': `Choices for ${prop.title}` }, el(doc, 'div', { class: 'rtg-mh rf-pop-head' }, `Choices for ${prop.title}`));
   view.menu = panel;
-  const again = index => { if (view.menu === panel) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
+  // The panel is opened again after a change, even when the box the plugin pressed for a new choice closed it (its
+  // presses are mousedowns outside the panel, 0.4.309).
+  const again = index => { if (view.menu === panel || !view.menu) view.askChoices(propInfoOf(view, prop), anchor, where, index); };
   const run = async (job, failText, said, undo) => {
-    const index = Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement));
+    const index = doc.activeElement === fresh ? 99 : Math.max(0, [...box.querySelectorAll('input')].indexOf(doc.activeElement)); // 99: past the last, the new-choice field
     if (await view.act(job, failText) && said) view.showToast(said, undo);
     again(index);
   };
@@ -359,10 +361,11 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
   });
   for (const type of ['keyup', 'keypress']) panel.addEventListener(type, event => event.stopPropagation());
   const box = el(doc, 'div', { class: 'rtg-list rf-pop-list' }, el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'Reading the choices …'));
-  // A new choice is added, and the order changed, in the property's own settings (0.4.191, 0.4.193): Logseq 2.0.2
-  // lets only itself make a choice or move one.
-  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Add or reorder in its settings ⇥');
-  panel.append(box, add, el(doc, 'div', { class: 'rtg-mnote rf-pop-note' }, `Enter saves a new name. A choice that nodes still use can be renamed, not removed. New choices are added, and the order changed, in Logseq’s own list, which only Logseq may change: in the right sidebar, click the column headed ${prop.title}, then Available choices.`));
+  // A new choice (0.4.309): typed here, made by the plugin through Logseq's own box on the property's page in the
+  // right sidebar (makeChoice), since Logseq lets only itself make one; the order is still changed in its settings.
+  const fresh = el(doc, 'input', { class: 'rtg-newchoice', type: 'text', placeholder: 'New choice', spellcheck: 'false', 'aria-label': 'New choice' });
+  const add = el(doc, 'button', { class: 'rtg-addchoice', click: event => { event.stopPropagation(); view.closeMenu(); logseq.Editor.openInRightSidebar(prop.uuid); } }, 'Reorder in its settings ⇥');
+  panel.append(box, el(doc, 'div', { class: 'rtg-newrow' }, fresh), add, el(doc, 'div', { class: 'rtg-mnote rf-pop-note' }, `Enter saves a name, or makes the new choice (Logseq’s own box opens on ${prop.title}’s page in the right sidebar for a moment; the plugin fills it in). A choice that nodes still use can be renamed, not removed. The order is changed in Logseq’s own settings.`));
   const keys = (input, onEnter, reset) => {
     keepKeys(input);
     input.addEventListener('keydown', event => {
@@ -371,6 +374,15 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
       if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); onEnter(); }
     });
   };
+  keys(fresh, () => {
+    const title = fresh.value.trim();
+    if (!title) return;
+    choicesOf(prop).then(list => {
+      if (list.some(c => c.title.toLowerCase() === title.toLowerCase())) { logseq.UI.showMsg(`${prop.title} already has “${title}”`, 'warning'); return; }
+      let made = null;
+      run(async () => { made = await TM.makeChoice(prop, title); }, `“${title}” could not be made a choice`, `“${title}” is a choice of ${prop.title} now`, () => removeChoice(prop, made));
+    }).catch(error => { warnOnce('the choices could not be read', error); });
+  });
   choicesOf(prop).then(list => {
     if (view.menu !== panel) return;
     box.replaceChildren(...(list.length ? [] : [el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'No choices yet: anything can be typed.')]));
@@ -388,7 +400,7 @@ function askChoices(view, prop, anchor, at, focusAt = 0) {
         button('×', 'Remove', true, () => run(() => removeChoice(prop, choice), `“${choice.title}” was not removed`, `“${choice.title}” is no longer a choice`))));
     });
     const inputs = box.querySelectorAll('input');
-    (inputs[Math.min(focusAt, inputs.length - 1)] || add).focus({ preventScroll: true });
+    (focusAt >= inputs.length ? fresh : inputs[focusAt] || fresh).focus({ preventScroll: true });
   }).catch(error => { warnOnce('the choices could not be read', error); box.replaceChildren(el(doc, 'div', { class: 'rtg-none rf-pop-note' }, 'The choices could not be read.')); });
   doc.body.append(view.paint(panel));
   const win = doc.defaultView;

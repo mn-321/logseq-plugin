@@ -2,6 +2,26 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A new choice through Logseq's own box (0.4.309)
+
+**Asked:** the owner, with pictures of the choices panel: "I cannot add choices. I understand that changing the type
+of property a plugin cannot do, why can't a plugin do this. and not via the property page". Answered: Logseq's code
+(`ensure-property-upsert-control`: "Plugins can only upsert its own properties"; `upsert-closed-value!` has no plugin
+door) and 0.4.188's finding; proposed the same way round as for a new property. The owner: "Yes, build Add a choice
+the same way". **Found in the app:** the path is the property's page in the right sidebar → the header of the column
+with the property's name → Available choices → Add choice → a box with a title field, a description and Save; a
+pointer's click on Add choice closed the menus, Enter on it opened the box. **Built:** `parts/tags-graph.js`:
+`boxHands(doc)` (waitFor, press, floating, item, sidebarItems, setValue, key, escape) shared by `makeProperty` and the
+new `makeChoice(prop, title)`, which finds the column header as the innermost element on the property's sidebar page
+with exactly the property's words, presses through the menus, sends Enter to Add choice (a press as the fallback),
+fills the title, presses Save, reads the choice back with `choicesOf`, and closes what floats (Escape to every open
+menu). `parts/tags-props.js`: the choices panel's New choice field (`rtg-newrow`), `run` through `TM.makeChoice`
+with Undo `removeChoice`, the panel opened again even when the plugin's presses closed it (`again` with no menu), the
+caret back in the field; the note and the settings button reworded. **Tests:** `tools/tags-test.js`: a new choice
+through a stood-in box, listed, and undone; the pretend count for a choice's use answers 0. `sh tools/check.sh`: all
+correct; the first run failed only the timing limits while the app was being driven at the same time, rerun quiet.
+**Seen:** as in the CHANGELOG line.
+
 ## 2026-10-22 · The nodes on demand, hundreds at once (0.4.308)
 
 **Asked:** the owner, with a picture of Provider's thirteen nodes: "i don't need them present all the time like this.
