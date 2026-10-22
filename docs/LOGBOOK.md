@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The pickers: what fits first (0.4.253)
+
+**The owner:** "go on to item 2, the pickers". **Found:** Logseq 2.0.2's list for Spoke with (takes #Person) already lists
+#Doctor nodes; it is alphabetical; rows are `.menu-link-wrap` in one container, the highlight `.menu-link.chosen` follows
+the pointer (mousemove), Logseq moves it back to its own first row after each letter. **Built:** `pickerOrder(uuid,
+title, words)` in `parts/shadow.js` (linked pages the property takes, then the engine's neighbours' values by sim²,
+no thresholds); `parts/picker.js` orders the rows with CSS `order` on attributes, a faint line after the last fitting
+row, Up/Down by dispatching the pointer's events in the order shown, the top row re-highlighted after typing until
+Up/Down or the real pointer takes over. `tools/picker-test.js` (15 checks). **Seen:** see the CHANGELOG line. **Open:**
+in a list that takes several values, Enter after a tick also made the next bullet (the proposals' Option-Enter).
+
 ## 2026-10-21 · Link selected text, rebuilt (0.4.252)
 
 **The owner:** "lets go in order" (layer 2's list, item 1). **Built:** `parts/link-text.js`, loaded before the proposals so

@@ -480,6 +480,28 @@ function looksLike(text, links, tagIds, prop, skip, ctx) {
   const tokens = alike.tokensOf(shownWords(text, ctx), links.map(p => p.id), tagIds);
   return alike.neighbours(ctx.alike, tokens, { skip, keep: entry => entry.values.get(prop.ident)?.length > 0 });
 }
+// For the pickers (0.4.253, parts/picker.js): the values that fit this bullet's property best, best first, as page ids:
+// the pages its words link that the property takes, then what the nodes it looks like hold for it, each counted with
+// the square of its likeness (the engine's vote, without the vote's thresholds: an order, not a proposal). [] when
+// nothing fits or the engine has not read the earlier lines yet (never waited for: the list is already open).
+async function pickerOrder(uuid, title, words) {
+  if (!UUID.test(String(uuid))) return [];
+  const ctx0 = await contextFor();
+  const prop = ctx0.schema.props.find(p => p.type === 'node' && p.lower === String(title || '').trim().toLowerCase());
+  const b = prop && await pullBlock(uuid);
+  if (!b) return [];
+  const text = words ?? titleOf(b);
+  const ctx = await guessDataFor(await withFreshLinks(text, ctx0), { wait: false });
+  const accepted = new Set(prop.classes.map(c => c.id));
+  const { links } = inWords(text, ctx);
+  const order = links.filter(page => !accepted.size || fits(page, accepted, ctx.schema)).map(page => page.id);
+  const tagIds = (pick(b, 'block/tags') || []).map(idOf);
+  const score = new Map();
+  for (const { entry, sim } of looksLike(text, links, tagIds, prop, new Set([idOf(b)]), ctx))
+    for (const id of entry.values.get(prop.ident) || []) score.set(id, (score.get(id) || 0) + sim * sim);
+  for (const [id] of [...score].sort((x, y) => y[1] - x[1])) if (!order.includes(id)) order.push(id);
+  return order.slice(0, 5);
+}
 const sameIds = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
 function guessesFor({ b, text, record, fields, recordTags, links, free, used, quiet, done, ctx }) {
   const own = record === b, parent = pick(b, 'block/parent'), journalDay = Number(pick(pick(b, 'block/page'), 'block/journal-day') || 0);
@@ -1549,7 +1571,7 @@ function start() {
   schedulePage(300);
   applyHide();
 }
-(window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
+(window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, provide: core => core.provide({ pickerOrder }), start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
 window.refinementShadowInner = { piecesFor, namedIn, namesFor, freeWords, wordsEarned, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
 })();
