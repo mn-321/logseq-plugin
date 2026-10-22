@@ -234,7 +234,8 @@ function rowHtml(group) {
     ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
-    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
+    const dateFirst = orderOf(group) === 'date';
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -251,6 +252,7 @@ function rowHtml(group) {
     const lines = shown.map((item, i) => {
       const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier">earlier</div>' : '';
       const tag = tagLink(item);
+      if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>`;
       return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
     }).join('');
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
@@ -259,6 +261,16 @@ function rowHtml(group) {
   return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}${addLineHtml(group)}</div>`;
 }
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
+/* Date first or name first, per property on every page (0.4.304, the owner: "allow name or date to be chosen for each
+   group through a right click"). Unless chosen: a list (more than three) dated first, a short row by name. */
+const ORDER_KEY = 'refinementTwoWayOrder';
+const orderOf = group => state.order?.get(group.name) || (group.items.length > INLINE ? 'date' : 'name');
+function readOrder() { try { state.order = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(ORDER_KEY) || '{}'))); } catch { state.order = new Map(); } }
+function setOrder(field, order) {
+  state.order ||= new Map();
+  state.order.set(field, order);
+  try { host().defaultView.localStorage.setItem(ORDER_KEY, JSON.stringify(Object.fromEntries(state.order))); } catch { /* kept for this session */ }
+}
 const OPEN_KEY = 'refinementTwoWayOpen';
 const isOpen = key => state.open.get(key) ?? true;
 function readOpen() { try { state.open = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(OPEN_KEY) || '{}'))); } catch { state.open = new Map(); } }
@@ -528,11 +540,36 @@ const offerUndo = (text, run, field) => shared.undo.offer({ key: `two-way:${++un
 /* Right-click a row's name to change how it reads here (0.4.237, the owner: "I should be able to right click
    “report of of” and edit display name"). Saved in "Fields read backwards", as the tag map's box does; empty goes
    back to how the name reads by itself. Undo is the arrow after the row's name. */
-async function onRename(event) {
+/* Since 0.4.304 the right-click opens a short menu under the name, the plugin's one pop-up: Date first, Name first (the one
+   in use lit), then Rename how it reads…, which opens the box as before. */
+function onRename(event) {
   const nameEl = event.target.closest?.('.rf-tw-name');
   const group = nameEl && state.groups.find(g => g.name === nameEl.closest('.rf-tw-row')?.dataset.field);
   if (!group) return;
-  event.preventDefault(); event.stopPropagation(); hidePeek();
+  event.preventDefault(); event.stopPropagation(); hidePeek(); closeAdd();
+  const doc = nameEl.ownerDocument, el = adding.el = doc.createElement('div');
+  el.className = 'rf-pop refinement-two-way-add';
+  const now = orderOf(group);
+  const row = (act, text, on) => `<div class="rf-pop-row${on ? ' rf-on' : ''}" data-act="${act}"><span>${text}</span>${on ? '<span class="rf-pop-kind">✓</span>' : ''}</div>`;
+  el.innerHTML = `<div class="rf-pop-head">${esc(group.label)}</div>${row('date', 'Date first', now === 'date')}${row('name', 'Name first', now === 'name')}<hr>${row('rename', 'Rename how it reads…', false)}`;
+  el.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+  el.addEventListener('click', ev => {
+    const pick = ev.target.closest('[data-act]');
+    if (!pick) return;
+    ev.preventDefault(); ev.stopPropagation();
+    closeAdd();
+    if (pick.dataset.act === 'rename') return renameRow(group, nameEl).catch(error => warnOnce('could not rename the row', error));
+    setOrder(group.name, pick.dataset.act);
+    state.html = null; draw(host());
+  });
+  doc.body.appendChild(el);
+  // Under the name's words: the name's own box stretches to the row's height.
+  const words = nameEl.querySelector('.rf-tw-arrow') || nameEl, box = nameEl.getBoundingClientRect(), line = words.getBoundingClientRect();
+  shared.placeBelow(el, { getBoundingClientRect: () => ({ left: box.left + 15, right: line.right, top: line.top, bottom: line.bottom }) });
+  const away = ev => { if (!adding.el) return doc.removeEventListener('mousedown', away, true); if (!adding.el.contains(ev.target)) { closeAdd(); doc.removeEventListener('mousedown', away, true); } };
+  doc.addEventListener('mousedown', away, true);
+}
+async function renameRow(group, nameEl) {
   const before = backwardsLabel(group.name);
   const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true, nameEl);
   if (typed == null || typed === before) return;
@@ -1006,6 +1043,13 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-add { margin-left: .6em; color: var(--ls-secondary-text-color); opacity: var(--rf-faint, .5); }
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { opacity: 1; }
 .refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
+/* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
+.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, 1fr) auto 1.2em; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
+.refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
+.refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
+.refinement-two-way .rf-tw-namecell > a.rf-tw-add { flex: none; margin-left: .6em; }
+.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.2em; }
 /* After a date it keeps the room it had after the values (the shared hover patch above pulls a margin in). */
 .refinement-two-way .rf-tw-day > a.rf-tw-add { margin-left: .6em; font-size: calc(1em / .82); }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; color: var(--ls-secondary-text-color); }
@@ -1090,6 +1134,7 @@ function start() {
   applyStyles();
   readHeights();
   readOpen();
+  readOrder();
   watchDomEarly(drawEarly);
   draw(host());
   // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway. The box stays until the next

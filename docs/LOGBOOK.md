@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Date first or name first, per property, by right-click (0.4.304)
+
+**Asked:** the owner: "allow name or date to be chosen for each group through a right click" (after asking why
+consultations were dated first: a list of more than three is, a short row is not). **Built:** `parts/two-way.js`:
+`orderOf(group)` reads `state.order` (Logseq's window storage, `refinementTwoWayOrder`, by property name), falling back
+to the old rule; a short row drawn date first is `.rf-tw-item.rf-tw-datefirst` (day in column 1, the name with the + in
+a `.rf-tw-namecell`), a list drawn name first is `.rf-tw-line.rf-tw-namefirst` (name, day, tag, ⇥). The right-click on
+a name (`onRename`) now opens a `.rf-pop` menu placed under the name's words (its box stretches to the row), and Rename
+how it reads… calls `renameRow`, the old box. **Seen:** decided on Dr. Mei Chen name first and back; agent used in on
+Fluorouracil date first and back; the menu under the name; the + spaced after a name. Both put back to the default.
+
 ## 2026-10-22 · Adding a node in the row: a + in the gap, the name, then where (0.4.303)
 
 **Asked:** the owner: "why is it opening in sidebar?"; "no the point is to create it from this page and you can decide
