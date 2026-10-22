@@ -79,14 +79,14 @@ const outline = `
 // ---- 4. The tag map, Tags view ----
 const mapHeader = (byTags) => `<div class="pv-maphead"><div class="px-field pv-find">${T('search')}<input type="text" placeholder="Find a tag or property"></div><div class="px-seg"><button class="px-quiet" aria-pressed="${byTags}">Tags</button><button class="px-quiet" aria-pressed="${!byTags}">Properties</button></div><button class="px-quiet px-faint">Inherited</button><button class="px-quiet px-faint">Fold</button><button class="px-quiet px-faint">Unfold</button><button class="px-quiet">${T('layout-sidebar-right')}</button></div>`;
 const tagRow = (name, small, open, depth = 0, acts = false, root = false) => `<div class="pv-trow${root ? ' pv-root' : ''}" style="padding-left:${depth * 22}px"><button class="px-quiet pv-chev${open ? ' pv-down' : ''}">${T('chevron-right')}</button><span class="pv-tname">${esc(name)}</span><span class="px-note">${small}</span>${acts ? `<span class="pv-acts"><button class="px-quiet">${T('plus')}</button><button class="px-quiet">${T('dots')}</button></span>` : ''}</div>`;
-const pRow = (name, kind, accepts, extra = '', depth = 1, inh = '') => `<div class="pv-prow${inh ? ' pv-inh' : ''}" style="padding-left:${depth * 22 + 22}px"><span class="px-kindicon" title="${esc(kind)}">${T(kind === 'link' ? 'arrow-right' : kind === 'date' ? 'calendar' : kind === 'choice' ? 'select' : kind === 'number' ? '123' : 'letter-case')}</span><span class="pv-pn">${esc(name)}</span>${accepts ? accepts.split(', ').map(tag).join(', ') : ''}${extra}${inh ? `<span class="px-note">from ${inh}</span>` : ''}<button class="px-quiet pv-info">${T('info-circle')}</button></div>`;
+const pRow = (name, kind, accepts, extra = '', depth = 1, inh = '') => `<div class="pv-prow${inh ? ' pv-inh' : ''}" style="padding-left:${depth * 22 + 22}px"><span class="px-kindicon" title="${esc(kind)}">${T(kind === 'links' ? 'arrows-right' : kind === 'link' ? 'arrow-right' : kind === 'date' ? 'calendar' : kind === 'choice' ? 'select' : kind === 'number' ? '123' : 'letter-case')}</span><span class="pv-pn">${esc(name)}</span>${accepts ? accepts.split(', ').map(tag).join(', ') : ''}${extra}${inh ? `<span class="px-note">from ${inh}</span>` : ''}<button class="px-quiet pv-info">${T('info-circle')}</button></div>`;
 const tagsView = `
 ${mapHeader(true)}
 <div class="pv-tree">
   ${tagRow('Occurrence', '7 tags inside', true, 0, false, true)}
   ${tagRow('Consultation', '12 nodes', true, 1, true)}
     ${pRow('Provider', 'link', 'Doctor', '', 1)}
-    ${pRow('Topic', 'link', 'Topic kind', ``, 1)}
+    ${pRow('Topic', 'links', 'Topic kind', ``, 1)}
     ${pRow('Date', 'date', '', '', 1, 'Occurrence')}
     <div class="pv-ptr" style="padding-left:66px"><span class="px-note">Shows up here as</span> <span class="pv-ptrlink">provider of</span><span class="px-note">on Doctor</span> · <span class="pv-ptrlink">topic of</span><span class="px-note">on Topic kind</span></div>
     <div class="px-adds px-adds-hover" style="padding-left:66px"><button class="px-quiet px-faint">+ Property</button><button class="px-quiet px-faint">+ Tag inside</button><button class="px-quiet px-faint">+ Description</button></div>
@@ -114,7 +114,7 @@ ${mapHeader(false)}
     ${lineOf('Group', `Clinical <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Nodes with it', `<button class="px-quiet px-faint">show nodes</button>`)}
   </div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a><span class="px-note">on 15 tags</span></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrows-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a><span class="px-note">on 15 tags</span></div>
   <div class="pv-pinfo">
     ${lineOf('Value', `<b>several</b> links to ${tag('Topic kind')} nodes <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('On tags', `${tag('Consultation')} ${tag('Conversation')} ${tag('Decision')} <span class="px-note">and 12 more</span> <button class="px-quiet px-faint">+ Tag</button>`)}
@@ -350,7 +350,7 @@ mark.pv-sel { background: color-mix(in srgb, var(--px-fg) 18%, transparent); col
   ${view('props', 'The tag map: Properties', 'The map turned round: every property once, in your groups, with the tags that have it. An open property’s lines say, in plain words, what it holds, which tags have it, what it links to, how it is seen from the other end, its group and its nodes; every change is a quiet word at the end of its line.', propsView, [
     '<b>Groups</b> are small uppercase labels, nothing else; drag a property between them.',
     '<b>An open property</b> lists Value, On tags, Links to, Seen from Doctor as, Group and Nodes with it. Each line ends in the quiet word that changes it: Change…, + Tag, Reword…, Turn off, show nodes. The × on a tag appears on hover.',
-    '<b>Kinds are icons:</b> link, choice, date, number. Whether a property holds one value or several is the first word of its Value line: “one link to a Doctor node”, “several links to Topic kind nodes”.',
+    '<b>Kinds are icons:</b> one arrow for a link to a node, a double arrow for links to several, a box with a chevron for a choice, a calendar, 123. The Value line says it in words too.',
     '<b>+ New property</b> and <b>+ Group</b> are faint at the bottom; + New property walks name, kind and tag on one line, then makes it through Logseq’s own box.',
   ])}
 
