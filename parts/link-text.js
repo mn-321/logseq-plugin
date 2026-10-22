@@ -111,7 +111,7 @@ async function openList(box) {
   draw();
 }
 function place(el, at) {
-  const win = el.ownerDocument.defaultView, width = Math.min(520, win.innerWidth - 16);
+  const win = el.ownerDocument.defaultView, width = Math.min(420, win.innerWidth - 16); // 420 since the audit (0.4.289), 520 before
   el.style.width = `${width}px`;
   if (!at) return;
   el.style.left = `${Math.max(8, Math.min(at.left - 6, win.innerWidth - width - 8))}px`;
@@ -210,7 +210,7 @@ const css = `
 /* .rf-pop-field.rlt-field, not .rlt-field (0.4.284): the kit's rule for a text box (parts/shared.js, display: block) is
    more particular than ".refinement-link-text .rlt-field" and won, so the field was never a flex row: the caret sat
    after the placeholder and above the words' line (measured in the app: 2px higher, 2px shorter than the text). */
-.refinement-link-text .rf-pop-field.rlt-field { display: flex; align-items: baseline; font-size: 15px; }
+.refinement-link-text .rf-pop-field.rlt-field { display: flex; align-items: baseline; } /* the kit's 14px, the size of Logseq's own box for a value (0.4.289; 15px before) */
 .refinement-link-text .rlt-typed { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .refinement-link-text .rlt-typed.rlt-fresh { background: var(--rf-ui-hover); border-radius: 2px; }
 .refinement-link-text .rlt-placeholder { color: var(--rf-ui-muted); }

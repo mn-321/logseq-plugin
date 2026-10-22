@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the link box trimmed (0.4.289)
+
+**Asked:** the audit's verdict on the link box: a size larger than Logseq's own text box for a value, and wide.
+**Built:** `parts/link-text.js`: 420 px (520 before); the field at the kit's 14 px (15 before). **Measured:** the
+field 32 px with 14 px text, Logseq's "Set Topic" box being 32 px with 14 px text; a row 31.8 px; the box 132 px tall
+with two rows instead of 138. `tools/link-text-test.js` passes (the rules, not the look). **Not seen:** the app;
+check Cmd+Option+L on a selected word on any page: the box narrower, the cursor still first and on the line.
+
 ## 2026-10-22 · Design audit: the tag map's plans beside their rows (0.4.288)
 
 **Asked:** the audit's verdict on Merge, Make a child tag and Turn into links. **Built:** `parts/tags.js`:

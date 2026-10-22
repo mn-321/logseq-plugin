@@ -110,7 +110,7 @@ Logseq's own height.
 |---|---|---|---|
 | width | 520 px | | 420 px |
 | the heading | 26.8 px | none (the list has no heading) | 23 px |
-| the field | 33.5 px, 15 px text | 32 px, 14 px text, 6 px padding | 31.6 px, 14 px text |
+| the field | 33.5 px, 15 px text | 32 px, 14 px text, 6 px padding | 32 px, 14 px text |
 | a row | 31.8 px | | 31.6 px |
 
 **Verdict: trim.** The field was a size larger than Logseq's own text box for a value; it is the same size now, and the
