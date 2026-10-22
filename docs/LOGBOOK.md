@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The tag map's Undo arrows: on their row, or in the corner with words (0.4.296)
+
+**Asked:** the owner, with a picture of eleven faded arrows after the map's title: "all these are useless".
+**Found:** `showToast` in `parts/tags.js` placed each Undo at the end of the changed row through `view.shown`, whose
+row elements a redraw replaces, and fell back to the title (`.rtg-title, header`); a change made from a menu often had
+no cursor row at all. With no time limit since 0.4.258, every change of a session added one arrow there, none saying
+what it undid (only on hover). **Built:** the row is looked up by its `data-key` in the map each time the arrows are
+drawn (or by the tag in `view.shown`); no row on screen: no target, so `shared.undo` docks the arrow bottom right with
+its words; after each offer the map's Undos older than the last three are forgotten (`MAP_UNDOS`); `destroy` forgets the
+view's own (`data.view`). `tools/tags-test.js`: five group moves, then: three arrows, none in the title, the corner's
+words are the moves', none left after the map is closed; run against 0.4.295's `parts/tags.js` it fails all three.
+**Seen:** not in the app: the owner was typing in Logseq (a # list open on Dr. Mei Chen) when the check was due, so it was left alone. To look: reload, open the tag map, move a tag with Cmd+Shift+Down: the arrow at the end of its row; scroll it away: the arrow in the corner with its words.
+
 ## 2026-10-22 · The tag map split in three (0.4.295)
 
 **Asked:** the owner, on the audit's item 1: "then do 1". **Built:** a script (kept in the session's scratchpad, not the

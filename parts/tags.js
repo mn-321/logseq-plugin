@@ -380,15 +380,24 @@ function pickTag(view, anchor, header, choices, onPick) {
 // on (the row with the cursor), or of the map's title when that row is gone; a change with nothing to undo is said in
 // Logseq's own message. The bar this map kept of its own until 0.4.257 is gone.
 let undoCount = 0;
+/* Where the arrow goes (0.4.296, the owner, pointing at a row of arrows after the map's title: "all these are useless"):
+   at the end of the row that changed, found again after every redraw; with that row not on screen, in the corner at the
+   bottom right with its words, so it says what it takes back; never after the title, where every change of the session
+   had piled up as one more arrow saying nothing. Only the map's last three changes keep an arrow, and closing the map
+   drops them. */
+const MAP_UNDOS = 3;
 function showToast(view, text, undo) {
   if (!undo) { logseq.UI.showMsg(text); return; }
   const key = view.cursorKey, tagId = view.cursorTag;
   const at = () => {
     if (!view.box?.isConnected) return null;
-    const item = view.shown?.find(i => key ? i.key === key : tagId != null && i.tag?.id === tagId);
-    return item?.row?.isConnected && item.row.querySelector('.rtg-line') || view.box.querySelector('.rtg-title, header');
+    const css = view.doc.defaultView.CSS;
+    const row = (key && view.box.querySelector(`.rtg-row[data-key="${css.escape(key)}"]`)) || (tagId != null && view.shown?.find(i => i.tag?.id === tagId)?.row);
+    return row?.isConnected ? row.querySelector('.rtg-line') : null;
   };
-  shared.undo.offer({ key: `tags:${++undoCount}`, at, text, run: () => view.act(undo, 'The change could not be undone') });
+  const n = ++undoCount;
+  shared.undo.offer({ key: `tags:${n}`, at, text, run: () => view.act(undo, 'The change could not be undone'), data: { view } });
+  shared.undo.forget(entry => entry.key.startsWith('tags:') && Number(entry.key.slice(5)) <= n - MAP_UNDOS);
 }
 
 async function act(view, run, failText) {
@@ -1171,6 +1180,7 @@ function destroy(view) {
   view.doc.removeEventListener('mousemove', view.endDrag, true);
   try { view.offChanged?.(); } catch (error) { /* already off */ }
   openViews.delete(view.draw);
+  shared.undo.forget(entry => entry.key.startsWith('tags:') && entry.data?.view === view);
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.

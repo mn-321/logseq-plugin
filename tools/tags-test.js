@@ -158,7 +158,27 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (window.pretendTags[0][':block/title'] !== 'Report' || window.logseq.settings.tagTreeRoots !== 'Report') problem(`Undo after renaming a tag left the name “${window.pretendTags[0][':block/title']}” and the order “${window.logseq.settings.tagTreeRoots}”`);
     }
   }
+  // Where the map's Undo arrows go (0.4.296): never after the title, only the last three kept, none once the map is closed.
+  {
+    [...doc.querySelectorAll('button')].find(b => b.textContent === 'Properties')?.click();
+    for (let i = 1; i <= 5; i++) {
+      const name = await until(() => [...doc.querySelectorAll('.rtg-pname')].find(n => n.textContent === 'result'));
+      name?.click();
+      [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.startsWith('Put in a group'))?.click();
+      [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent === (i % 2 ? 'Empty one' : 'Results'))?.click();
+      await new Promise(r => setTimeout(r, 30));
+    }
+    // A redraw that keeps no row of the changes (the map folded away) sends them to the corner with their words.
+    [...doc.querySelectorAll('button')].find(b => b.textContent === 'Tags')?.click();
+    await until(() => doc.querySelector('.rf-undo-dock'));
+    const keys = window.refinementShared.undo.keys().filter(k => k.startsWith('tags:'));
+    if (keys.length !== 3) problem(`after five changes the map kept ${keys.length} Undo arrows; wanted the last three`);
+    if (doc.querySelector('.refinement-tags :is(.rtg-title, header) .rf-undo')) problem('an Undo arrow sits after the map’s title');
+    const words = [...doc.querySelectorAll('.rf-undo-dock .rf-undo-words')].map(w => w.textContent);
+    if (words.length && !words.every(w => /result is in/.test(w))) problem(`the corner held ${JSON.stringify(words)}; wanted the group moves with their words`);
+  }
   view.destroy();
+  if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });
