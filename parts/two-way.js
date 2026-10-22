@@ -34,7 +34,7 @@ const settingsSchema = [
 ];
 const setting = shared.settingReader(settingsSchema);
 let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 // What is known about the page on screen: its uuid and one group per field that points at it.

@@ -15,7 +15,7 @@ const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refin
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, sendStyle, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 /* One small scale for everything the plugin draws, so cues added at different times look alike.
    Colours are mixed from the theme's own text colour, so light, dark and custom themes all work. */

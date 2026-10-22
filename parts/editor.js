@@ -12,7 +12,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
 // From the core and the other parts, taken when the part starts (after every part has provided its own).
 let setting, dsQuery, storedRef, titleOf, trailingTags, readableTitle, journalTitleFor, openTagPicker, graphWide, UUID, provided;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 // The text of blocks and their children, in order, as one batch for Editor.insertBatchBlock.
 const copyTree = children => (children || []).filter(child => child && !Array.isArray(child))

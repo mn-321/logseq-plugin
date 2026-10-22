@@ -60,7 +60,7 @@ let model, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, wa
 const P = window.refinementProposals ||= { links: [] };
 // What the other pieces of the proposals give (parts/shadow-rules.js, -steps.js, -page.js), taken when the proposals start.
 let contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
   { key: 'shadowHeading', type: 'heading', group: 'writing', rank: 1, title: 'Proposals', default: null,

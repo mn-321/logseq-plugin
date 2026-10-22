@@ -17,7 +17,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
 let setting, dsQuery, UUID, isEntityId, idsIn, watchDom, watchDomEarly, PAGE_TITLE, escapeHtml, attribute;
 let provided, isJournalDate, updateOwnTags, pageTitles, titleAnchor;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 /* Page title area: Logseq hides some actions ("Add tag property", "Set property") and the page's
    tags until you hover. Show them all the time, muted, and full strength on hover.

@@ -27,6 +27,8 @@
                                        backdrop and box classes (refinement-prompt-* unless given); with an anchor (0.4.285)
                                        the box sits under that element, no backdrop, and a click elsewhere cancels.
    - placeBelow(box, anchor)      puts a fixed box under an element (above it when the room below is short), in the window.
+   - take(core, names, warn)      the core's and the parts' things in one object, warning once (through the part's own
+                                  warnOnce) for each name missing; every part's take() is this (0.4.294; a copy in each part before).
    - dialogCss                    THE look of every pop-up (.rf-pop: .rf-pop-head, .rf-pop-field, .rf-pop-row with
                                   .rf-on, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list) and dialog (.rf-dialog,
                                   .rf-btns, .rf-btn, .rf-go): Logseq's pop-up colours, one size, corner and shadow.
@@ -162,6 +164,7 @@ function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
 /* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
    frames). build(box, finish) fills the box; the promise resolves with what finish() is given.
    Escape or a click outside resolves with cancelValue. Keys typed in the box never reach Logseq. */
+const take = (core, names, warn) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warn(`${name} is missing from the core`); return all; };
 /* With an anchor (0.4.285, the owner: "make things inline instead of this big central popovers"): no backdrop; the box
    sits right under the element it is about (above it when there is no room below), and a click anywhere else closes it. */
 function modal(cancelValue, build, width, classes = {}, anchor = null) {
@@ -460,5 +463,5 @@ function settingReader(schema) {
 // This file's own boxes: the dialog backdrop and the Undo bar.
 leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
 
-window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, placeBelow, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, placeBelow, take, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();

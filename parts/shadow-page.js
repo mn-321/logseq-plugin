@@ -10,7 +10,7 @@ const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (pr
 const P = window.refinementProposals ||= { links: [] };
 // This piece works inside the proposals while writing (parts/shadow.js); without them it stays out (0.4.269).
 if (!P.state) { warnOnce('parts/shadow.js is not loaded, so proposals on a page’s own properties is off'); return; }
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 let model, UUID, idOf, pick;
 const { allowed, contextFor, daysFor, ghostLook, guessDataFor, guessKey, later, pending, piecesFor, pullBlock, rememberUndo, state, undoText, withFreshLinks, writePieces } = P;
 P.links.push(core => {

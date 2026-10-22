@@ -19,7 +19,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
 let setting, dsQuery, storedRef, titleOf, trailingTags, UUID, isEntityId, idsIn, uuidsIn, graphWide, watchDom, watchDomEarly, addsElements, sendStyle, PAGE_TITLE, REFERENCE_AREAS, referenceAreas, wash, applyTagPageStyle, blockLink, blockLinkPlain, viaLook;
 let provided, escapeHtml;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 /* Current-page descendant types change the existing bullet shape. */
 const attribute = (node, ident, legacy) => node[ident] ?? node[':' + ident] ??

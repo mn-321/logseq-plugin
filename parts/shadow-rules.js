@@ -8,7 +8,7 @@ const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (proposals): ' });
 const P = window.refinementProposals ||= { links: [] };
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 let later, pending;
 let model, UUID, propSchema, propPages, bare, pick, idOf, titleOf, alike, parseDay, dayAfter, dayNumber;
 

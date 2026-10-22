@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Housekeeping after layer 2 (0.4.294)
+
+**Asked:** the owner, on the audit's item 2 (the README's first lines and settings table out of date, and a
+housekeeping commit): "clean". **Built:** `README.md`: the opening says the foundation and layer 2 run, the resting
+features are marked, the settings window's three groups described, the "Every setting" table rebuilt from the loaded
+parts' `settingsSchema` (16 rows; 87 before, 75 of them resting). `parts/shared.js`: `take(core, names, warn)`; each
+part's `take` calls it with its own `warnOnce`, so a warning keeps the part's prefix. `main.js`: `listen`, `modal`,
+`modalButtons`, `modalHint`, `openEntity`, `waitFor` dropped. `parts/tags.js`: `hideToast` (empty since 0.4.258), the
+`tagTreeReinstated` switch of 0.4.152, the ignored 60 s argument of `showToast` and two Undo wordings with a time limit.
+**Checks:** `sh tools/check.sh` OK (boot test, parts apart, tag map, two-way, proposals). **Seen:** reloaded from the settings window: no notice; the window's list as the README now says; Dr. Mei Chen's rows drawn as before.
+
 ## 2026-10-22 · Escape until the next letter typed (0.4.293)
 
 **Asked:** the owner, on the audit's decision 4 (Escape's clearing lasted until the bullet was left; the README said

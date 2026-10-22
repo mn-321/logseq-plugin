@@ -1,20 +1,20 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.293.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.294.
 
-**For now (0.4.175) only the foundation, the tag and property map and the two-way links run.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
+**For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
 Besides the look of pages, it holds:
 
-- **Search**: a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
-- **Right sidebar**: titles that open their page in the main view, and a clear line between items.
-- **Todos** (paused for now; switch on under **Paused** in the settings): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
+- **Search** (resting): a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
+- **Right sidebar** (resting): titles that open their page in the main view, and a clear line between items.
+- **Todos** (resting): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
 - **Proposals** (on; switch off with **Proposals while you write** under **Writing a record**; writes only in the graphs named in **Only in these graphs**): while you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where the value goes, and is filled in when you leave the bullet (Enter, a click elsewhere, the arrows): a page linked in your words for the property that takes its tag (a linked doctor for `doctor`; two doctors named, and nothing is proposed), the page you are writing on (a consultation on Dr. Mei Chen's page gets her as its doctor), and the journal day for the `date` of a tag whose nodes the graph shows are dated the day they are written (symptom logs, not appointments written ahead). Notes under an appointment propose for the appointment. A faded arrow at the end of the bullet’s line takes them off again (pointed at, it says what it takes off); it stays until you edit that bullet again or leave the page, and takes off only what is still as it was filled in, so a value you changed by hand afterwards stays. Moving about the bullet’s own properties with Logseq’s keys (Down at the end of the words goes into its capsules, Left and Right move between them, Enter opens one, Up goes back) is not leaving the bullet: the proposals stay shown and wait; leaving from there for anywhere else fills in what is sure, as leaving the words does. Escape clears them until you type in the bullet again. **Option-Enter** (only in the graphs named in **Only in these graphs**) opens the first property that is empty or holds a guess, whether shown as a capsule under the bullet or as a row of its own (Notes); on a guess, the guess is typed into Logseq’s list, selected, so Enter keeps it and typing puts something else: Logseq’s own list for a link or a choice, its own box for text or a number, its date picker for a date with the keyboard in the picker’s text box (“next fri” and Enter set the day; on a consultation with Provider proposed and Topic empty: “Set Topic”); a ring shows which property you are on; type to narrow the list and Enter picks, as Logseq does, and moves on to the next such property (Enter in a text or number value keeps what you typed and moves on; Shift-Enter is a new line; with Logseq’s `[[` or `/` list open, Enter is Logseq’s); Enter on the last one fills in the proposals and makes the next bullet, as Enter in the words does; a property that holds several (Spoke with) keeps its list open after Enter so you can add more, and Option-Enter, from anywhere in the properties, finishes the bullet the same way; Tab and Shift-Tab step through every property of the bullet, filled or empty: an empty one opens ready to type, on a filled one the ring only rests (nothing changes by passing it) and Enter opens it, while Enter after setting a value still goes on to the next empty one; Down at the very end of the words goes to the bullet’s first property, filled or empty, even one hidden while empty (it shows while the ring is on it); Tab works the same after it, and Left and Right step one property at a time the same way (stopping at either end), hidden ones included, and the ring shows which capsule has the keyboard there too, drawn inside the capsule; Escape, or Tab past the last, brings you back to the end of the words with the proposals still shown; a click elsewhere leaves the bullet. A tag written right after a link, with no space (`[[Dr. New]]#Doctor`), is that page’s tag: Logseq would make the bullet a doctor, so the page is proposed for the property that takes the tag (it reads “Dr. New #Doctor”), and filling it in gives the page the tag and takes it off the bullet and its words, under the same Undo (with a space, `#Doctor` is the bullet’s, as in Logseq; picking the tag from Logseq’s own list right after a link already gives it to the page, and the proposals see the page as a doctor at once). Otherwise your words are never changed. Nothing else is drawn: no line of its own, no keys. The values are in italic grey, and a guess has a dotted line under it as well. Enter fills in everything shown, guesses too, under one Undo; leaving the bullet any other way (a click elsewhere, the arrows) fills in only what is not a guess. To check a guess before it is written, Option-Enter stops on it (below). A click on a proposed value under a bullet accepts it: it turns solid and is filled in, guess or not, when you leave the bullet, so going back into an old bullet you click the ones you want and click away, with no Enter and no new bullet; a second click takes it back. **Cmd-Option-Enter** accepts everything shown, as Enter does, and leaves the bullet without making a new one. **Hide empty properties until something is proposed** (on, under **Proposals**; only in the graphs named in **Only in these graphs**): under a bullet and on a page, a property with no value stays hidden until the plugin proposes something for it (a doctor linked in a consultation brings Provider up, with the doctor in grey); Option-Enter still steps through the hidden ones, showing each as it opens it. On a page’s own properties (the page open in the main view, not a journal day) the same proposals show in its empty properties, from its title, the bullets on it and the pages and bullets it looks like (Works at on a doctor’s page with “Dietitian at Northgate.”); nothing is filled in by itself there: a click on the grey value fills it in, the faded arrow after the title takes it back, and a click beside it opens Logseq’s own list. The guesses: a page named in plain words, by its whole name or alias (“at Northgate”) or a word of its title no other page of that tag shares (“Dr. Patel”, “the tingling”; a tie names no one; a word only names a page when the earlier lines holding it are mostly about that page); the values the earlier nodes it most looks like had, by their words, links and tags (“Flagging again by teatime.” looks like the lines that had Fatigue; the nearest five that hold the property vote, a near-identical line counts most, and a clear lead is needed, else nothing); the parent bullet’s values for a tagged bullet under a tagged one; the journal day for the `date` of a tag with only a few dated nodes so far (one to four), all dated the day they were written (a treatment), or of a tag dated the day written at least 4 times in 5 but not 19 in 20; and a linked page with no tag yet, offered for the first empty place it could fill when there are one or two (it reads “Hannah Reyes #Doctor”, and taking it also gives the page that tag). A date written in the words (“on Friday”, “next Tuesday”, “tomorrow”, “on the 4th”, “4 Aug”, “in two weeks”), counted from the day the bullet is written on, is a guess for a `date` nothing else fills, for kinds usually dated ahead (an Expectation, not a Consultation) (one date in the words, or nothing; a journal page the day has not got yet is made when the guess is taken). A number beside a number property’s name (“cycle 5”, “3 cycles”) is a guess for that property. Two doctors linked keep the doctor quiet, guesses too. A property that takes tags of two or more separate families (a Topic that takes symptoms, decisions and people) is treated with care: a link in your words is only a guess for it, a link in a note below is not taken, a name in plain words is never taken for it, and a narrower property that takes the same link gets it first. A bullet with no tag, and no record above it, gets the tag of the lines it most looks like, pencilled in a dotted Tags pill under the bullet where Logseq shows a bullet’s tags, with that tag’s properties beside it, filled as if the tag were there (all guesses): Enter gives the bullet the tag and fills them in, under one Undo; leaving any other way takes nothing. The tag is proposed only when the nearest line is very much like this one and the lines agree, since a wrong tag costs more than a wrong value.
 - **Link selected text** (on; switch off with **Link selected text with ⌘⌥L** under **Writing a record**): select words in a bullet you are writing and press `Cmd+Option+L`; a box opens under the words, you type a page's name and the pages that fit are listed, and Enter or a click makes the words a link to the page. With nothing selected, type the words first, Enter, then pick the page. Cmd+Z takes it back.
 - **Pickers** (on; switch off with **What fits this bullet first** under **Writing a record**): when Logseq's own list for a property opens, the nodes that fit the bullet come first (a page its words link, then what similar bullets had), with a faint line before Logseq's own list. Up and Down follow the order you see.
 - **Tag tree** (on; switch off with **Use the tag tree** under **Tools** in the settings): all your tags as one tree, moved about like Logseq's bullets, where you make new tags in the right place and move tags under other tags. In the full view and in the sidebar it is also the map of your properties (**Tags** and **Properties** at the top turn it round: by tag, or every property once with the tags that have it, opening into the same details): each open tag lists its properties (inherited ones faded) and what each holds, a link property opens into what it accepts and how it reads on the other page (changed there, or turned off), and an i beside a property explains it. The find box at the top finds tags and properties by name (a property shows under the tags that have it). From the map you can rename a property, change what a link accepts, rename and remove a property's choices (a choice still in use is not removed; a new choice is added, and the order of the choices changed, in Logseq's own settings for the property, which **Add or reorder in its settings** opens in the right sidebar, since Logseq lets only itself do those), make a choice its own child tag (**Make a choice its own child tag …** in the property's menu: the nodes with that choice move to the new tag with all their values, the choice is cleared on them and stays in the list for you to remove, and Undo puts everything back), turn a text or choice property into links to pages (**Turn into links to pages …** in the property's menu, the owner's way of doing it by hand made one step: the old property is renamed “Specialty (old)” and keeps its values; a new Specialty is made with Logseq's own Add property box, which opens on the tag's page in the right sidebar and is filled in by the plugin, since Logseq lets only itself make a property of yours; one page per value is made, or found, and tagged “Specialty kind” (the name can be changed; it cannot be the property's own); the new property accepts that tag, and every node gets its link, so the Oncology page shows “specialty of → Dr. Mei Chen”; delete the old one yourself when it looks right; Undo, for a minute, puts everything back, the pages going to Logseq's Recycle; a property some nodes hold several of is not handled yet), and write a tag's description (click it, or **Add a description …** in the tag's menu). What kind of value a property holds, and one versus several, open in Logseq's own settings for it in the right sidebar: Logseq lets a plugin change those only for the plugin's own properties. Each refresh of the map is timed; Logseq's developer console shows the last 50 with `console.table(refinementTagTimes)`.
-- **Shortcuts** for linking, making pages, tagging, deleting a block and starting a new top-level block.
-- **Properties in the line**: type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`); `;;` in place of `::` also keeps the value in your words (`deadline;;today`). Only in the graphs you name.
+- **Shortcuts** (resting) for linking, making pages, tagging, deleting a block and starting a new top-level block.
+- **Properties in the line** (resting): type `p::` at the end of the block you are writing and pick a property and its value from a list under the caret, without leaving the line; `date::fri` skips to the values of a field you know, and the first letters do (`da::fri`, `pro::at`); `;;` in place of `::` also keeps the value in your words (`deadline;;today`). Only in the graphs you name.
 - **Copy as rich text** (resting since 0.4.251: not loaded until its layer comes): copies a page or block as tidy formatted text, or saves it as a PDF, for people who don't use Logseq. It only reads your notes.
 
 ## What is in the folder
@@ -78,105 +78,33 @@ The files in `parts/`:
 
 Open the settings from **Refinements settings** in Logseq's three-dots menu (top right, under Plugins), or run **Refinements settings** from the command palette.
 
-- Sections are listed on the left under five groups: **Reading a page** (Pages, Visual hierarchy, Two-way links, Links and references), **Writing a record** (Properties in the line, Proposals while you write), **Around the page** (Sidebars and toolbar, Search, Search in the right sidebar), **Tools** (Copy as rich text, Tag tree, Shortcuts and actions) and **Paused** (Todos, Expectations). **Changed by you** lists everything you have changed.
+- Sections are listed on the left under three groups: **Reading a page** (Two-way links), **Writing a record** (Proposals, Link selected text, Pickers) and **Tools** (Tag tree, Troubleshooting). **Changed by you** lists everything you have changed. The resting parts' sections come back with their parts.
 - At the top of each group, a picture shows where on screen each of its sections works, numbered like the list beside it; a click on a part of the picture or on a name in the list opens that section. A click on a group's name shows all its sections at once.
-- In **Paused**, Todos and Expectations share a first switch (**Use Todos and Expectations**); while it is off the rest of their settings are shown faint and do nothing. The tag tree, in **Tools**, has the same kind of switch (**Use the tag tree**, on).
+- The tag tree, in **Tools**, has a first switch (**Use the tag tree**, on); while it is off the rest of its settings are shown faint and do nothing.
 - A search box (press `/` or `Cmd+F` in the window) looks through every setting's name and explanation.
-- Most look settings have a small picture of what they change; clicking the picture flips the switch.
 - A changed setting has a small dot and a **Reset** link. Each change is saved as you make it.
 - Most switches apply at once. Those that need a reload say “after reload”, and a **Reload plugin** button is at the bottom.
 - Logseq's own settings page for the plugin (Plugins, `t p`) still works and is one click away at the bottom of the window.
 
 ### Every setting
 
-Grouped as in the settings window's sections (the window gathers them under the five groups above). The key is the name in the settings file (`~/.logseq/settings/logseq-db-refinements.json`); "Starts as" is the value a fresh install has.
+Grouped as in the settings window's sections (the window gathers them under the three groups above). Only the settings of the parts that run are listed; a resting part's settings come back with it, and a value already in the settings file is kept meanwhile. The key is the name in the settings file (`~/.logseq/settings/logseq-db-refinements.json`); "Starts as" is the value a fresh install has.
 
 | Setting | Key | Starts as | Where |
 | --- | --- | --- | --- |
-| Link selected text to a page | `linkShortcut` | mod+alt+l | Shortcuts and actions |
-| Open selected text as page | `openShortcut` | mod+alt+p | Shortcuts and actions |
-| Make a page from this block | `copyShortcut` | empty | Shortcuts and actions |
-| Add tags to this page | `tagShortcut` | mod+t | Shortcuts and actions |
-| Delete this block | `deleteBlockShortcut` | mod+backspace | Shortcuts and actions |
-| New block at the outermost level | `outermostBlockShortcut` | alt+enter | Shortcuts and actions |
-| Always show page title actions and tags | `showTitleChrome` | on | Pages |
-| Show what a page is above its title | `showPageKind` | on | Pages |
-| Show which page an alias belongs to | `showAliasOf` | on | Pages |
-| Show how a page is used | `showUsage` | on | Pages |
-| Mark the link to this page in Linked references | `markReferenceHere` | on | Pages |
-| Show what a tag or property holds | `showShape` | on | Pages |
-| Leave a tag page’s own tag off its rows | `ownTagHidden` | on | Pages |
-| Journal days only as tall as what they hold | `compactJournals` | on | Pages |
-| A day says what it holds | `dayCues` | on | Pages |
-| Faint nesting lines | `indentGuides` | on | Visual hierarchy |
-| Plainer properties | `plainProperties` | on | Visual hierarchy |
-| Empty properties faint | `quietEmptyProps` | on | Visual hierarchy |
-| Empty slots read as the row | `emptySlotsInRow` | on | Visual hierarchy |
-| Hidden properties arrow on every block | `hiddenPropsChevron` | on | Visual hierarchy |
-| Hide the dot on empty blocks | `quietEmptyBullets` | on | Visual hierarchy |
-| Show what a block holds | `childTypeCues` | on | Visual hierarchy |
-| Line beside embedded content | `embedLine` | on | Visual hierarchy |
-| Dates in a soft grey box | `dateStyle` | on | Visual hierarchy |
-| Dates carry their tense | `dateTense` | on | Visual hierarchy |
-| Simpler page icons | `plainPageIcons` | on | Visual hierarchy |
-| Soft background behind tags | `tintTags` | off | Visual hierarchy |
-| Tags as grey class names | `tagMark` | on | Visual hierarchy |
-| Quiet page links | `quietLinks` | on | Links and references |
-| Clearer Linked references | `referenceLayout` | on | Links and references |
-| Icons for block references and files | `referenceIcons` | on | Links and references |
-| Show how records are linked | `linkLabels` | on | Links and references |
-| Tidy parent paths | `tidyPaths` | on | Links and references |
-| Empty [[ ]] menu until you type | `quietLinkMenu` | on | Links and references |
-| Tap the Hyper key to start a [[ link | `hyperLinkTap` | on | Links and references |
-| The [[ menu and the # picker say what each row is | `pickerMarks` | on | Links and references |
-| The property picker says each type | `propertyPickerTypes` | on | Links and references |
-| The value picker says what each row is | `valuePickerMarks` | on | Links and references |
-| The link box lists your pages | `linkBoxList` | on | Links and references |
-| The link box opens beside the words | `linkBoxBeside` | on | Links and references |
-| The link box lists blocks too | `linkBoxNodes` | on | Links and references |
+| Foundation only | `foundationOnly` | off | Troubleshooting |
+| Links read the same from both ends | `twoWayRows` | on | Two-way links |
+| Fields read backwards | `twoWayNames` | symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to | Two-way links |
+| Fields shown from one end only | `twoWayOneEnd` | empty | Two-way links |
+| Leave out Logseq’s tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
 | Link selected text with ⌘⌥L | `linkText` | on | Link selected text |
+| Proposals while you write | `shadowProposals` | on | Proposals |
+| Hide empty properties until something is proposed | `shadowHideEmpty` | on | Proposals |
+| Only in these graphs | `shadowGraphs` | empty | Proposals |
 | What fits this bullet first | `pickerFitsFirst` | on | Pickers |
-| Links read the same from both ends (a row “doctor of → …” on the page a field points to, grey names, lines open on a click, a card on hover, kinds to filter by, a + to add a linked record, right-click a row's name to change how it reads, tick boxes to pick records and act on them together) | `twoWayRows` | on | Two-way links |
-| Fields read backwards (names for those rows) | `twoWayNames` | a few pairs | Two-way links |
-| Fields shown from one end only (no row on the page they point to; set from the tag tree too) | `twoWayOneEnd` | empty | Two-way links |
-| Leave out Logseq's tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
-| Escape takes [[ and # out | `pickerEscapeClears` | on | Links and references |
-| Year-first dates in [[ ]] link to journals | `dateLinkFormats` | on | Links and references |
-| Compact PDF citations | `pdfCitations` | on | Links and references |
-| Links inside a reference open their own page | `innerReferenceLinks` | on | Links and references |
-| Page links without trailing tags | `pageLabels` | on | Links and references |
-| Quiet these sidebar and toolbar items | `quietItems` | Flashcards, Graph view | Sidebars and toolbar |
-| Left sidebar icons only where they mean something | `quietSidebarIcons` | on | Sidebars and toolbar |
-| Tidy the right sidebar | `tidySidebar` | on | Sidebars and toolbar |
-| Sidebar titles open their page | `sidebarTitleOpens` | on | Sidebars and toolbar |
-| Thick line between sidebar items | `sidebarThickDividers` | on | Sidebars and toolbar |
-| Search in the right sidebar | `searchShortcut` | mod+alt+f | Search in the right sidebar |
-| Search button in the right sidebar | `sidebarSearchButton` | on | Search in the right sidebar |
-| Tidy the search window | `tidySearch` | on | Search |
-| Roomier search window | `roomySearch` | on | Search |
-| Say more about each search result | `searchDetails` | on | Search |
-| Put search results page by page | `groupSearch` | on | Search |
-| Preview the selected result | `searchPreview` | on | Search |
-| Preview: edit with Logseq's own editor (trial) | `searchPreviewEditor` | off | Search |
-| Filter search with codes | `searchFilters` | on | Search |
-| Properties typed in the line | `inlineProps` | on | Properties in the line |
-| Only in these graphs | `inlinePropsGraphs` | empty | Properties in the line |
-| First letters name the field | `inlinePropsPrefix` | on | Properties in the line |
-| A field that takes several stays open | `inlinePropsGather` | on | Properties in the line |
-| Escape takes the token out | `inlinePropsEscapeClears` | on | Properties in the line |
-| Style | `layout` | document (or outline, timeline, column, timetable) | Export as document |
-| Use Todos and Expectations | `todosEnabled` | off | Todos |
-| Todos button in the toolbar | `todosToolbarButton` | on | Todos |
-| The buttons and shortcuts open Todos and Expectations as | `todosOpensAs` | page | Todos |
-| Open Todos | `todosShortcut` | mod+alt+t | Todos |
-| Days shown under “Done” | `todosDoneDays` | 14 | Todos |
-| Tag of an expectation | `expectationsTag` | Expectation | Expectations |
-| Property that holds where it stands | `expectationsStateProperty` | juncture | Expectations |
-| Expectations button in the toolbar | `expectationsToolbarButton` | on | Expectations |
-| Open Expectations | `expectationsShortcut` | mod+alt+e | Expectations |
 | Use the tag tree | `tagTreeEnabled` | on | Tag tree |
-| Order of the tags | `tagTreeRoots` | (empty: by name) | Tag tree |
-| Groups of properties | `propertyGroups` | (empty: no groups) | Tag tree |
+| Order of the tags | `tagTreeRoots` | empty | Tag tree |
+| Groups of properties | `propertyGroups` | empty | Tag tree |
 | The button and shortcut open the tag tree as | `tagTreeOpensAs` | page | Tag tree |
 | Tag tree button in the toolbar | `tagTreeToolbarButton` | on | Tag tree |
 | Open the tag tree | `tagTreeShortcut` | mod+alt+g | Tag tree |

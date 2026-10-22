@@ -17,7 +17,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
 let setting, dsQuery, UUID, isEntityId, idsIn, uuidsIn, watchDom, watchDomEarly, addsElements, sendStyle, REFERENCE_AREAS, referenceAreas;
 let provided, pdfCitations, dateLinks, attribute;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 const propertyCrumbs = { values: new Map(), marked: new Set(), boxes: new Map() };
 function updatePropertyCrumbs(doc) {

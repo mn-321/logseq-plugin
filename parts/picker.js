@@ -15,7 +15,7 @@ const { host } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (pickers): ',
   leaves: { attributes: ['data-refinement-fit', 'data-refinement-fit-last', 'data-refinement-fit-list'] } });
 let propPages, watchDomEarly, provided;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
   { key: 'pickerHeading', type: 'heading', group: 'writing', rank: 3, title: 'Pickers', default: null,

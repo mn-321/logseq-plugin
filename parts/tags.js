@@ -809,7 +809,6 @@ function pickTag(view, anchor, header, choices, onPick) {
 // After a change: the plugin's one Undo (shared.undo, 0.4.258), a faded arrow at the end of the row the change was made
 // on (the row with the cursor), or of the map's title when that row is gone; a change with nothing to undo is said in
 // Logseq's own message. The bar this map kept of its own until 0.4.257 is gone.
-function hideToast() {}
 let undoCount = 0;
 function showToast(view, text, undo) {
   if (!undo) { logseq.UI.showMsg(text); return; }
@@ -1473,7 +1472,7 @@ async function confirmChildTag(view, tag, prop, choice, anchor) {
       ...(n ? [`their ${prop.title} “${choice.title}” is cleared, since ${C} now says it`] : []),
       `“${choice.title}” stays in ${prop.title}’s choices; remove it from there when nothing needs it`];
     lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
-    note.textContent = check.problem || 'Undo puts everything back, for a few seconds after.';
+    note.textContent = check.problem || 'The faded arrow on its row puts everything back.';
     note.classList.toggle('rtg-warn', !!check.problem);
     go.textContent = check.existing ? `Move to ${C}` : `Make ${C}`;
     go.disabled = !!check.problem;
@@ -1535,7 +1534,7 @@ async function askLinks(view, tag, prop, anchor) {
     const bad = !name ? 'Give the tag a name' : name.includes('/') ? 'A tag name cannot have a / in it'
       : tagNamed?.builtIn ? `#${name} is one of Logseq’s own tags`
       : name.toLowerCase() === P.toLowerCase() || page ? `“${page?.title || name}” is already ${page?.uuid === prop.uuid || name.toLowerCase() === P.toLowerCase() ? 'the property’s own name' : 'a page that is not a tag'}; pick another name` : '';
-    note.textContent = bad || `When it looks right, delete “${P} (old)” yourself. Undo puts everything back, for a minute after.`;
+    note.textContent = bad || `When it looks right, delete “${P} (old)” yourself. The faded arrow on its row puts everything back.`;
     note.classList.toggle('rtg-warn', !!bad);
     go.disabled = !!bad;
   };
@@ -1557,8 +1556,7 @@ async function askLinks(view, tag, prop, anchor) {
     let result = null;
     const done = await view.act(async () => { result = await runLinks(plan, name); }, `${P} could not be turned into links`);
     if (!done || !result) return;
-    // A larger change gets a minute to be undone (seen in the app: seven seconds went by while the result was looked at).
-    view.showToast(`${P} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; the old one is “${P} (old)”`, result.undo, 60000);
+    view.showToast(`${P} now links ${plural(n, 'node')} to ${plural(plan.titles.length, 'page')} tagged #${name}; the old one is “${P} (old)”`, result.undo);
   });
   await fill().catch(() => {});
   input.focus(); input.select();
@@ -2257,7 +2255,6 @@ function stopwatch(view, t0, t1, t2) {
 
 function destroy(view) {
   view.closeMenu();
-  view.hideToast();
   clearTimeout(view.timer);
   view.doc.removeEventListener('mousedown', view.onDown, true);
   view.doc.removeEventListener('mousemove', view.endDrag, true);
@@ -2266,7 +2263,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, hideToast, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';
@@ -2318,12 +2315,7 @@ async function openSidebar() {
 const openAs = () => (setting('tagTreeOpensAs') === 'sidebar' ? openSidebar : openPage)();
 
 function start() {
-  // Back on at the owner's word (0.4.152): the pause of 0.4.128 saved "off" in the settings, so it is
-  // switched on once here; turned off again after that, it stays off.
-  if (logseq.settings?.tagTreeEnabled === false && !logseq.settings?.tagTreeReinstated) {
-    logseq.updateSettings({ tagTreeEnabled: true, tagTreeReinstated: true });
-  } else if (!setting('tagTreeEnabled')) return; // off: nothing is registered
-  else if (!logseq.settings?.tagTreeReinstated) logseq.updateSettings({ tagTreeReinstated: true });
+  if (!setting('tagTreeEnabled')) return; // off: nothing is registered (the one-off switch back on of 0.4.152 went at 0.4.294)
   logseq.provideStyle({ key: 'refinement-tags', style: css });
   registerHosts();
   const binding = setting('tagTreeShortcut').trim().toLowerCase();

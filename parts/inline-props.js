@@ -27,7 +27,7 @@ const { graphNamedIn } = shared;
 let dsQuery, graphWide, journalTitleFor, coreSetting;
 // The Logseq model (parts/model.js, since 0.4.164): the schema, the pages, the fields of a record, days and journal pages.
 let propSchema, propPages, fieldsOf, parseDay, dayNumber, sameDay, dayAfter, DAYS, journalIdFor, bare, pick, idOf;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
   { key: 'inlinePropsHeading', type: 'heading', group: 'writing', rank: 1, title: 'Properties in the line', default: null,

@@ -16,7 +16,7 @@ const shared = window.refinementShared;
 const { host, notify } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (link text): ', leaves: { elements: '.refinement-link-text' } });
 let propPages;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
   { key: 'linkTextHeading', type: 'heading', group: 'writing', rank: 2, title: 'Link selected text', default: null,

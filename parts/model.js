@@ -33,7 +33,7 @@ const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
 let dsQuery, graphWide;
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 // The Logseq version whose page structure the plugin was last checked against. Most of what the
 // plugin draws depends on names Logseq uses inside its own pages, which can change in any release.

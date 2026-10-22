@@ -12,7 +12,7 @@ const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix
 // From the core, taken when the part starts.
 let setting, watchDom, watchDomEarly, ensureDomWatch, sendStyle;
 // A name may be the core's own or one another part provided; a missing one is a broken contract.
-const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
+const take = (core, names) => shared.take(core, names, warnOnce);
 
 // Use native controls to expand properties, so Logseq still renders editable values.
 const sidebarPresentation = { hidden: new Set(), pending: new WeakMap() };

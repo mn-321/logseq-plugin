@@ -5,14 +5,14 @@
    settings and before main() runs. Nothing above main() calls them while this file loads.
    Logseq keeps only the most recent beforeunload callback a plugin registers, so every part of the
    plugin keeps its own clean-up list and main() registers one callback that runs them all. */
-let host, notify, warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen, modal, modalButtons, modalHint, openEntity, waitFor, setting, perf;
+let host, notify, warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, setting, perf;
 function useShared() {
   const shared = window.refinementShared;
   if (!shared) throw new Error('parts/shared.js did not load');
-  ({ host, notify, modal, modalButtons, modalHint, openEntity, waitFor, perf } = shared);
+  ({ host, notify, perf } = shared);
   // The clean-up stops the screen watcher first, so nothing re-applies while the steps undo their
   // changes; a new copy runs the earlier copy's clean-up and sweeps what it left on screen.
-  ({ warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen } = shared.lifecycle({ prefix: 'Refinements: ', stopKey: STOP_KEY, before: stopWatchingDom, sweep: sweepEarlierCopy }));
+  ({ warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed } = shared.lifecycle({ prefix: 'Refinements: ', stopKey: STOP_KEY, before: stopWatchingDom, sweep: sweepEarlierCopy }));
 }
 
 /* One watcher for Logseq's screen, with two kinds of update function. One part failing does not
