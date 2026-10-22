@@ -21,7 +21,9 @@ window, the old Undo bar deleted, no green or any colour of the plugin's own, ro
 holds the six layers, the grammar, the kit with what each piece comes from, the icon list and the order of building;
 `tools/pages/` rebuilds the two pages. **Checks:** both pages rebuilt from scratch with the kept scripts, same output;
 `sh tools/docs-check.sh`. **Seen:** the pages in headless Chromium at every step; Logseq not touched (no code changed).
-**Not built:** nothing of the kit; the owner reads the plan first.
+**Not built:** nothing of the kit; the owner reads the plan first. **Feature map:** the page (CLAUDE.md section 1) updated the
+same evening, at the owner's word: a section on the renumbering, the kit, the grammar and the order of building above
+the old tables, which keep the earlier numbering; the layer 1a and 3 rows and the "where things stand" line point at it.
 
 ## 2026-10-22 · The Tags view editable in place, one shape with the Properties view (0.4.310)
 
