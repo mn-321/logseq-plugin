@@ -31,8 +31,6 @@ const settingsSchema = [
     description: 'Fields whose link is not shown as a row on the page they point to, as “field; field”. Useful for a field that points at a busy page (a status, a city with hundreds of people). The link itself stays: it still shows in that page’s Linked references and in searches. Set from the tag tree as well.' },
   { key: 'twoWayHideTagLists', type: 'boolean', title: 'Leave out Logseq’s tag lists the rows repeat', default: true,
     description: 'Below a page’s own text, Logseq lists the records that link to the page under a heading named after their tag (“Appointment”, “Project”), for tags with two-way links turned on. The rows above already show those records, with the field that links them, so on a page that has the rows the list is left out. Off: Logseq’s list shows as well.' },
-  { key: 'openPropertyRows', type: 'boolean', title: 'Property rows open', default: true,
-    description: 'The row of properties under a record wraps onto more lines instead of being cut off at the right edge, so every field shows.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn;
@@ -885,7 +883,8 @@ const hideTagListsCss = `
 function applyStyles() {
   sendStyle('refinement-two-way', setting('twoWayRows') ? twoWayCss : '');
   sendStyle('refinement-two-way-hide-tag-lists', setting('twoWayRows') && setting('twoWayHideTagLists') ? hideTagListsCss : '');
-  sendStyle('refinement-open-property-rows', setting('openPropertyRows') ? openRowsCss : '');
+  // openRowsCss changes how Logseq lays out its own properties: page looks wait for layer 3 (0.4.251), so it is not sent.
+  sendStyle('refinement-open-property-rows', '');
 }
 
 let timer = 0, indexTimer = 0;

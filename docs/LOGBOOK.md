@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Export and page looks off again (0.4.251)
+
+**The owner:** "continue to disable the document exporter … no capsules around properties. all cosmetic must still be
+disabled". **Found:** in the console, a `.bottom-property-pill` has `background: var(--ls-secondary-background-color)`
+from Logseq, and that variable is empty; with all eight of the plugin's style sheets disabled it is still transparent.
+So the missing capsules are Logseq's. **Built:** `rich-copy.js` back to RESTING_FILES; `openRowsCss` no longer sent
+and its setting gone; the `scrollbar-gutter` style in `main.js` commented out until layer 3. Kept: the two-way rows'
+own look, the tag map's, the proposals' grey, and hiding Logseq's tag lists the rows repeat (part of the rows).
+
 ## 2026-10-21 · Old pencilled proposals and journal-day filler removed (0.4.250)
 
 **The owner:** "lets get rid of the old code related to pencil and old proposals". **Built:** `parts/proposals.js` and

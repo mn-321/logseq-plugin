@@ -280,7 +280,8 @@ function main() {
   logseq.provideStyle({ key: 'refinements-dialog', style: window.refinementShared.dialogCss }); // the dialogs' look, before any part (0.4.169)
   // The main view keeps room for its scroll bar (0.4.182), so a page growing past the window's height, or a list
   // unfolding, no longer moves everything 8px sideways as the bar comes and goes (seen in the owner's Logseq).
-  logseq.provideStyle({ key: 'refinements-steady-scroll', style: '#main-content-container { scrollbar-gutter: stable; }' });
+  // Off until layer 3 (0.4.251: page looks wait for their layer); put back with the rest of layer 3:
+  // logseq.provideStyle({ key: 'refinements-steady-scroll', style: '#main-content-container { scrollbar-gutter: stable; }' });
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
   // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
   // next: provide() gives the core the part's functions and state; start() takes the others' things and
@@ -340,8 +341,8 @@ function main() {
 // map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
 // check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
 // PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
-const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tags.js', 'parts/alike.js', 'parts/shadow.js', 'parts/rich-copy.js', 'parts/settings-panel.js'];
-const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/todos.js'];
+const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tags.js', 'parts/alike.js', 'parts/shadow.js', 'parts/settings-panel.js'];
+const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
 void RESTING_FILES;
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
