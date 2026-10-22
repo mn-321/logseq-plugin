@@ -935,7 +935,12 @@ function applyStyles() {
 
 let timer = 0, indexTimer = 0;
 const later = (ms = 600) => { clearTimeout(timer); timer = setTimeout(() => load().catch(error => warnOnce('could not refresh the two-way rows', error)), ms); };
-const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().catch(error => warnOnce('could not read the rows of every page', error)), ms); };
+// Right after Logseq starts its database is not ready for a while (the audit, 0.4.275: the read 1.5 s after a cold
+// start failed, and nothing read again until the graph changed): a few quiet tries before saying so.
+let indexTries = 0;
+const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().then(() => { indexTries = 0; }, error => {
+  if (++indexTries < 5) indexLater(2000 * indexTries); else { indexTries = 0; warnOnce('could not read the rows of every page', error); }
+}), ms); };
 function start() {
   ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'uuidsIn']));
   applyStyles();

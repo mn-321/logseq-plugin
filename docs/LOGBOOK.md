@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A cold start no longer warns about the two-way rows (0.4.275)
+
+**Found** in the audit of layers 1 and 2: after the Mac restarted, the console showed "Refinements (two-way): could not
+read the rows of every page" beside Logseq's own `invoke-db-worker-error`; Logseq's database took 2.4 s to be ready and
+`indexLater(1500)` in `parts/two-way.js` read before it, warned, and read again only after a database change. **Built:**
+`indexLater` tries again on a failure, 2, 4, 6 and 8 s later, and warns only after the fifth. **Seen:** see the CHANGELOG
+line. No automatic check: the boot test unloads before the first try.
+
 ## 2026-10-22 · Undo of a rename puts the old name back in the order and the groups (0.4.274)
 
 **Found** in the audit of layers 1 and 2: renaming #Disease in the map and pressing its Undo arrow gave the tag its old
