@@ -30,7 +30,10 @@ P.links.push(core => {
    Shift-Tab step through every property of the bullet, filled or empty, with the ring showing where you are; Enter
    still goes to the next empty one"): an empty one opens ready to type, as before; on a filled one the ring rests
    and nothing opens, so a value is never changed by passing it; Enter there opens it, Escape goes back to the
-   words. Tab works the same from Logseq's own Down into the properties (0.4.208). */
+   words. Tab works the same from Logseq's own Down into the properties (0.4.208).
+   Down at the end of the words goes to the bullet's first property, filled or empty (0.4.271): Logseq's own Down aims
+   at the first capsule, and when the plugin hides it (empty, nothing proposed) the keyboard fell out of the bullet,
+   which left it and filled in what was sure (seen in the app on Jul 30th). From there it is the same stepping. */
 const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], stops: new Set(), restEl: null, wasOpen: false, at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '', pickerRoot: null, settle: 0, guesses: null, prefill: '' };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
 // An empty value's own trigger, for the kinds whose list, box or picker is followed here: a link, a text (or choice),
@@ -296,6 +299,8 @@ function onPickKey(event) {
     openAt(doc, 0);
     return;
   }
+  // Down at the very end of the words: into the bullet's first property, filled or empty (0.4.271).
+  if (event.key === 'ArrowDown' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && downIntoProperties(event)) return;
   // Tab in the bullet's properties reached with Logseq's own Down (0.4.208): the same stepping from there (0.4.270).
   if (event.key === 'Tab' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && startFromVisit(event)) return;
   // On a filled property the ring rests on (0.4.270): Enter opens it, Escape goes back to the words, Tab moves on,
@@ -358,6 +363,24 @@ function startFromVisit(event) {
   Object.assign(picking, { uuid: live?.uuid || rowUuid, text: live?.text || '', live, rowUuid, names: places.map(p => p.name), stops: new Set(emptyNames(doc, rowUuid)), guesses: guessesAt(rowUuid) });
   const step = event.shiftKey ? -1 : 1;
   openAt(doc, at + step, step, backToWords, true);
+  return true;
+}
+
+// Down in a bullet's words with the caret at the very end, and the bullet has properties of its own: the stepping
+// starts on the first one (the conditions as Option-Enter's; Logseq's list of pages or commands keeps its keys).
+function downIntoProperties(event) {
+  const box = editingBox(event.target);
+  if (!box || box !== event.target || box.selectionStart !== box.value.length || box.selectionEnd !== box.value.length) return false;
+  if (!setting('shadowProposals') || !state.allowedNow) return false;
+  const doc = box.ownerDocument;
+  if (doc.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return false;
+  const uuid = uuidOf(box), places = propertyPlaces(recordRow(doc, uuid));
+  if (!places.length) return false; // nothing under the bullet: Logseq's Down goes on to the next bullet
+  event.preventDefault(); event.stopImmediatePropagation();
+  const live = state.live?.uuid === uuid ? state.live : null;
+  endPicking(false);
+  Object.assign(picking, { uuid, text: box.value, live, rowUuid: uuid, names: places.map(p => p.name), stops: new Set(emptyNames(doc, uuid)), guesses: guessesAt(uuid) });
+  openAt(doc, 0, 1, backToWords, true);
   return true;
 }
 

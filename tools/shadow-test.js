@@ -550,6 +550,33 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const tab = key(doc.getElementById('p-v-doc'), 'Tab');
   cases++;
   if (!tab.defaultPrevented || pressed.join() !== 't-hosp3' || window.refinementShadow.picking.uuid !== U) problem(`Tab after Logseq's Down: pressed ${pressed.join()}, stepping ${window.refinementShadow.picking.uuid}; wanted the hospital opened`);
+  input = openList();
+  await wait(150); // the list seen open, as Logseq's stays open until a key
+  key(input, 'Escape');
+  await wait(300);
+  // Down at the very end of the words (0.4.271): the first property, filled here, gets the ring and the keyboard;
+  // Down in the middle of the words is Logseq's.
+  pressed.length = 0;
+  box.focus();
+  box.setSelectionRange(3, 3);
+  cases++;
+  if (key(box, 'ArrowDown').defaultPrevented) problem('Down in the middle of the words was taken by the plugin');
+  box.setSelectionRange(box.value.length, box.value.length);
+  const down = key(box, 'ArrowDown');
+  await wait(150);
+  cases++;
+  if (!down.defaultPrevented || !ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc') || pressed.length) problem(`Down at the end of the words: ring on the doctor ${ringOn('v-doc')}, keyboard on ${doc.activeElement?.id || doc.activeElement?.tagName}, pressed ${pressed.join()}; wanted the ring and the keyboard on the first property, nothing opened`);
+  key(doc.getElementById('p-v-doc'), 'Escape');
+  await wait(300);
+  // The first property empty (hidden by the plugin until something is proposed): Down opens it.
+  doc.querySelector('.bottom-properties-row').insertAdjacentHTML('afterbegin', emptyPill('topic', 't-topic'));
+  doc.getElementById('t-topic').addEventListener('pointerdown', () => pressed.push('t-topic'));
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
+  key(box, 'ArrowDown');
+  await wait(50);
+  cases++;
+  if (pressed.join() !== 't-topic' || !ringOn('t-topic')) problem(`Down with an empty first property: opened ${pressed.join() || 'nothing'}; wanted the empty topic, ringed`);
   key(openList(), 'Escape');
   await wait(300);
 }

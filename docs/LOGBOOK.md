@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Down into the first property (0.4.271)
+
+**The owner:** "how do I enter first property, irrespective if it is filled or not? down doesn't work with capsules";
+then, told why, "but the plugin doesn't hide that, logseq hides it when you say hide by default"; checked: Topic has no
+hide setting of Logseq's, and with the plugin's `rfs-hide-empty` class off Topic shows (`display: flex`, `none` with it).
+Then "ok do that". **Found:** Logseq's Down focuses the first capsule; hidden (`display: none`) it cannot take the
+keyboard, which falls to the page body: the bullet is left and the sure values filled (the owner's Down on the
+anaesthetist bullet filled Spoke with). **Built:** `downIntoProperties` in `parts/shadow-steps.js`: Down with the caret
+at the very end, no modifier, no Logseq list open, the proposals on and the graph allowed, and the bullet has
+properties of its own: the stepping starts on the first (any). `tools/shadow-test.js` case 21, 3 more checks; a timing
+in the test itself fixed (a list opened and closed before the plugin's watch had seen it). **Seen:** see the CHANGELOG line. `check.sh` failed on timings only (the tag map 412 and 469 ms against 400,
+the looks-like index 504 ms against 500; 133 ms that morning): the version before, timed straight after on the same
+Mac, failed the same way (411 and 424 ms), so the Mac was slow, not the change, which touches neither.
+
 ## 2026-10-22 · Tab through every property; the ring inside the capsule (0.4.270)
 
 **The owner:** asked how to move between properties by keyboard (Logseq's own: Down from the end of the words, Left
