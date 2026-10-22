@@ -18,6 +18,10 @@
    it reads from the other end, which can be changed there and turned off. Under the properties, the
    links that point at the tag from elsewhere. An i beside a property, and beside "Setting up a new tag",
    opens a short explanation; nothing else is explained unless asked.
+   Editable in place like the Properties view (0.4.306): an open tag's own lines end with a faint line of what can be
+   made there (+ Property, + Tag inside, + Description), "also under #X" opens a menu for that parent, each link on
+   "Shows up here as" opens a menu (go to the property, change how it reads here, turn it off here), and the Undo
+   arrow of a change made on one of those lines sits on that line.
    The tag map, piece 3 of 3 (0.4.295): the tree itself, its look, menus, moving and picking tags, keys, and the page
    and sidebar it is shown in. The graph's side is parts/tags-graph.js, the property map parts/tags-props.js.
    The pieces share one object, window.refinementTagMap (TM): parts/tags-graph.js and parts/tags-props.js put there what
@@ -53,7 +57,8 @@ const setting = shared.settingReader(settingsSchema);
 TM.setting = setting;
 // What the other two pieces have (parts/tags-graph.js, parts/tags-props.js); undefined when one is not loaded, and then
 // start() below starts nothing.
-const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askChildTag, askChoices, askDescription, askGroupName, askLinks, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeTag, movePropUp, newProperty, openTag, openViews, passesDown, pathOf, planMerge, plural, pointerRow, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, setParents, shown, takePropOff, typeHtml } = TM;
+const { CHEVRON, DOTS, HUES, PAGE_ICON, PARENT_BUILT_INS, PLUS, SIDEBAR_ICON, TREE_ICON, acts, addProp, anchoredPanel, askAccepts, askChildTag, askChoices, askDescription, askGroupName, askLinks, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, folded, groupHeading, groupMenu, hasRows, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeTag, movePropUp, newProperty, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, takePropOff, twoWay, typeHtml } = TM;
+// (pointerRow, the "Shows up here as" line, is this piece's own since 0.4.306: each link on it opens a menu.)
 // An order changed from the tree is used at once; Logseq hands the saved setting back a little later.
 let orderOverride = null;
 const topOrder = () => (orderOverride ?? setting('tagTreeRoots')).split(',').map(name => name.trim().replace(/^#/, '')).filter(Boolean);
@@ -195,6 +200,17 @@ const css = `
 .refinement-tags .rtg-pointrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 4px 26px; font-size: 15px; }
 .refinement-tags .rtg-pointrow .rtg-note { color: var(--rtg-faint); }
 .refinement-tags .rtg-off { font-style: italic; }
+/* An open tag's own lines, editable where they sit (0.4.306). The adds line ends the tag's rows: faint, full under the
+   pointer or with the cursor on the tag, always in the flow so nothing moves when it brightens. */
+.refinement-tags .rtg-adds { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 1px 8px 3px 26px; font-size: 13px; line-height: 1.5; opacity: .55; }
+.refinement-tags .rtg-row:hover + .rtg-kids > .rtg-adds, .refinement-tags .rtg-row.rtg-current + .rtg-kids > .rtg-adds, .refinement-tags .rtg-adds:hover, .refinement-tags .rtg-adds:focus-within { opacity: 1; }
+.refinement-tags .rtg-addline { border: 0; padding: 0; background: none; cursor: pointer; color: var(--rtg-faint) !important; font-size: inherit !important; white-space: nowrap; }
+.refinement-tags .rtg-addline + .rtg-addline::before { content: '·'; margin-right: 8px; opacity: .7; }
+.refinement-tags .rtg-addline:hover { color: var(--ls-primary-text-color) !important; text-decoration: underline; text-underline-offset: 2px; }
+.refinement-tags .rtg-alsotag { cursor: pointer; }
+.refinement-tags .rtg-alsotag:hover { color: var(--rtg-mid); text-decoration: underline; text-underline-offset: 2px; }
+.refinement-tags .rtg-ptr { cursor: pointer; }
+.refinement-tags .rtg-ptr:hover .rtg-val { text-decoration: underline; text-decoration-color: var(--rtg-border); text-underline-offset: 3px; }
 /* The main view: the tree as a page, scrolled with the page. */
 .refinement-tags-holder.rtg-holder-page { max-width: var(--ls-main-content-max-width, 900px); margin: 0 auto; padding: 24px 12px 80px; }
 /* The sidebar panel: smaller, no title or key list. */
@@ -238,6 +254,8 @@ function createView(doc, mode) {
   view.shown = []; // visible rows in order, for the arrow keys: { key, tag, parent, row, depth }
   view.cursorKey = null;
   view.cursorTag = null; // kept so the cursor finds a tag again after it moved
+  view.cursorSub = null; // the key of one of the tag's own lines last pressed (a property row, the links into it), for the Undo arrow (0.4.306)
+  view.cursorSubIn = null; // the key of the box that line is in
   view.menu = null;
   view.adding = null; // { key, parent } while a new tag is being typed
   view.renaming = null; // key of the row being renamed
@@ -266,7 +284,7 @@ function createView(doc, mode) {
     el(view.doc, 'button', { class: 'rtg-tool', title: 'Unpick them (Esc)', click: () => { view.picked.clear(); view.mark(false); } }, 'Clear'));
   // By tag or by property (0.4.236). The sidebar has the same tools as the page now (the owner: "fully functional").
   const byButton = (on, text, title) => el(view.doc, 'button', { class: 'rtg-tool rtg-by', 'data-by': on ? 'property' : 'tag', title, 'aria-pressed': String(byProp === on),
-    click: () => { if (byProp === on) return; byProp = on; saveBy(); view.cursorKey = null; view.cursorTag = null; view.closeMenu(); for (const draw of openViews) draw(); } }, text);
+    click: () => { if (byProp === on) return; byProp = on; saveBy(); view.cursorKey = null; view.cursorTag = null; view.cursorSub = null; view.closeMenu(); for (const draw of openViews) draw(); } }, text);
   view.byTags = byButton(false, 'Tags', 'Every tag as a tree, with its properties');
   view.byProps = byButton(true, 'Properties', 'Every property once, with the tags that have it');
   view.toggle2 = el(view.doc, 'div', { class: 'rtg-switch', role: 'group', 'aria-label': 'Arrange by' }, view.byTags, view.byProps);
@@ -279,6 +297,17 @@ function createView(doc, mode) {
   view.doc.addEventListener('mousedown', view.onDown, true);
   // Clicking a blank part of the tree gives it the keyboard, for the arrow keys.
   view.box.addEventListener('mousedown', event => { if (!event.target.closest('input, button')) view.box.focus({ preventScroll: true }); });
+  // A press on one of a tag's own lines in the tree (a property row, its open details, the links into the tag) is
+  // remembered, so the Undo arrow of what is changed there sits on that line (0.4.306). The tag row itself, and the
+  // keys, clear it (setCursor, onKey).
+  view.body.addEventListener('mousedown', event => {
+    if (byProp) return;
+    let line = event.target.closest('.rtg-prow, .rtg-pointrow, .rtg-pinfo, .rtg-guide');
+    while (line && !line.dataset.key) line = line.previousElementSibling;
+    if (!line) return;
+    view.cursorSub = line.dataset.key;
+    view.cursorSubIn = line.parentElement?.dataset.key || null;
+  });
 
   // Changes made elsewhere show up here too, unless something is being typed or dragged.
   view.timer = 0;
@@ -388,10 +417,17 @@ let undoCount = 0;
 const MAP_UNDOS = 3;
 function showToast(view, text, undo) {
   if (!undo) { logseq.UI.showMsg(text); return; }
-  const key = view.cursorKey, tagId = view.cursorTag;
+  const key = view.cursorKey, tagId = view.cursorTag, sub = view.cursorSub, subIn = view.cursorSubIn;
   const at = () => {
     if (!view.box?.isConnected) return null;
     const css = view.doc.defaultView.CSS;
+    // A change made on one of the tag's own lines keeps its arrow on that line (0.4.306); with the line gone (the
+    // property taken off), on the tag's row as before.
+    if (sub) {
+      const box = subIn ? view.box.querySelector(`.rtg-kids[data-key="${css.escape(subIn)}"]`) : view.body;
+      const line = box?.querySelector(`:scope > [data-key="${css.escape(sub)}"]`);
+      if (line?.isConnected) return line.querySelector('.rtg-line') || line;
+    }
     const row = (key && view.box.querySelector(`.rtg-row[data-key="${css.escape(key)}"]`)) || (tagId != null && view.shown?.find(i => i.tag?.id === tagId)?.row);
     return row?.isConnected ? row.querySelector('.rtg-line') : null;
   };
@@ -868,9 +904,14 @@ function drawBranch(view, pass, tag, parent, depth, hue, path, keyBase) {
   view.dragRow(row, item);
   const nodes = [row];
   const kidNodes = [];
+  // Under an open tag: its property rows and the links into it, the line of what can be made there (0.4.306; not
+  // while searching, and not under a tag that is only a leaf, so a leaf stays one line), the box for a new tag
+  // being typed, then the tags inside it.
+  const rows = open ? view.propRows(tag) : [];
+  kidNodes.push(...rows);
+  if (open && !pass.q && (rows.length || kids.length) && (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident))) kidNodes.push(view.addsRow(tag, key));
   if (view.adding?.key === key) kidNodes.push(view.addRow(tag));
   if (open) {
-    kidNodes.push(...view.propRows(tag));
     const nextPath = new Set(path).add(tag.id);
     for (const kid of kids) kidNodes.push(...drawBranch(view, pass, kid, tag, depth + 1, hue, nextPath, key));
   }
@@ -893,7 +934,13 @@ function renameBox(view, tag, key) {
 // nodes and tags are inside it is in the name's tooltip.
 function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
   const others = tag.parents.filter(p => p.id !== parent?.id);
-  if (parent && others.length) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ' + others.map(p => '#' + p.title).join(', ')));
+  // Each other parent can be acted on where it is named (0.4.306): go there, take the tag out of it, keep it only here.
+  if (parent && others.length) {
+    const also = el(view.doc, 'span', { class: 'rtg-small rtg-also' }, 'also under ');
+    others.forEach((p, i) => also.append(i ? ', ' : '', el(view.doc, 'span', { class: 'rtg-alsotag', title: `#${tag.title} is also under #${p.title}: click to go there or take it out`,
+      click: event => { event.stopPropagation(); view.setCursor(key, false); view.parentMenu(tag, parent, p, event.currentTarget); } }, '#' + p.title)));
+    line.append(also);
+  }
   if (view.data.sameName.has(tag.title.toLowerCase())) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-same', title: 'Another tag has the same name. Click to merge them.', click: event => { event.stopPropagation(); view.setCursor(key); view.askMerge(tag, parent, event.currentTarget); } }, 'same name as another tag'));
 }
 // Clicks on a row: the cursor, picking, the menu, renaming.
@@ -955,7 +1002,98 @@ function toggle(view, tag) {
 function setCursor(view, key, scroll = true) {
   view.cursorKey = key;
   view.cursorTag = view.shown.find(item => item.key === key)?.tag.id ?? null;
+  view.cursorSub = null;
   view.mark(scroll);
+}
+
+/* An open tag's own lines (0.4.306) */
+// The line that ends a tag's rows: what can be made there, each the same move as the row's menu or its key.
+function addsRow(view, tag, key) {
+  const doc = view.doc;
+  const go = (title, text, run) => el(doc, 'button', { class: 'rtg-addline', title, click: event => { event.stopPropagation(); view.setCursor(key, false); run(event.currentTarget); } }, text);
+  const line = el(doc, 'div', { class: 'rtg-adds', 'data-key': 'adds' });
+  if (!tag.builtIn) line.append(go(`Add one of your properties to #${tag.title} (p)`, '+ Property', at => view.askProperty(tag, at)));
+  line.append(go(`New tag inside #${tag.title} (n)`, '+ Tag inside', () => view.startAdd(tag, key)));
+  if (!tag.builtIn && !tag.desc) line.append(go(`Say what #${tag.title} is for`, '+ Description', at => view.askDescription(tag, at)));
+  return line;
+}
+// The menu of one of a tag's other parents, from "also under #X" on its row: here is the parent the row is under.
+function parentMenu(view, tag, here, other, anchor) {
+  view.showMenu(anchor, `#${tag.title} is also under #${other.title}`, [
+    { html: `Go to #${escapeHtml(other.title)}`, run: () => view.revealTag(other) },
+    { html: `Take #${escapeHtml(tag.title)} out of #${escapeHtml(other.title)}`, run: () => view.takeOut(tag, other) },
+    { html: `Keep it only under #${escapeHtml(here.title)}`, run: () => view.keepOnly(tag, here) },
+    '-', { html: 'Also put under …<kbd>a</kbd>', run: () => view.askAlso(tag, anchor) }]);
+}
+// Puts the cursor on a tag's row, unfolding the tags above it; a tag the tree does not show (searching) opens its page.
+function revealTag(view, tag) {
+  const seen = new Set();
+  for (let up = tag.parents[0]; up && !seen.has(up.id); up = up.parents[0]) { seen.add(up.id); folded.delete(up.uuid); }
+  saveFolded();
+  view.draw();
+  const item = view.shown.find(i => i.tag.id === tag.id);
+  if (item) view.setCursor(item.key); else openTag(tag).catch(error => warnOnce('a tag could not be opened', error));
+}
+// From a link into a tag to the property it is, open under the tag that has it.
+function goToProp(view, giver, prop) {
+  folded.delete(giver.uuid);
+  propsOpen.add(giver.uuid + '|' + prop.id); saveProps();
+  view.revealTag(giver);
+}
+// The links that point at a tag from elsewhere, as the tag's page shows them: each opens its menu (0.4.306).
+function pointerRow(view, tag) {
+  const doc = view.doc, tw = twoWay();
+  const row = el(doc, 'div', { class: 'rtg-pointrow', 'data-key': 'ptr' }, el(doc, 'span', { class: 'rtg-note' }, 'Shows up here as'));
+  for (const prop of tag.pointers) {
+    const on = tw ? tw.shownAtOtherEnd(prop.title) : true;
+    const givers = prop.givenBy?.length ? prop.givenBy.map(t => '#' + t.title).join(', ') : '';
+    row.append(el(doc, 'span', { class: 'rtg-ptr', title: `${prop.title}${givers ? ', filled in on ' + givers : ''}: click to go to it, change how it reads here or turn it off here`,
+      click: event => { event.stopPropagation(); view.pointerMenu(tag, prop, event.currentTarget); } },
+      el(doc, 'span', { class: 'rtg-val' }, tw ? tw.backwardsLabel(prop.title) : prop.title), ' →',
+      givers ? el(doc, 'span', { class: 'rtg-note' }, ` filled in on ${givers}`) : '', on ? '' : el(doc, 'span', { class: 'rtg-off rtg-note' }, ' (turned off)')));
+  }
+  return row;
+}
+function pointerMenu(view, tag, prop, anchor) {
+  const tw = twoWay(), items = [];
+  for (const giver of (prop.givenBy || []).slice().sort(view.data.byTitle)) items.push({ html: `Go to ${escapeHtml(prop.title)} on #${escapeHtml(giver.title)}`, run: () => view.goToProp(giver, prop) });
+  if (tw) {
+    const on = tw.shownAtOtherEnd(prop.title);
+    if (items.length) items.push('-');
+    items.push({ html: 'Change how it reads here …', run: () => view.askWording(tag, prop, anchor) },
+      { html: on ? `Turn off on #${escapeHtml(tag.title)}’s page (the links stay)` : `Turn on on #${escapeHtml(tag.title)}’s page`, run: () => {
+        tw.setShownAtOtherEnd(prop.title, !on);
+        view.showToast(on ? `${prop.title} no longer shows on #${tag.title}’s page; the links stay` : `${prop.title} shows on #${tag.title}’s page again`, () => { tw.setShownAtOtherEnd(prop.title, on); view.draw(); });
+        view.draw();
+      } });
+  }
+  view.showMenu(anchor, `${tw ? tw.backwardsLabel(prop.title) : prop.title} ← ${prop.title}`, items);
+}
+// How a link reads on the page it points to, typed in a small box under the link (the same as the property's own
+// "On the other page" line); empty takes it back to how it reads by itself.
+function askWording(view, tag, prop, anchor) {
+  const tw = twoWay();
+  if (!tw) return;
+  view.closeMenu();
+  const before = tw.backwardsLabel(prop.title);
+  const input = el(view.doc, 'input', { type: 'text', value: before, spellcheck: 'false', 'aria-label': `How ${prop.title} reads on #${tag.title}’s page` });
+  view.menu = el(view.doc, 'div', { class: 'rf-pop refinement-tags-menu', role: 'dialog' }, el(view.doc, 'div', { class: 'rtg-mh rf-pop-head' }, `How ${prop.title} reads on #${tag.title}’s page`), input,
+    el(view.doc, 'div', { class: 'rtg-mnote rf-pop-note' }, 'Enter keeps it, Esc leaves it. Empty: back to how it reads by itself.'));
+  keepKeys(input);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); view.closeMenu(); view.box.focus({ preventScroll: true }); return; }
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    const after = input.value.trim();
+    view.closeMenu(); view.box.focus({ preventScroll: true });
+    if (after === before) return;
+    tw.setBackwards(prop.title, after);
+    view.showToast(after ? `${prop.title} reads “${after}” on #${tag.title}’s page` : `${prop.title} reads as it does by itself on #${tag.title}’s page again`, () => { tw.setBackwards(prop.title, before); view.draw(); });
+    view.draw();
+  });
+  view.doc.body.append(view.paint(view.menu));
+  input.focus(); input.select();
+  view.placeMenu(anchor);
 }
 
 function mark(view, scroll) {
@@ -1100,6 +1238,7 @@ function onKey(view, event) {
     return;
   }
   const { tag, parent } = item;
+  view.cursorSub = null; // a key acts on the tag's row, so its Undo arrow goes there
   const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
   const key = plain ? event.key.toLowerCase() : '';
   const stop = () => { event.preventDefault(); event.stopPropagation(); };
@@ -1184,7 +1323,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
+const CREATEVIEW_FUNCTIONS = [closeMenu, paint, morph, placeMenu, menuKeys, showMenu, pickTag, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, onDown, refresh, destroy];
 
 /* ---------- The main view and the sidebar panel ---------- */
 const ROUTE = '/refinement-tags';

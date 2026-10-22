@@ -5,7 +5,10 @@
      Folding summary away must leave notes with a box of its own, whose Change button speaks of notes;
    - renaming a choice offers Undo, like every other change on the map (0.4.194);
    - the choices panel offers no moving of choices (0.4.193): Logseq 2.0.2 refuses a plugin's move up and garbles a
-     move down (the choice lands last and the property's own page gets the choice as a value).
+     move down (the choice lands last and the property's own page gets the choice as a value);
+   - an open tag's own lines act where they sit (0.4.306): the adds line (+ Property, + Tag inside, + Description, the
+     last gone once a description is written), "also under #Visit" with its menu, "Shows up here as doctor of" with
+     its menu and wording box, each change's Undo arrow on the line that changed, and no box under a leaf.
 
    Needs node and jsdom:   npm install --no-save --no-package-lock jsdom
    Run from the repo root: node tools/tags-test.js   (tools/check.sh runs it when node and jsdom are there) */
@@ -17,16 +20,26 @@ const root = path.resolve(__dirname, '..');
 const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 
+// The pretend graph: #Report with summary, notes and result; #Visit with doctor, a link that accepts #Report (so #Report
+// shows "Shows up here as doctor of"); #Scan inside both (0.4.306). Parents and the description change with the plugin's
+// own calls.
 function pretendLogseq(window) {
   const props = [
     { ':db/id': 20, ':db/ident': ':user.property/summary', ':block/title': 'summary', ':block/uuid': 'p-summary', ':logseq.property/type': ':default', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] },
     { ':db/id': 21, ':db/ident': ':user.property/notes', ':block/title': 'notes', ':block/uuid': 'p-notes', ':logseq.property/type': ':default', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] },
     { ':db/id': 22, ':db/ident': ':user.property/result', ':block/title': 'result', ':block/uuid': 'p-result', ':logseq.property/type': ':default', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] },
+    { ':db/id': 23, ':db/ident': ':user.property/doctor', ':block/title': 'doctor', ':block/uuid': 'p-doctor', ':logseq.property/type': ':node', ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [{ ':db/id': 10 }] },
   ];
   const choices = [['c-normal', 'Normal', 'a1'], ['c-abnormal', 'Abnormal', 'a2'], ['c-unclear', 'Unclear', 'a3']].map(([uuid, title, order]) => ({ uuid, title, order }));
   window.pretendChoices = choices;
   const ref = p => ({ ':db/id': p[':db/id'], ':db/ident': p[':db/ident'], ':block/title': p[':block/title'], ':block/uuid': p[':block/uuid'] });
-  const tags = [{ ':db/id': 10, ':db/ident': ':user.class/Report', ':block/uuid': 't-Report', ':block/title': 'Report', ':logseq.property.class/extends': [], ':logseq.property.class/properties': props.map(ref) }];
+  const tags = [
+    { ':db/id': 10, ':db/ident': ':user.class/Report', ':block/uuid': 't-Report', ':block/title': 'Report', parents: [], desc: '', props: props.slice(0, 3).map(ref) },
+    { ':db/id': 11, ':db/ident': ':user.class/Visit', ':block/uuid': 't-Visit', ':block/title': 'Visit', parents: [], desc: '', props: [ref(props[3])] },
+    { ':db/id': 12, ':db/ident': ':user.class/Scan', ':block/uuid': 't-Scan', ':block/title': 'Scan', parents: [10, 11], desc: '', props: [] },
+  ];
+  const byUuid = uuid => tags.find(t => t[':block/uuid'] === uuid);
+  const row = t => ({ ...t, ':logseq.property.class/extends': t.parents.map(id => ({ ':db/id': id })), ':logseq.property.class/properties': t.props, ':logseq.property/description': t.desc ? { ':block/title': t.desc } : null });
   const settings = { tagTreeRoots: 'Report', twoWayNames: '', twoWayOneEnd: '' };
   window.pretendTags = tags;
   window.parent = window;
@@ -35,12 +48,24 @@ function pretendLogseq(window) {
     DB: { datascriptQuery: async q => q.includes('logseq.property/classes [') ? props.map(p => [p])
       : q.includes('(pull ?v [:block/uuid :block/title :block/order])') ? choices.map(c => [{ ':block/uuid': c.uuid, ':block/title': c.title, ':block/order': c.order }])
       : q.includes('closed-value') ? choices.map(c => [22, { ':block/title': c.title, ':block/order': c.order }])
-      : q.includes('class/extends [:db/id]') ? tags.map(t => [t])
+      : q.includes('class/extends [:db/id]') ? tags.map(t => [row(t)])
+      : q.includes('logseq.property/description ?d') ? (byUuid(/#uuid "([^"]+)"/.exec(q)?.[1])?.desc ? [[byUuid(/#uuid "([^"]+)"/.exec(q)[1]).desc]] : [])
       : q.includes('count') ? [[10, 3]] : [], onChanged: () => () => {} },
     UI: { showMsg() {} }, App: { pushState() {} },
-    Editor: { openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; } },
+    Editor: {
+      openInRightSidebar() {}, updateBlock: async (uuid, title) => { const c = choices.find(c => c.uuid === uuid); if (c) c.title = title; },
+      addTagExtends: async (uuid, parent) => { const t = byUuid(uuid), p = byUuid(parent); if (!t.parents.includes(p[':db/id'])) t.parents.push(p[':db/id']); },
+      removeTagExtends: async (uuid, parent) => { const t = byUuid(uuid); t.parents = t.parents.filter(id => id !== byUuid(parent)[':db/id']); },
+      upsertBlockProperty: async (uuid, key, value) => { if (key === 'logseq.property/description') byUuid(uuid).desc = value; },
+      removeBlockProperty: async (uuid, key) => { if (key === 'logseq.property/description') byUuid(uuid).desc = ''; else if (key === 'logseq.property.class/extends') byUuid(uuid).parents = []; },
+    },
   };
-  window.refinementCore = { provided: { backwardsLabel: n => n + ' of', setBackwards() {}, shownAtOtherEnd: () => true, setShownAtOtherEnd() {} } };
+  // The two-way part's wordings, as the map reads and sets them.
+  const wordings = {}, off = new Set();
+  window.pretendWordings = wordings;
+  // As parts/two-way.js does: a wording that is the plain reading again needs no pair.
+  window.refinementCore = { provided: { backwardsLabel: n => wordings[n] || n + ' of', setBackwards(n, text) { if (text && text !== n + ' of') wordings[n] = text; else delete wordings[n]; },
+    shownAtOtherEnd: n => !off.has(n), setShownAtOtherEnd(n, on) { if (on) off.delete(n); else off.add(n); } } };
 }
 
 const until = async test => { for (let i = 0; i < 50; i++) { const found = test(); if (found) return found; await new Promise(r => setTimeout(r, 10)); } return null; };
@@ -49,8 +74,9 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="stage"></div></body></html>', { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   window.addEventListener('error', event => problem('error in the page: ' + (event.error?.stack || event.message)));
-  // Both properties open before the map is drawn, the way the map remembers them.
-  window.localStorage.setItem('refinement-tags-props-open', JSON.stringify(['t-Report|20', 't-Report|21']));
+  // Both properties open before the map is drawn, the way the map remembers them; #Visit's doctor too (its box has the
+  // "On the other page" line, for the Undo arrow check of 0.4.306).
+  window.localStorage.setItem('refinement-tags-props-open', JSON.stringify(['t-Report|20', 't-Report|21', 't-Visit|23']));
   pretendLogseq(window);
   const source = fs.readFileSync(path.join(root, 'parts/tags.js'), 'utf8');
   const exposed = source.replace(/\}\)\(\);\s*$/, 'window.__createView = createView; })();');
@@ -110,6 +136,124 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
         await until(() => window.pretendChoices[2].title === 'Unclear');
         if (window.pretendChoices[2].title !== 'Unclear') problem(`Undo after renaming a choice left “${window.pretendChoices[2].title}”`);
       }
+    }
+  }
+  /* An open tag's own lines, editable where they sit (0.4.306): the adds line (+ Property, + Tag inside, + Description),
+     "also under #Visit" with its menu, the "Shows up here as" line with its menu and wording box, the Undo arrow on
+     the line that changed, and no adds line under a leaf. */
+  {
+    const tagRow = name => [...doc.querySelectorAll('.rtg-row:not(.rtg-prow)')].find(r => r.querySelector(':scope > .rtg-main .rtg-name')?.textContent === name);
+    const kidsOf = row => row?.nextElementSibling?.classList.contains('rtg-kids') ? row.nextElementSibling : null;
+    const menuButton = text => [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.startsWith(text));
+    const press = node => { node.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })); node.click(); };
+    const key = (node, k) => node.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true }));
+    const arrowOn = node => node?.querySelector(':scope > .rtg-main .rtg-line .rf-undo, :scope > .rf-undo, :scope > .rtg-line .rf-undo') || null;
+    const report = tagRow('Report'), kids = kidsOf(report);
+    const adds = kids?.querySelector(':scope > .rtg-adds');
+    const addsText = () => [...(adds?.querySelectorAll('button') || [])].map(b => b.textContent).join(' · ');
+    if (!adds) problem('#Report has no adds line under its rows');
+    else if (addsText() !== '+ Property · + Tag inside · + Description') problem(`#Report’s adds line reads “${addsText()}”`);
+    // With the inherited properties hidden #Scan is a leaf: one line, no box of lines under it.
+    const tool = text => [...doc.querySelectorAll('.rtg-tool')].find(b => b.textContent === text);
+    tool('Hide inherited')?.click();
+    if (kidsOf(tagRow('Scan'))) problem('#Scan, a leaf, got a box of lines under it');
+    tool('Show inherited')?.click();
+    if (!kidsOf(tagRow('Scan'))?.querySelector(':scope > .rtg-adds')) problem('#Scan with its inherited rows shown has no adds line');
+    if (kids && kids.querySelector(':scope > .rtg-adds') !== [...kids.children].filter(n => n.matches('.rtg-prow, .rtg-pinfo, .rtg-pointrow, .rtg-adds')).at(-1)) problem('the adds line is not the last of #Report’s own lines');
+    // + Description: the box, Enter writes it, the arrow sits on #Report’s row, the line shows and the button goes; Undo takes it back.
+    adds?.querySelector('button:last-child')?.click();
+    const desc = doc.querySelector('.rtg-descbox textarea');
+    if (!desc) problem('+ Description opened no box');
+    else {
+      desc.value = 'Findings from a lab or a scan'; key(desc, 'Enter');
+      await until(() => window.pretendTags[0].desc && tagRow('Report')?.querySelector(':scope > .rtg-main .rtg-desc'));
+      if (window.pretendTags[0].desc !== 'Findings from a lab or a scan') problem('+ Description wrote nothing');
+      const line = tagRow('Report')?.querySelector(':scope > .rtg-main .rtg-desc');
+      if (!line) problem('the new description is not drawn under #Report');
+      const arrow = tagRow('Report')?.querySelector(':scope > .rtg-main .rtg-line .rf-undo');
+      if (!arrow) problem('the Undo arrow of the description is not on #Report’s row');
+      const now = kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-adds');
+      if (now && /Description/.test(now.textContent)) problem('+ Description is still offered with a description written');
+      arrow?.click();
+      await until(() => !window.pretendTags[0].desc);
+      if (window.pretendTags[0].desc) problem('Undo left the description');
+    }
+    // + Property opens the property picker; + Tag inside opens the line to type in, right under the adds line.
+    kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-adds button')?.click();
+    const head = (await until(() => doc.querySelector('.refinement-tags-menu .rtg-mh')))?.textContent || '';
+    if (head !== 'Add a property to #Report') problem(`+ Property opened “${head}”`);
+    await until(() => menuButton('doctor'));
+    if (!menuButton('doctor')) problem('+ Property does not list doctor, the property #Report lacks');
+    key(doc.querySelector('.refinement-tags-menu input') || doc.body, 'Escape');
+    if (doc.querySelector('.refinement-tags-menu')) problem('Escape did not close the property picker');
+    [...kidsOf(tagRow('Report')).querySelectorAll(':scope > .rtg-adds button')].find(b => b.textContent === '+ Tag inside')?.click();
+    const addRow = await until(() => kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-adds + .rtg-addrow input'));
+    if (!addRow) problem('+ Tag inside opened no line to type in under the adds line');
+    else { key(addRow, 'Escape'); if (kidsOf(tagRow('Report'))?.querySelector('.rtg-addrow')) problem('Escape did not close the new tag line'); }
+    // "also under #Visit" on #Scan’s row under #Report: its menu takes #Scan out of #Visit, the arrow on #Scan’s row; Undo puts it back.
+    const scan = kidsOf(tagRow('Report'))?.querySelector('.rtg-row:not(.rtg-prow)');
+    const also = scan?.querySelector('.rtg-alsotag');
+    if (also?.textContent !== '#Visit') problem(`#Scan under #Report shows “${also?.textContent}” instead of a clickable #Visit`);
+    else {
+      press(also);
+      if (!menuButton('Go to #Visit') || !menuButton('Keep it only under #Report')) problem('the parent menu lacks Go to or Keep only');
+      menuButton('Take #Scan out of #Visit')?.click();
+      await until(() => window.pretendTags[2].parents.length === 1);
+      if (window.pretendTags[2].parents.join() !== '10') problem(`taking #Scan out of #Visit left its parents ${window.pretendTags[2].parents}`);
+      // The row is drawn again after the change, so it is looked up each time.
+      const arrow = await until(() => kidsOf(tagRow('Report'))?.querySelector('.rtg-row:not(.rtg-prow)')?.querySelector(':scope > .rtg-main .rtg-line .rf-undo'));
+      if (!arrow) problem('the Undo arrow of taking #Scan out is not on #Scan’s row');
+      arrow?.click();
+      await until(() => window.pretendTags[2].parents.length === 2);
+      if (window.pretendTags[2].parents.join() !== '10,11') problem(`Undo left #Scan’s parents ${window.pretendTags[2].parents}`);
+    }
+    // "Shows up here as doctor of →" under #Report: its menu, the wording box (the arrow on that line), turning it off.
+    const ptr = kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-ptr');
+    if (ptr?.querySelector('.rtg-val')?.textContent !== 'doctor of') problem(`the links into #Report read “${ptr?.textContent}”`);
+    else {
+      press(ptr);
+      if (!menuButton('Go to doctor on #Visit') || !menuButton('Turn off on #Report')) problem('the link’s menu lacks Go to or Turn off');
+      menuButton('Change how it reads here')?.click();
+      const box = doc.querySelector('.refinement-tags-menu input');
+      if (box?.value !== 'doctor of') problem(`the wording box holds “${box?.value}”`);
+      else {
+        box.value = 'seen by'; key(box, 'Enter');
+        await until(() => window.pretendWordings.doctor === 'seen by' && kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-val')?.textContent === 'seen by');
+        if (window.pretendWordings.doctor !== 'seen by') problem('the wording box set nothing');
+        const line = kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow');
+        if (line?.querySelector('.rtg-val')?.textContent !== 'seen by') problem('the links line does not show the new wording');
+        const arrow = line?.querySelector(':scope > .rf-undo');
+        if (!arrow) problem('the Undo arrow of the wording is not on the links line');
+        arrow?.click();
+        await until(() => !window.pretendWordings.doctor);
+        if (window.pretendWordings.doctor) problem('Undo left the wording');
+      }
+      const again = kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-ptr');
+      press(again);
+      menuButton('Turn off on #Report')?.click();
+      await until(() => kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off'));
+      if (!kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off')) problem('turning the link off here is not shown as (turned off)');
+      kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow > .rf-undo')?.click();
+      await until(() => !kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off'));
+      if (kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off')) problem('Undo did not turn the link on again');
+      // Go to: the cursor lands on #Visit with doctor open under it.
+      press(kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-ptr'));
+      menuButton('Go to doctor on #Visit')?.click();
+      if (!tagRow('Visit')?.classList.contains('rtg-current')) problem('Go to doctor on #Visit did not put the cursor on #Visit');
+      if (!kidsOf(tagRow('Visit'))?.querySelector(':scope > .rtg-prow + .rtg-pinfo')) problem('Go to doctor on #Visit did not open doctor’s details');
+    }
+    // A change made in a property’s own box (how doctor reads on the other page, under #Visit) keeps its arrow on that property’s row.
+    const words = kidsOf(tagRow('Visit'))?.querySelector('.rtg-pinfo .rtg-words');
+    if (!words) problem('#Visit’s doctor box has no "On the other page" line');
+    else {
+      words.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })); words.focus();
+      words.value = 'done by'; key(words, 'Enter'); words.blur();
+      await until(() => window.pretendWordings.doctor === 'done by');
+      const arrow = await until(() => kidsOf(tagRow('Visit'))?.querySelector(':scope > .rtg-prow > .rtg-main .rtg-line .rf-undo'));
+      if (!arrow) problem('the Undo arrow of a change in doctor’s box is not on doctor’s row under #Visit');
+      arrow?.click();
+      await until(() => !window.pretendWordings.doctor);
+      if (window.pretendWordings.doctor) problem('Undo left the wording set in the box');
     }
   }
   // Groups of properties (0.4.243): only in the Properties view, kept in the propertyGroups setting by name; a
@@ -180,5 +324,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; an open tag’s adds line, its parents and the links into it act where they sit, with Undo on that line; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

@@ -2,6 +2,31 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The Tags view editable in place, one shape with the Properties view (0.4.306)
+
+**Asked:** the owner, through the "Properties page usability and editing" session: "can you create a separate session
+that consolidated the design and editability of the tags trees": a tag is a bullet, what can be changed about it on its
+own lines or on the row, visible without hunting through menus; every edit that exists kept. **Built:** `parts/tags.js`
+only (the Properties view's session owns `parts/tags-props.js`; nothing there changed). `addsRow`: a `.rtg-adds` line
+after an open tag's property rows and links, plain faint text, `+ Property` (`askProperty`), `+ Tag inside`
+(`startAdd`; the typing line now sits right after the adds line, before the tags inside), `+ Description`
+(`askDescription`, only with none); not while searching, not under a tag with no rows and no kids. `rowLabels`: each
+parent in "also under" is `.rtg-alsotag` opening `parentMenu` (Go to, Take out, Keep only here, Also put under…;
+`revealTag` unfolds the way to a tag and puts the cursor on it). `pointerRow` moved here from `tags-props.js` (the one
+there is left as it was, unused): each link is `.rtg-ptr` opening `pointerMenu` (Go to the property on each tag that
+has it, `goToProp`; Change how it reads here…, `askWording`, a `.rf-pop` with one field; Turn off / on here). Undo on the
+line that changed: a mousedown on a property row, its open box, its guide or the links line remembers that line's key
+and box (`view.cursorSub`, `cursorSubIn`; cleared by `setCursor` and by a key on the tag's row); `showToast` captures
+them and its `at()` looks for that line first, the tag's row second. Dashed `.rtg-make` buttons were tried for the
+adds line first and dropped after the picture: too heavy fourteen times over. **Checks:** `tools/tags-test.js` extended
+(a pretend #Visit with doctor, a link accepting #Report; #Scan under both; a description written and read back; the
+two-way wordings kept as `parts/two-way.js` keeps them): the adds line and its three moves, no box under a leaf,
+the parent menu with Undo on #Scan's row, the links menu, the wording box with Undo on the links line, turning off
+and on, Go to, and a change in a property's own box with Undo on that property's row. Ran: tags-test, tag-drag-test,
+parts-apart-test, pictures (tag map re-approved after looking, light and dark), then `sh tools/check.sh` in full
+(node and jsdom through a link to the main checkout's node_modules). **Seen:** the pictures only; Logseq itself was
+held by the other session at the time of the commit, so the look in the app is not checked yet.
+
 ## 2026-10-22 · Date first or name first, per property, by right-click (0.4.304)
 
 **Asked:** the owner: "allow name or date to be chosen for each group through a right click" (after asking why
