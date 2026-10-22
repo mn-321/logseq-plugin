@@ -804,4 +804,4 @@ Version 0.4.61 (2026-10-16, cleanup) makes the documents agree. README.md descri
 
 0.4.289: the link box (Cmd+Option+L) is 420 px wide instead of 520, and its text field is the size of Logseq's own box for a property value: 32 px tall with 14 px text (33.5 px and 15 px before), measured in headless Chromium beside the sizes measured in the app at 0.4.284. Its heading is 23 px tall instead of 27 (the kit, 0.4.285). Only read, not seen on screen.
 
-0.4.290: the link box (Cmd+Option+L) is 420 px wide instead of 520, and its text field is the size of Logseq's own box for a property value: 32 px tall with 14 px text (33.5 px and 15 px before), measured in headless Chromium beside the sizes measured in the app at 0.4.284. Its heading is 23 px tall instead of 27 (the kit, 0.4.285). Only read, not seen on screen.
+0.4.290: the settings window trimmed: 800 × 640, narrower edges and rows (header 52 px tall instead of 60, a setting's row 58 instead of 64, the side list's rows 29 instead of 33, the footer 42 instead of 50), still in the middle of the window since it is about no one thing on the page. Measured in headless Chromium only; not seen in Logseq.
