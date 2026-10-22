@@ -86,7 +86,7 @@ ${mapHeader(true)}
   ${tagRow('Occurrence', '7 tags inside', true, 0, false, true)}
   ${tagRow('Consultation', '12 nodes', true, 1, true)}
     ${pRow('Provider', 'link', 'Doctor', '', 1)}
-    ${pRow('Topic', 'link', 'Topic kind', ` <span class="px-kindicon" title="Several values">${T('stack-2')}</span>`, 1)}
+    ${pRow('Topic', 'link', 'Topic kind', ``, 1)}
     ${pRow('Date', 'date', '', '', 1, 'Occurrence')}
     <div class="pv-ptr" style="padding-left:66px"><span class="px-note">Shows up here as</span> <span class="pv-ptrlink">provider of</span><span class="px-note">on Doctor</span> · <span class="pv-ptrlink">topic of</span><span class="px-note">on Topic kind</span></div>
     <div class="px-adds px-adds-hover" style="padding-left:66px"><button class="px-quiet px-faint">+ Property</button><button class="px-quiet px-faint">+ Tag inside</button><button class="px-quiet px-faint">+ Description</button></div>
@@ -107,14 +107,14 @@ ${mapHeader(false)}
   <div class="pv-group">Clinical</div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Provider</span><a class="tag px-lstag" href="#">Doctor</a><span class="px-note">on 2 tags</span><button class="px-quiet pv-info">${T('info-circle')}</button></div>
   <div class="pv-pinfo">
-    ${lineOf('Value', `a link to a ${tag('Doctor')} node <button class="px-quiet px-faint">Change…</button>`)}
+    ${lineOf('Value', `a link to a ${tag('Doctor')} node, one <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('On tags', `${tag('Consultation')}<button class="px-quiet pv-x">${T('x')}</button> ${tag('Treatment')}<button class="px-quiet pv-x">${T('x')}</button> <button class="px-quiet px-faint">+ Tag</button>`)}
     ${lineOf('Links to', `${tag('Doctor')} <span class="px-note">nodes, and the tags inside it</span> <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Seen from Doctor as', `<span class="pv-ptrlink">provider of</span> <span class="px-note">a row on every Doctor node</span> <button class="px-quiet px-faint">Reword…</button> <button class="px-quiet px-faint">Turn off</button>`)}
     ${lineOf('Group', `Clinical <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Nodes with it', `<button class="px-quiet px-faint">show nodes</button>`)}
   </div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a> <span class="px-kindicon">${T('stack-2')}</span><span class="px-note">on 15 tags</span></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a><span class="px-note">on 15 tags</span></div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('select')}</span><span class="pv-pn">Status</span><span class="px-plainv">Open · Met · Closed</span><span class="px-note">on Expectation</span></div>
   <div class="pv-group">Timing</div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('calendar')}</span><span class="pv-pn">Date</span><span class="px-note">on Occurrence, from there on 7 tags</span></div>
@@ -337,7 +337,7 @@ mark.pv-sel { background: color-mix(in srgb, var(--px-fg) 18%, transparent); col
 
   ${view('tags', 'The tag map: Tags', 'The map as an outline of tags. Find field as an underline, Tags | Properties with a hairline between, the tools as quiet words. Under an open tag: its properties with their kind as an icon and what they accept in italic, inherited ones faded with where they come from, the “Shows up here as” line, and the faint line of what can be made.', tagsView, [
     '<b>Rows are the outline:</b> a chevron, the name, a faint count. Top-level tags a little bolder. The + and ⋯ on a row appear on hover.',
-    '<b>A property row</b> reads kind icon, name, what it accepts; a second icon when it holds several; “from Occurrence” faint on an inherited one; the info icon on hover opens the help paragraph under it.',
+    '<b>A property row</b> reads kind icon, name, what it accepts; “from Occurrence” faint on an inherited one; the info icon on hover opens the help paragraph under it.',
     '<b>“Shows up here as”</b> names the two-way wordings as underlined words; a click opens the small pop-up to reword or turn off.',
     '<b>“+ Property · + Tag inside · + Description”</b> is faint under the open tag, full when the pointer is on it; each opens a line in place (see “An action in stages” on the elements page).',
   ])}
@@ -345,7 +345,7 @@ mark.pv-sel { background: color-mix(in srgb, var(--px-fg) 18%, transparent); col
   ${view('props', 'The tag map: Properties', 'The map turned round: every property once, in your groups, with the tags that have it. An open property’s lines say, in plain words, what it holds, which tags have it, what it links to, how it is seen from the other end, its group and its nodes; every change is a quiet word at the end of its line.', propsView, [
     '<b>Groups</b> are small uppercase labels, nothing else; drag a property between them.',
     '<b>An open property</b> lists Value, On tags, Links to, Seen from Doctor as, Group and Nodes with it. Each line ends in the quiet word that changes it: Change…, + Tag, Reword…, Turn off, show nodes. The × on a tag appears on hover.',
-    '<b>Kinds are icons:</b> link, choice, date, number; a stack icon for “several”.',
+    '<b>Kinds are icons:</b> link, choice, date, number. Whether a property holds one value or several is said in words on its Value line.',
     '<b>+ New property</b> and <b>+ Group</b> are faint at the bottom; + New property walks name, kind and tag on one line, then makes it through Logseq’s own box.',
   ])}
 

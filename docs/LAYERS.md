@@ -54,7 +54,8 @@ count per kind. Layers 4 to 6 are not started.
 - **Property names lighter than their values**, on pills under a bullet and on page rows alike.
 - **A value's kind is an icon left of the property's name**: a plain arrow to the right for "points to a node" (the
   same arrow as after a two-way row's name; not the `[[ ]]` of a link in the words, not an arrow leaving), a calendar
-  for a date, a box with a chevron for a choice, 123 for a number, Aa for text, a stack for "several".
+  for a date, a box with a chevron for a choice, 123 for a number, Aa for text. Whether it holds several is said in
+  words on the Properties view's Value line, never as a mark on a row.
 - **Nothing is assumed about a new node's tag.** The + after a two-way row opens a line to type the name; Enter then
   offers the tags the property accepts as quiet words, the most used first, and "no tag"; a property that accepts one
   tag skips that step (the owner: a property can take many kinds of page).
@@ -94,7 +95,7 @@ in the system's colours, not ours to choose.
 | Dialog dressing | the browser's dialog in the kit's colours; settings only | taste |
 | Three buttons | **quiet** (greyed words or an icon, no edge, lit on hover), **go** (the one that does what was asked: text colour, bold, a faint underline), **pressed** (a quiet button kept in the text colour while in force). No fills, no edges. | taste |
 | One field | a real text box drawn as a hairline underneath, firmer while typing; optional icon left and key hint right; inline on a line. One exception: the link box's field is drawn, not real, so keystrokes keep going to the bullet and Cmd+Z works; it wears the same look. | taste |
-| Tick box | the browser's checkbox as a small rounded square, hairline edge; when on, a rounded shape of its own form fills it with a thin gap to the edge | taste |
+| Tick box | the browser's checkbox as a small rounded square, hairline edge; a small check mark inside when on | taste |
 | Words for chips | a filter is a greyed word, the one in force in the text colour; a removable item is a word with a × on hover; no pill | only the × is behaviour |
 | Picking bar | the count with its tick box, then the actions as quiet words with icons, on one line above the list with a hairline under it; Escape clears; stays while the list scrolls | needed |
 | Hover card | a node's preview: title, tag, day, properties, first lines, each clickable; 10/12 px edge, 4 px between rows, a hairline before the lines; a browser popover of the hint kind | needed |
