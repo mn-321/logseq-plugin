@@ -58,8 +58,10 @@ count per kind. Layers 4 to 6 are not started.
 - **An action happens in stages**, one thing appearing after the other, in place, never as a window of everything at
   once. The elements page shows adding a property to a tag in four stages: faint "+ Property" on hover, a line opens
   to type the name, Enter shows the kinds as quiet words on the same line, Enter again makes it with a faded Undo arrow.
-- **Italic is only for a value the proposals pencil in.** Nothing else is italic: what a property accepts is its
-  tags in mono, a choice list is quiet words.
+- **Italic is only for a value the proposals pencil in, and every such value has a dotted line under it**, whether the
+  plugin was sure or guessing (the owner, late on 22 October: "they are essentially the same thing"; today only a guess
+  has the line). The keys stay: Enter takes all, a click away only the sure ones, Option-Enter stops on each guess.
+  Nothing else is italic: what a property accepts is its tags in mono, a choice list is quiet words.
 - **Everything on a row sits on one set of columns**: days where Logseq's values start, names at one edge, tags at
   the right edge, tick boxes and fold chevrons in the margin.
 - **Undo is the faded arrow** at the end of what changed; waiting at the bottom right-hand corner when nothing is left

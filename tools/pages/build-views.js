@@ -71,7 +71,7 @@ const outline = `
 <div class="pv-titlebar"><h1 class="pv-title">Oct 22nd, 2026</h1></div>
 <div class="pv-blocks">
   ${bullet('Bloods came back fine, cycle 5 on Monday. <span class="px-undo">' + T('arrow-back-up') + '</span><div class="pv-pills">' + pill('Tags', tag('Report')) + pill('Date', '22 Oct') + pill('Findings', 'Normal') + '</div>')}
-  ${bullet('Spoke with <a class="px-record" href="#">Dr. Mei Chen</a> about the next scan, on Friday<span class="pv-caret"></span><div class="pv-pills">' + pill('Spoke with', 'Dr. Mei Chen', 'rfs-ghost') + pill('Topic', 'Scan', 'rfs-guess') + pill('Date', '24 Oct', 'rfs-guess') + pill('Tags', `<span class="px-monotag">Conversation</span>`, 'rfs-guess', true) + '</div>', 'pv-editing')}
+  ${bullet('Spoke with <a class="px-record" href="#">Dr. Mei Chen</a> about the next scan, on Friday<span class="pv-caret"></span><div class="pv-pills">' + pill('Spoke with', 'Dr. Mei Chen', 'rfs-guess') + pill('Topic', 'Scan', 'rfs-guess') + pill('Date', '24 Oct', 'rfs-guess') + pill('Tags', `<span class="px-monotag">Conversation</span>`, 'rfs-guess', true) + '</div>', 'pv-editing')}
   ${bullet('<span class="px-faint">Nausea again in the evening</span>')}
 </div>
 <div class="pv-keys"><span><kbd>Enter</kbd> fills in everything shown, guesses too</span><span><kbd>⌥ Enter</kbd> stops on each guess to check it</span><span><kbd>Esc</kbd> clears them until you type again</span></div>`;
@@ -328,8 +328,8 @@ mark.pv-sel { background: color-mix(in srgb, var(--px-fg) 18%, transparent); col
     '<b>“earlier”</b> is a hairline between what is to come and what has been.',
   ])}
 
-  ${view('outline', 'An outline being written', 'A journal page. The bullet being written has its own properties under it, Logseq’s pills, and the plugin pencils in what it can: a sure value in italic grey, a guess with a dotted line, a tag guess in mono without #. The bullet above was filled a moment ago and keeps its faded Undo arrow.', outline, [
-    '<b>Property names</b> are lighter than their values, on pills and on page rows alike. <b>Sure values</b> (the page named in the words) are italic grey; <b>guesses</b> (the topic from the nodes this looks like, the date from “on Friday”) add a dotted line.',
+  ${view('outline', 'An outline being written', 'A journal page. The bullet being written has its own properties under it, Logseq’s pills, and the plugin pencils in what it can, every value italic grey with a dotted line under it, a tag in mono without #. The bullet above was filled a moment ago and keeps its faded Undo arrow.', outline, [
+    '<b>Property names</b> are lighter than their values, on pills and on page rows alike. <b>Every proposed value</b> looks the same: italic grey with a dotted line, whether the plugin was sure (the page named in the words) or guessing (the topic from the nodes this looks like, the date from “on Friday”).',
     '<b>A tag guess</b> is a made pill that looks like Logseq’s, the tag in mono without #.',
     '<b>Enter</b> fills in everything shown; <b>Option-Enter</b> stops on each guess; <b>Escape</b> clears them until you type again. The keys line at the bottom is for this page only, not drawn in Logseq.',
     '<b>The Undo arrow</b> stays at the end of the bullet above until it is edited again or the page is left.',

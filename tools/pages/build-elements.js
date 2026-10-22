@@ -278,7 +278,7 @@ const summary = `
 <tr><td><a href="#peek">Hover card</a></td><td>1 + tooltips</td><td>same</td><td>kit card; the browser’s tooltip for hints</td></tr>
 <tr><td><a href="#icons">Icon</a></td><td>18 in 4 files</td><td>0 drawn by the plugin</td><td>Logseq’s own icon font (Tabler)</td></tr>
 <tr><td><a href="#undo">Undo</a></td><td>1 (+ the old bar)</td><td>1; the bar deleted</td><td>kit</td></tr>
-<tr><td><a href="#ghost">Proposed value</a></td><td>2</td><td>2</td><td>Logseq’s own pills, two marks</td></tr>
+<tr><td><a href="#ghost">Proposed value</a></td><td>2</td><td>1</td><td>Logseq’s own pills, one mark</td></tr>
 <tr><td><a href="#help">Quiet words, help</a></td><td>4</td><td>2</td><td>kit</td></tr>
 </tbody></table>`;
 
@@ -494,7 +494,7 @@ ${css('picker')}
   <section id="how">
     <h2>How I chose</h2>
     <div class="prose">
-      <p><b>Rule zero, yours:</b> the plugin fades away. Things are told apart by weight and grey, not by boxes, pills or fills. An action happens in stages, one thing appearing after the other, in place, never as a window of everything at once. Every choice below is measured against that first.</p>
+      <p><b>Rule zero, yours:</b> the plugin fades away. Things are told apart by weight and grey, not by boxes, pills or fills. An action happens in stages, one thing appearing after the other, in place, never as a window of everything at once. Every choice below is measured against that first. Italic is only for a value the proposals pencil in, always with a dotted line under it; nothing else is italic.</p>
       <p><b>No colour of the plugin’s own.</b> The kit uses only greys mixed from Logseq’s text colour, Logseq’s own pop-up colours and the tag grey, in both themes. The green and blue on this page are the page’s inks for “proposed” and “note”; they never reach Logseq. Today’s code carries a violet accent, four hues in the tag map, an orange for warnings and a few blues in the settings window; all of them go.</p>
       <p>Then, three places an element can come from, tried in this order. The further down the list, the more of the plugin’s own code it costs, and code is what drifts and breaks.</p>
       <ol>
@@ -599,10 +599,10 @@ ${css('picker')}
     'the old Undo bar'),
   [])}
 
-  ${section('ghost', 'Proposed values', '2', 'What the proposals draw inside a bullet’s own properties, and a pill they make to look like Logseq’s.', ghost, '', rec('Keep: Logseq’s pill, two marks; a proposed tag in mono without the #',
-    'A proposed value lives inside Logseq’s own property pill, in italic grey; a guess adds a dotted line. The made pill copies Logseq’s pill classes so that it sits in Logseq’s own row. A proposed tag in the Tags pill reads in mono without the # (you: “mono without #”), as Logseq itself shows a tag inside its pill.',
-    'The two looks are two meanings (sure, guessed), which you chose. Copying Logseq’s pill classes is the one place the plugin wears Logseq’s own component, and it is worth the version risk because the value must sit exactly where Logseq’s own will; a kit pill beside it would jump when Logseq’s replaced it.'),
-  [prop(`<div class="ls-block" style="font-size:14px"><div class="positioned-properties block-below flex flex-col gap-1 text-sm"><div class="bottom-properties-row" style="display:flex;gap:10px"><span class="bottom-property-pill"><span class="property-key-inner" style="opacity:.7">Tags:</span><span class="bottom-property-content"><span class="rfs-ghost rfs-guess px-monotag">Consultation</span></span></span></div></div></div>`, 'a proposed tag: mono, no #, grey and upright, with the dotted line of a guess')])}
+  ${section('ghost', 'Proposed values', '2', 'What the proposals draw inside a bullet’s own properties, and a pill they make to look like Logseq’s.', ghost, '', rec('Keep Logseq’s pill; one mark for every proposed value; a proposed tag in mono without the #',
+    'A proposed value lives inside Logseq’s own property pill, in italic grey with a dotted line under it, whether the plugin is sure of it or guessing (you: “underline them both with a dotted line, they are essentially the same thing, keep them both italic”); today only a guess has the line. The made pill copies Logseq’s pill classes so that it sits in Logseq’s own row. A proposed tag in the Tags pill reads in mono without the # (you: “mono without #”), as Logseq itself shows a tag inside its pill. The keys stay as they are: Enter takes all, a click away only the sure ones, Option-Enter stops on each guess.',
+    'One look says “the plugin wrote this, not you”, which is what matters; whether it was sure is not worth a second look. Copying Logseq’s pill classes is the one place the plugin wears Logseq’s own component, and it is worth the version risk because the value must sit exactly where Logseq’s own will; a kit pill beside it would jump when Logseq’s replaced it.'),
+  [prop(`<div class="ls-block" style="font-size:14px"><div class="positioned-properties block-below flex flex-col gap-1 text-sm"><div class="bottom-properties-row" style="display:flex;gap:10px;flex-wrap:wrap"><span class="bottom-property-pill"><span class="property-key-inner" style="opacity:.5">Provider:</span> <span class="bottom-property-content"><span class="rfs-ghost rfs-guess">Dr. Mei Chen</span></span></span><span class="bottom-property-pill"><span class="property-key-inner" style="opacity:.5">Topic:</span> <span class="bottom-property-content"><span class="rfs-ghost rfs-guess">Scan results</span></span></span><span class="bottom-property-pill"><span class="property-key-inner" style="opacity:.5">Tags:</span><span class="bottom-property-content"><span class="rfs-ghost rfs-guess px-monotag">Consultation</span></span></span></div></div></div>`, 'every proposed value the same: italic grey with a dotted line, sure or guessed; a proposed tag in mono, no #, upright')])}
 
   ${section('help', 'Quiet words and help', '4', 'Explanations and notes. A box under the i button, quiet lines in pop-ups and dialogs, quiet words on a row.', help, '', rec('Two: a quiet line, a help box',
     'One <b>quiet line</b> (smaller, greyed) for a hint under a field, a note in a pop-up, or quiet words on a row. One <b>help paragraph</b>, quiet grey with a hairline down its left like embedded content, for the longer “what this means” under a quiet info button. No washed block.',
