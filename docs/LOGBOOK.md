@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The proposals split into four parts (0.4.268)
+
+**The owner:** "go on to item 10, splitting the proposals code". **Built:** by a script (no lines retyped): lines 76 to 747
+to `shadow-rules.js`, 958 to 1229 to `shadow-steps.js`, 1478 to 1557 to `shadow-page.js`, the rest stays in `shadow.js`.
+They share `window.refinementProposals` (P): each puts what the others use there (`Object.assign(P, …)`), the later
+ones take it at load, the earlier at start through `P.links`, which `shadow.js`'s start runs first; `stopped` is a
+getter on P; each registers a part of its own (rules provides `pickerOrder`). A scan of every name each file uses from
+another found none missing. The tests load the four files. **Seen:** tests and scores only (identical before and after).
+
 ## 2026-10-21 · Learn a node at once (0.4.267)
 
 **The owner:** "go on to item 9, learning a filled value at once". **Built:** `alike.updateEntry(index, entry)` puts one

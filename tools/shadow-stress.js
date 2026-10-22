@@ -20,7 +20,7 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 const { window } = dom;
 window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
-for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 const core = window.refinementCore = { watchDomEarly() {}, dsQuery: async () => [], graphWide: (n, load) => load(), UUID: /^[0-9a-f-]{36}$/i, sendStyle() {}, provided: {},
   provide: things => Object.assign(core.provided, things) };
 const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));

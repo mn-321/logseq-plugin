@@ -19,7 +19,7 @@ window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => ()
 window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/alike.js'), 'utf8'));
-window.eval(fs.readFileSync(path.join(root, 'parts/shadow.js'), 'utf8'));
+for (const file of ['parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 let answer = () => []; // what the pretend database answers
 const dayAfter = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const WD = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'], MO = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];

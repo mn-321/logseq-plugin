@@ -83,7 +83,7 @@ async function plugin() {
   window.eval(read('parts/shared.js'));
   window.eval(read('parts/model.js'));
   window.eval(read('parts/alike.js'));
-  window.eval(read('parts/shadow.js'));
+  for (const file of ['parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(read(file));
   const cache = new Map();
   const core = { host: () => window.document, watchDomEarly() {}, dsQuery: ask, graphWide: (name, load) => { if (!cache.has(name)) cache.set(name, load()); return cache.get(name); },
     UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {}, provided: {}, provide: things => Object.assign(core.provided, things) };

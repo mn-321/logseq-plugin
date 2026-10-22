@@ -119,7 +119,7 @@ async function scenes(page) {
     // Proposals (parts/shadow.js): the values written faintly in the bullet's own properties, a guess with a dotted
     // line, a taken guess without; the bullets are pretend ones shaped as Logseq draws them.
     'shadow': {
-      scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'), read('parts/shadow.js')],
+      scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'), read('parts/shadow-rules.js'), read('parts/shadow.js'), read('parts/shadow-steps.js'), read('parts/shadow-page.js')],
       draw: async () => {
         const inner = window.refinementShadowInner;
         const style = document.createElement('style');
