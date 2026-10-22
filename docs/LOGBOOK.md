@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Link text: the page field empty for selected words too (0.4.256)
+
+**The owner:** a picture, "it should be empty not test which was the selected text". **Built:** `openList` starts
+`looked: ''`, `fresh: false` in both cases; README and the setting's words say a name is typed first.
+`tools/link-text-test.js` 36 checks. **Seen:** not in Logseq (the owner was in it).
+
 ## 2026-10-21 · Link text: the page field starts empty (0.4.255)
 
 **The owner:** a picture, "I hit enter after yes, but appears still in input". **Built:** the words step's Enter sets

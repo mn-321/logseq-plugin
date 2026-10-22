@@ -1,8 +1,8 @@
 /* Loaded by main.js before main.js starts it. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
 /* Link selected text (0.4.252, layer 2, rebuilt on the model in place of the old link box in parts/editor.js): select
-   words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A small list opens under the
-   words with the pages whose names fit them (Dr. Mei Chen for "Chen"), the closest first, each with its tag at the
+   words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A small box opens under the
+   words; type a page's name and the pages that fit are listed (Dr. Mei Chen for "chen"), the closest first, each with its tag at the
    right. With nothing selected (0.4.254, at the owner's word: "I press cmd-option l without any selected text, then i
    can type alias hit enter then the page link search appears"), the words to show are typed first, Enter, then the page
    is looked for the same way and the link goes in at the cursor. Typing changes what the list looks for, as in a search box, though the cursor never leaves the bullet; Up
@@ -24,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Spoke with</span> <span class="m"><u>Chen</u></span> <span class="m">→ Dr. Mei Chen · Doctor</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'linkText', type: 'boolean', title: 'Link selected text with ⌘⌥L', default: true,
-    description: 'Select words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A list of the pages whose names fit opens under the words; typing changes what it looks for, Up and Down move, Enter or a click links the page, Escape leaves the words alone. With nothing selected, type the words to show first, Enter, then pick the page; the link goes in at the cursor. The words become a link that keeps them; Cmd+Z takes it back. “New page …” is offered only when no page has that name.' },
+    description: 'Select words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A box opens under the words; type a page’s name and the pages that fit are listed; typing changes what it looks for, Up and Down move, Enter or a click links the page, Escape leaves the words alone. With nothing selected, type the words to show first, Enter, then pick the page; the link goes in at the cursor. The words become a link that keeps them; Cmd+Z takes it back. “New page …” is offered only when no page has that name.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -105,9 +105,10 @@ async function openList(box) {
   el.style.background = backgroundOf(box);
   el.style.color = box.ownerDocument.defaultView.getComputedStyle(box).color;
   doc.body.append(el);
-  // Nothing selected (0.4.254): first the words to show, typed here, then the page, as for selected words.
+  // Nothing selected (0.4.254): first the words to show, typed here, then the page, as for selected words. The page
+  // field starts empty either way (0.4.256, the owner: "it should be empty not test which was the selected text").
   const label = words.trim();
-  open = { box, start, end, selected: words, words: label ? words : '', step: label ? 'page' : 'words', pages, looked: label, fresh: !!label, rows: [], at: 0, el };
+  open = { box, start, end, selected: words, words: label ? words : '', step: label ? 'page' : 'words', pages, looked: '', fresh: false, rows: [], at: 0, el };
   place(el, wordsRect(box, start, end));
   draw();
 }

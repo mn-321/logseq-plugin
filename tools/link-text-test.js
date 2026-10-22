@@ -59,6 +59,8 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   check(e.defaultPrevented, 'Cmd+Option+L in a bullet should be the plugin’s');
   const list = doc.querySelector('.refinement-link-text');
   check(!!list, 'the list should open under the words');
+  check(!doc.querySelector('.rlt-typed') && !doc.querySelector('.rlt-row'), 'the page field should start empty, not with the selected words');
+  for (const ch of 'chen') key(ch);
   check(list && list.querySelector('.rlt-on')?.textContent.startsWith('Chen'), 'the page named Chen should be highlighted');
   key('ArrowDown'); key('Enter');
   check(box.value === 'Spoke with [Chen]([[Dr. Mei Chen]]) about the scan', 'Down then Enter should link the second page with the words kept: ' + box.value);
@@ -84,12 +86,14 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
 
   // A click on a row links it.
   linkKey(); await wait(20);
+  for (const ch of 'northgate') key(ch);
   doc.querySelector('.refinement-link-text .rlt-row')?.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, cancelable: true }));
   check(box.value === 'Call [Northgate]([[Northgate Cancer Center]]) tomorrow', 'a click on a row should link it: ' + box.value);
 
   // An unknown name: New page is the only row, so Enter makes it.
   await select('Met Dr. Okafor', 'Dr. Okafor');
   linkKey(); await wait(20);
+  for (const ch of 'Dr. Okafor') key(ch);
   key('Enter');
   check(box.value === 'Met [[Dr. Okafor]]', 'an unknown name becomes a new page’s link: ' + box.value);
 
