@@ -66,6 +66,7 @@ function pretendLogseq() {
   await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8') });
   await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8') });
   await page.addScriptTag({ content: require('./pretend-model') });
+  for (const piece of ['parts/tags-graph.js', 'parts/tags-props.js']) await page.addScriptTag({ content: fs.readFileSync(path.join(root, piece), 'utf8') });
   await page.addScriptTag({ content: exposed });
   const result = await page.evaluate(async () => {
     const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);

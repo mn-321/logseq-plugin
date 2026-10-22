@@ -160,7 +160,9 @@ async function main() {
   const menu = logseq.calls.filter(call => call.name === 'Editor.registerBlockContextMenuItem').map(call => call.args[0]);
   console.log(`${palette.length} palette commands, ${palette.filter(c => c.keybinding).length} with a shortcut, ${menu.length} bullet-menu items`);
   const wanted = [['labeled-page-link', 'editor'], ['show-settings'], ['troubleshooting'], ['fold-query-results', 'properties'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
-  for (const [key, part] of wanted) if ((!part || has(part)) && !palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
+  // The tag map starts only with its three pieces (0.4.295).
+  const tagMap = () => has('tags') && has('tags-graph') && has('tags-props');
+  for (const [key, part] of wanted) if ((!part || (part === 'tags' ? tagMap() : has(part))) && !palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
   if (has('editor') && menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
   const keys = palette.map(c => c.key);
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
@@ -169,9 +171,9 @@ async function main() {
   const styleKeys = logseq.calls.filter(call => call.name === 'provideStyle').map(call => call.args[0]?.key);
   const SIGNS = { 'two-way': 'refinement-two-way', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'link-text': 'refinement-link-text', 'settings-panel': 'refinement-settings-panel' };
   // The bullet's piece of the proposals stays off, and says so, without the rules (0.4.269).
-  const expected = part => part === 'shadow' ? has('shadow') && has('shadow-rules') : has(part);
+  const expected = part => part === 'shadow' ? has('shadow') && has('shadow-rules') : part === 'tags' ? tagMap() : has(part);
   for (const [part, key] of Object.entries(SIGNS)) if (expected(part) !== styleKeys.includes(key)) problem(`${expected(part) ? 'with' : 'without'} ${part}, its stylesheet ${key} was ${styleKeys.includes(key) ? 'still' : 'not'} sent`);
-  if (has('tags') !== keys.includes('show-tag-tree')) problem(`${has('tags') ? 'with' : 'without'} the tag map, its command was ${keys.includes('show-tag-tree') ? 'still' : 'not'} registered`);
+  if (tagMap() !== keys.includes('show-tag-tree')) problem(`${tagMap() ? 'with' : 'without'} the tag map, its command was ${keys.includes('show-tag-tree') ? 'still' : 'not'} registered`);
   if (has('two-way') !== logseq.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinement-two-way' && /rf-tw-row/.test(call.args[0]?.style || ''))) problem('the two-way rows did not send their look');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();

@@ -95,7 +95,7 @@ async function scenes(page) {
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   return {
     'tag-map': {
-      scripts: [`(${pretendLogseq})();`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')],
+      scripts: [`(${pretendLogseq})();`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), read('parts/tags-graph.js'), read('parts/tags-props.js'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')],
       draw: async () => {
         const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);
         const view = window.__createView(document, 'page');

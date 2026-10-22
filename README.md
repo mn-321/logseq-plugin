@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.294.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.295.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -61,7 +61,9 @@ The files in `parts/`:
 | `todos.js` | Todos and Expectations (paused: off unless switched on in the settings). |
 | `link-text.js` | Link selected text: the list under the selected words after `Cmd+Option+L`. |
 | `picker.js` | The pickers: what fits the bullet first in Logseq's list for a property. |
-| `tags.js` | The tag tree (on since 0.4.152; off only if switched off in the settings). |
+| `tags-graph.js` | The tag map, piece 1 of 3 (0.4.295): its state kept on this computer, reading the tags, and every change it makes to the graph (parents, tag properties, choices, merging, a choice made a child tag, turned into links). |
+| `tags-props.js` | The tag map, piece 2 of 3: the property map, a tag's properties as rows with their menus and boxes, and the Properties view with its groups. |
+| `tags.js` | The tag map, piece 3 of 3: the tree itself, moving and picking tags, keys, and the page and sidebar it shows in (on since 0.4.152; off only if switched off in the settings, or when one of its other two pieces is missing). |
 | `settings-panel.js` | The settings window, its five groups and their pictures. |
 
 ## Install

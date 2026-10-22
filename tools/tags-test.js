@@ -58,6 +58,8 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
   window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
   window.eval(require('./pretend-model'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/tags-graph.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/tags-props.js'), 'utf8'));
   window.eval(exposed);
   const doc = window.document;
   const view = window.__createView(doc, 'page');

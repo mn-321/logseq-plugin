@@ -6,6 +6,8 @@
    (parts/shadow-rules.js) the proposals stay off and say so; without the bullet's piece (parts/shadow.js) Option-Enter
    and the page piece stay out and say so (the pickers' order, from the rules alone, was
    seen the same as with all four on the Illness Test Graph at 0.4.269).
+   The tag map is three pieces (0.4.295): without parts/tags-graph.js or parts/tags-props.js the tree stays off and says
+   so; without the tree the other two do nothing.
    The foundation (shared, model, diagnostics, settings-panel) is not left out: everything stands on it.
    Needs node and jsdom. Run from the repo root: node tools/parts-apart-test.js   (tools/check.sh runs it) */
 const path = require('path');
@@ -18,6 +20,10 @@ const run = (script, env) => spawnSync(process.execPath, [path.join(root, 'tools
 // [left out, the warning that should say so (none: nothing to say), parts that then stay out by themselves]
 const CASES = [
   ['two-way'], ['tags'], ['link-text'], ['picker'],
+  // The tag map's pieces (0.4.295): without the graph's or the property map's piece the tree stays off and says so;
+  // without the tree the other two do nothing.
+  ['tags-graph', 'parts/tags-graph.js is not loaded'], ['tags-props', 'parts/tags-props.js is not loaded'],
+  ['tags,tags-graph,tags-props'],
   ['alike', 'alike is missing from the core'],
   ['shadow-steps'], ['shadow-page'], ['shadow-steps,shadow-page'],
   ['shadow-rules', 'parts/shadow-rules.js, are not loaded'],

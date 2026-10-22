@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The tag map split in three (0.4.295)
+
+**Asked:** the owner, on the audit's item 1: "then do 1". **Built:** a script (kept in the session's scratchpad, not the
+repo) cut `parts/tags.js` at its top-level declarations into `parts/tags-graph.js` (the state kept in Logseq's window
+storage, reading the tags, every write to the graph, the drawing helpers and the anchored plan box), `parts/tags-props.js`
+(the property rows, their menus and plans, the Properties view and groups) and `parts/tags.js` (the tree), checking
+that every line lands in exactly one file. The pieces share `window.refinementTagMap`: the first two put their names
+there and each piece destructures what it uses as it loads (loaded in that order by `PART_FILES`); "show inherited" is
+now one object (`shown.inherited`) since the tree's button sets it and the property map reads it; the groups waiting to
+be saved are cleared through `resetGroups()`. `start()` in `parts/tags.js` stays off and warns when a piece is missing.
+The name scan first missed two kinds of use (a name after `...`, and names after an apostrophe in a template string);
+both seen as a ReferenceError in `tools/tags-test.js`, fixed in the script, and the split rebuilt from the original.
+**Tests changed:** `tools/tags-test.js`, `tag-drag-test.js`, `tags-speed.js`, `pictures.js` load the three files;
+`tools/boot-test.js` expects the tag map only with all three; `tools/parts-apart-test.js` leaves out each new piece
+and all three (17 ways). **Checks:** `sh tools/check.sh` OK, pictures unchanged. **Seen:** Illness Test Graph, after a reload: the tree with its property rows; Hide inherited and back (Consultation's Date from #Occurrence went and came back); the Properties view; the choices box of Confirmation Status (Escape closed it); #Occurrence → Merge into → #Expectation: the plan under the row, Cancel. A click on the row's + by mistake opened a new-tag box, closed with Escape: no tag made, the tree unchanged.
+
 ## 2026-10-22 · Housekeeping after layer 2 (0.4.294)
 
 **Asked:** the owner, on the audit's item 2 (the README's first lines and settings table out of date, and a

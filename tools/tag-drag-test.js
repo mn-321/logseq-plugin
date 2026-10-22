@@ -66,6 +66,8 @@ const until = async test => { for (let i = 0; i < 100; i++) { const found = test
   window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
   window.eval(fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8'));
   window.eval(require('./pretend-model'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/tags-graph.js'), 'utf8'));
+  window.eval(fs.readFileSync(path.join(root, 'parts/tags-props.js'), 'utf8'));
   window.eval(exposed);
   const doc = window.document;
   const view = window.__createView(doc, 'sidebar'); // the sidebar view (it has property rows too since 0.4.236; the pretend tags here have none)
