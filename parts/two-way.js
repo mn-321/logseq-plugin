@@ -67,7 +67,10 @@ function backwardsNames() {
 // "report": the biopsy's report); a name ending in another joining word reads the same both ways ("related to",
 // "works with"), since adding "of" after it never makes sense.
 const JOINING = /\s+(to|with|and|for|from|in|on|at|about|into|onto|via|versus|vs)$/i;
-const plainBackwards = name => /\s+(by|of)$/i.test(name) ? name.replace(/\s+(by|of)$/i, '') : JOINING.test(name) ? name : `${name} of`;
+// A name ending in a past form ("Agent used", "Drug given") reads "… in" (0.4.264, layer 2 item 6, the odd wordings:
+// "agent used of" on Oxaliplatin is now "agent used in"); "need" and "feed" are no past forms.
+const PAST = /\s+\S*[^e\s]ed$|\s+(given|taken|seen|done|made|written|sent|shown)$/i;
+const plainBackwards = name => /\s+(by|of)$/i.test(name) ? name.replace(/\s+(by|of)$/i, '') : JOINING.test(name) ? name : PAST.test(name) ? `${name} in` : `${name} of`;
 // Read in the case of the page's own property names ("Report" made from the + menu reads "report of").
 const readBackwards = (name, names) => {
   const words = names.get(name.toLowerCase()) || plainBackwards(name);

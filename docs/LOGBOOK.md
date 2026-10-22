@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Past forms read "… in" (0.4.264)
+
+**The owner:** "go on to item 6, the odd wordings". **Found:** of the graph's 11 link properties only "Agent used" read
+oddly ("agent used of"); "with of" was gone since 0.4.237. **Built:** `PAST` in `plainBackwards` (a last word in -ed, not
+-eed, or given/taken/seen/done/made/written/sent/shown) reads "… in". **Seen:** not in Logseq.
+
 ## 2026-10-21 · No length limit on two-way names (0.4.263)
 
 **The owner:** "get rid of the sentence character limit". **Built:** `shortName` keeps the first sentence only; `SHORT`
