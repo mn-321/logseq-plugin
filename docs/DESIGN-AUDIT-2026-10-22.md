@@ -61,7 +61,7 @@ padding and the kit's text-box margins added up to 14 px of edge on each side.
 
 | | before | after |
 |---|---|---|
-| where | a 460 px box in the middle of the window, 144 px from the top, over a darkened page | a 360 px box right under the button pressed, nothing darkened |
+| where | a 460 px box in the middle of the window, 144 px from the top, over a darkened page | a 400 px box right under the button pressed, nothing darkened (133.6 px tall instead of 155.6) |
 | padding | 16 / 18 / 14 px | 8 / 10 px |
 | the label, the text box, the hint, the buttons | 19.6 + 31.6 + 16.8 + 29.6 px, with 8, 2, 6 and 10 px between | the same pieces, 6 px apart |
 

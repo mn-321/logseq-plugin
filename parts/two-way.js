@@ -480,7 +480,7 @@ function draw(doc) {
 const drawEarly = (doc, records) => { if (performance.now() - settle.since < SETTLE_MS || addsElements(records)) draw(doc); };
 function onClick(event) {
   const pickEl = event.target.closest?.('.rf-tw-bar button') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
-  if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act) : togglePick(pickEl, event.shiftKey); }
+  if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act, pickEl) : togglePick(pickEl, event.shiftKey); }
   const target = event.target.closest?.('a');
   const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   if (!target && !line) return;
@@ -516,7 +516,7 @@ async function onRename(event) {
   if (!group) return;
   event.preventDefault(); event.stopPropagation(); hidePeek();
   const before = backwardsLabel(group.name);
-  const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true);
+  const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true, nameEl);
   if (typed == null || typed === before) return;
   setBackwards(group.name, typed);
   offerUndo(typed ? `“${group.name}” now reads “${typed}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before), group.name);
@@ -658,8 +658,9 @@ const picks = () => [...state.picked].map(key => { const at = key.indexOf('|'); 
 const nodesPicked = () => [...new Set(picks().map(p => p.uuid))];
 const titleFor = uuid => { for (const g of state.groups) for (const item of g.items) if (item.uuid === uuid) return item.title; return 'a record'; };
 const counted = n => `${n} ${n === 1 ? 'record' : 'records'}`;
-// A small box asking for one thing, with a list to choose from; resolves with what was typed, or null.
-const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = false) => modal(null, (box, finish, doc) => {
+// A small box asking for one thing, with a list to choose from; resolves with what was typed, or null. It opens right
+// under the button or name that asked (0.4.287, the audit: no box in the middle of the window over a darkened page).
+const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = false, at = null) => modal(null, (box, finish, doc) => {
   box.classList.add('refinement-two-way-ask');
   const label = doc.createElement('label'); label.textContent = heading;
   const input = doc.createElement('input'); input.type = 'text'; input.spellcheck = false; input.value = value;
@@ -673,12 +674,12 @@ const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = fal
   const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, done, 'go']]);
   box.append(row);
   input.focus(); input.select();
-});
-const sure = (heading, button) => modal(false, (box, finish, doc) => {
+}, null, {}, at);
+const sure = (heading, button, at = null) => modal(false, (box, finish, doc) => {
   const label = doc.createElement('label'); label.textContent = heading;
   const row = modalButtons(doc, [['Cancel', () => finish(false)], [button, () => finish(true), 'go']]);
   box.append(label, row); row.lastChild.focus();
-});
+}, null, {}, at);
 // What a node holds under a property, as ids, so it can be put back exactly (the tag tree's way, parts/tags.js).
 async function setValues(uuid, prop, values) {
   if (!values.length) return logseq.Editor.removeBlockProperty(uuid, prop.ident);
@@ -706,7 +707,7 @@ async function pageNamed(name, prop) {
   const fits = pages.filter(page => !prop?.classes?.length || page.tags.some(t => prop.classes.some(c => c.id === t.id)));
   return fits[0] || pages[0] || null;
 }
-async function act(what) {
+async function act(what, at = null) {
   const chosen = picks(), nodes = nodesPicked();
   if (what === 'clear') { state.picked.clear(); return draw(host()); }
   if (!chosen.length) return;
@@ -725,7 +726,7 @@ async function act(what) {
       let target = null;
       if (what === 'point') {
         const fits = (await provided.propPages()).filter(page => page.id !== here && fields.some(f => !f.classes.length || page.tags.some(t => f.classes.some(c => c.id === t.id))));
-        const name = await ask(`Change “${pageTitle()}” to …`, `On ${counted(nodes.length)}: their “${fields.map(f => f.title).join('”, “')}” will name the page you pick instead.`, fits.map(page => page.title), 'Change');
+        const name = await ask(`Change “${pageTitle()}” to …`, `On ${counted(nodes.length)}: their “${fields.map(f => f.title).join('”, “')}” will name the page you pick instead.`, fits.map(page => page.title), 'Change', '', false, at);
         if (!name) return;
         target = await pageNamed(name, fields[0]);
         if (!target) return notify(`There is no page named “${name}”, so nothing was changed`, 'warning');
@@ -742,7 +743,7 @@ async function act(what) {
     }
     if (what === 'tag') {
       const tags = (await provided.propPages()).filter(page => page.isTag);
-      const name = await ask(`Add a tag to ${counted(nodes.length)}`, '', tags.map(t => t.title), 'Add');
+      const name = await ask(`Add a tag to ${counted(nodes.length)}`, '', tags.map(t => t.title), 'Add', '', false, at);
       if (!name) return;
       const tagUuid = await provided.tagUuidNamed(tags.find(t => t.lower === name.replace(/^#/, '').toLowerCase())?.title || name.replace(/^#/, ''));
       if (!tagUuid) return notify(`There is no tag named “${name}”, so nothing was changed`, 'warning');
@@ -759,7 +760,7 @@ async function act(what) {
         names = schema.props.filter(p => held.has(p.ident)).map(p => p.title);
         if (!names.length) return notify('The picked records hold none of your properties', 'warning');
       }
-      const name = await ask(what === 'set' ? `Set a property on ${counted(nodes.length)}` : `Clear a property on ${counted(nodes.length)}`, what === 'unset' ? `They hold: ${names.join(', ')}` : '', names, 'Next');
+      const name = await ask(what === 'set' ? `Set a property on ${counted(nodes.length)}` : `Clear a property on ${counted(nodes.length)}`, what === 'unset' ? `They hold: ${names.join(', ')}` : '', names, 'Next', '', false, at);
       if (!name) return;
       const prop = await propNamed(name);
       if (!prop) return notify(`There is no property named “${name}”, so nothing was changed`, 'warning');
@@ -769,7 +770,7 @@ async function act(what) {
         const options = kind === 'choice' ? prop.choices.map(c => c.title)
           : ['node', 'page'].includes(kind) ? (await provided.propPages()).filter(page => !prop.classes.length || page.tags.some(t => prop.classes.some(c => c.id === t.id))).map(page => page.title)
           : kind === 'checkbox' ? ['yes', 'no'] : [];
-        const typed = await ask(`${prop.title} for ${counted(nodes.length)}`, kind === 'date' ? 'A day: today, friday, 4 aug, 2026-08-04 …' : prop.many ? 'Added to what each one holds.' : '', options, 'Set');
+        const typed = await ask(`${prop.title} for ${counted(nodes.length)}`, kind === 'date' ? 'A day: today, friday, 4 aug, 2026-08-04 …' : prop.many ? 'Added to what each one holds.' : '', options, 'Set', '', false, at);
         if (!typed) return;
         if (kind === 'choice') value = prop.choices.find(c => c.title.toLowerCase() === typed.toLowerCase())?.id;
         else if (['node', 'page'].includes(kind)) value = (await pageNamed(typed, prop))?.id;
@@ -792,7 +793,7 @@ async function act(what) {
     }
     if (what === 'delete') {
       const one = nodes.length === 1 ? `“${titleFor(nodes[0])}”` : counted(nodes.length);
-      if (!await sure(`Delete ${one}? This cannot be undone from here.`, 'Delete')) return;
+      if (!await sure(`Delete ${one}? This cannot be undone from here.`, 'Delete', at)) return;
       return writeAll('', nodes.map(uuid => async () => {
         const page = await logseq.Editor.getPage(uuid).catch(() => null);
         if (page?.name) await logseq.Editor.deletePage(page.name); else await logseq.Editor.removeBlock(uuid);

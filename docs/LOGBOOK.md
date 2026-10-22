@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the picking bar's questions beside the bar (0.4.287)
+
+**Asked:** the audit's verdict: a question about the picked records belongs beside the bar that asked it.
+**Built:** `parts/two-way.js`: `ask` and `sure` take the element to sit under and hand it to `shared.modal` as its
+anchor; `act(what, at)` gets the bar's button from the click; `onRename` hands the row's name. **Measured:** the
+Change-to question 400 × 133.6 px under the button, instead of 460 × 155.6 in the middle. **Not seen:** the app;
+check that the box opens under “Change “Dr. Mei Chen” to…” on Dr. Mei Chen with two records ticked, that typing a
+page and Enter still changes them, and that a click on the page closes it.
+
 ## 2026-10-22 · Design audit: the two-way rows' band gone, card and + box trimmed (0.4.286)
 
 **Asked:** the audit's verdict on the two-way rows (docs/DESIGN-AUDIT-2026-10-22.md). **Built:** `parts/two-way.js`:
