@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The + box: one heading line, a tag list, where it goes (0.4.298)
+
+**Asked:** the owner, with a picture of the + box: "shouldn't you be able to add which page to add it to on bottom left
+corner? also it is awkward ui with just a row of a tag capsule. should be New `Consultation` Record – Property: Value.
+you could have consultation as drop down too. put tag in mono. Property: value could be stylized". **Built:**
+`openAdd` in `parts/two-way.js`: the heading holds a `<select>` of the kinds already among the linked nodes plus "no
+tag" (monospace, a small drawn caret) and a capsule like Logseq's for property and page; the foot's `<select>` is
+today's journal, this page, or another page (a text box with a datalist of every page's title, filled on first use);
+Enter in the page box adds; `addRecord` takes `where` and `other` and appends to the chosen page (another page must
+exist). The kit's text-box rule beat `[hidden]` on the page box; `.refinement-two-way-add [hidden]` fixes it. Wording
+"record" is the owner's own. **Measured:** headless Chromium, light and dark: 400 × 109 px (340 × 155 before), the
+heading one line of 24 px. **Seen:** as in the CHANGELOG line. Test node added on Dr. Mei Chen and undone; a query
+finds no "Zz test node". **Checks:** every check passed but the tag map timing (447 ms, then 444 ms against 400), with the Mac's load at 3.3 and no tag map file changed since 0.4.297, whose run passed: the known load limit, not this change.
+
 ## 2026-10-22 · Two-way rows: tags right and clickable, + by the name, a bigger tick target (0.4.297)
 
 **Asked:** the owner, with a picture of Dr. Mei Chen's rows: "the tags under decided should be right aligned and plus

@@ -557,21 +557,34 @@ async function openAdd(button) {
   const title = page.title || page.originalName || page.name || 'this page';
   const el = adding.el = doc.createElement('div');
   el.className = 'refinement-two-way-add rf-pop';
-  el.innerHTML = `<div class="rf-tw-add-head">New record · <span class="rf-tw-add-field">${esc(group.name)}: ${esc(title)}</span></div>
-    ${kinds.length ? `<div class="rf-tw-add-kinds">${kinds.map(tag => `<button type="button" data-tag="${esc(tag)}"${tag === kind ? ' data-on=""' : ''}>${esc(tag)}</button>`).join('')}</div>` : ''}
-    <input type="text" placeholder="Name, e.g. ${esc(group.items[0]?.title || 'a new visit')}" spellcheck="false">
-    <div class="rf-tw-add-foot"><span>${asPage ? 'As a new page' : 'On today’s journal'}</span><button type="button" class="rf-btn" data-act="open">Add and open</button><button type="button" class="rf-btn rf-go" data-act="add" data-main="">Add</button></div>`;
-  const input = el.querySelector('input');
+  /* The box (0.4.298, the owner: "should be New `Consultation` Record – Property: Value … consultation as drop down …
+     tag in mono … add which page to add it to on bottom left"): one heading line with the tag as a list in monospace and
+     the property and this page drawn as Logseq draws a property capsule; the name; then where it goes and the buttons. */
+  const listId = `rf-tw-add-pages-${Date.now()}`;
+  el.innerHTML = `<div class="rf-tw-add-head">New <span class="rf-tw-add-kind"><select aria-label="Tag of the new node">${kinds.map(tag => `<option value="${esc(tag)}"${tag === kind ? ' selected' : ''}>${esc(tag)}</option>`).join('')}<option value="">no tag</option></select></span> record <span class="rf-tw-add-dash">–</span> <span class="rf-tw-add-pill"><span class="rf-tw-add-prop">${esc(group.name)}:</span> ${esc(title)}</span></div>
+    <input type="text" class="rf-tw-add-name" placeholder="Name, e.g. ${esc(group.items[0]?.title || 'a new visit')}" spellcheck="false">
+    <div class="rf-tw-add-foot">${asPage ? '<span class="rf-tw-add-where-text">As a new page</span>' : `<span class="rf-tw-add-where"><select aria-label="Where it goes"><option value="journal">On today’s journal</option><option value="here">On ${esc(title)}</option><option value="page">On another page…</option></select><input type="text" class="rf-tw-add-page" list="${listId}" placeholder="Page name" spellcheck="false" hidden><datalist id="${listId}"></datalist></span>`}<button type="button" class="rf-btn" data-act="open">Add and open</button><button type="button" class="rf-btn rf-go" data-act="add" data-main="">Add</button></div>`;
+  const input = el.querySelector('.rf-tw-add-name');
+  const kindList = el.querySelector('.rf-tw-add-kind select'), whereList = el.querySelector('.rf-tw-add-where select'), pageField = el.querySelector('.rf-tw-add-page');
+  kindList.addEventListener('change', () => { kind = kindList.value; });
+  whereList?.addEventListener('change', async () => {
+    pageField.hidden = whereList.value !== 'page';
+    if (pageField.hidden) return input.focus();
+    const list = el.querySelector('datalist');
+    if (!list.childElementCount) for (const p of (await provided.propPages().catch(() => [])).slice(0, 2000)) { const o = doc.createElement('option'); o.value = p.title; list.append(o); }
+    pageField.focus();
+  });
+  for (const field of [kindList, whereList, pageField]) field?.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); closeAdd(); }
+    else if (event.key === 'Enter' && field === pageField && !event.isComposing) { event.preventDefault(); submit(event.metaKey || event.shiftKey); }
+  });
   el.addEventListener('mousedown', event => event.stopPropagation());
   el.addEventListener('click', event => {
     const pick = event.target.closest('button');
     if (!pick) return;
     event.preventDefault(); event.stopPropagation();
-    if (pick.dataset.tag != null) {
-      kind = kind === pick.dataset.tag ? '' : pick.dataset.tag;
-      for (const b of el.querySelectorAll('.rf-tw-add-kinds button')) b.toggleAttribute('data-on', b.dataset.tag === kind);
-      input.focus();
-    } else submit(pick.dataset.act === 'open');
+    submit(pick.dataset.act === 'open');
   });
   input.addEventListener('keydown', event => {
     event.stopPropagation();
@@ -580,9 +593,11 @@ async function openAdd(button) {
   });
   const submit = async open => {
     const name = input.value.trim();
-    if (!name) { input.focus(); el.querySelector('input').setAttribute('data-empty', ''); return; }
+    if (!name) { input.focus(); input.setAttribute('data-empty', ''); return; }
+    const where = whereList?.value || 'journal', other = pageField?.value.trim() || '';
+    if (where === 'page' && !other) { pageField.focus(); pageField.setAttribute('data-empty', ''); return; }
     closeAdd();
-    try { await addRecord({ group, page, name, kind, open, asPage }); }
+    try { await addRecord({ group, page, name, kind, open, asPage, where, other }); }
     catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
   };
   doc.body.appendChild(el);
@@ -594,7 +609,7 @@ async function openAdd(button) {
   const away = event => { if (!adding.el) return doc.removeEventListener('mousedown', away, true); if (!adding.el.contains(event.target)) { closeAdd(); doc.removeEventListener('mousedown', away, true); } };
   doc.addEventListener('mousedown', away, true);
 }
-async function addRecord({ group, page, name, kind, open, asPage }) {
+async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '' }) {
   if (asPage && await logseq.Editor.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
   const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
   let tagUuid = '';
@@ -610,11 +625,20 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
     // A page made now is not in the look-up of every page: it has no rows of its own yet.
     state.byPage.set(String(block.uuid), []);
   } else {
-    const now = new Date();
-    const journalId = await provided.journalIdFor(todayNumber(), await provided.journalTitleFor(now.getFullYear(), now.getMonth() + 1, now.getDate()));
-    const journalUuid = journalId ? await provided.uuidById(journalId) : '';
-    if (!journalUuid) throw new Error('no journal page for today');
-    block = await logseq.Editor.appendBlockInPage(String(journalUuid), name);
+    // Where it goes (0.4.298): today's journal, this page, or another page named in the box (an existing one only).
+    let target = '';
+    if (where === 'here') target = String(page.uuid);
+    else if (where === 'page') {
+      const found = (await provided.propPages()).find(p => p.lower === other.toLowerCase()) || await logseq.Editor.getPage(other).catch(() => null);
+      if (!found?.uuid) return notify(`There is no page named “${other}”, so nothing was added`, 'warning');
+      target = String(found.uuid);
+    } else {
+      const now = new Date();
+      const journalId = await provided.journalIdFor(todayNumber(), await provided.journalTitleFor(now.getFullYear(), now.getMonth() + 1, now.getDate()));
+      target = journalId ? String(await provided.uuidById(journalId)) : '';
+      if (!target) throw new Error('no journal page for today');
+    }
+    block = await logseq.Editor.appendBlockInPage(target, name);
     if (!block?.uuid) throw new Error('the block was not made');
     undo = async () => { await logseq.Editor.removeBlock(block.uuid); later(300); };
   }
@@ -624,7 +648,7 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
     else await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, page.id, { entityId: true });
   } catch (error) { await undo().catch(() => {}); throw error; }
   later(300);
-  offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : ' to today’s journal'}`, undo, group.name);
+  offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : where === 'here' ? ' to this page' : where === 'page' ? ` to ${other}` : ' to today’s journal'}`, undo, group.name);
   if (open) openEntity(block.uuid, true);
 }
 
@@ -900,20 +924,26 @@ const twoWayCss = `
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
 .refinement-two-way-peek .rf-tw-peek-lines { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
-/* The box the + opens: the one pop-up look (.rf-pop), a row of kinds, a name and the dialog's buttons (.rf-btn). Trimmed at the
-   audit (0.4.286): 300px, 6px of edge; the kit's text-box margins taken off (the rule is more particular than the kit's). */
-.refinement-two-way-add { z-index: 999; width: 300px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+/* The box the + opens (0.4.298): the one pop-up look (.rf-pop); a heading line with the tag as a list in monospace and the
+   property and this page as a capsule like Logseq's, the name, then where it goes and the buttons (.rf-btn). */
+.refinement-two-way-add { z-index: 999; width: 400px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
 .refinement-two-way-add.rf-pop input { width: 100%; margin: 0; }
-.refinement-two-way-add .rf-tw-add-head { font-weight: 600; }
-.refinement-two-way-add .rf-tw-add-field { font-weight: 400; color: var(--ls-secondary-text-color); }
-.refinement-two-way-add .rf-tw-add-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
-.refinement-two-way-add .rf-tw-add-kinds button { font: inherit; color: inherit; cursor: pointer; border-radius: 5px; padding: 2px 9px; background: transparent; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); transition: background-color .1s ease, border-color .1s ease; }
-.refinement-two-way-add .rf-tw-add-kinds button:hover { background: color-mix(in srgb, currentColor 9%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
-.refinement-two-way-add .rf-tw-add-kinds button { border-radius: 999px; font-size: .92em; color: var(--ls-secondary-text-color); }
-.refinement-two-way-add .rf-tw-add-kinds button[data-on] { color: inherit; background: color-mix(in srgb, currentColor 12%, transparent); border-color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-two-way-add [hidden] { display: none !important; }
+.refinement-two-way-add .rf-tw-add-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 5px; padding: 2px 2px 0; font-weight: 600; }
+.refinement-two-way-add .rf-tw-add-dash { font-weight: 400; color: var(--rf-ui-muted); }
+.refinement-two-way-add select { font: inherit; color: inherit; background: transparent; cursor: pointer; outline: none; }
+.refinement-two-way-add .rf-tw-add-kind select { appearance: none; height: 22px; padding: 0 18px 0 6px; border: 1px solid var(--rf-ui-field); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; font-weight: 400;
+  background: color-mix(in srgb, currentColor 6%, transparent) no-repeat right 5px center / 8px 5px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23888'/%3E%3C/svg%3E"); }
+.refinement-two-way-add select:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--rf-ui-fg) 30%, transparent); }
+.refinement-two-way-add .rf-tw-add-pill { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 9999px; box-shadow: inset 0 0 0 1px var(--rf-ui-field); font-weight: 400; font-size: .92em; white-space: nowrap; }
+.refinement-two-way-add .rf-tw-add-prop { color: var(--rf-ui-muted); }
 .refinement-two-way-add input[data-empty] { border-color: #d9534f; }
 .refinement-two-way-add .rf-tw-add-foot { display: flex; align-items: center; gap: 6px; }
-.refinement-two-way-add .rf-tw-add-foot span { flex: 1; white-space: nowrap; color: var(--ls-secondary-text-color); font-size: .9em; }
+.refinement-two-way-add .rf-tw-add-where { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.refinement-two-way-add .rf-tw-add-where select { appearance: none; align-self: flex-start; max-width: 100%; padding: 2px 16px 2px 0; border: 0; color: var(--rf-ui-muted); font-size: .9em; overflow: hidden; text-overflow: ellipsis;
+  background: no-repeat right 4px center / 8px 5px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23888'/%3E%3C/svg%3E"); }
+.refinement-two-way-add .rf-tw-add-where select:hover { color: var(--rf-ui-fg); }
+.refinement-two-way-add .rf-tw-add-where-text { flex: 1; white-space: nowrap; color: var(--rf-ui-muted); font-size: .9em; }
 /* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
