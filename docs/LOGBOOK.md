@@ -7,7 +7,7 @@ Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` descri
 **Found:** 0.4.281's `"effect": true` in package.json is written over by Logseq's install dialog (unticked: the installed
 package.json read `"effect":false`, the frame on `lsp://logseq.io`), so the box is the only way. **Built:** `main()` in
 `main.js` tries `host()` first and, in a sealed frame, shows one notice (uninstall, install again with effect ticked)
-and starts nothing. README and CLAUDE.md corrected. **Seen:** see the CHANGELOG line.
+and starts nothing. README and CLAUDE.md corrected. **Seen:** the install dialog, package.json and frame address as above; the notice itself not yet: Logseq's fetching service kept handing out 0.4.281 for a while after 0.4.282's release (Check update too), so the sealed copy tried was 0.4.281. `check.sh` for 0.4.282 passed every correctness check; the timings failed with Logseq installing and uninstalling copies at the same time (first drawing 2,560 ms against 376 ms on the quiet morning run).
 
 ## 2026-10-22 · An installed copy needs Logseq's "effect" (0.4.281)
 
