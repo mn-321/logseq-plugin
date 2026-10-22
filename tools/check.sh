@@ -42,6 +42,7 @@ if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/alike-test.js || problem "the looks-like engine failed its checks or timings (see above)"
   node tools/shadow-test.js || problem "the proposals' rules failed on the pretend graph (see above)"
   node tools/shadow-write-test.js || problem "the proposals' writes or Undo failed (see above)"
+  node tools/link-text-test.js || problem "linking selected text failed its checks (see above)"
   node tools/shadow-stress.js || problem "the proposals' stress test failed: tricky words, random text or the large pretend graph (see above)"
 else
   echo "boot test skipped (needs node and: npm install --no-save --no-package-lock jsdom)"

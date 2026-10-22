@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Link selected text, rebuilt (0.4.252)
+
+**The owner:** "lets go in order" (layer 2's list, item 1). **Built:** `parts/link-text.js`, loaded before the proposals so
+its keys come first: Cmd+Option+L on a selection in a block's text box opens a list from `propPages()`, ranked by
+`fit` (the name, its start, a word's start, anywhere, every word); the cursor never leaves the text box, typed letters
+change what is looked for; the link is typed with `execCommand('insertText')`, so Logseq stores it by id and Cmd+Z
+undoes it. `tools/link-text-test.js` (29 checks) in `check.sh`. **Seen:** see the CHANGELOG line. **Open:** an alias
+page (Dr. Chen) shows as its own row; the old link box listed blocks and journal days too.
+
 ## 2026-10-21 · Export and page looks off again (0.4.251)
 
 **The owner:** "continue to disable the document exporter … no capsules around properties. all cosmetic must still be
