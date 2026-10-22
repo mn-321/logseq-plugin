@@ -272,29 +272,47 @@ function setOpen(key, open) {
    graph changes. It goes when the pointer leaves the record and the card. */
 const PEEK_MS = 450;
 const peek = { timer: 0, hide: 0, el: null, uuid: '', anchor: null, cache: new Map() };
+/* Every piece of the card opens what it names (0.4.262, the owner: "make the different links and elements of the hover
+   clickable"): the title the node itself, its tag the tag's page, a property's name the property's page, a value the
+   page it points to, a line the bullet it is, a link in a line its page; Shift-click opens it in the right sidebar.
+   Words that name nothing (a text value) open the node, as the card always did. */
 async function peekData(uuid, field) {
   const key = `${uuid}|${field}`;
   if (peek.cache.has(key)) return peek.cache.get(key);
   const fields = await provided.nodeFields(uuid);
   fields.delete(field);
-  const readable = async text => { try { text = await provided.readableTitle(String(text || '')); } catch { /* as stored */ } return String(text).replace(/\[\[([^\]]+)\]\]/g, '$1').trim(); };
+  const readable = async text => { try { return String(await provided.readableTitle(String(text || ''))).trim(); } catch { return String(text || '').trim(); } };
   const rows = [];
   for (const [name, values] of [...fields].sort((a, b) => a[0].localeCompare(b[0])).slice(0, 8)) {
-    const texts = await Promise.all(values.map(v => v.day ? dayText(v.day) : readable(v.title ?? v.text)));
-    rows.push([name, [...new Set(texts.filter(Boolean))].join(', ')]);
+    const shown = await Promise.all(values.map(async v => ({ text: v.day ? dayText(v.day) : (await readable(v.title ?? v.text)).replace(/\[\[([^\]]+)\]\]/g, '$1'), uuid: v.uuid || '' })));
+    const seen = new Set(), kept = shown.filter(v => v.text && !seen.has(v.text) && seen.add(v.text));
+    if (kept.length) rows.push({ name, uuid: fields.props?.get(name) || '', values: kept });
   }
   let lines = [];
-  try { lines = (await Promise.all((await provided.firstLines(uuid, 4)).map(readable))).filter(Boolean); } catch { /* no lines, then */ }
-  const data = { rows: rows.filter(([, value]) => value), lines };
+  try { lines = (await Promise.all((await provided.firstLines(uuid, 4, true)).map(async line => ({ uuid: line.uuid, text: await readable(line.title) })))).filter(line => line.text); } catch { /* no lines, then */ }
+  const data = { rows, lines };
   peek.cache.set(key, data);
   return data;
 }
+// A piece that opens a node by uuid, or a page by its name.
+const opens = (html, uuid, page) => uuid ? `<span class="rf-tw-peek-open" data-open-uuid="${esc(uuid)}">${html}</span>` : page ? `<span class="rf-tw-peek-open" data-open-page="${esc(page)}">${html}</span>` : html;
+// A line's words with its links open: [[Page]] as Page, [words]([[Page]]) as words, each opening the page.
+function lineHtml(text) {
+  const short = text.length > 140 ? text.slice(0, 139) + '…' : text;
+  let html = '', at = 0;
+  for (const m of short.matchAll(/\[([^\[\]]+)\]\(\[\[([^\]]+)\]\]\)|\[\[([^\]]+)\]\]/g)) {
+    html += esc(short.slice(at, m.index)) + opens(esc(m[1] ?? m[3]), '', m[2] ?? m[3]);
+    at = m.index + m[0].length;
+  }
+  return html + esc(short.slice(at));
+}
 function peekHtml(item, field, data) {
-  const head = `<div class="rf-tw-peek-title">${esc(item.title)}</div><div class="rf-tw-peek-meta">${esc(['#' + item.tag, dayText(item.day)].filter(Boolean).join(' · '))}</div>`;
+  const meta = [item.tag && item.tag !== 'note' ? opens(esc('#' + item.tag), '', item.tag) : '', item.day ? esc(dayText(item.day)) : ''].filter(Boolean).join(' · ');
+  const head = `<div class="rf-tw-peek-title">${opens(esc(item.title), item.uuid)}</div><div class="rf-tw-peek-meta">${meta}</div>`;
   // The record's own day is in the line above already.
-  const fields = data.rows.filter(([, value]) => !item.day || value !== dayText(item.day));
-  const rows = fields.length ? `<div class="rf-tw-peek-fields">${fields.map(([name, value]) => `<span class="rf-tw-peek-name">${esc(name)}</span><span>${esc(value)}</span>`).join('')}</div>` : '';
-  const lines = data.lines.length ? `<div class="rf-tw-peek-lines">${data.lines.map(line => `<div>${esc(line.length > 140 ? line.slice(0, 139) + '…' : line)}</div>`).join('')}</div>` : '';
+  const fields = data.rows.filter(row => !item.day || row.values.map(v => v.text).join(', ') !== dayText(item.day));
+  const rows = fields.length ? `<div class="rf-tw-peek-fields">${fields.map(row => `<span class="rf-tw-peek-name">${opens(esc(row.name), row.uuid)}</span><span>${row.values.map(v => opens(esc(v.text), v.uuid)).join(', ')}</span>`).join('')}</div>` : '';
+  const lines = data.lines.length ? `<div class="rf-tw-peek-lines">${data.lines.map(line => `<div class="rf-tw-peek-line" data-open-uuid="${esc(line.uuid)}">${lineHtml(line.text)}</div>`).join('')}</div>` : '';
   return head + rows + lines + (rows || lines ? '' : '<div class="rf-tw-peek-meta">Nothing else written on it yet.</div>');
 }
 function findItem(uuid, rowEl) {
@@ -314,6 +332,13 @@ function onOut(event) {
   clearTimeout(peek.timer);
   hidePeekSoon();
 }
+// A page by its name: its uuid from the page list, else Logseq finds it by name.
+async function openPage(name, inSidebar) {
+  const page = (await provided.propPages().catch(() => [])).find(p => p.lower === name.toLowerCase());
+  if (page?.uuid) return openEntity(page.uuid, inSidebar);
+  if (inSidebar) { const found = await logseq.Editor.getPage(name).catch(() => null); if (found?.uuid) return logseq.Editor.openInRightSidebar(found.uuid); }
+  logseq.App.pushState('page', { name });
+}
 const hidePeekSoon = () => { clearTimeout(peek.hide); peek.hide = setTimeout(hidePeek, 200); };
 function hidePeek() { clearTimeout(peek.timer); clearTimeout(peek.hide); peek.el?.remove(); peek.el = null; peek.anchor = null; }
 async function showPeek(link) {
@@ -329,7 +354,14 @@ async function showPeek(link) {
   el.addEventListener('mouseenter', () => clearTimeout(peek.hide));
   el.addEventListener('mouseleave', hidePeekSoon);
   el.addEventListener('mousedown', event => event.stopPropagation());
-  el.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); openEntity(item.uuid, event.shiftKey); hidePeek(); });
+  el.addEventListener('click', event => {
+    event.preventDefault(); event.stopPropagation();
+    // The innermost piece that names something: a link in a line before the line it is in.
+    const piece = event.target.closest?.('[data-open-page], [data-open-uuid]');
+    const page = piece?.dataset.openPage, uuid = piece?.dataset.openUuid || item.uuid;
+    hidePeek();
+    if (page) openPage(page, event.shiftKey); else openEntity(uuid, event.shiftKey);
+  });
   doc.body.appendChild(el);
   peek.anchor = link;
   const at = link.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
@@ -833,8 +865,12 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
 /* The card a record shows when the pointer rests on it: the plugin's one pop-up look (.rf-pop, parts/shared.js). */
 .refinement-two-way-peek { z-index: 999; width: max-content; max-width: 360px; padding: 8px 10px; cursor: pointer; }
-.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; text-decoration: underline transparent; transition: text-decoration-color .1s ease; }
-.refinement-two-way-peek:hover .rf-tw-peek-title { text-decoration-color: currentColor; }
+.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; }
+/* Every piece that opens something is underlined under the pointer, as a link is (0.4.262). */
+.refinement-two-way-peek .rf-tw-peek-open { text-decoration: underline transparent; text-underline-offset: 2px; transition: text-decoration-color .1s ease; }
+.refinement-two-way-peek .rf-tw-peek-open:hover { text-decoration-color: currentColor; }
+.refinement-two-way-peek .rf-tw-peek-line { border-radius: 4px; margin: 0 -4px; padding: 0 4px; }
+.refinement-two-way-peek .rf-tw-peek-line:hover { background: var(--rf-ui-hover); }
 .refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
 .refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 6px; }
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }

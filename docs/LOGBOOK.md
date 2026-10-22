@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · The hover card's pieces open what they name (0.4.262)
+
+**The owner:** "would it be better if the hover on two-way link area have the same as default hover as logseq", then
+"just make the different links and elements of the hover clickable". **Found:** Logseq's preview is `page-preview-trigger`,
+a component around each of its own `page-cp` links, so plugin-drawn links cannot have it. **Built:** `model.nodeFields`
+gives each value's uuid and `fields.props` (property uuids); `model.firstLines(uuid, n, true)` gives line uuids;
+`peekHtml` marks pieces `data-open-uuid` / `data-open-page`, `lineHtml` keeps a line's links; one click handler opens the
+innermost. **Seen:** not in Logseq.
+
 ## 2026-10-21 · Short names in two-way rows (0.4.261)
 
 **The owner:** "go on to item 5, long names in two-way rows". **Built:** `shortName` in `parts/two-way.js`: the first

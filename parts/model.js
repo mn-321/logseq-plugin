@@ -425,22 +425,26 @@ async function linksInto(id) {
 }
 async function nodeFields(uuid) {
   const where = `[?b :block/uuid #uuid "${uuid}"] [?b ?attr ?v] [?prop :db/ident ?attr] [(namespace ?attr) ?ns] [(= ?ns "user.property")] [?prop :block/title ?name]`;
+  // Each value with its node's uuid, and each property's own page (fields.props, name -> uuid), so a card can open
+  // them (0.4.262, the owner: "make the different links and elements of the hover clickable").
   const [raw, titled, dated] = await Promise.all([
-    dsQuery(`[:find ?name ?v :where ${where}]`),
-    dsQuery(`[:find ?name ?v ?t :where ${where} [?v :block/title ?t]]`),
-    dsQuery(`[:find ?name ?v ?d :where ${where} [?v :block/journal-day ?d]]`),
+    dsQuery(`[:find ?name ?v ?pu :where ${where} [?prop :block/uuid ?pu]]`),
+    dsQuery(`[:find ?name ?v ?t ?vu :where ${where} [?v :block/title ?t] [?v :block/uuid ?vu]]`),
+    dsQuery(`[:find ?name ?v ?d ?vu :where ${where} [?v :block/journal-day ?d] [?v :block/uuid ?vu]]`),
   ]);
   const fields = new Map(), known = new Set();
+  fields.props = new Map(raw.map(([name, , pu]) => [name, String(pu)]));
   const add = (name, value) => { if (!fields.has(name)) fields.set(name, []); fields.get(name).push(value); };
-  for (const [name, v, day] of dated) { known.add(`${name}|${v}`); add(name, { day }); }
-  for (const [name, v, title] of titled) { if (known.has(`${name}|${v}`)) continue; known.add(`${name}|${v}`); add(name, { title: String(title) }); }
+  for (const [name, v, day, vu] of dated) { known.add(`${name}|${v}`); add(name, { day, uuid: String(vu) }); }
+  for (const [name, v, title, vu] of titled) { if (known.has(`${name}|${v}`)) continue; known.add(`${name}|${v}`); add(name, { title: String(title), uuid: String(vu) }); }
   for (const [name, v] of raw) if (!known.has(`${name}|${v}`) && !(typeof v === 'number' && Number.isSafeInteger(v) && v > 0)) add(name, { text: String(v) });
   return fields;
 }
-async function firstLines(uuid, n) {
+async function firstLines(uuid, n, withIds = false) {
   const entity = await logseq.Editor.getBlock(uuid, { includeChildren: true });
   const children = entity?.name || entity?.originalName ? await logseq.Editor.getPageBlocksTree(uuid) : entity?.children;
-  return (children || []).slice(0, n).map(child => titleOf(child));
+  // withIds (0.4.262): { uuid, title } each, so a card can open the bullet a line is.
+  return (children || []).slice(0, n).map(child => withIds ? { uuid: String(child?.uuid || ''), title: titleOf(child) } : titleOf(child));
 }
 // The words of the bullets written straight on a page, for the page's own proposals (0.4.239); a property's text value
 // is not one (it has a property of its own pointing at it).
