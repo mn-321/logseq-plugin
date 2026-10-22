@@ -48,6 +48,7 @@ const CHOICE_WRONG_LIMIT = 2;
 // On the seed graph at 0.4.213: right 22, wrong 0, silent 34 of 56; one plain note ("Blood again this morning. Third
 // time this month.", left untagged in the seed on purpose) is offered #Symptom Log, which is the feature working.
 const TAG_WRONG_LIMIT = 0, TAG_RIGHT_LEAST = 15, PLAIN_SPOKE_LIMIT = 1;
+// --why: what pointing at each guess says (0.4.266).
 const all = process.argv.includes('--all'), honest = process.argv.includes('--honest'), timing = process.argv.includes('--timing');
 const ms = t => Number(process.hrtime.bigint() - t) / 1e6;
 const spread = list => { const a = [...list].sort((x, y) => x - y), at = q => a[Math.min(a.length - 1, Math.floor(q * a.length))]; return a.length ? `median ${at(.5).toFixed(2)} ms, 95th ${at(.95).toFixed(2)} ms, slowest ${a[a.length - 1].toFixed(2)} ms (${a.length} runs)` : 'no runs'; };
@@ -199,6 +200,7 @@ async function plugin() {
       if (verdict === 'wrong') problem(`“${title(record)}”: ${prop.title} would be filled with ${said.shown} (${said.how}); it holds ${actual.map(name).join(', ')}`);
       else if (verdict === 'guessWrong') console.log(`  wrong guess “${title(record)}”: ${prop.title} = ${said.shown} (${said.how}); it holds ${actual.map(name).join(', ')}`);
       else if (all) console.log(`  ${verdict.padEnd(10)} “${title(record)}”: ${prop.title}${said ? ` = ${said.shown} (${how})` : ''}`);
+      if (process.argv.includes('--why') && said?.guess) console.log(`  why “${title(record)}” ${prop.title} = ${said.shown}: ${inner.reasonOf(said)}`);
     }
   }
   console.log(`proposals on "${GRAPH}": ${cases} filled properties hidden in turn; right ${tally.right}, wrong ${tally.wrong}; guesses right ${tally.guessRight}, wrong ${tally.guessWrong}; silent ${tally.silent}`);

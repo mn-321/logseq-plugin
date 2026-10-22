@@ -142,6 +142,7 @@ async function contextFor() {
   for (const page of pages) { byKey.set(page.lower, page); if (page.uuid) byKey.set(page.uuid.toLowerCase(), page); byId.set(page.id, page); }
   // Tag names, longest first, for "#Symptom log" written without brackets.
   const tagNames = pages.filter(p => p.isTag).map(p => p.lower).sort((a, b) => b.length - a.length);
+  ctx0Title = key => byKey.get(String(key).toLowerCase())?.title || '';
   return (context = { schema, pages, byKey, byId, tagNames });
 }
 // The pages linked in the words, read fresh (0.4.210, at the owner's word: "properties do not recognize the new page"):
@@ -294,7 +295,7 @@ function piecesFor(b, text, ctx, ownAtStart = new Set(), assume = null) {
     const tag = allTags.length || asPage.length || !isBlock(b) ? null : assume || tagFor(b, text, ctx);
     if (!tag) return { record, pieces, skip };
     const assumed = piecesFor({ ...b, 'block/tags': [{ 'db/id': tag.id }] }, text, ctx, ownAtStart, tag);
-    const tagPiece = { ident: 'block/tags', prop: { ident: 'block/tags', title: 'Tags', lower: 'tags', type: 'tag', many: true, classes: [] }, kind: 'tag', ids: [tag.id], tag, shown: `#${tag.title}`, how: 'alike-tag', guess: true };
+    const tagPiece = { ident: 'block/tags', prop: { ident: 'block/tags', title: 'Tags', lower: 'tags', type: 'tag', many: true, classes: [] }, kind: 'tag', ids: [tag.id], tag, shown: `#${tag.title}`, how: 'alike-tag', from: tag.from, guess: true };
     return { record: b, pieces: [tagPiece, ...assumed.pieces.map(piece => ({ ...piece, guess: true, needsTag: true }))], skip: assumed.skip, assume: tag };
   }
   const recordTags = record === b ? ownTags : (pick(record, 'block/tags') || []).map(idOf);
@@ -473,7 +474,7 @@ function tagFor(b, text, ctx) {
   const voted = alike.vote(near, 'block/tags', { nearLeast, lead, least });
   if (!voted || voted.ids.length !== 1 || voted.ids[0] === 0) return null;
   const page = ctx.byId.get(voted.ids[0]);
-  return page?.isTag && page.uuid && (!ctx.knownTags || ctx.knownTags.has(page.id)) ? page : null;
+  return page?.isTag && page.uuid && (!ctx.knownTags || ctx.knownTags.has(page.id)) ? { ...page, from: examplesFor(near, 'block/tags', voted.ids) } : null;
 }
 // The nodes the bullet looks like, for one property: the nearest earlier holders of it, by the bullet's words
 // (links read as titles), its links and the record's tags; the bullet itself left out. Only from the bullet's own
@@ -505,6 +506,14 @@ async function pickerOrder(uuid, title, words) {
   for (const [id] of [...score].sort((x, y) => y[1] - x[1])) if (!order.includes(id)) order.push(id);
   return order.slice(0, 5);
 }
+// The earlier bullets behind a vote, for saying why (0.4.266): the two nearest that held what was voted, as words, each once.
+function examplesFor(near, ident, ids) {
+  const key = [...ids].sort((a, b) => a - b).join(',');
+  const said = near.filter(x => [...(x.entry.values.get(ident) || [])].sort((a, b) => a - b).join(',') === key)
+    .map(x => String(x.entry.title || '').replace(/\[\[([^\]]+)\]\]/g, (m, k) => (UUID.test(k) ? ctx0Title(k) : k)).replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return [...new Set(said)].slice(0, 2); // the same words twice say nothing more
+}
+let ctx0Title = () => '';
 const sameIds = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
 function guessesFor({ b, text, record, fields, recordTags, links, free, used, quiet, done, ctx }) {
   const own = record === b, parent = pick(b, 'block/parent'), journalDay = Number(pick(pick(b, 'block/page'), 'block/journal-day') || 0);
@@ -528,12 +537,13 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
     // A choice (0.4.265): what the bullets it looks like held, by their vote; the parent's, when it has the property.
     if (isChoice) {
       if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
-      const voted = own ? alike?.vote(looksLike(text, links, recordTags, prop, skip, ctx), prop.ident) : null;
-      if (voted) said.push({ ids: voted.ids, how: 'alike' });
+      const near = own ? looksLike(text, links, recordTags, prop, skip, ctx) : [];
+      const voted = own ? alike?.vote(near, prop.ident) : null;
+      if (voted) said.push({ ids: voted.ids, how: 'alike', from: examplesFor(near, prop.ident, voted.ids) });
       if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids)) || (!prop.many && said[0].ids.length !== 1)) continue;
       const titles = said[0].ids.map(id => prop.choices.find(c => c.id === id)?.title);
       if (titles.some(t => !t)) continue;
-      out.push({ ident: prop.ident, prop, kind: 'choice', ids: said[0].ids, shown: titles.join(', '), how: said.map(s => s.how).join('+'), guess: true });
+      out.push({ ident: prop.ident, prop, kind: 'choice', ids: said[0].ids, shown: titles.join(', '), how: said.map(s => s.how).join('+'), from: said.find(s => s.from)?.from, guess: true });
       continue;
     }
     // The parent's values, for a property both have.
@@ -541,8 +551,9 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
     if (isNode) {
       const classIds = new Set(prop.classes.map(c => c.id));
       // The nodes it looks like: the nearest earlier holders of the property vote, and a clear lead speaks.
-      const voted = own ? alike?.vote(looksLike(text, links, recordTags, prop, skip, ctx), prop.ident) : null;
-      if (voted) said.push({ ids: voted.ids, how: 'alike' });
+      const near = own ? looksLike(text, links, recordTags, prop, skip, ctx) : [];
+      const voted = own ? alike?.vote(near, prop.ident) : null;
+      if (voted) said.push({ ids: voted.ids, how: 'alike', from: examplesFor(near, prop.ident, voted.ids) });
       const named = wide(prop, ctx.schema) ? null : namedIn(words, classIds, ctx, spoken);
       if (named) said.push({ ids: [named.id], how: 'words' });
     }
@@ -566,7 +577,7 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
     const pages = ids.map(nodeOf);
     if (pages.some(p => !p)) continue;
     for (const p of pages) spoken.add(p);
-    out.push({ ident: prop.ident, prop, kind: 'node', ids, shown: pages.map(p => p.title).join(', '), how: said.map(s => s.how).join('+'), guess: true });
+    out.push({ ident: prop.ident, prop, kind: 'node', ids, shown: pages.map(p => p.title).join(', '), how: said.map(s => s.how).join('+'), from: said.find(s => s.from)?.from, guess: true });
   }
   // A linked page with no tag yet: a guess for the first empty place it could fill (a property taking one tag, the
   // most particular first), when there are one or two such places and no other such page competes for them. Taking
@@ -595,7 +606,7 @@ function addHistory(ctx, entries) {
     if (words.size < 2) continue;
     const values = new Map(entry.values);
     values.set('block/tags', entry.tags?.length ? entry.tags : [0]); // 0: a plain line, no tag
-    kept.push({ id: entry.id, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values });
+    kept.push({ id: entry.id, title: entry.title, tokens: alike ? alike.tokensOf(words, entry.links || linkIdsIn(entry.title, ctx), entry.tags) : [], values });
   }
   ctx.alike = alike ? alike.buildIndex(kept) : null;
   return ctx;
@@ -642,7 +653,7 @@ async function loadGuessData(ctx) {
     // Plain lines (no tag at all), for the tag's vote: they say "no tag" (the stress test, 2026-10-21).
     model.plainLines()]);
   return { aliases, tagIds,
-    entries: [...plain.map(({ id, title }) => ({ id, words: shownWords(title, ctx), links: linkIdsIn(title, ctx), tags: [], values: new Map() })), ...rows.map(n => ({ id: idOf(n), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
+    entries: [...plain.map(({ id, title }) => ({ id, title, words: shownWords(title, ctx), links: linkIdsIn(title, ctx), tags: [], values: new Map() })), ...rows.map(n => ({ id: idOf(n), title: String(pick(n, 'block/title') ?? ''), words: shownWords(String(pick(n, 'block/title') ?? ''), ctx), links: linkIdsIn(String(pick(n, 'block/title') ?? ''), ctx), tags: (pick(n, 'block/tags') || []).map(idOf),
       values: new Map(learned.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length)) }))] };
 }
 // Journal days by page id, for the parent's date, and for each tag how many of its dated nodes written on a journal
@@ -1362,10 +1373,27 @@ function forgetUndo(uuid) { shared.undo.forget(entry => entry.key.startsWith('pr
 // The proposals' own arrows, for the checks (tools/shadow-write-test.js): how many, and forgetting them all.
 const ownUndos = { get size() { return shared.undo.keys().filter(key => key.startsWith('proposals:')).length; }, clear: () => shared.undo.forget(entry => entry.key.startsWith('proposals:')) };
 // What one value looks like and says when pointed at; the page that gets a tag is named only there.
+/* Why (0.4.266, layer 2 item 8, "why a guess was made, on hover"): pointing at a value says where it came from, and for
+   a guess from the bullets this one looks like, the two nearest of them: "Earlier bullets like this one had Planned:
+   “CT scan on Tuesday.”, “Colonoscopy on Friday”". Then what Enter does, as before. */
+const REASONS = {
+  alike: piece => `Earlier bullets like this one had ${piece.shown}`, 'alike-tag': () => 'Earlier lines like this one have this tag',
+  words: () => 'Named in your words', parent: () => 'The bullet above has it', day: () => 'The day this is written on',
+  'words-day': () => 'A day named in your words', 'words-number': piece => `The number beside “${piece.prop.title.toLowerCase()}” in your words`,
+  untagged: () => 'A page linked in your words that has no tag yet; taking it gives the page the tag too',
+  linked: () => 'A page linked in your words', 'linked-wide': () => 'A page linked in your words', page: () => 'The page this is written on',
+  'page-tag': () => 'The page this is written on', 'page-wide': () => 'The page this is written on',
+};
+function reasonOf(piece) {
+  const parts = String(piece.how || '').split('+').map(how => REASONS[how]?.(piece)).filter(Boolean);
+  const from = piece.from?.length ? `: ${piece.from.map(t => `“${t.length > 70 ? t.slice(0, 69) + '…' : t}”`).join(', ')}` : '';
+  return parts.length ? parts.join('; ') + from : '';
+}
 function ghostLook(piece) {
-  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`,
-    title: piece.kind === 'tag' ? 'A guess from the lines this one looks like: Enter gives the bullet this tag and fills in the rest'
-      : piece.guess ? 'A guess: Enter fills it in with the rest; Option-Enter stops on it to check' : 'Filled in when you leave the bullet' };
+  const what = piece.kind === 'tag' ? 'A guess: Enter gives the bullet this tag and fills in the rest'
+    : piece.guess ? 'A guess: Enter fills it in with the rest; Option-Enter stops on it to check' : 'Filled in when you leave the bullet';
+  const why = reasonOf(piece);
+  return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`, title: why ? `${why}.\n${what}` : what };
 }
 function drawInPlace(doc = host()) {
   const live = state.live;
@@ -1566,5 +1594,5 @@ function start() {
 }
 (window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, provide: core => core.provide({ pickerOrder }), start, stop: runUnloadTasks });
 // For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws.
-window.refinementShadowInner = { piecesFor, namedIn, namesFor, freeWords, wordsEarned, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
+window.refinementShadowInner = { piecesFor, reasonOf, namedIn, namesFor, freeWords, wordsEarned, withFreshLinks, withoutPageTag, withPageTag, contextFor, daysFor, guessDataFor, addHistory, guessData: () => guessCache.data, get BLOCK_PULL() { return model.BLOCK_PULL; }, drawInPlace, css };
 })();

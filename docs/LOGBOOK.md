@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Why a guess, on hover (0.4.266)
+
+**The owner:** "go on to item 8, why a guess was made on hover". **Built:** learned entries keep their `title`;
+`examplesFor(near, ident, ids)` gives the two nearest distinct lines behind a vote; pieces carry `from`; `REASONS` by
+`how` and `reasonOf(piece)` make the words; `ghostLook` puts them before what Enter does in the value's tip.
+`tools/shadow-check.js --why` prints them. **Seen:** the words for every guess of the test graph, not the app.
+
 ## 2026-10-21 · Proposals guess choices (0.4.265)
 
 **The owner:** "go on to item 7, proposals for numbers and choices". **Built:** `loadGuessData` learns choice properties
