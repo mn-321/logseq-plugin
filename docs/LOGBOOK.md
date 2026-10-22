@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Choice guesses dropped (0.4.292)
+
+**Asked:** the owner, on the audit's decision 5 (choice guesses wrong 255 times on Stress Check): "Drop". **Built:**
+`parts/shadow-rules.js`: a choice property is skipped in `piecesFor`; `learnedProps` still learns choices, for
+`pickerOrder`. **Measured:** `tools/shadow-check.js` on the Illness Test Graph: sure right 53, wrong 0; guesses right
+50, wrong 1 (3 before, the two Status ones gone); `tools/shadow-test.js` 117 cases OK. **Not seen:** the app.
+
 ## 2026-10-22 · No ring on a row Logseq already marks (0.4.291)
 
 **Asked:** the owner, with a picture of a bullet whose Therapy regimen row carried the ring round its name: "can you

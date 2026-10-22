@@ -480,18 +480,10 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
       if (n != null) out.push({ ident: prop.ident, prop, kind: 'number', ids: [n], shown: String(n), how: 'words-number', guess: true });
       continue;
     }
-    // A choice (0.4.265): what the bullets it looks like held, by their vote; the parent's, when it has the property.
-    if (isChoice) {
-      if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
-      const near = own ? looksLike(text, links, recordTags, prop, skip, ctx) : [];
-      const voted = own ? alike?.vote(near, prop.ident) : null;
-      if (voted) said.push({ ids: voted.ids, how: 'alike', from: examplesFor(near, prop.ident, voted.ids) });
-      if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids)) || (!prop.many && said[0].ids.length !== 1)) continue;
-      const titles = said[0].ids.map(id => prop.choices.find(c => c.id === id)?.title);
-      if (titles.some(t => !t)) continue;
-      out.push({ ident: prop.ident, prop, kind: 'choice', ids: said[0].ids, shown: titles.join(', '), how: said.map(s => s.how).join('+'), from: said.find(s => s.from)?.from, guess: true });
-      continue;
-    }
+    // A choice (Status …) is never proposed (0.4.292, the owner: "Drop"): guessed from look-alike bullets from 0.4.265, it
+    // was wrong 255 times on the random Stress Check graph, and where a thing stands is rarely in its words. The
+    // choices are still learned, for the pickers' order (pickerOrder).
+    if (isChoice) continue;
     // The parent's values, for a property both have.
     if (parentTags.length) { const v = valuesOf(parent, prop.ident); if (v.length) said.push({ ids: v, how: 'parent' }); }
     if (isNode) {
