@@ -2,6 +2,27 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The layers renumbered and the kit settled, from two pages the owner commented on (0.4.310, documents only)
+
+**Asked:** the owner: "there is no cohesive use of layers"; then "define the consistent shared parts", relying on
+Logseq's defaults where easier to change later, new elements modular and reusable; then a visual of every element and
+its variations, with recommendations and the reasoning; then whole views; then "ok plan". **Found:** the layers lived
+only in the documents: every loaded part calls Logseq directly (the tag map about fifty times), the parts find each
+other through nine names on Logseq's window, and they draw about forty variations of fourteen kinds of element (a
+survey by a subagent, the counts on the elements page). Logseq 2.0.2's own components are Tailwind class lists composed
+in its code, not reusable by a plugin; its colours, pills, lists and Tabler icon font are. Chrome 148 under it gives
+the dialog, popovers, anchor positioning and the checkbox for free. **Built:** `docs/ELEMENTS.html` (every element
+today, drawn with the parts' own stylesheets pulled from the source, and a recommendation per kind) and
+`docs/VIEWS.html` (whole views with the kit), published as Artifact pages; twenty-nine comments from the owner applied
+on the elements page and six on the views page, each answered and resolved there: tags in mono without # as a class,
+no pills or fills or edges, tick boxes as small rounded squares, kinds as icons left of the name with a plain arrow for
+"points to a node", plain words on the Properties view, property names lighter than values, icons in the settings
+window, the old Undo bar deleted, no green or any colour of the plugin's own, rows on one set of columns. `docs/LAYERS.md`
+holds the six layers, the grammar, the kit with what each piece comes from, the icon list and the order of building;
+`tools/pages/` rebuilds the two pages. **Checks:** both pages rebuilt from scratch with the kept scripts, same output;
+`sh tools/docs-check.sh`. **Seen:** the pages in headless Chromium at every step; Logseq not touched (no code changed).
+**Not built:** nothing of the kit; the owner reads the plan first.
+
 ## 2026-10-22 · The Tags view editable in place, one shape with the Properties view (0.4.310)
 
 **Asked:** the owner, through the "Properties page usability and editing" session: "can you create a separate session

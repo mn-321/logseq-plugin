@@ -1,3 +1,5 @@
+**2026-10-22: the plan for finishing layers 1 and 2 (the kit) is `docs/LAYERS.md`.**
+
 # Next steps for DB Refinements
 
 **2026-10-20, 0.4.211: this file is from before the layer-by-layer rebuild and is kept for its history.** Where things stand and what comes next are in `CLAUDE.md` (sections 3, 6 and 7), `docs/LOGBOOK.md` and the feature map page (claude.ai/code/artifact/54c579a9-2986-45cb-8316-5858a5ee7ec1).
