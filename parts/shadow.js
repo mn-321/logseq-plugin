@@ -583,8 +583,12 @@ const css = `
 .rfs-ghost.rfs-guess { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 /* The property Option-Enter is on (0.4.207): a ring in the text colour, as Logseq marks a focused value. */
 [data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
-/* On a row's name the ring is drawn just inside it: the row's box cuts off what is outside (seen in the app). */
-.property-key-inner[data-rfs-at] { outline-offset: -2px; }
+/* No ring on a property shown as a row of its own (0.4.291, the owner's picture: a box round "Therapy regimen" inside
+   Logseq's own grey highlight of the row, with the caret already in its value): Logseq marks the row itself when the
+   keyboard is on it, so the ring said the same thing twice. Nor while a capsule's own text box has the keyboard: the
+   caret says where you are. The ring stays where Logseq shows nothing: a filled capsule the keys rest on, or a
+   capsule with Logseq's list open beside it. */
+.property-key-inner[data-rfs-at], .bottom-property-pill[data-rfs-at]:has(:is(textarea, input):focus) { outline: none !important; }
 /* On a capsule too (0.4.270): Logseq's row of capsules is one capsule tall and cuts off what is outside (the owner saw
    the ring's top and bottom cut). The capsule keeps its own round ends. Logseq's own Down, Left and Right put the
    keyboard on a capsule and show nothing; the same ring shows where it is. Logseq takes the outline off a capsule that

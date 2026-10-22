@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · No ring on a row Logseq already marks (0.4.291)
+
+**Asked:** the owner, with a picture of a bullet whose Therapy regimen row carried the ring round its name: "can you
+improve the selection of bullet property? I don't know if it is necessary if a caret is already there". **Seen
+first:** on that bullet (Oct 16th, 2026, tagged Pharmacological Agent), Down then Right, Right: Logseq greys the whole
+row when the keyboard is on it, and the plugin's ring sat inside that, boxing the name and cutting it short; Option-Enter
+and Tab had nothing to open there (every property filled). **Built:** `parts/shadow.js`: no ring on
+`.property-key-inner` (a row of its own), and none on a capsule whose own text box has the keyboard; the ring stays on
+a filled capsule the keys rest on and on a capsule with Logseq's list open beside it. **Seen after the reload:** the
+Target capsule with the ring inside it after Down; the Therapy regimen row greyed by Logseq with no ring after Right,
+Right (its name still reads cut short there: Logseq's own narrow name column on such a row, not the ring); Escape back to the words, nothing changed. Also seen: the ring, Tab and Option-Enter only act on a bullet the proposals are live on; on this fully filled bullet Option-Enter had nothing to open and Tab was Logseq's own.
+
 ## 2026-10-22 · Seen in the app: the six trimmed pieces (0.4.285 to 0.4.290)
 
 **Asked:** the owner: "Yes, check the six pieces in Logseq now". **Seen:** Illness Test Graph, 0.4.290 reloaded from
