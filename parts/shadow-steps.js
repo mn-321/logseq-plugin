@@ -25,14 +25,24 @@ P.links.push(core => {
    (Logseq picks or closes) also comes back to the end of the words, with the proposals still shown; Enter there then
    fills them in as usual. Leaving the list any other way (a click elsewhere) is leaving the bullet: what is sure is
    filled in. Logseq has no key of its own into the properties shown under a bullet (tried on screen: Escape and Down
-   go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does. */
-const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '', pickerRoot: null, settle: 0, guesses: null, prefill: '' };
+   go to the next bullet, Cmd+J does nothing), so the plugin presses the empty value's own trigger, as a click does.
+   Tab and Shift-Tab go through every property of the bullet, filled or empty (0.4.270, at the owner's word: "Tab and
+   Shift-Tab step through every property of the bullet, filled or empty, with the ring showing where you are; Enter
+   still goes to the next empty one"): an empty one opens ready to type, as before; on a filled one the ring rests
+   and nothing opens, so a value is never changed by passing it; Enter there opens it, Escape goes back to the
+   words. Tab works the same from Logseq's own Down into the properties (0.4.208). */
+const picking = state.picking = { uuid: '', text: '', live: null, rowUuid: '', names: [], stops: new Set(), restEl: null, wasOpen: false, at: -1, keyAt: 0, lastKey: '', timer: 0, moving: 0, tab: 0, returning: '', pickerRoot: null, settle: 0, guesses: null, prefill: '' };
 const recordRow = (doc, rowUuid) => [...doc.querySelectorAll(`.ls-block[blockid="${rowUuid}"]`)].find(r => r.offsetParent !== null) || doc.querySelector(`.ls-block[blockid="${rowUuid}"]`);
 // An empty value's own trigger, for the kinds whose list, box or picker is followed here: a link, a text (or choice),
 // a web address, a number, a date (0.4.215). A checkbox's trigger is the box itself, which a press would tick (second
 // reading).
 const emptyTrigger = el => el.querySelector(['node', 'default', 'url', 'number', 'date'].map(type => `.empty-value[data-type="${type}"] .jtrigger`).join(', '));
-const isDateTrigger = el => el?.closest?.('.empty-value')?.dataset.type === 'date';
+const isDateTrigger = el => el?.closest?.('[data-type]')?.dataset.type === 'date';
+// A filled value's own trigger, pressed by Enter while the ring rests on it (0.4.270): the value's, not the name's.
+const valueTrigger = el => [...el.querySelectorAll('.jtrigger')].find(t => !t.closest('.property-key-inner'));
+// Where the keyboard rests on a filled one: the capsule itself (Logseq gives it a tabindex for its own Left/Right),
+// else the value's trigger.
+const restTarget = el => el.hasAttribute('tabindex') ? el : valueTrigger(el) || el;
 // Logseq's date picker, once it has opened (stage F): the keyboard goes to its text box ("e.g. Next week"), found by
 // its placeholder, and the picker is the top-level element the box sits in; the plugin needs no class names for it.
 // Without the box (another Logseq), the calendar keeps the keys, and whatever outside the page took the focus counts
@@ -87,13 +97,15 @@ function typeInto(box, words) {
   box.dispatchEvent(new win.Event('input', { bubbles: true }));
   box.select?.();
 }
-// The trigger of the i-th of them, if it is still empty (one filled meanwhile is passed over).
-function triggerAt(doc, i, step) {
+// The i-th of the bullet's properties, or the next one going by step: with Tab (any) every property, with its trigger
+// when it is empty; with Enter only the empty ones Option-Enter stops at (one filled meanwhile is passed over).
+function placeAt(doc, i, step, any) {
   const places = propertyPlaces(recordRow(doc, picking.rowUuid));
   for (; i >= 0 && i < picking.names.length; i += step) {
-    const place = places.find(p => p.name === picking.names[i]);
-    const trigger = place && emptyTrigger(place.el);
-    if (trigger) return { i, trigger };
+    const name = picking.names[i], place = places.find(p => p.name === name);
+    if (!place) continue;
+    const trigger = emptyTrigger(place.el);
+    if (any || (trigger && picking.stops.has(name))) return { i, place, trigger };
   }
   return null;
 }
@@ -144,22 +156,38 @@ function markAt(doc, el) {
   for (const old of doc.querySelectorAll('[data-rfs-at]')) if (old !== el) old.removeAttribute('data-rfs-at');
   if (el && !el.hasAttribute('data-rfs-at')) el.setAttribute('data-rfs-at', '');
 }
-// Opens the i-th remembered property. Past the end going forward (Enter): the bullet is done, as Enter in the words
-// does it (the owner: "enter should go to next bullet on last enter"); past either end with Tab: back to the words.
-function openAt(doc, i, step = 1, pastEnd = backToWords) {
+// Opens the i-th remembered property (with Tab, any: a filled one only gets the ring). Past the end going forward
+// (Enter): the bullet is done, as Enter in the words does it (the owner: "enter should go to next bullet on last
+// enter"); past either end with Tab: back to the words.
+function openAt(doc, i, step = 1, pastEnd = backToWords, any = false) {
   passOn();
-  const found = triggerAt(doc, i, step);
+  const found = placeAt(doc, i, step, any);
   if (!found) return pastEnd();
-  picking.at = found.i;
-  picking.keyAt = 0;
-  picking.lastKey = '';
+  Object.assign(picking, { at: found.i, keyAt: 0, lastKey: '', pickerRoot: null, wasOpen: false, restEl: null, prefill: '' });
+  markAt(doc, found.place.el);
+  if (!found.trigger) return rest(found.place.el);
   picking.moving = Date.now();
-  picking.pickerRoot = null;
   picking.prefill = picking.guesses?.get(picking.names[found.i]) || '';
-  markAt(doc, found.trigger.closest('.bottom-property-pill, .property-pair'));
   press(found.trigger);
   if (isDateTrigger(found.trigger)) settleInDatePicker(doc);
   watchPicker();
+}
+// The ring rests on a filled property with the keyboard on it; nothing is opened (0.4.270).
+function rest(el) {
+  picking.moving = 0;
+  picking.restEl = restTarget(el);
+  picking.restEl.focus({ preventScroll: true });
+  watchPicker();
+}
+// Enter on the property the ring rests on: its value opens, as a click on it does.
+function openRested(doc) {
+  const place = propertyPlaces(recordRow(doc, picking.rowUuid)).find(p => p.name === picking.names[picking.at]);
+  const trigger = place && valueTrigger(place.el);
+  if (!trigger) return;
+  picking.moving = Date.now();
+  picking.wasOpen = false;
+  press(trigger);
+  if (isDateTrigger(trigger)) settleInDatePicker(doc);
 }
 // Watches the focus while a list is meant to be open. The list closed: right after Enter in it, on to the next empty
 // property (past the last, the next bullet); right after Escape, back to the words; back in the bullet's own words (a
@@ -169,22 +197,31 @@ function openAt(doc, i, step = 1, pastEnd = backToWords) {
 function watchPicker() {
   clearInterval(picking.timer);
   picking.timer = setInterval(() => {
-    const active = host().activeElement;
+    const doc = host();
+    let active = doc.activeElement;
     // Logseq draws a row again when its value's box opens (seen: the ring on Notes went): put the mark back.
-    if (picking.at >= 0) { const doc = host(), place = propertyPlaces(recordRow(doc, picking.rowUuid)).find(p => p.name === picking.names[picking.at]); if (place) markAt(doc, place.el); }
-    if (inPicker(active)) {
+    const place = picking.at >= 0 ? propertyPlaces(recordRow(doc, picking.rowUuid)).find(p => p.name === picking.names[picking.at]) : null;
+    if (place) markAt(doc, place.el);
+    // Resting on a filled one: drawn again, the keyboard is put back on the new one.
+    if (picking.restEl && place && !place.el.contains(picking.restEl)) {
+      picking.restEl = restTarget(place.el);
+      if (!active || active === doc.body || !active.isConnected) { picking.restEl.focus({ preventScroll: true }); active = doc.activeElement; }
+    }
+    const onRest = !!picking.restEl?.contains?.(active);
+    if (!onRest && inPicker(active)) {
       picking.moving = 0;
+      picking.wasOpen = true;
       if (picking.prefill && active.matches?.('input, textarea')) { typeInto(active, picking.prefill); picking.prefill = ''; }
       return;
     }
     if (picking.moving && Date.now() - picking.moving < OPEN_WAIT) return;
-    const opened = !picking.moving;
     if (ownWords(active)) return endPicking(false);
-    if (!opened) return endPicking(false); // nothing opened
-    if (picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) {
-      if (picking.lastKey === 'Enter') return openAt(active?.ownerDocument || host(), picking.at + 1, 1, finishBullet);
+    if (picking.wasOpen && picking.keyAt && Date.now() - picking.keyAt < KEY_CLOSES) {
+      if (picking.lastKey === 'Enter') return openAt(doc, picking.at + 1, 1, finishBullet);
       return backToWords();
     }
+    if (onRest) { picking.moving = 0; return; } // resting on a filled one, or its value opened nothing (a checkbox)
+    if (!picking.wasOpen) return endPicking(false); // nothing opened
     endPicking(true);
   }, 100);
 }
@@ -196,7 +233,7 @@ async function backToWords() {
   picking.returning = uuid;
   const box = editingBox(host().activeElement);
   try {
-    if (!(box && uuidOf(box) === uuid)) await logseq.Editor.editBlock(uuid, { pos: text.length });
+    if (!(box && uuidOf(box) === uuid)) await logseq.Editor.editBlock(uuid, text ? { pos: text.length } : undefined);
   } catch (error) { warnOnce('could not go back to the words', error); }
   setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
@@ -226,7 +263,7 @@ function endPicking(left) {
   const live = picking.live;
   clearInterval(picking.timer); clearTimeout(picking.tab); clearInterval(picking.settle);
   markAt(host(), null);
-  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0, pickerRoot: null, settle: 0, guesses: null, prefill: '' });
+  Object.assign(picking, { uuid: '', text: '', live: null, rowUuid: '', names: [], stops: new Set(), restEl: null, wasOpen: false, at: -1, keyAt: 0, lastKey: '', moving: 0, tab: 0, pickerRoot: null, settle: 0, guesses: null, prefill: '' });
   // Left from the list: as leaving the words, the sure values only.
   if (left) leave(live);
 }
@@ -251,12 +288,24 @@ function onPickKey(event) {
     if (!box || !setting('shadowProposals') || !state.allowedNow) return;
     const uuid = uuidOf(box), doc = box.ownerDocument;
     const rowUuid = state.live?.uuid === uuid ? state.live.recordUuid : uuid;
-    const names = emptyNames(doc, rowUuid);
-    if (!names.length) return; // nothing to go to: the key is Logseq's
+    const stops = new Set(emptyNames(doc, rowUuid));
+    if (!stops.size) return; // nothing to go to: the key is Logseq's
     event.preventDefault(); event.stopImmediatePropagation();
     endPicking(false);
-    Object.assign(picking, { uuid, text: box.value, live: state.live?.uuid === uuid ? state.live : null, rowUuid, names, guesses: guessesAt(rowUuid) });
+    Object.assign(picking, { uuid, text: box.value, live: state.live?.uuid === uuid ? state.live : null, rowUuid, names: propertyPlaces(recordRow(doc, rowUuid)).map(p => p.name), stops, guesses: guessesAt(rowUuid) });
     openAt(doc, 0);
+    return;
+  }
+  // Tab in the bullet's properties reached with Logseq's own Down (0.4.208): the same stepping from there (0.4.270).
+  if (event.key === 'Tab' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && startFromVisit(event)) return;
+  // On a filled property the ring rests on (0.4.270): Enter opens it, Escape goes back to the words, Tab moves on,
+  // Option-Enter finishes the bullet; other keys (Logseq's Left and Right) are Logseq's.
+  if (picking.uuid && picking.restEl?.contains(event.target)) {
+    const doc = event.target.ownerDocument;
+    if (event.key === 'Tab') { event.preventDefault(); event.stopImmediatePropagation(); const step = event.shiftKey ? -1 : 1; openAt(doc, picking.at + step, step, backToWords, true); }
+    else if (plainEnter && event.altKey) { event.preventDefault(); event.stopImmediatePropagation(); finishBullet(); }
+    else if (plainEnter) { event.preventDefault(); event.stopImmediatePropagation(); openRested(doc); }
+    else if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); backToWords(); }
     return;
   }
   if (!picking.uuid || !inPicker(event.target)) return;
@@ -273,7 +322,7 @@ function onPickKey(event) {
     event.preventDefault(); event.stopImmediatePropagation();
     if (picking.tab) return; // one move at a time
     const step = event.shiftKey ? -1 : 1, next = picking.at + step;
-    closeThen(event.target, doc => openAt(doc, next, step));
+    closeThen(event.target, doc => openAt(doc, next, step, backToWords, true));
     return;
   }
   // Enter in a text or number value: keep what was typed and move on (Shift-Enter stays a new line in it). In a list,
@@ -290,6 +339,27 @@ function onPickKey(event) {
 // block's name is not in the page list) but counted, and tags left out (Logseq keeps them apart from the words).
 // A tag typed in the words is saved by Logseq as #[[uuid]] (seen 0.4.214: "#Expectation" typed, Escape on its list), which
 // is not a link: the tags go first, or the saved words never match the typed ones and nothing is ever filled in.
+
+// Tab on one of a bullet's own properties that Logseq's Down put the keyboard on: stepping starts from there, with the
+// bullet's proposals kept as they are (the same conditions as Option-Enter).
+function startFromVisit(event) {
+  const target = event.target;
+  if (!target?.closest || target.matches('input, textarea, [contenteditable="true"]')) return false;
+  if (!setting('shadowProposals') || !state.allowedNow) return false;
+  const placeEl = target.closest('.bottom-property-pill, .property-pair');
+  const row = placeEl?.parentElement?.closest('.ls-block[blockid]');
+  if (!row || !ownRow(row)(placeEl)) return false;
+  const doc = target.ownerDocument, rowUuid = row.getAttribute('blockid');
+  const places = propertyPlaces(row), at = places.findIndex(p => p.el === placeEl || p.el.contains(placeEl));
+  if (at < 0) return false;
+  event.preventDefault(); event.stopImmediatePropagation();
+  const live = [state.visiting?.live, state.live].find(l => l?.recordUuid === rowUuid) || null;
+  endPicking(false);
+  Object.assign(picking, { uuid: live?.uuid || rowUuid, text: live?.text || '', live, rowUuid, names: places.map(p => p.name), stops: new Set(emptyNames(doc, rowUuid)), guesses: guessesAt(rowUuid) });
+  const step = event.shiftKey ? -1 : 1;
+  openAt(doc, at + step, step, backToWords, true);
+  return true;
+}
 
 Object.assign(P, { picking, endPicking, onPickKey });
 (window.refinementParts ||= []).push({ name: 'proposals steps', schema: [], start() {}, stop: runUnloadTasks });

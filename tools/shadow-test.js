@@ -480,6 +480,79 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   window.refinementShadow.live = null;
   window.refinementShadowInner.drawInPlace(doc);
 }
+// 21. Tab and Shift-Tab through every property, filled or empty (0.4.270, at the owner's word): an empty one opens as
+//     before; on a filled one the ring rests, the keyboard on it and nothing pressed; Enter there opens it; Escape goes
+//     back to the words; Enter after a pick still goes to the next empty one; Tab from Logseq's own Down works too.
+{
+  const doc = window.document, edited = [], U = '0e000000-0000-4000-8000-0000000000e2';
+  window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push(uuid); };
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const emptyPill = (name, id, type = 'node') => `<div class="bottom-property-pill" tabindex="-1"><div class="property-key-inner"><a class="property-k jtrigger">${name}</a></div><div class="bottom-property-content"><div class="empty-value" data-type="${type}"><div class="jtrigger" id="${id}">—</div></div></div></div>`;
+  const filledPill = (name, id, type, value) => `<div class="bottom-property-pill" tabindex="-1" id="p-${id}"><div class="property-key-inner"><a class="property-k jtrigger">${name}</a></div><div class="bottom-property-content property-value-container"><div data-type="${type}"><div class="jtrigger" id="${id}"><a class="page-ref">${value}</a></div></div></div></div>`;
+  doc.body.innerHTML = `<div class="ls-block" blockid="${U}"><div class="block-main-container"><div class="flex-col"><div class="flex-col">`
+    + `<textarea id="edit-block-${U}">Saw the surgeon</textarea><div class="positioned-properties block-below"><div class="bottom-properties-row">`
+    + filledPill('doctor', 'v-doc', 'node', 'Dr. Raj Patel') + emptyPill('hospital', 't-hosp3') + filledPill('Date', 'v-date', 'date', 'Aug 4th, 2026') + emptyPill('notes', 't-notes3', 'default')
+    + '</div></div></div></div></div></div>';
+  const box = doc.querySelector('textarea'), pressed = [];
+  for (const id of ['v-doc', 't-hosp3', 'v-date', 't-notes3']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
+  const openList = () => { const list = doc.createElement('div'); list.className = 'cp__select'; list.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list); const input = list.querySelector('input'); input.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') list.remove(); }); input.focus(); return input; };
+  const key = (el, k, extra = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }); el.dispatchEvent(e); return e; };
+  const ringOn = id => !!doc.getElementById(id).closest('.bottom-property-pill')?.hasAttribute('data-rfs-at');
+  window.refinementShadow.live = null;
+  box.focus();
+  key(box, 'Enter', { altKey: true });
+  cases++;
+  if (pressed.join() !== 't-hosp3') problem(`Option-Enter with a filled doctor: opened ${pressed.join() || 'nothing'}; wanted the empty hospital first`);
+  let input = openList();
+  await wait(150);
+  // Shift-Tab: back to the filled doctor; the ring rests there, nothing is pressed.
+  key(input, 'Tab', { shiftKey: true });
+  await wait(150);
+  cases++;
+  if (pressed.join() !== 't-hosp3' || !ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc')) problem(`Shift-Tab to a filled property: pressed ${pressed.join()}, ring ${ringOn('v-doc')}, keyboard on ${doc.activeElement?.id || doc.activeElement?.tagName}; wanted the ring and the keyboard on the doctor, nothing pressed`);
+  await wait(700);
+  cases++;
+  if (window.refinementShadow.picking.uuid !== U) problem('resting on a filled property: the stepping ended by itself');
+  // Tab: on to the empty hospital, which opens; Tab again: the filled date, which only gets the ring.
+  key(doc.getElementById('p-v-doc'), 'Tab');
+  await wait(50);
+  input = openList();
+  await wait(150);
+  key(input, 'Tab');
+  await wait(150);
+  cases++;
+  if (pressed.join() !== 't-hosp3,t-hosp3' || !ringOn('v-date') || ringOn('v-doc')) problem(`Tab, Tab from the doctor: pressed ${pressed.join()}; wanted the hospital opened, then the ring on the filled date`);
+  // Enter on the rested date opens it; Escape (with nothing opened) goes back to the words.
+  const enter = key(doc.getElementById('p-v-date'), 'Enter');
+  cases++;
+  if (!enter.defaultPrevented || pressed.at(-1) !== 'v-date') problem(`Enter on a filled property: pressed ${pressed.join()}; wanted its value opened`);
+  await wait(700);
+  key(doc.getElementById('p-v-date'), 'Escape');
+  await wait(150);
+  cases++;
+  if (window.refinementShadow.picking.uuid || !edited.includes(U)) problem(`Escape on a filled property: picking ${window.refinementShadow.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
+  // Enter after a pick goes on to the next empty one, passing the filled date.
+  pressed.length = 0;
+  box.focus();
+  key(box, 'Enter', { altKey: true });
+  input = openList();
+  await wait(150);
+  key(input, 'Enter');
+  await wait(300);
+  cases++;
+  if (pressed.join() !== 't-hosp3,t-notes3') problem(`Enter after a pick: opened ${pressed.join()}; wanted notes next, the filled date passed over`);
+  window.refinementProposals.endPicking(false);
+  for (const el of doc.querySelectorAll('.cp__select')) el.remove();
+  // Tab from Logseq's own Down (the keyboard on a capsule, no stepping yet): the next property opens.
+  await wait(200);
+  pressed.length = 0;
+  doc.getElementById('p-v-doc').focus();
+  const tab = key(doc.getElementById('p-v-doc'), 'Tab');
+  cases++;
+  if (!tab.defaultPrevented || pressed.join() !== 't-hosp3' || window.refinementShadow.picking.uuid !== U) problem(`Tab after Logseq's Down: pressed ${pressed.join()}, stepping ${window.refinementShadow.picking.uuid}; wanted the hospital opened`);
+  key(openList(), 'Escape');
+  await wait(300);
+}
 // 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
 {
   const doc = window.document;

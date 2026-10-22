@@ -549,6 +549,11 @@ const css = `
 [data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
 /* On a row's name the ring is drawn just inside it: the row's box cuts off what is outside (seen in the app). */
 .property-key-inner[data-rfs-at] { outline-offset: -2px; }
+/* On a capsule too (0.4.270): Logseq's row of capsules is one capsule tall and cuts off what is outside (the owner saw
+   the ring's top and bottom cut). The capsule keeps its own round ends. Logseq's own Down, Left and Right put the
+   keyboard on a capsule and show nothing; the same ring shows where it is. Logseq takes the outline off a capsule that
+   has the keyboard (seen in the app: the ring went as soon as Logseq's window was in front), hence !important. */
+.bottom-property-pill[data-rfs-at], .ls-block .bottom-property-pill-focusable:focus-visible { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent) !important; outline-offset: -1.5px !important; border-radius: 9999px; }
 /* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */
 .positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }

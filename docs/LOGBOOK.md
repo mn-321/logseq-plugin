@@ -2,6 +2,24 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Tab through every property; the ring inside the capsule (0.4.270)
+
+**The owner:** asked how to move between properties by keyboard (Logseq's own: Down from the end of the words, Left
+and Right, Enter opens, Up back; Logseq shows no mark on the capsule with the keyboard; on a page's rows Up reaches
+only the last), then sent a picture of the ring cut at top and bottom, and said "Yes: Tab and Shift-Tab step through
+every property of the bullet, filled or empty, with the ring showing where you are; Enter still goes to the next empty
+one; and draw the ring inside the capsule so it isn't cut off." **Found:** the ring is the plugin's (0.4.207); Logseq's
+`.bottom-properties-pills-strip` is `overflow-x: hidden` and one capsule (24 px) tall, so an outline outside the
+capsule is cut; a capsule with the keyboard has its outline taken off by Logseq (the ring went whenever Logseq's
+window was in front), hence `!important`. **Built:** `parts/shadow-steps.js`: `picking.names` is every property,
+`picking.stops` the empty ones Option-Enter and Enter stop at; `placeAt(…, any)`; a filled one gets `rest()` (ring,
+keyboard on the capsule, `restEl`), `openRested()` on Enter presses its value's trigger; `watchPicker` keeps resting
+and acts on Enter/Escape only after a list was open (`wasOpen`); `startFromVisit` starts the stepping from Logseq's own
+Down. `parts/shadow.js` CSS: the capsule ring inset, also on `:focus-visible`. `tools/shadow-test.js` case 21.
+**Mistake of mine:** at the start, the owner's Set Topic list was still open and my first click landed in it: Topic
+and Provider were written on "had good appointment…" on Dr. Mei Chen; found by query and taken off. Screenshot and
+close what is open before the first click. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · Each part stands on its own (0.4.269)
 
 **The owner:** asked for a full test that the split lost nothing, and whether the code is still modular; then "ok do
