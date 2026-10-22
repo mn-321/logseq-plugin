@@ -55,7 +55,7 @@
    Writes only in the graphs named in its setting, as every part that writes to notes does. */
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made, .rfs-undo', attributes: ['data-refinement-proposal', 'data-rfs-at'] } });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made, .rfs-undo', attributes: ['data-refinement-proposal', 'data-rfs-at', 'data-rfs-keep-empty'] } });
 let model, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
 const take = (core, names) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warnOnce(`${name} is missing from the core`); return all; };
 
@@ -1421,6 +1421,13 @@ async function computePage() {
     const page = await pullBlock(uuid);
     if (version !== pageLive.version || stopped) return;
     if (!page || pick(page, 'block/journal-day')) return setPage(uuid, [], box);
+    // A tag's or a property's own page (0.4.260, the owner on the Consultation tag page: "Why aren't properties showing
+    // at top?"): its rows are the tag's own setup (Extends, Tag Properties with Provider and Topic), drawn empty by
+    // Logseq, not values waiting to be filled; they are never hidden there and nothing is proposed for them.
+    const kind = await model.kindOfPage(idOf(page));
+    if (version !== pageLive.version || stopped) return;
+    box.toggleAttribute('data-rfs-keep-empty', kind.isTag || kind.isProperty);
+    if (kind.isTag || kind.isProperty) return setPage(uuid, [], box);
     const lines = await model.pageLines(uuid);
     const text = [String(pick(page, 'block/title') ?? ''), ...lines].join('\n');
     const ctx = await withFreshLinks(text, await guessDataFor(await daysFor(await contextFor())));
@@ -1496,7 +1503,8 @@ const css = `
 /* Empty properties hidden until something is proposed (0.4.242), only in the graphs the proposals write in: the class
    is on Logseq's page while that holds. One Option-Enter is on (data-rfs-at), or being typed in, stays. */
 html.rfs-hide-empty .ls-block .positioned-properties .bottom-property-pill:has(.empty-value):not([data-refinement-proposal]):not([data-rfs-at]):not(:focus-within) { display: none !important; }
-html.rfs-hide-empty :is(.ls-block-properties, .ls-page-properties) .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within) { display: none !important; }
+/* Never on a tag's or a property's page (0.4.260): known at once from Logseq's own Tag Properties row, else when the page is read. */
+html.rfs-hide-empty :is(.ls-block-properties, .ls-page-properties) .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within):not(.ls-page-properties:is([data-rfs-keep-empty], :has([data-property-title="Tag Properties"], [data-property-title="Extends"])) *) { display: none !important; }
 /* A page's own empty property with a proposal (0.4.239): the grey value before Logseq's dashed mark, which is hidden
    but still opens Logseq's list beside it. */
 .ls-page-properties .property-pair[data-refinement-proposal] .empty-value .ui__icon { visibility: hidden; }

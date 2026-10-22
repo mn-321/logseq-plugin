@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Tag and property pages keep their empty rows (0.4.260)
+
+**The owner:** a picture of #Consultation, Tag Properties with only Add property, "Why aren't properties showing at top?".
+**Found:** the 0.4.242 rule `html.rfs-hide-empty … .property-pair.property-panel-row-empty` hid the tag's own rows.
+**Built:** `computePage` asks `model.kindOfPage`; a tag or property page gets `data-rfs-keep-empty` on its
+`.ls-page-properties` and no page proposals; the rule skips such a box, or one holding a `data-property-title` of
+Tag Properties or Extends (so no flash before the page is read). **Seen:** not in Logseq; the owner to look.
+
 ## 2026-10-21 · Cmd-Option-Enter for accept without a new bullet (0.4.259)
 
 **The owner:** "instead of ctrl enter accepting proposals but not creating a new bullet, make it cmd-opt-enter".
