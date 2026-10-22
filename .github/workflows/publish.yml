@@ -1,0 +1,33 @@
+# Builds the plugin's zip and attaches it to a GitHub Release whenever a version tag (v0.4.280, …) is pushed.
+# The zip holds a folder logseq-db-refinements/ with exactly what Logseq needs: package.json, loader.js, main.js,
+# parts/*.js, README.md, CHANGELOG.md (the same as tools/release.sh builds on the Mac). There is no build step.
+# To install on another computer: open the release on GitHub, download the zip under Assets, unzip it, and in
+# Logseq (Developer mode on) use Plugins → Load unpacked plugin on the unzipped folder.
+name: Release zip
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches package.json
+        run: |
+          version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' package.json | head -1)
+          [ "v$version" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} but package.json says $version"; exit 1; }
+      - name: Build the zip
+        run: |
+          mkdir -p stage/logseq-db-refinements/parts
+          cp package.json loader.js main.js README.md CHANGELOG.md stage/logseq-db-refinements/
+          cp parts/*.js stage/logseq-db-refinements/parts/
+          (cd stage && zip -q -r -X "../logseq-db-refinements-${GITHUB_REF_NAME}.zip" logseq-db-refinements)
+          unzip -l "logseq-db-refinements-${GITHUB_REF_NAME}.zip"
+      - name: Attach it to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: logseq-db-refinements-${{ github.ref_name }}.zip
+          name: DB Refinements ${{ github.ref_name }}
+          body: "The plugin as a zip. Unzip it and load the folder with Logseq's Load unpacked plugin (Developer mode)."
