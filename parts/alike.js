@@ -16,6 +16,7 @@
    WHAT IT PROVIDES (core.provided.alike):
    - tokensOf(words, links, tags)          the bag of tokens of a node or of the bullet being written
    - buildIndex(entries)                   { id, tokens, values: Map(ident -> ids) } each; the index the rest read
+   - updateEntry(index, entry)             one entry put in, or put in place of the one with its id (0.4.267)
    - neighbours(index, tokens, options)    the k nearest entries, [{ entry, sim }], best first; options.skip (ids),
                                            options.keep(entry), options.k
    - vote(near, ident, limits)             { ids, share, sim, n } the value the nearest holders agree on, or null
@@ -60,6 +61,32 @@ function buildIndex(entries) {
   });
   return { entries, idf, postings, norms, n, unknown: Math.log(n + 1) + 1 };
 }
+// One entry learned at once (0.4.267, layer 2 item 9): a node just written or changed takes its place in the index (or
+// is added), without building the index again. The weights stay those of the last full reading, and a token never seen
+// weighs as the rarest, as in a query; an entry with no tokens is in effect gone. The full reading every five minutes
+// puts the weights right again.
+function updateEntry(index, entry) {
+  if (!index) return;
+  index.byId ||= new Map(index.entries.map((e, i) => [e.id, i]));
+  const was = index.byId.get(entry.id);
+  if (was == null && !entry.tokens.length) return; // nothing to learn from, and nothing to take out
+  if (was != null) for (const t of new Set(index.entries[was].tokens)) {
+    const list = index.postings.get(t), at = list ? list.indexOf(was) : -1;
+    if (at >= 0) list.splice(at, 1);
+  }
+  const i = was ?? index.entries.length;
+  index.entries[i] = entry;
+  if (!Array.isArray(index.norms)) index.norms = Array.from(index.norms);
+  let sum = 0;
+  for (const t of new Set(entry.tokens)) {
+    if (!index.idf.has(t)) index.idf.set(t, index.unknown);
+    const w = index.idf.get(t); sum += w * w;
+    if (!index.postings.has(t)) index.postings.set(t, []);
+    index.postings.get(t).push(i);
+  }
+  index.norms[i] = Math.sqrt(sum) || 1;
+  if (was == null) { index.byId.set(entry.id, i); index.n = index.entries.length; }
+}
 // The k nearest entries to a bag of tokens, best first, each with its cosine similarity. Only entries sharing a token
 // are touched; skip holds ids to leave out (the node being written), keep(entry) narrows to the entries wanted.
 function neighbours(index, tokens, { k = limits.k, skip = new Set(), keep = () => true } = {}) {
@@ -100,6 +127,6 @@ function vote(near, ident, { nearLeast = limits.nearLeast, lead = limits.lead, l
   return share >= lead && best.n >= least ? { ids: best.ids, share, sim: best.sim, n: best.n } : null;
 }
 
-function provide(core) { core.provide({ alike: { tokensOf, buildIndex, neighbours, vote, stem, wordsOf, limits } }); }
+function provide(core) { core.provide({ alike: { tokensOf, buildIndex, updateEntry, neighbours, vote, stem, wordsOf, limits } }); }
 (window.refinementParts ||= []).push({ name: 'alike', schema: [], provide, start() {}, stop: runUnloadTasks });
 })();

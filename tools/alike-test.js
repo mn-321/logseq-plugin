@@ -19,7 +19,7 @@ window.eval(fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8'));
 window.eval(fs.readFileSync(path.join(root, 'parts/alike.js'), 'utf8'));
 const core = { provided: {}, provide: things => Object.assign(core.provided, things) };
 window.refinementParts.find(p => p.name === 'alike').provide(core);
-const { tokensOf, buildIndex, neighbours, vote, stem, limits } = core.provided.alike;
+const { tokensOf, buildIndex, updateEntry, neighbours, vote, stem, limits } = core.provided.alike;
 let cases = 0;
 const same = (got, want, name) => { cases++; const a = JSON.stringify(got), b = JSON.stringify(want); if (a !== b) problem(`${name}: got ${a}, wanted ${b}`); };
 
@@ -65,6 +65,23 @@ same(vote(near('Nausea all evening', [9], [105]), SYM)?.ids, [105], 'a linked sy
 same(vote(near('Tired and wiped out, pain easing', [9]), SYM), null, 'split between fatigue and pain: nothing');
 same(vote(near('Zoë rang about the neutrophils', [12], [201]), TOP)?.ids, [120], 'the calls with Zoë agree on the topic');
 same(vote([], SYM), null, 'nothing near: nothing');
+
+// 3b. Learning one node at once (0.4.267): a node just written counts for the next bullet without building the index again.
+{
+  const live = buildIndex(entries.map(e => ({ ...e, values: new Map(e.values) })));
+  const nearLive = text => neighbours(live, tokensOf(text, [], [9]));
+  same(vote(nearLive('Shivering and cold all night'), SYM), null, 'before: no line like it, no vote');
+  updateEntry(live, node(20, 'Shivering and cold all night.', [9], { [SYM]: [130] }));
+  same(vote(nearLive('Shivering and cold all night'), SYM)?.ids, [130], 'a node just written votes at once');
+  updateEntry(live, node(20, 'Shivering and cold all night.', [9], { [SYM]: [131] }));
+  same(vote(nearLive('Shivering and cold all night'), SYM)?.ids, [131], 'its value changed: the new one votes, once');
+  same(nearLive('Shivering and cold all night').filter(x => x.entry.id === 20).length, 1, 'the node is there once, not twice');
+  updateEntry(live, { id: 20, tokens: [], values: new Map() });
+  same(vote(nearLive('Shivering and cold all night'), SYM), null, 'emptied (deleted, untagged): it no longer votes');
+  updateEntry(live, { id: 21, tokens: [], values: new Map() });
+  same(live.entries.length, entries.length + 1, 'a new node with nothing to learn from is not added');
+  same(vote(nearLive('Flagging by teatime'), SYM)?.ids, [107], 'the other lines vote as before');
+}
 
 // 4. Timing on a pretend graph: 20,000 nodes of 8 words each from a 3,000-word vocabulary, 40 tags, 2,000 links.
 const rnd = (() => { let s = 7; return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648; })();

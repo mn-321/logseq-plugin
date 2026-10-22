@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Learn a node at once (0.4.267)
+
+**The owner:** "go on to item 9, learning a filled value at once". **Built:** `alike.updateEntry(index, entry)` puts one
+entry in, or in place of the one with its id (postings mended, norm worked out with the index's weights, an unknown
+token as the rarest); `model.nodesById`; in `parts/shadow.js` `learnSoon` gathers the ids from `DB.onChanged` and
+`learnNow` (400 ms later) reads them and updates `guessCache.data.index`; `learnedProps` shared with `loadGuessData`.
+`tools/alike-test.js` 7 new checks. **Seen:** tests only.
+
 ## 2026-10-21 · Why a guess, on hover (0.4.266)
 
 **The owner:** "go on to item 8, why a guess was made on hover". **Built:** learned entries keep their `title`;

@@ -637,13 +637,44 @@ async function guessDataFor(ctx, { wait = true } = {}) {
   ctx.alike = data.index;
   return ctx;
 }
+// The properties the earlier lines are learned by: links that take a tag, and choices (0.4.265).
+const learnedProps = schema => [...schema.props.filter(p => p.type === 'node' && p.classes.length), ...schema.props.filter(isChoiceProp)];
+/* Learning a node at once (0.4.267, layer 2 item 9, "learn a filled value at once"): when the graph changes, the nodes
+   changed are read again a moment later and take their new place in what the guesses learn from, so a value filled
+   in, or a tag given, counts for the next bullet at once instead of within five minutes. Only while the earlier lines
+   are already read; the full reading every five minutes stays as it was. A node with no tag of the owner's (and not a
+   plain line) or deleted is in effect taken out. */
+const learning = { ids: new Set(), timer: 0 };
+function learnSoon(blocks) {
+  for (const block of blocks || []) { const id = idOf(block) ?? block?.id; if (Number.isSafeInteger(id) && id > 0) learning.ids.add(id); }
+  if (!learning.ids.size || !guessCache.data?.index) return;
+  clearTimeout(learning.timer); pending.delete(learning.timer);
+  learning.timer = later(() => learnNow().catch(error => warnOnce('a changed node could not be learned', error)), 400);
+}
+async function learnNow() {
+  const data = guessCache.data, ids = [...learning.ids];
+  learning.ids.clear();
+  if (!data?.index || !ids.length || !context?.schema || stopped) return;
+  const ctx = context, learned = learnedProps(ctx.schema), known = new Set(data.tagIds || []);
+  const nodes = new Map((await model.nodesById(ids, learned.map(p => p.ident))).map(n => [idOf(n), n]));
+  if (guessCache.data !== data) return; // read again meanwhile: that reading has them
+  for (const id of ids) {
+    const n = nodes.get(id), title = String(pick(n, 'block/title') ?? '');
+    const tags = (pick(n, 'block/tags') || []).map(idOf);
+    const mine = tags.filter(t => known.has(t)), plain = !tags.length;
+    const words = n && (mine.length || plain) ? shownWords(title, ctx) : new Set();
+    const values = new Map(learned.map(p => [p.ident, valuesOf(n, p.ident)]).filter(([, v]) => v.length));
+    values.set('block/tags', mine.length ? mine : [0]);
+    const tokens = alike && words.size >= 2 ? alike.tokensOf(words, linkIdsIn(title, ctx), mine) : [];
+    alike?.updateEntry(data.index, { id, title, tokens, values });
+  }
+}
 async function loadGuessData(ctx) {
   const { schema } = ctx;
   if (!schema) return { aliases: [], tagIds: [], entries: [] }; // the properties not read yet: nothing to learn from
-  const nodeProps = schema.props.filter(p => p.type === 'node' && p.classes.length);
   // Choices are learned too (0.4.265, layer 2 item 7): what the bullets a new one looks like held, as a vote, like a
   // link (Status Planned on an expectation written like earlier planned ones). Numbers were tried and left out (below).
-  const learned = [...nodeProps, ...schema.props.filter(isChoiceProp)];
+  const learned = learnedProps(schema);
   // Every tag of the owner's own (user.class/…), for stage D's tag votes: never Logseq's (Task, Card, Query), which
   // the schema knows too; before 0.4.213 only the tags with link properties.
   const tagIds = await model.userTagIds();
@@ -1585,7 +1616,7 @@ function start() {
   const offGraph = logseq.App.onCurrentGraphChanged?.(() => applyHide());
   if (typeof offGraph === 'function') onUnload(offGraph);
   watchDomEarly(drawEarly);
-  onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
+  onUnload(logseq.DB.onChanged(({ blocks } = {}) => { learnSoon(blocks); const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
   stopped = false;
   onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
