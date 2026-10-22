@@ -107,7 +107,7 @@ Undo); six are taste and would still work if dropped to the browser's bare look.
 `file-text`; fold `chevron-right` (turns down when open); add `plus`, only inside a button that says what it adds;
 more `dots`; delete `trash`; find `search`; settings and tools `adjustments-horizontal`; close and remove `x`;
 chosen `check`; what this means `info-circle`; the tag map `hierarchy`; a tag `tag` (never a #); a property
-`list-details`; rename `pencil`; copy `copy`; points to `arrow-right`; picked `square-check`; warning
+`forms`; rename `cursor-text`; copy `copy`; points to `arrow-right`; picked `square-check`; warning
 `alert-triangle`; show and hide `eye`, `eye-off`; shortcut `keyboard`; two-way links `arrows-left-right`; order
 `arrows-sort`; proposals `bulb`; kinds: a date `calendar`, text `letter-case`, a number `123`, a choice `select`,
 several `stack-2`, yes or no `checkbox`, a web address `world`.

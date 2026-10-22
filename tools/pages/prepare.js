@@ -30,7 +30,7 @@ const list = (n, pre, out) => { for (const [k, v] of Object.entries(n.files || {
 const all = list(idx, '', []);
 const read = p => { const f = all.find(([q]) => q.endsWith(p))?.[1]; if (!f) { console.error('not in the bundle:', p); process.exit(1); } const b = Buffer.alloc(f.size); fs.readSync(fd, b, 0, f.size, base + Number(f.offset)); return b; };
 const tcss = read('css/tabler-icons.min.css').toString('utf8');
-const names = 'arrow-back-up layout-sidebar-right file-text chevron-right chevron-down plus dots trash search adjustments-horizontal x check info-circle hierarchy hash list-details link pencil copy arrow-right square-check alert-triangle eye eye-off arrows-maximize keyboard calendar letter-case 123 list stack-2 checkbox world tag dots-vertical chevron-left circle point bulb arrow-up-right select circle-dot corner-up-right arrows-left-right arrows-sort brackets brackets-contain'.split(' ');
+const names = 'arrow-back-up layout-sidebar-right file-text chevron-right chevron-down plus dots trash search adjustments-horizontal x check info-circle hierarchy hash list-details link pencil copy arrow-right square-check alert-triangle eye eye-off arrows-maximize keyboard calendar letter-case 123 list stack-2 checkbox world tag dots-vertical chevron-left circle point bulb arrow-up-right select circle-dot corner-up-right arrows-left-right arrows-sort brackets brackets-contain forms cursor-text'.split(' ');
 const map = {};
 for (const n of names) { const m = tcss.match(new RegExp('\\.ti-' + n + ':before\\{content:"\\\\([0-9a-f]+)"')); if (!m) { console.error('no icon', n); process.exit(1); } map[n] = m[1]; }
 fs.writeFileSync(path.join(dir, 'tabler.json'), JSON.stringify({ map, font: read('css/fonts/tabler-icons.woff2').toString('base64') }));

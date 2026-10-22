@@ -179,7 +179,7 @@ const help = [
 // ---------- Specimens: proposed (a sketch of the kit after the change, drawn with the .px- classes below).
 // The owner's grammar: fade away; tell things apart by weight and grey, not boxes; no pills, no fills; an action in
 // stages, one thing appearing after the other; a pop-up looks like Logseq's own [[ menu. ----------
-const pxMenu = `<div class="px-pop" style="width:230px"><div class="px-head">#Consultation</div><button class="px-item">${T('pencil')}Rename<kbd>r</kbd></button><button class="px-item">${T('plus')}New tag inside<kbd>n</kbd></button><button class="px-item">${T('hierarchy')}Also put under…<kbd>a</kbd></button><hr><button class="px-item">${T('file-text')}Open the page</button></div>`;
+const pxMenu = `<div class="px-pop" style="width:230px"><div class="px-head">#Consultation</div><button class="px-item">${T('cursor-text')}Rename<kbd>r</kbd></button><button class="px-item">${T('plus')}New tag inside<kbd>n</kbd></button><button class="px-item">${T('hierarchy')}Also put under…<kbd>a</kbd></button><hr><button class="px-item">${T('file-text')}Open the page</button></div>`;
 const pxMenuCheck = `<div class="px-pop" style="width:210px"><div class="px-head">provider of</div><button class="px-item px-on">Date first<span class="px-end">${T('check')}</span></button><button class="px-item">Name first</button><hr><button class="px-item">Rename how it reads…</button></div>`;
 const pxList = `<div class="px-pop" style="width:240px"><div class="px-head">Also put #Scan under…</div><div class="px-field"><input type="text" value="Pro" placeholder="Find a tag"></div><button class="px-item px-on">#Procedure</button><button class="px-item">#Process note</button></div>`;
 const pxDialog = `<div class="px-pop" style="width:300px;padding:8px 10px"><div class="px-ask">Delete 3 records?</div><div class="px-note">They go to Logseq’s Recycle.</div><div class="px-btns"><button class="px-quiet">Cancel</button><button class="px-go">Delete</button></div></div>`;
@@ -226,8 +226,8 @@ const proposedIcons = [
   ['What this means', 'info-circle', 'for the serif “i”'],
   ['Tag map', 'hierarchy', 'the toolbar button, for TREE_ICON'],
   ['A tag', 'tag', 'in menus that act on tags; never a # (a tag reads as a class)'],
-  ['A property', 'list-details', 'in menus that act on properties'],
-  ['Rename', 'pencil', 'in menus'],
+  ['A property', 'forms', 'in menus that act on properties: a field with its line, not a to-do list'],
+  ['Rename', 'cursor-text', 'in menus: a text cursor, lighter than a pencil'],
   ['Copy', 'copy', 'in the picking bar'],
   ['Points to', 'arrow-right', 'after a two-way row’s name, for “→”'],
   ['Picked', 'square-check', 'the picking bar’s count'],
