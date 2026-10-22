@@ -94,14 +94,20 @@ function propDetails(view, tag, prop, from, alone) {
   const giver = (tag && !tag.builtIn ? tag : null) || givers.find(t => !t.builtIn) || null;
   const holds = (KINDS[prop.type] || (prop.type === 'node' ? 'a link' : prop.type)) + (prop.choices.length ? ', from a list of choices' : '');
   const used = note('');
-  view.useOf(prop).then(n => { used.textContent = n == null ? '' : `· on ${plural(n, 'node')}`; }).catch(() => {});
-  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), note(prop.many ? '· several at once' : '· one at a time'), used,
+  // The nodes that hold it, when asked (0.4.307, the owner: "show the nodes that have the properties"; 0.4.308: "i don't
+  // need them present all the time"): show nodes lists the first few with their values, show all the rest, hide nodes
+  // folds them away. view.nodesShown keeps each property's state for the session.
+  view.nodesShown ||= new Map();
+  const state = view.nodesShown.get(prop.id) || '';
+  const toggle = el(doc, 'a', { class: 'rtg-pmore', href: '#', hidden: true, click: event => { event.preventDefault(); event.stopPropagation(); view.nodesShown.set(prop.id, state ? '' : 'some'); view.draw(); } }, state ? 'hide nodes' : 'show nodes');
+  view.useOf(prop).then(n => { used.textContent = n ? `· on ${plural(n, 'node')} ·` : ''; toggle.hidden = !n; }).catch(() => {});
+  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holds), note(prop.many ? '· several at once' : '· one at a time'), used, toggle,
     button('Change …', 'Turn it into links to pages, or open what Logseq lets only itself change', at => view.kindMenu(prop, at, giver)));
-  // The nodes that hold it (0.4.307, the owner: "show the nodes that have the properties"): each with its value, a click
-  // opens it, the first few with show all.
-  const nodesBox = el(doc, 'div', { class: 'rtg-pnodes' }, note('…'));
-  line('Nodes', nodesBox);
-  view.holdersOf(prop).then(list => view.fillNodes(nodesBox, prop, list)).catch(() => { nodesBox.replaceChildren(note('could not be read')); });
+  if (state) {
+    const nodesBox = el(doc, 'div', { class: 'rtg-pnodes' }, note('…'));
+    line('Nodes', nodesBox);
+    view.holdersOf(prop).then(list => view.fillNodes(nodesBox, prop, list)).catch(() => { nodesBox.replaceChildren(note('could not be read')); });
+  }
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) line('Choices', el(doc, 'span', { class: prop.choices.length ? 'rtg-val' : 'rtg-note' }, prop.choices.length ? prop.choices.join(' · ') : 'none, anything can be typed'),
     button(prop.choices.length ? 'Edit' : 'Add choices', prop.choices.length ? 'Rename or remove choices; add or reorder them in its settings' : 'Give it a list to pick from', at => view.askChoices(prop, at)),
     prop.choices.length && giver ? button('One its own tag …', `Make a choice its own child tag inside #${giver.title}: the nodes with it move there`, at => view.askChildTag(giver, prop, at)) : null);
@@ -151,13 +157,18 @@ function propDetails(view, tag, prop, from, alone) {
   }
   return box;
 }
-// The nodes that hold a property, read once per reading of the tags; how many is their count.
-function holdersOf(view, prop) {
+// How many nodes hold a property, and which (read only when they are shown), each once per reading of the tags.
+function useOf(view, prop) {
   if (view.useData !== view.data) { view.useData = view.data; view.useCounts = new Map(); }
-  if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propHolders(prop.ident));
+  if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propUse(prop.ident).catch(() => null));
   return view.useCounts.get(prop.ident);
 }
-const useOf = (view, prop) => view.holdersOf(prop).then(list => list.length, () => null);
+function holdersOf(view, prop) {
+  view.useOf(prop);
+  const key = 'nodes|' + prop.ident;
+  if (!view.useCounts.has(key)) view.useCounts.set(key, model().propHolders(prop.ident));
+  return view.useCounts.get(key);
+}
 // A node's name in the Nodes line: its first sentence, as the two-way rows name a node (0.4.261); the whole line is its tip.
 const ABBREVIATION = /\b(?:dr|mr|mrs|ms|prof|st|vs|no|approx|e\.g|i\.e|etc)\.$/i;
 function firstSentence(title) {
@@ -168,22 +179,17 @@ function firstSentence(title) {
 const NODES_SHOWN = 8;
 function fillNodes(view, box, prop, list) {
   const doc = view.doc, note = text => el(doc, 'span', { class: 'rtg-note' }, text);
-  view.nodesAll ||= new Set();
-  const all = view.nodesAll.has(prop.id), shown = all ? list : list.slice(0, NODES_SHOWN);
+  const all = view.nodesShown.get(prop.id) === 'all', shown = all ? list : list.slice(0, NODES_SHOWN);
   box.replaceChildren();
   if (!list.length) { box.append(note('none yet')); return; }
-  // Links read as their names, without their brackets (a stored [[uuid]] is a name after readableTitle; a #tag stays).
-  const plain = text => String(text || '').replace(/\[\[([^\]]*)\]\]/g, '$1').trim();
-  const readable = text => model().readableTitle(String(text || '')).then(t => plain(t), () => plain(text));
+  // The words come readable from the model (every link resolved in one question, 0.4.308); only the cut is done here.
   for (const node of shown) {
-    const link = el(doc, 'a', { class: 'rtg-pnode', href: '#', title: 'Open it (⇧ click: right sidebar)',
-      click: event => { event.preventDefault(); event.stopPropagation(); shared.openEntity(node.uuid, event.shiftKey); } }, firstSentence(plain(node.title)) || '…');
-    const value = node.values.length ? note(node.values.join(', ')) : null;
-    box.append(el(doc, 'div', { class: 'rtg-pnoderow' }, link, value));
-    readable(node.title).then(text => { if (!text) return; link.textContent = firstSentence(text) || text; if (text !== link.textContent) link.title = text; });
-    if (value) readable(node.values.join(', ')).then(text => { if (text) value.textContent = text; });
+    const short = firstSentence(node.title) || '…';
+    const link = el(doc, 'a', { class: 'rtg-pnode', href: '#', title: short !== node.title ? node.title : 'Open it (⇧ click: right sidebar)',
+      click: event => { event.preventDefault(); event.stopPropagation(); shared.openEntity(node.uuid, event.shiftKey); } }, short);
+    box.append(el(doc, 'div', { class: 'rtg-pnoderow' }, link, node.values.length ? note(node.values.join(', ')) : null));
   }
-  if (list.length > NODES_SHOWN) box.append(el(doc, 'a', { class: 'rtg-pmore', href: '#', click: event => { event.preventDefault(); event.stopPropagation(); flip(view.nodesAll, prop.id); view.fillNodes(box, prop, list); } }, all ? 'show fewer' : `show all ${list.length}`));
+  if (list.length > NODES_SHOWN) box.append(el(doc, 'a', { class: 'rtg-pmore', href: '#', click: event => { event.preventDefault(); event.stopPropagation(); view.nodesShown.set(prop.id, all ? 'some' : 'all'); view.fillNodes(box, prop, list); } }, all ? 'show fewer' : `show all ${list.length}`));
 }
 // Putting a property on another tag (the On line's +): the tags that do not have it yet.
 function askAddToTag(view, prop, anchor) {

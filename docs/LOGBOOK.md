@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The nodes on demand, hundreds at once (0.4.308)
+
+**Asked:** the owner, with a picture of Provider's thirteen nodes: "i don't need them present all the time like this.
+have show nodes some can show, then show all to see all. make sure it can potentially handle hundred". **Built:**
+`parts/tags-props.js`: `view.nodesShown` (prop id → '', 'some', 'all'); the Holds line's count is followed by a
+show nodes / hide nodes link (hidden while the count is 0), the Nodes line is drawn only when shown, `fillNodes` keeps
+show all / show fewer; `useOf` is the cheap count again (`propUse`), `holdersOf` reads the nodes only when shown, both
+once per reading. `parts/model.js`: `propHolders` hands back the words readable: `namesOfRefs` resolves every linked
+uuid in the titles and values in one question (`ground` over the uuids, two rounds for a name that links on) and takes
+the brackets off, instead of `readableTitle` per node (hundreds of look-ups). **Tests:** `tools/tags-test.js`: no node
+listed before show nodes, one after. `sh tools/check.sh`: all passed. **Seen:** as in the CHANGELOG line.
+
 ## 2026-10-22 · The nodes that hold a property (0.4.307)
 
 **Asked:** the owner: "this can still be better. you can show the nodes that have the properties". **Built:**

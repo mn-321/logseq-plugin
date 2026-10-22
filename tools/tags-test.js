@@ -156,10 +156,14 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (!chip || chip.textContent.replace('×', '').trim() !== '#Report') problem(`the On line shows “${chip?.textContent}” instead of #Report`);
       if (!chip?.querySelector('.rtg-onx')) problem('the On line’s tag has no × to take the property off it');
       if (![...(info?.querySelectorAll('button') || [])].some(b => b.textContent === '+ Tag')) problem('the On line has no + Tag');
-      const nodeRow = await until(() => info?.querySelector('.rtg-pnoderow'));
-      if (!nodeRow) problem('result’s Nodes line lists no node');
+      if (info?.querySelector('.rtg-pnoderow')) problem('the nodes are listed before show nodes is pressed');
+      const showNodes = await until(() => [...(info?.querySelectorAll('a.rtg-pmore') || [])].find(a => a.textContent === 'show nodes' && !a.hidden));
+      if (!showNodes) problem('result’s Holds line has no show nodes');
+      else showNodes.click();
+      const nodeRow = await until(() => doc.querySelector('.rtg-row[data-key="P22"] + .rtg-pinfo .rtg-pnoderow'));
+      if (!nodeRow) problem('show nodes listed no node under result');
       else if (nodeRow.querySelector('.rtg-pnode')?.textContent !== 'Blood count 2026-10-13' || nodeRow.querySelector('.rtg-note')?.textContent !== 'Normal') problem(`the Nodes line reads “${nodeRow.textContent}”; wanted Blood count 2026-10-13 with Normal`);
-      const change = [...(info?.querySelectorAll('button') || [])].find(b => b.textContent === 'Change …');
+      const change = [...(doc.querySelectorAll('.rtg-row[data-key="P22"] + .rtg-pinfo button') || [])].find(b => b.textContent === 'Change …');
       change?.click();
       const items = [...doc.querySelectorAll('.refinement-tags-menu button')].map(b => b.textContent);
       if (!items.some(t => t.startsWith('Turn into links to pages'))) problem(`Holds’ Change… lists ${JSON.stringify(items)}; wanted Turn into links to pages among them`);
@@ -245,5 +249,5 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   view.destroy();
   if (window.refinementShared.undo.keys().some(k => k.startsWith('tags:'))) problem('closing the map left its Undo arrows');
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a property’s lines act and list the nodes that hold it, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; a property’s lines act and list the nodes that hold it when asked, and + New property walks name, kind and tag with the arrow on the new row; Undo of a tag’s new name puts its old name back in the order; Undo arrows on their row or in the corner, the last three, gone with the map)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });
