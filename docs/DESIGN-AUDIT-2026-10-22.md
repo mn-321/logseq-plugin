@@ -138,7 +138,19 @@ edges and rows were wider than Logseq's own settings.
   has nothing to sit beside. **Keep.**
 - The picking bar (`.rf-tw-bar`): a strip of buttons just above the rows, floating so nothing moves. **Keep.**
 
-## What to check in the app once it can be driven
+## Seen in the app (later the same day, once access was given)
+
+Reloaded at 0.4.290 in the Illness Test Graph, light and dark: Dr. Mei Chen's rows with no band, sitting on the page
+like Logseq's rows above them, nothing else moved; the hover card small and beside the record; the + box compact in
+both themes; "Change “Dr. Mei Chen” to…" and "Set property" opening right under their button, Escape closing them; a
+merge plan opening under the #Occurrence row's menu button, Cancel closing it; the link box above the selected word
+with the cursor first and on the line; the settings window with its narrower edges. No edit was made: every box was
+cancelled. One surprise: the grey band was still there after the reload, from nine stylesheets Logseq had kept from
+the GitHub copy (`logseq-plugin`) uninstalled earlier in the day; Logseq drops them at a restart, and they were
+removed from the console here. The Consultation tag page has no two-way rows of its own, so there was nothing to see
+there.
+
+## What was to be checked (all done above)
 
 1. Dr. Mei Chen: the rows with no band; the words under them where they were (no jump on reopening).
 2. The Consultation tag page: the same.

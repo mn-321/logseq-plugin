@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Seen in the app: the six trimmed pieces (0.4.285 to 0.4.290)
+
+**Asked:** the owner: "Yes, check the six pieces in Logseq now". **Seen:** Illness Test Graph, 0.4.290 reloaded from
+the plugin's own settings window (its Reload button), light and dark. Dr. Mei Chen: rows with no band, on the page like
+Logseq's own rows above, nothing else moved; the hover card beside the record; the + box compact; two records ticked,
+"Change “Dr. Mei Chen” to…" and "Set property" opened right under their buttons, Escape closed them; the tag map,
+#Occurrence's menu → Merge into… → #Expectation: the plan under the menu button, Cancel closed it; Cmd+Option+L on
+"Paula": the box above the word (no room below), the cursor first, on the line; the settings window narrower. No edit
+made. **Found:** after the reload the band was still there: nine stylesheets of the GitHub copy uninstalled earlier
+(`data-ref="logseq-plugin"`) were still in Logseq's head, and their old rows rule still painted the background; Logseq
+keeps an uninstalled plugin's styles until a restart. Removed from the console; a restart does the same. The plugin
+cannot tell a sibling copy's leftovers from a live copy, so nothing built for it. The Consultation tag page has no rows
+of its own. **Next:** none from this audit.
+
 ## 2026-10-22 · Design audit: the settings window trimmed (0.4.290)
 
 **Asked:** the audit's verdict on the settings window: central is right (it is about no one thing on the page), its
