@@ -2,6 +2,33 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Smoother: no empty frame on a fill, a fade, the held room eased (0.4.283)
+
+**Asked:** the owner: "visual transitions are not smooth. you select a proposal and things flash, you open a pages and
+elements move. look up official documentation". **Found:** (1) a filled value went off the screen the moment the
+bullet was left (`hide()` in `leave`) and again the moment the write returned, while Logseq draws the value a frame or
+two after the write returns: the capsule was empty in between, seen in a burst of zooms on Dr. Mei Chen. The same in
+`fillPage` for a page's own property. (2) Proposals popped in. (3) On a page opening, the room held above the rows was
+snapped to zero at 2 s, and a first visit held nothing, so Logseq's "Add property" row pushed the rows and the words
+down one row (seen on Zz CUP). Official documentation (a research pass): Logseq's slot hooks fire 50 ms after the
+page paints (`hook-ui-slot` in `components/plugins.cljs`), so no plugin can draw as part of the page; web.dev on
+layout shift: reserve the space, never collapse it afterwards; MDN: `@starting-style` for a fade on a new element
+(Chromium 117+; Logseq 2.0.2 runs on Electron 42, Chromium 148); React: foreign nodes inside its tree are dropped on
+a re-render, which is why the plugin redraws on the early pass. **Built:** `state.filling` in `parts/shadow.js`: the
+values a left bullet is getting, drawn solid by `drawInPlace` (now over the live bullet and every filling job) until
+Logseq's own value shows in the same capsule (`filledNames`), the unwritten ones dropped when the write returns, all
+gone after 6 s at most; `fillPage` keeps the piece as `filling` until Logseq shows it; `.rfs-ghost` fades in with
+`@starting-style`; `easeHold` in `parts/two-way.js` eases the held room away with a transition at settle, and a first
+visit holds `least`, the smallest settled room ever seen (kept in `refinementTwoWayLeast`). `tools/shadow-write-test.js`
+now pretends Logseq drawing the value (`shows`) and hands it to the early pass. **Seen:** Dr. Mei Chen, a bullet tagged
+Consultation left with Enter: grey, solid black, then Logseq's blue with the Undo arrow, no empty frame (before the
+fix the same burst had one). Oxaliplatin opened: rows and words still while Logseq's list came. Zz CUP first visit:
+the one-row push; Fluorouracil after the fix: the row of room there at once, Logseq's own three properties still push
+once on a first visit (not knowable beforehand; a page's property count read into the index could estimate it, a
+later step). Not seen: the click on a page's own property; the ease at 2 s (too subtle for zooms). `check.sh` passed
+before the two-way change; run again at commit. Test edits undone: the two test bullets deleted, the Provider my first
+Enter filled on "had good appointment" cleared, the empty bullet deleted.
+
 ## 2026-10-22 · A sealed copy says so (0.4.282)
 
 **Found:** 0.4.281's `"effect": true` in package.json is written over by Logseq's install dialog (unticked: the installed

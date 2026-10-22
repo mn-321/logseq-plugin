@@ -83,7 +83,13 @@ const setting = shared.settingReader(settingsSchema);
 // is left right after (0.4.219, as from 0.4.202; for 0.4.218 alone it was Tab, at the owner's word reversed).
 const ENTER_LEAVES = 500;
 // undos: what each fill can take back, by the record it was written on (0.4.218: a faded icon on its line).
-const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, get undos() { return ownUndos; } };
+const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, filling: new Map(), get undos() { return ownUndos; } };
+/* Being filled in (0.4.283): the values a left bullet is getting, kept on screen, solid, until Logseq's own value
+   shows in the same spot. Before, every grey value went the moment the bullet was left and Logseq's values came one
+   by one a moment later, so the row emptied and filled again (the owner: "things flash"). Keyed by the record's
+   uuid; gone when the write is over, or after FILLING_MS if Logseq never shows the value. */
+const FILLING_MS = 6000;
+const fillingJobs = () => { const now = Date.now(); for (const [uuid, job] of state.filling) if (job.until < now) state.filling.delete(uuid); return [...state.filling.values()]; };
 // A page tagged in the words goes by its name: it may be made, and get an id, only after it was drawn.
 const guessKey = piece => `${piece.ident} ${piece.named ?? piece.ids.join(',')}`;
 const acceptedIn = uuid => state.accepted.uuid === uuid ? state.accepted.keys : new Set();
@@ -123,9 +129,19 @@ function leave(live, taken = new Set()) {
   state.left = live; // for tools/shadow-test.js
   liveVersion++;
   if (state.accepted.uuid === live.uuid) noneAccepted();
+  if (!live.dismissed && !stopped && live.recordUuid) {
+    const shown = live.drawn || new Set(), pieces = live.pieces.filter(piece => shown.has(guessKey(piece)) && (!piece.guess || live.taken.has(guessKey(piece))));
+    if (pieces.length) state.filling.set(live.recordUuid, { recordUuid: live.recordUuid, pieces, until: Date.now() + FILLING_MS });
+  }
   if (state.live === live) { state.live = null; hide(); }
   if (live.dismissed || stopped) return;
-  takeShadow(live).catch(error => { warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); });
+  // The write over: what was not written goes at once; what was stays until Logseq shows it (its drawing comes a
+  // moment after the write returns; seen 0.4.283: the pill was empty for a frame when it went at the write's end).
+  takeShadow(live).then(written => {
+    const keys = new Set((written || []).map(guessKey)), job = state.filling.get(live.recordUuid);
+    if (job) { job.pieces = job.pieces.filter(piece => keys.has(guessKey(piece))); if (!job.pieces.length) state.filling.delete(live.recordUuid); }
+  }, error => { state.filling.delete(live.recordUuid); warnOnce('the shadow could not be taken', error); notify('The proposed values could not be filled in', 'warning'); })
+    .finally(() => drawInPlace());
 }
 // The bullet's own tags when its editing began (ownTagsAtStart), read again each time a bullet's box gets the focus.
 const startTags = { uuid: '', own: new Set() };
@@ -310,8 +326,9 @@ async function takeShadow(live) {
   const recordUuid = String(pick(record, 'block/uuid') ?? '');
   if (!pieces.length || !UUID.test(recordUuid) || stopped) return;
   const { written, undo } = await writePieces(recordUuid, pieces, live.uuid);
-  if (!written.length) return;
+  if (!written.length) return [];
   rememberUndo(recordUuid, live.uuid, undoText(written), undo);
+  return written;
 }
 const undoText = written => written.map(piece => `${piece.prop.title}: ${piece.shown}${piece.tagPage ? ` (tagged #${piece.tagPage.tag.title})` : ''}`).join(' · ');
 // Writing what was proposed, for a bullet left or a page's value clicked; and the undo of it.
@@ -485,27 +502,36 @@ function ghostLook(piece) {
   const why = reasonOf(piece);
   return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`, title: why ? `${why}.\n${what}` : what };
 }
+// The names of the properties Logseq itself shows filled on a row: a proposal for one of them is over.
+const filledNames = row => new Set(pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !(p.querySelector('.bottom-property-content') || p).querySelector('.empty-value')).map(pillName));
 function drawInPlace(doc = host()) {
   const live = state.live;
-  const want = new Map(), rows = live?.recordUuid ? [...doc.querySelectorAll(`.ls-block[blockid="${live.recordUuid}"]`)] : [];
-  for (const piece of live?.pieces || []) want.set(piece.ident, piece);
-  // Out with what is no longer proposed (another bullet, a value changed, the bullet left).
+  // What to draw: the bullet being written, and the bullets left a moment ago whose values are being filled in
+  // (0.4.283), each with its rows on screen and the pieces wanted, by property.
+  const jobs = [];
+  for (const job of [...(live?.recordUuid ? [{ recordUuid: live.recordUuid, pieces: live.pieces, live }] : []), ...fillingJobs().filter(job => job.recordUuid !== live?.recordUuid)]) {
+    const rows = [...doc.querySelectorAll(`.ls-block[blockid="${job.recordUuid}"]`)];
+    const want = new Map();
+    for (const piece of job.pieces) want.set(piece.ident, piece);
+    jobs.push({ ...job, rows, want });
+  }
+  // Out with what is no longer proposed (another bullet, a value changed, the bullet left and its values written).
   for (const g of doc.querySelectorAll('.rfs-ghost:not(.rfs-page-ghost)')) {
-    const piece = want.get(g.dataset.rfsIdent);
-    const filled = !g.closest('.rfs-made') && !g.parentElement?.querySelector('.empty-value');
-    if (piece && !filled && rows.includes(g.closest('.ls-block[blockid]')) && g.dataset.rfsKey === guessKey(piece)) continue;
+    const row = g.closest('.ls-block[blockid]'), job = jobs.find(job => job.rows.includes(row)), piece = job?.want.get(g.dataset.rfsIdent);
+    const filled = !g.closest('.rfs-made') ? !g.parentElement?.querySelector('.empty-value') : piece && filledNames(row).has(piece.prop.lower);
+    if (piece && !filled && g.dataset.rfsKey === guessKey(piece)) continue;
     g.closest('[data-refinement-proposal]')?.removeAttribute('data-refinement-proposal');
     g.remove();
   }
   for (const el of doc.querySelectorAll('.rfs-made-pill')) if (!el.querySelector('.rfs-ghost')) el.remove();
   for (const el of doc.querySelectorAll('.positioned-properties.rfs-made')) if (!el.querySelector('.bottom-property-pill')) el.remove();
-  for (const row of rows) {
-    const pills = pillsOf(row);
-    for (const piece of want.values()) {
+  for (const job of jobs) for (const row of job.rows) {
+    const pills = pillsOf(row), filled = filledNames(row);
+    for (const piece of job.want.values()) {
+      // Filled meanwhile in Logseq's own way (from the properties, or the write under way): the proposal for it goes.
+      if (filled.has(piece.prop.lower)) continue;
       const pill = pills.find(p => pillName(p) === piece.prop.lower) || makePill(doc, row, piece);
       const target = pill && (pill.querySelector('.bottom-property-content') || pill);
-      // Filled meanwhile in Logseq's own way (from the properties): the proposal for it goes.
-      if (target && !pill.classList.contains('rfs-made') && !target.querySelector('.empty-value')) continue;
       if (!target) continue;
       const look = ghostLook(piece);
       let g = [...target.querySelectorAll(':scope > .rfs-ghost')].find(el => el.dataset.rfsIdent === piece.ident);
@@ -520,11 +546,14 @@ function drawInPlace(doc = host()) {
       // A page that would get a tag says so where it shows ("Hannah Reyes #Doctor"; the owner, 0.4.202–0.4.203).
       const words = piece.tagPage ? `${piece.shown} #${piece.tagPage.tag.title}` : piece.shown;
       if (g.textContent !== words) g.textContent = words;
-      const cls = look.cls + (live.clicked?.has(guessKey(piece)) ? ' rfs-taken' : '');
+      // Taken (clicked, or the bullet left and this value on its way): solid, as it will be.
+      const taken = job.live ? job.live.clicked?.has(guessKey(piece)) : true;
+      const cls = look.cls + (taken ? ' rfs-taken' : '');
       if (g.className !== cls) g.className = cls;
-      if (g.title !== look.title) g.title = look.title;
+      const title = job.live ? look.title : 'Being filled in';
+      if (g.title !== title) g.title = title;
       if (!pill.hasAttribute('data-refinement-proposal')) pill.setAttribute('data-refinement-proposal', '');
-      (live.drawn ||= new Set()).add(guessKey(piece));
+      if (job.live) (job.live.drawn ||= new Set()).add(guessKey(piece));
     }
   }
   // A pill marked with nothing of ours left in it (a copy cut short) is given back to Logseq (second reading).
@@ -532,7 +561,7 @@ function drawInPlace(doc = host()) {
   shared.undo.draw();
 }
 function hide() { drawInPlace(); }
-const drawEarly = (doc, records) => { pageEarly(doc); if (!state.live && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
+const drawEarly = (doc, records) => { pageEarly(doc); if (!state.live && !state.filling.size && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
 
 const css = `
 /* A proposed value (0.4.202): italic grey, in the record's own property where the value goes; a guess has a dotted
@@ -543,7 +572,9 @@ const css = `
    and the guess steps aside; it is typed into the list instead. */
 .bottom-property-pill[data-refinement-proposal][data-rfs-at] .empty-value { display: revert !important; }
 .bottom-property-pill[data-rfs-at] .rfs-ghost { display: none; }
-.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); font-style: italic; white-space: nowrap; }
+/* A proposal comes in with a short fade, not a pop (0.4.283; @starting-style, Chromium 117+, Logseq 2.0.2 runs on 148). */
+.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); font-style: italic; white-space: nowrap; opacity: 1; transition: opacity .15s ease, color .15s ease; }
+@starting-style { .rfs-ghost { opacity: 0; } }
 .rfs-ghost.rfs-guess { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 /* The property Option-Enter is on (0.4.207): a ring in the text colour, as Logseq marks a focused value. */
 [data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
@@ -613,7 +644,7 @@ function start() {
   onUnload(logseq.DB.onChanged(({ blocks } = {}) => { learnSoon(blocks); const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
   stopped = false;
-  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.filling.clear(); state.undos.clear(); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
   schedulePage(300);
   applyHide();
 }

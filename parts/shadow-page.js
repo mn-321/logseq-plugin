@@ -68,7 +68,7 @@ function drawPage(doc = host()) {
   const want = new Map(box ? pageLive.pieces.map(piece => [piece.prop.lower, piece]) : []);
   for (const g of doc.querySelectorAll('.rfs-page-ghost')) {
     const row = g.closest('.property-pair'), piece = row && want.get(rowName(row));
-    if (piece && box?.contains(g) && row.querySelector('.empty-value') && g.dataset.rfsKey === guessKey(piece)) continue;
+    if (piece && box?.contains(g) && row.querySelector('.empty-value') && g.dataset.rfsKey === guessKey(piece)) { g.classList.toggle('rfs-taken', !!piece.filling); continue; }
     row?.removeAttribute('data-refinement-proposal');
     g.remove();
   }
@@ -87,15 +87,25 @@ function drawPage(doc = host()) {
     row.setAttribute('data-refinement-proposal', '');
   }
 }
+/* A click fills the value in. The grey value stays where it is, solid, until Logseq's own value shows in the row
+   (0.4.283; drawPage takes it off the moment the row is no longer empty): before, it went at once and the row showed
+   Logseq's empty mark until the write came back, a flash on every click. */
 async function fillPage(key) {
   const uuid = pageLive.uuid, piece = pageLive.pieces.find(x => guessKey(x) === key);
-  if (!piece || P.stopped || !await allowed()) return;
-  setPage(uuid, pageLive.pieces.filter(x => x !== piece));
+  if (!piece || piece.filling || P.stopped || !await allowed()) return;
+  piece.filling = true;
+  drawPage();
+  let written = [], undo = null;
   try {
-    const { written, undo } = await writePieces(uuid, [piece], uuid);
+    ({ written, undo } = await writePieces(uuid, [piece], uuid));
     // The page's title is a block of the page's own: the arrow goes at the end of it, as on a bullet's line.
     if (written.length) rememberUndo(uuid, uuid, undoText(written), async () => { try { await undo(); } finally { schedulePage(400); } });
-  } finally { schedulePage(400); }
+  } finally {
+    // Not written: the value goes now. Written: it stays until Logseq shows its own (drawPage takes it off then), and
+    // the fresh look-up below no longer proposes it.
+    if (!written.length) setPage(uuid, pageLive.pieces.filter(x => x !== piece));
+    schedulePage(400);
+  }
 }
 
 

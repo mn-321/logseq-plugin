@@ -384,12 +384,17 @@ function anchorFor(doc) {
    the rows, the room that lay between the title and the rows when the page was last seen settled, less what is
    there so far: the rows and the blocks start where they end. The room is kept in Logseq's window storage, so this
    works from the second visit on, across restarts. */
-const SETTLE_MS = 2000, HEIGHTS_KEY = 'refinementTwoWayRoom';
-const settle = { since: 0, page: '', leaving: '', saved: false, timer: 0 };
+const SETTLE_MS = 2000, HEIGHTS_KEY = 'refinementTwoWayRoom', LEAST_KEY = 'refinementTwoWayLeast';
+/* A first visit (0.4.283): no room is known for the page, but Logseq always puts at least its "Add property" row
+   between the title and the rows, a moment after the title (seen on Zz CUP: the rows and the words pushed down one
+   row). The least room any settled page had is held then: never more than Logseq adds on any page seen. */
+let least = 0;
+const settle = { since: 0, page: '', leaving: '', saved: false, timer: 0, ease: 0 };
 let heights = new Map();
-const readHeights = () => { try { heights = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(HEIGHTS_KEY) || '{}'))); } catch { heights = new Map(); } };
+const readHeights = () => { try { const storage = host().defaultView.localStorage; heights = new Map(Object.entries(JSON.parse(storage.getItem(HEIGHTS_KEY) || '{}'))); least = Number(storage.getItem(LEAST_KEY)) || 0; } catch { heights = new Map(); least = 0; } };
 function remember(page, height) {
   height = Math.round(height);
+  if (height > 0 && (!least || height < least)) { least = height; try { host().defaultView.localStorage.setItem(LEAST_KEY, String(least)); } catch { /* kept for this session */ } }
   if (heights.get(page) === height) return;
   heights.delete(page);
   heights.set(page, height);
@@ -410,16 +415,24 @@ function holdRoom(doc, box, mode, page) {
   if (!mode || !title) { setHold(box, 0); return; }
   const held = parseFloat(box.style.getPropertyValue('--rf-tw-hold')) || 0;
   const room = box.getBoundingClientRect().top - title.getBoundingClientRect().bottom - held;
-  if (mode === 'save') { settle.saved = true; setHold(box, 0); if (room >= 0) remember(page, room); return; }
-  setHold(box, heights.has(page) ? Math.max(0, Math.round(heights.get(page) - room)) : 0);
+  // Settled: the room still held, if any, eases away over a moment instead of snapping (0.4.283); then the room
+  // is kept for next time, so the next visit holds the right amount from the start.
+  if (mode === 'save') { settle.saved = true; if (room >= 0) remember(page, room); if (held) easeHold(box); else setHold(box, 0); return; }
+  setHold(box, Math.max(0, Math.round((heights.has(page) ? heights.get(page) : least) - room)));
 }
 const setHold = (box, px) => { if (px) box.style.setProperty('--rf-tw-hold', px + 'px'); else if (box.style.length) box.removeAttribute('style'); };
+function easeHold(box) {
+  box.setAttribute('data-rf-settling', '');
+  box.style.setProperty('--rf-tw-hold', '0px');
+  clearTimeout(settle.ease);
+  settle.ease = setTimeout(() => { box.removeAttribute('data-rf-settling'); if (box.style.getPropertyValue('--rf-tw-hold') === '0px') setHold(box, 0); }, 300);
+}
 function onRoute() {
   hidePeek(); closeAdd(); state.picked.clear(); state.lastPick = '';
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
-  clearTimeout(settle.timer);
+  clearTimeout(settle.timer); clearTimeout(settle.ease);
   // Once settled: no more room held, and the room is kept for next time.
   settle.timer = setTimeout(() => draw(host()), SETTLE_MS + 50);
 }
@@ -804,6 +817,8 @@ const twoWayCss = `
 }
 /* Only holding room while the page settles: no field, no rows. */
 .refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; padding: 0; background: none; }
+/* The room held while the page settled eases away (0.4.283), only then: while the page settles the held room shrinks in the same frame Logseq's list grows, and must not lag. */
+.refinement-two-way[data-rf-settling] { transition: margin-top .25s ease; }
 .refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
 .refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; }
 .refinement-two-way .rf-tw-name { padding-left: 19px; }
@@ -958,7 +973,7 @@ function start() {
   const escape = event => { if (event.key === 'Escape' && state.picked.size && !event.target.closest?.('input, textarea, [contenteditable="true"]')) { state.picked.clear(); draw(host()); } };
   host().addEventListener('keydown', escape);
   onUnload(() => host().removeEventListener('keydown', escape));
-  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
+  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); clearTimeout(settle.ease); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
   later(0);
   indexLater(1500);
 }

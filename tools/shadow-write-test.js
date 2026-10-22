@@ -75,7 +75,8 @@ window.logseq = {
 // LEAVE_OUT=shadow-steps,shadow-page (tools/parts-apart-test.js, 0.4.269): the writing goes on without those pieces.
 const LEAVE_OUT = (process.env.LEAVE_OUT || '').split(',').filter(Boolean);
 for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js'].filter(f => !LEAVE_OUT.includes(f.slice(6, -3)))) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
-const core = window.refinementCore = { watchDomEarly() {}, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
+let early = () => {};
+const core = window.refinementCore = { watchDomEarly(fn) { early = fn; }, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
   propSchema: async () => schema, propPages: async () => pages, bare: v => String(v ?? '').replace(/^:/, ''),
   pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '',
   parseDay: () => null, dayAfter: (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n), dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(),
@@ -105,6 +106,8 @@ const leave = async box => {
 // Editing the bullet again: Logseq puts a box back in place of its line.
 const editAgain = b => { const row = doc.querySelector(`.ls-block[blockid="${b.uuid}"]`); const line = row.querySelector('.block-title-wrap'); const box = doc.createElement('textarea'); box.value = b.title; line.replaceWith(box); box.focus(); return box; };
 const ghosts = () => [...doc.querySelectorAll('.rfs-ghost')].map(g => g.textContent);
+// Logseq drawing a written value: its own filled capsule in the bullet's row.
+const shows = async (b, name, text) => { const row = doc.querySelector(`.ls-block[blockid="${b.uuid}"] .bottom-properties-row`); const pill = doc.createElement('div'); pill.className = 'bottom-property-pill'; pill.innerHTML = `<span>${name}:</span><span class="bottom-property-content"><a>${text}</a></span>`; row.prepend(pill); early(doc, [{ type: 'childList', addedNodes: [pill], removedNodes: [] }]); await wait(60); };
 const undo = async () => { const arrow = doc.querySelector('.rfs-undo'); if (arrow) arrow.click(); await wait(100); return !!arrow; };
 const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.live = null; state.hushed.uuid = ''; state.undos.clear(); };
 
@@ -120,7 +123,10 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     check(ghosts().join() === 'Dr. Mei Chen', `1. a linked doctor: shown ${JSON.stringify(ghosts())}; wanted Dr. Mei Chen`);
     await leave(box);
     check(JSON.stringify(writes) === JSON.stringify([['set', b.uuid, 'user.property/doctor', 100]]), `1. leaving wrote ${JSON.stringify(writes)}; wanted the doctor only`);
-    check(!ghosts().length, '1. after leaving, faint values are still on screen');
+    // The value stays on screen, solid, until Logseq draws its own (0.4.283: before, the pill was empty for a moment).
+    check(doc.querySelector('.rfs-ghost.rfs-taken')?.textContent === 'Dr. Mei Chen', `1. after leaving, the written value is not kept on screen, solid (${JSON.stringify(ghosts())})`);
+    await shows(b, 'doctor', 'Dr. Mei Chen');
+    check(!ghosts().length, '1. after Logseq drew the value, the kept value is still on screen');
     writes.length = 0;
     const arrow = doc.querySelector(`.ls-block[blockid="${b.uuid}"] .block-title-wrap > .rfs-undo`);
     check(arrow && /doctor: Dr\. Mei Chen/.test(arrow.title), `1. no faded undo arrow at the end of the bullet's line, saying what it takes off (${arrow?.title})`);
