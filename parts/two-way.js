@@ -15,7 +15,7 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
-const { host, openEntity, showUndoBar, notify, modal, modalButtons, modalHint } = shared;
+const { host, openEntity, notify, modal, modalButtons, modalHint } = shared;
 const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add, .refinement-two-way-ask' } });
 
 const settingsSchema = [
@@ -442,9 +442,16 @@ function onClick(event) {
   draw(host());
 }
 
+// Where an Undo sits (shared.undo, 0.4.258): at the end of a row's name on the page in the main view; the first row's
+// when the change was to several rows at once; at the bottom right when no row is left to sit beside.
+const rowNames = field => [...host().querySelectorAll('#main-content-container .refinement-two-way .rf-tw-row')]
+  .filter(row => field == null || row.dataset.field === field).map(row => row.querySelector('.rf-tw-name')).filter(Boolean);
+let undoCount = 0;
+const offerUndo = (text, run, field) => shared.undo.offer({ key: `two-way:${++undoCount}`, at: () => field == null ? rowNames().slice(0, 1) : rowNames(field), text, run });
+
 /* Right-click a row's name to change how it reads here (0.4.237, the owner: "I should be able to right click
    “report of of” and edit display name"). Saved in "Fields read backwards", as the tag map's box does; empty goes
-   back to how the name reads by itself. Undo in the bar. */
+   back to how the name reads by itself. Undo is the arrow after the row's name. */
 async function onRename(event) {
   const nameEl = event.target.closest?.('.rf-tw-name');
   const group = nameEl && state.groups.find(g => g.name === nameEl.closest('.rf-tw-row')?.dataset.field);
@@ -454,7 +461,7 @@ async function onRename(event) {
   const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true);
   if (typed == null || typed === before) return;
   setBackwards(group.name, typed);
-  showUndoBar(typed ? `“${group.name}” now reads “${typed}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before));
+  offerUndo(typed ? `“${group.name}” now reads “${typed}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before), group.name);
 }
 
 /* Adding from the far end (0.4.185, the owner's pick of "Add only"): the + at the end of a row opens a small box,
@@ -549,7 +556,7 @@ async function addRecord({ group, page, name, kind, open, asPage }) {
     else await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, page.id, { entityId: true });
   } catch (error) { await undo().catch(() => {}); throw error; }
   later(300);
-  showUndoBar(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : ' to today’s journal'}`, undo);
+  offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : ' to today’s journal'}`, undo, group.name);
   if (open) openEntity(block.uuid, true);
 }
 
@@ -628,7 +635,7 @@ async function writeAll(text, steps) {
   }
   state.picked.clear(); later(300); draw(host());
   if (failed) notify(`${failed} of the picked records could not be changed`, 'warning');
-  if (undos.length) showUndoBar(text, async () => {
+  if (undos.length) offerUndo(text, async () => {
     let missed = 0;
     for (const undo of undos.reverse()) { try { await undo(); } catch (error) { missed++; warnOnce('a picked record could not be put back', error); } }
     later(300);
@@ -851,7 +858,7 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-bar button:first-child { border-left: 0; }
 .refinement-two-way .rf-tw-bar button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 8%, transparent); }
 .refinement-two-way-ask input { margin-top: 2px; }
-/* The bar after adding, with Undo: shared.showUndoBar, drawn by the rules in parts/shared.js (moved there in 0.4.197). */
+/* Undo after adding or changing: the plugin's one arrow (shared.undo, parts/shared.js, 0.4.258), after the row's name. */
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the

@@ -98,10 +98,10 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     else {
       input.value = 'Unsure';
       input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      const toast = await until(() => doc.querySelector('.refinement-tags-toast'));
+      // The plugin's one Undo (0.4.258): a faded arrow, saying what it takes back.
+      const undo = await until(() => doc.querySelector('.rf-undo[data-rf-undo^="tags:"]'));
       if (window.pretendChoices[2].title !== 'Unsure') problem('renaming a choice did not rename it');
-      const undo = toast && [...toast.querySelectorAll('button')].find(b => b.textContent === 'Undo');
-      if (!undo) problem(`renaming a choice says “${toast?.textContent ?? 'nothing'}” with no Undo`);
+      if (!undo) problem('renaming a choice has no Undo arrow');
       else {
         undo.click();
         await until(() => window.pretendChoices[2].title === 'Unclear');
@@ -128,8 +128,8 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.startsWith('Put in a group'))?.click();
       [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent === 'Empty one')?.click();
       if (window.logseq.settings.propertyGroups !== 'Results: ; Empty one: result') problem(`putting result in Empty one left the setting “${window.logseq.settings.propertyGroups}”`);
-      const toast = await until(() => doc.querySelector('.refinement-tags-toast'));
-      [...(toast?.querySelectorAll('button') || [])].find(b => b.textContent === 'Undo')?.click();
+      const arrows = await until(() => doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]').length ? doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]') : null);
+      [...(arrows || [])].at(-1)?.click();
       await until(() => window.logseq.settings.propertyGroups === 'Results: result; Empty one: ');
       if (window.logseq.settings.propertyGroups !== 'Results: result; Empty one: ') problem(`Undo left the groups as “${window.logseq.settings.propertyGroups}”`);
       if (JSON.stringify(window.pretendChoices) !== writesBefore) problem('grouping changed something in the pretend graph');

@@ -655,11 +655,6 @@ const css = `
 .refinement-tags-dialog .rtg-namefield input { flex: 1; min-width: 0; width: auto; }
 .refinement-tags-dialog .rtg-note { color: var(--rf-ui-muted); }
 .refinement-tags-dialog p.rtg-warn { color: #b8641e; }
-.refinement-tags-toast { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: 8px;
-  background: var(--rtg-fg); color: var(--rtg-bg); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
-.refinement-tags-toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-tags-toast button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, var(--rtg-bg) 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.refinement-tags-toast button:hover { background: color-mix(in srgb, var(--rtg-bg) 30%, transparent); }
 `;
 
 /* ---------- The tree ---------- */
@@ -709,7 +704,6 @@ function createView(doc, mode) {
   else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.find, view.toggle2, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body);
 
   /* The note at the bottom after a change, with Undo */
-  view.toast = null; view.toastTimer = 0;
   view.box.addEventListener('keydown', view.onKey);
   view.doc.addEventListener('mousedown', view.onDown, true);
   // Clicking a blank part of the tree gives it the keyboard, for the arrow keys.
@@ -811,18 +805,20 @@ function pickTag(view, anchor, header, choices, onPick) {
   view.placeMenu(anchor);
 }
 
-function hideToast(view) { clearTimeout(view.toastTimer); view.toast?.remove(); view.toast = null; }
-
-function showToast(view, text, undo, ms = 7000) {
-  view.hideToast();
-  view.toast = el(view.doc, 'div', { class: 'refinement-tags-toast', role: 'status' }, el(view.doc, 'span', {}, text));
-  if (undo) {
-    const button = el(view.doc, 'button', {}, 'Undo');
-    button.addEventListener('click', async () => { view.hideToast(); await view.act(undo, 'The change could not be undone'); });
-    view.toast.append(button);
-  }
-  view.doc.body.append(view.paint(view.toast));
-  view.toastTimer = setTimeout(view.hideToast, ms);
+// After a change: the plugin's one Undo (shared.undo, 0.4.258), a faded arrow at the end of the row the change was made
+// on (the row with the cursor), or of the map's title when that row is gone; a change with nothing to undo is said in
+// Logseq's own message. The bar this map kept of its own until 0.4.257 is gone.
+function hideToast() {}
+let undoCount = 0;
+function showToast(view, text, undo) {
+  if (!undo) { logseq.UI.showMsg(text); return; }
+  const key = view.cursorKey, tagId = view.cursorTag;
+  const at = () => {
+    if (!view.box?.isConnected) return null;
+    const item = view.shown?.find(i => key ? i.key === key : tagId != null && i.tag?.id === tagId);
+    return item?.row?.isConnected && item.row.querySelector('.rtg-line') || view.box.querySelector('.rtg-title, header');
+  };
+  shared.undo.offer({ key: `tags:${++undoCount}`, at, text, run: () => view.act(undo, 'The change could not be undone') });
 }
 
 async function act(view, run, failText) {
@@ -2336,7 +2332,7 @@ function start() {
   window.refinementTags = { openPage, openSidebar, loadTags };
   const off = logseq.onSettingsChanged?.(() => { orderOverride = null; groupsOverride = null; for (const redraw of openViews) redraw(); });
   if (typeof off === 'function') onUnload(off);
-  onUnload(() => { host().querySelector('.refinement-tags-menu')?.remove(); host().querySelector('.refinement-tags-toast')?.remove(); host().querySelector('.refinement-tags-dialog')?.remove(); });
+  onUnload(() => { host().querySelector('.refinement-tags-menu')?.remove(); host().querySelector('.refinement-tags-dialog')?.remove(); });
 }
 
 (window.refinementParts ||= []).push({ name: 'tag tree', schema: settingsSchema, start, stop: runUnloadTasks });

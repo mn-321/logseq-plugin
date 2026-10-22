@@ -29,8 +29,11 @@
                                   .rf-on, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list) and dialog (.rf-dialog,
                                   .rf-btns, .rf-btn, .rf-go): Logseq's pop-up colours, one size, corner and shadow.
    - modalButtons(doc, [[text, onClick, 'go'?], …]) and modalHint(doc, text)   rows for a modal; 'go' fills the one that does it.
-   - showUndoBar(text, undo, onFail)   after a write: a dark bar at the bottom with Undo for seven seconds; undo()
-                                  is awaited on the press, onFail(error) (or a warning note) runs if it throws.
+   - undo                         THE Undo (0.4.258): undo.offer({ key, at, text, run, onFail, cls, data }) puts a faded
+                                  arrow at the end of at()'s element(s), or at the bottom right when there is none;
+                                  forget, clear, draw, size, has, stop. Every part offers its Undo through it.
+   - showUndoBar(text, undo, onFail)   the old dark bar at the bottom with Undo for seven seconds: kept for the resting
+                                  parts only; a rebuilt part uses undo.offer.
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
    - waitFor(find, ms)            polls find() every 50 ms until it returns something or ms pass.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
@@ -223,6 +226,16 @@ const dialogCss = `/* One look for the plugin's pop-ups and dialog boxes (0.4.25
 :is(.rf-btn, .rf-btns > button):disabled { opacity: .45; cursor: default; }
 :is(.rf-btn, .rf-btns > button):focus-visible { outline: 2px solid color-mix(in srgb, var(--rf-ui-fg) 40%, transparent); outline-offset: 1px; }
 .refinement-prompt-hint { margin-top: 6px; font-size: 12px; color: var(--rf-ui-muted); }
+/* THE Undo (undo.offer): a faded arrow at the end of what changed, clearer under the pointer; with nothing on screen to sit
+   beside, it waits at the bottom right with its words, as quiet. Greys from the text colour, so both themes. */
+.rf-undo { display: inline-flex; align-items: center; gap: 6px; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
+.rf-undo:hover { opacity: .75; }
+.rf-undo-dock { position: fixed; z-index: 10002; right: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: min(420px, 60vw);
+  color: hsl(var(--popover-foreground, 0 0% 9%)); font-size: 12px; }
+.rf-undo-docked { margin: 0; padding: 3px 9px; border-radius: 6px; opacity: 1; background: hsl(var(--popover, 0 0% 100%));
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); color: color-mix(in srgb, hsl(var(--popover-foreground, 0 0% 9%)) 55%, transparent); }
+.rf-undo-docked:hover { color: hsl(var(--popover-foreground, 0 0% 9%)); }
+.rf-undo-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The bar at the bottom after a write, with Undo (showUndoBar): the popover's colours the other way round. Only Logseq's
    newer colour names: its --ls-primary-text-color and siblings are empty or unset in 2.0.2, so a bar built on them
    was see-through, its words lying over the page (0.4.197, seen in both themes). */
@@ -273,6 +286,104 @@ function showUndoBar(text, undo, onFail) {
   doc.body.appendChild(el);
   undoBar.timer = setTimeout(() => el.remove(), 7000);
 }
+
+/* THE Undo of the plugin (0.4.258, at the owner's word: "make one pop-up, one Undo and one dialog"; its look is the
+   proposals' faded arrow of 0.4.218, which the owner chose over the bar: "the undo toast notification is in an awful place
+   and loud and too far down and distracting. it should be something just where text is but very subtle, like a faded
+   icon"). After a change, a faded arrow sits beside what changed and says what it takes back when pointed at; a click
+   takes it back. Each change keeps its own arrow until it is used, the page is left (main.js clears them), or the part
+   forgets it, so a second change never takes the first one's Undo away (the bar did). A change offered again under the
+   same key adds to that arrow: one click takes both back, the later first. When nothing of the change is on screen to
+   sit beside (the nodes were deleted), the arrow waits at the bottom right with its words beside it, quiet, until used
+   or the page is left.
+   undo.offer({ key, at, text, run, onFail, cls, data })  at() returns the element(s) to sit at the end of, or null;
+   undo.forget(key or entry => bool), undo.clear(), undo.draw(), undo.size, undo.stop(). */
+const UNDO_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14l-4 -4l4 -4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></svg>';
+const attr = text => String(text).replace(/["\\]/g, '\\$&');
+const undoState = { entries: new Map(), observer: null, listening: false, drawing: false };
+const undoTargets = entry => { try { const at = entry.at?.(); return (Array.isArray(at) ? at : at ? [at] : []).filter(el => el?.isConnected); } catch (error) { return []; } };
+function undoArrow(doc, key, entry, docked) {
+  const el = doc.createElement('span');
+  el.className = `rf-undo${entry.cls ? ' ' + entry.cls : ''}${docked ? ' rf-undo-docked' : ''}`;
+  el.dataset.rfUndo = key;
+  el.setAttribute('role', 'button');
+  el.setAttribute('contenteditable', 'false');
+  el.setAttribute('aria-label', `Undo: ${entry.text}`);
+  el.title = `Undo: ${entry.text}`;
+  el.innerHTML = UNDO_ICON + (docked ? `<span class="rf-undo-words"></span>` : '');
+  if (docked) el.querySelector('.rf-undo-words').textContent = entry.text;
+  return el;
+}
+function drawUndoArrows() {
+  const doc = host();
+  if (undoState.drawing) return;
+  undoState.drawing = true;
+  try {
+    const { entries } = undoState;
+    for (const el of doc.querySelectorAll('.rf-undo')) {
+      const entry = entries.get(el.dataset.rfUndo);
+      if (!entry) { el.remove(); continue; }
+      const targets = undoTargets(entry);
+      if (el.classList.contains('rf-undo-docked') ? targets.length : !targets.includes(el.parentElement)) el.remove();
+    }
+    let dock = doc.querySelector('.rf-undo-dock');
+    for (const [key, entry] of entries) {
+      const targets = undoTargets(entry);
+      for (const target of targets) if (![...target.children].some(child => child.dataset?.rfUndo === key)) target.appendChild(undoArrow(doc, key, entry, false));
+      if (!targets.length && !doc.querySelector(`.rf-undo-dock [data-rf-undo="${attr(key)}"]`)) {
+        if (!dock) { dock = doc.createElement('div'); dock.className = 'rf-undo-dock'; doc.body.appendChild(dock); }
+        dock.appendChild(undoArrow(doc, key, entry, true));
+      }
+    }
+    if (dock && !dock.children.length) dock.remove();
+  } finally { undoState.drawing = false; }
+  undoState.observer?.takeRecords();
+}
+// A press on an arrow is the plugin's (inside a bullet Logseq would start editing it); the click takes the change back.
+function onUndoArrow(event) {
+  const el = event.target?.closest?.('.rf-undo');
+  if (!el) return;
+  event.stopImmediatePropagation();
+  if (event.type !== 'pointerdown') event.preventDefault();
+  if (event.type !== 'click') return;
+  const key = el.dataset.rfUndo, entry = undoState.entries.get(key);
+  undoState.entries.delete(key);
+  drawUndoArrows();
+  watchUndos();
+  if (entry) Promise.resolve().then(entry.run).catch(error => { if (entry.onFail) entry.onFail(error); else notify('The change could not be undone', 'warning'); });
+}
+// The arrows are put back whenever Logseq draws the place again; the watcher runs only while there is an arrow.
+function watchUndos() {
+  const doc = host(), win = doc.defaultView, on = undoState.entries.size > 0;
+  if (on && !undoState.observer) {
+    undoState.observer = new win.MutationObserver(() => drawUndoArrows());
+    undoState.observer.observe(doc.body, { childList: true, subtree: true });
+  } else if (!on && undoState.observer) { undoState.observer.disconnect(); undoState.observer = null; }
+  if (on && !undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.addEventListener(type, onUndoArrow, true); undoState.listening = true; }
+  else if (!on && undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.removeEventListener(type, onUndoArrow, true); undoState.listening = false; }
+}
+const undo = {
+  offer({ key, at, text, run, onFail, cls, data }) {
+    const before = undoState.entries.get(key);
+    const all = before ? async () => { let failed = null; try { await run(); } catch (error) { failed = error; } await before.run(); if (failed) throw failed; } : run;
+    undoState.entries.set(key, { at, text: before ? `${text} · ${before.text}` : text, run: all, onFail: onFail || before?.onFail, cls, data: data ?? before?.data });
+    // Drawn again, so an arrow with the old words is replaced.
+    for (const el of host().querySelectorAll(`[data-rf-undo="${attr(key)}"]`)) el.remove();
+    watchUndos();
+    drawUndoArrows();
+  },
+  forget(which) {
+    let gone = false;
+    for (const [key, entry] of undoState.entries) if (typeof which === 'function' ? which({ key, ...entry }) : key === which) { undoState.entries.delete(key); gone = true; }
+    if (gone) { drawUndoArrows(); watchUndos(); }
+  },
+  clear() { if (!undoState.entries.size) return; undoState.entries.clear(); drawUndoArrows(); watchUndos(); },
+  draw: () => drawUndoArrows(),
+  get size() { return undoState.entries.size; },
+  has: key => undoState.entries.has(key),
+  keys: () => [...undoState.entries.keys()],
+  stop() { undoState.entries.clear(); try { drawUndoArrows(); watchUndos(); host().querySelector('.rf-undo-dock')?.remove(); } catch (error) { /* Logseq's window is gone */ } },
+};
 
 // Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
 function openEntity(uuid, inSidebar = false) {
@@ -331,5 +442,5 @@ function settingReader(schema) {
 // This file's own boxes: the dialog backdrop and the Undo bar.
 leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
 
-window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, dialogCss, showUndoBar, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();

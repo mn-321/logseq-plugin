@@ -125,7 +125,7 @@ const until = async test => { for (let i = 0; i < 100; i++) { const found = test
   expect('the zone at rest', view.node.classList.contains('rtg-dragon'), false);
   expect('the line over the zone', await drag('Visit', null, 'top'), 'rtg-drop');
   expect('Visit dropped on the zone', outline(), 'Occurrence / Concept /   Entity /     Doctor /     Person /     Place / Visit');
-  const undo = [...(doc.querySelector('.refinement-tags-toast')?.querySelectorAll('button') || [])].find(b => b.textContent === 'Undo');
+  const undo = [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].at(-1); // the plugin's one Undo (0.4.258)
   if (!undo) problem('no Undo after the move to the top level'); else undo.click();
   await until(() => parentsOf('Visit') === 'Occurrence');
   await new Promise(r => setTimeout(r, 30));

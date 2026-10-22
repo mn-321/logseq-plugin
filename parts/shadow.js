@@ -692,7 +692,7 @@ function datedAhead(tagIds, ctx) {
 // is left right after (0.4.219, as from 0.4.202; for 0.4.218 alone it was Tab, at the owner's word reversed).
 const ENTER_LEAVES = 500;
 // undos: what each fill can take back, by the record it was written on (0.4.218: a faded icon on its line).
-const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, undos: new Map() };
+const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, get undos() { return ownUndos; } };
 // A page tagged in the words goes by its name: it may be made, and get an id, only after it was drawn.
 const guessKey = piece => `${piece.ident} ${piece.named ?? piece.ids.join(',')}`;
 const acceptedIn = uuid => state.accepted.uuid === uuid ? state.accepted.keys : new Set();
@@ -1330,49 +1330,18 @@ function makePill(doc, row, piece) {
 /* Undo (0.4.218, at the owner's word: the bar at the bottom was "loud and too far down and distracting"): a faded
    arrow at the end of the line of the bullet the values were filled in on, saying what it takes off when pointed at.
    A click takes them off. It stays until that bullet is edited again or the page is left, so it never times out
-   while you look elsewhere; each filled bullet keeps its own. Drawn on the early pass, so Logseq's redraw of the line
-   cannot lose it. */
-const UNDO_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14l-4 -4l4 -4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></svg>';
+   while you look elsewhere; each filled bullet keeps its own. Since 0.4.258 it is the plugin's one Undo
+   (shared.undo, parts/shared.js), which every part now uses; here only where it sits and when it is forgotten. */
+const undoKey = uuid => 'proposals:' + uuid;
+const bulletLines = uuid => [...host().querySelectorAll(`.ls-block[blockid="${uuid}"]`)].map(row => [...row.querySelectorAll('.block-title-wrap')].find(ownRow(row))).filter(Boolean);
 function rememberUndo(recordUuid, bulletUuid, text, undo) {
-  // A second fill on the same bullet adds to its undo: one arrow takes both back, the later first.
-  const before = state.undos.get(recordUuid);
-  const all = before ? async () => { let failed = null; try { await undo(); } catch (error) { failed = error; } await before.undo(); if (failed) throw failed; } : undo;
-  state.undos.set(recordUuid, { bulletUuid, text: before ? `${text} · ${before.text}` : text, undo: all });
-  drawUndos(host());
+  // A second fill on the same bullet adds to its undo: one arrow takes both back, the later first (shared.undo does it).
+  shared.undo.offer({ key: undoKey(recordUuid), at: () => bulletLines(recordUuid), text, run: undo, cls: 'rfs-undo', data: { record: recordUuid, bullet: bulletUuid },
+    onFail: error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); } });
 }
-function forgetUndo(uuid) {
-  let gone = false;
-  for (const [record, u] of state.undos) if (record === uuid || u.bulletUuid === uuid) { state.undos.delete(record); gone = true; }
-  if (gone) drawUndos(host());
-}
-function drawUndos(doc = host()) {
-  for (const el of doc.querySelectorAll('.rfs-undo')) if (!state.undos.has(el.dataset.rfsUndo) || el.closest('.ls-block[blockid]')?.getAttribute('blockid') !== el.dataset.rfsUndo) el.remove();
-  for (const [uuid, u] of state.undos) for (const row of doc.querySelectorAll(`.ls-block[blockid="${uuid}"]`)) {
-    const line = [...row.querySelectorAll('.block-title-wrap')].find(ownRow(row));
-    if (!line || line.querySelector(':scope > .rfs-undo')) continue;
-    const el = doc.createElement('span');
-    el.className = 'rfs-undo';
-    el.dataset.rfsUndo = uuid;
-    el.setAttribute('role', 'button');
-    el.setAttribute('contenteditable', 'false');
-    el.setAttribute('aria-label', `Undo: ${u.text}`);
-    el.title = `Undo what was filled in: ${u.text}`;
-    el.innerHTML = UNDO_ICON;
-    line.appendChild(el);
-  }
-}
-// A press on the arrow is the plugin's: Logseq would put the bullet in edit. The click takes the values off.
-function onUndoPress(event) {
-  const el = event.target?.closest?.('.rfs-undo');
-  if (!el) return;
-  event.stopImmediatePropagation();
-  if (event.type !== 'pointerdown') event.preventDefault();
-  if (event.type !== 'click') return;
-  const u = state.undos.get(el.dataset.rfsUndo);
-  state.undos.delete(el.dataset.rfsUndo);
-  drawUndos(el.ownerDocument);
-  if (u) u.undo().catch(error => { warnOnce('the filled-in values could not be taken off again', error); notify('The values could not be taken off again', 'warning'); });
-}
+function forgetUndo(uuid) { shared.undo.forget(entry => entry.key.startsWith('proposals:') && (entry.data?.record === uuid || entry.data?.bullet === uuid)); }
+// The proposals' own arrows, for the checks (tools/shadow-write-test.js): how many, and forgetting them all.
+const ownUndos = { get size() { return shared.undo.keys().filter(key => key.startsWith('proposals:')).length; }, clear: () => shared.undo.forget(entry => entry.key.startsWith('proposals:')) };
 // What one value looks like and says when pointed at; the page that gets a tag is named only there.
 function ghostLook(piece) {
   return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`,
@@ -1423,7 +1392,7 @@ function drawInPlace(doc = host()) {
   }
   // A pill marked with nothing of ours left in it (a copy cut short) is given back to Logseq (second reading).
   for (const pill of doc.querySelectorAll('[data-refinement-proposal]:not(.property-pair)')) if (!pill.querySelector('.rfs-ghost')) pill.removeAttribute('data-refinement-proposal');
-  drawUndos(doc);
+  shared.undo.draw();
 }
 function hide() { drawInPlace(); }
 const drawEarly = (doc, records) => { pageEarly(doc); if (!state.live && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
@@ -1520,8 +1489,6 @@ const css = `
 .positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
 /* The undo arrow (0.4.218): faded, at the end of the bullet's line, a little clearer under the pointer. */
-.rfs-undo { display: inline-flex; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
-.rfs-undo:hover { opacity: .75; }
 .rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
 /* A proposal clicked (0.4.242): solid, not grey, filled in when the bullet is left. */
 .rfs-ghost.rfs-taken { color: inherit; font-style: normal; text-decoration: none; }
@@ -1557,9 +1524,8 @@ function start() {
   listen(win, ['keydown'], onPickKey);
   listen(win, ['keydown'], onKey);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
-  listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onUndoPress);
   // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
-  const offRoute = logseq.App.onRouteChanged?.(() => { if (state.undos.size) { state.undos.clear(); drawUndos(host()); } schedulePage(); });
+  const offRoute = logseq.App.onRouteChanged?.(() => { state.undos.clear(); schedulePage(); });
   if (typeof offRoute === 'function') onUnload(offRoute);
   const offGraph = logseq.App.onCurrentGraphChanged?.(() => applyHide());
   if (typeof offGraph === 'function') onUnload(offGraph);
@@ -1567,7 +1533,7 @@ function start() {
   onUnload(logseq.DB.onChanged(() => { const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
   onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
   stopped = false;
-  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); drawUndos(host()); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
+  onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.undos.clear(); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
   schedulePage(300);
   applyHide();
 }

@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · One Undo (0.4.258)
+
+**The owner:** "make one pop-up, one Undo and one dialog". **Built:** `shared.undo` (`offer`, `forget`, `clear`, `draw`,
+`size`, `has`, `keys`, `stop`) in `parts/shared.js`, lifted from the proposals' `rememberUndo`/`drawUndos`: entries by
+key, `at()` gives the element(s) to sit at the end of, a MutationObserver only while there is an entry puts arrows back,
+one capture listener for the clicks, `.rf-undo-dock` when `at()` gives nothing; `main.js` clears on route change and
+stops on unload. Moved onto it: `shadow.js` (`state.undos` now a view over the shared entries), `two-way.js`
+(`offerUndo`, after `.rf-tw-name`), `tags.js` (`showToast` now offers an arrow at the cursor row, or `logseq.UI.showMsg`
+when there is no undo; its bar and CSS removed). `showUndoBar` is kept for the resting parts only. `tools/undo-test.js`
+(10 checks); the tag map tests press the arrow. **Seen:** pictures only.
+
 ## 2026-10-21 · One look for pop-ups and dialogs (0.4.257)
 
 **The owner:** "we have created a lot of things that use different elements instead of a consistency", then "make one

@@ -155,8 +155,11 @@ async function scenes(page) {
         const stage = document.getElementById('stage');
         stage.style.height = '560px';
         stage.textContent = 'Linked references, Chemo cycle 7, Date: Dec 2nd, 2026, drugs: Oxaliplatin, Leucovorin. '.repeat(40);
-        // The bar at the bottom after a write, with Undo (0.4.197: see-through in dark mode until its rules got the dialogs' fallbacks).
-        shared.showUndoBar('doctor: Dr. Mei Chen filled in on “Review of the tingling”', () => {});
+        // The plugin's one Undo (0.4.258): an arrow at the end of a line, and one waiting at the bottom right with its words.
+        const line = document.createElement('div'); line.textContent = 'Review of the tingling'; line.style.cssText = 'position:absolute;left:24px;top:470px;padding:2px 6px;background:inherit;';
+        stage.append(line);
+        shared.undo.offer({ key: 'p', at: () => line, text: 'Provider: Dr. Mei Chen', run: () => {} });
+        shared.undo.offer({ key: 'd', at: () => null, text: 'Deleted 3 records', run: () => {} });
         shared.modal(null, (box, finish, doc) => {
           const heading = doc.createElement('label');
           heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
