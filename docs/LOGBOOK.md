@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A sealed copy says so (0.4.282)
+
+**Found:** 0.4.281's `"effect": true` in package.json is written over by Logseq's install dialog (unticked: the installed
+package.json read `"effect":false`, the frame on `lsp://logseq.io`), so the box is the only way. **Built:** `main()` in
+`main.js` tries `host()` first and, in a sealed frame, shows one notice (uninstall, install again with effect ticked)
+and starts nothing. README and CLAUDE.md corrected. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · An installed copy needs Logseq's "effect" (0.4.281)
 
 **The owner:** "Why don't I see the custom setting panel in the 3 dot menu nor tag button on top bar on right" (on the

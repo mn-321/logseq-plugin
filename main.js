@@ -273,6 +273,13 @@ function keepFrameInPlace() {
   onUnload(() => win.removeEventListener('scroll', onScroll, true));
 }
 function main() {
+  // Installed from GitHub without the "effect" box ticked, Logseq keeps the plugin in a sealed frame on another
+  // address (lsp://logseq.io), where Logseq's own page cannot be reached and nothing of the plugin can draw (seen
+  // 0.4.282 on the owner's other computer: no rows, no map, no settings item). Say so once, instead of failing part by part.
+  try { host(); } catch (error) {
+    logseq.UI.showMsg('DB Refinements cannot reach Logseq\'s page from here. Uninstall it, then install it again with the "effect" box ticked (Install plugin from GitHub release).', 'error', { timeout: 0 });
+    return;
+  }
   logseq.beforeunload(runUnloadTasks);
   moveOldDefaults();
   takeOverFromEarlierCopy();
