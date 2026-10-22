@@ -576,10 +576,15 @@ async function applyHide() {
   const on = !stopped && setting('shadowProposals') && setting('shadowHideEmpty') && await allowed().catch(() => false);
   if (version === hideVersion) host().documentElement.classList.toggle('rfs-hide-empty', !!on);
 }
+// Option-Enter (parts/shadow-steps.js) and a page's own properties (parts/shadow-page.js) are their own pieces: when
+// one is not loaded, these stand in for it and the proposals while writing go on without it (0.4.269).
+const SPARE = { picking: {}, endPicking() {}, onPickKey() {}, fillPage() {}, pageEarly() {}, pageLive: {}, schedulePage() {}, setPage() {} };
 function start() {
+  // The rules (parts/shadow-rules.js) are what this piece shows; without them it stays off and says so.
+  if (!P.piecesFor) { warnOnce('the rules, parts/shadow-rules.js, are not loaded, so the proposals are off'); return; }
   // The pieces of the proposals (0.4.268): each takes what it uses, then this one takes theirs.
   for (const link of P.links) link(window.refinementCore);
-  ({ contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage } = P);
+  ({ contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage } = { ...SPARE, ...P });
   ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag', 'pageLines']));
   model = window.refinementCore.provided; // the graph is read through the model (0.4.226)
   void titleOf;

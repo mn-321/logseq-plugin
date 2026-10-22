@@ -72,7 +72,9 @@ window.logseq = {
     async insertBlock() { return null; }, async editBlock() {}, async createPage() { return null; },
   },
 };
-for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
+// LEAVE_OUT=shadow-steps,shadow-page (tools/parts-apart-test.js, 0.4.269): the writing goes on without those pieces.
+const LEAVE_OUT = (process.env.LEAVE_OUT || '').split(',').filter(Boolean);
+for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js'].filter(f => !LEAVE_OUT.includes(f.slice(6, -3)))) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 const core = window.refinementCore = { watchDomEarly() {}, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
   propSchema: async () => schema, propPages: async () => pages, bare: v => String(v ?? '').replace(/^:/, ''),
   pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '',

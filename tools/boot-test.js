@@ -15,11 +15,16 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '..');
+// For tools/parts-apart-test.js (0.4.269): LEAVE_OUT=two-way,picker boots without those parts; ALLOW_WARN is a
+// pattern for the warnings that leaving them out should give; QUIET_PARTS how many parts then stay out by themselves.
+const LEAVE_OUT = (process.env.LEAVE_OUT || '').split(',').filter(Boolean);
+const ALLOW_WARN = process.env.ALLOW_WARN ? new RegExp(process.env.ALLOW_WARN) : null;
 const PART_FILES = (() => {
   const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');
   const line = main.match(/^const PART_FILES = \[(.*)\];/m);
   if (!line) throw new Error('PART_FILES not found in main.js');
-  return line[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
+  return line[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''))
+    .filter(file => !LEAVE_OUT.includes(file.replace(/^parts\/|\.js$/g, '')));
 })();
 
 // Which parts main.js loads now (0.4.175: the resting parts are left out); checks of a feature run only when it is loaded.
@@ -131,7 +136,8 @@ async function main() {
   if (!logseq._main) problem('main() was never given to logseq.ready');
   const parts = pluginWindow.refinementParts || [];
   console.log(`loaded ${parts.length} parts, ${logseq._settingsSchema.length} settings`);
-  if (parts.length !== PART_FILES.length - 1) problem(`expected ${PART_FILES.length - 1} parts to register, found ${parts.length}`);
+  const wantParts = PART_FILES.length - 1 - Number(process.env.QUIET_PARTS || 0);
+  if (parts.length !== wantParts) problem(`expected ${wantParts} parts to register, found ${parts.length}`);
   try { logseq._main(); } catch (error) { problem('main() threw: ' + (error && error.stack || error)); }
   if (!logseq._unload) problem('no beforeunload callback registered');
   await sleep(100);
@@ -238,7 +244,8 @@ async function main() {
   if (left4.length) problem('left on screen after the foundation-only unload: ' + [...new Set(left4)].join(', '));
 
   console.warn = realWarn; console.error = realError;
-  const own = warnings.filter(text => /Refinements|refinement|Error|error/i.test(text));
+  const own = warnings.filter(text => /Refinements|refinement|Error|error/i.test(text) && !(ALLOW_WARN && ALLOW_WARN.test(text)));
+  if (ALLOW_WARN && !warnings.some(text => ALLOW_WARN.test(text))) problem('the warning wanted was not given: ' + ALLOW_WARN);
   for (const text of own) problem('warning: ' + text.slice(0, 300));
   for (const text of log) console.log('  ' + text);
   if (problems.length) { console.log(`boot-test: FAILED (${problems.length})`); process.exit(1); }

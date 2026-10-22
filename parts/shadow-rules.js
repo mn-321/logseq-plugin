@@ -12,11 +12,12 @@ const take = (core, names) => { const all = { ...core, ...core.provided }; for (
 let later, pending;
 let model, UUID, propSchema, propPages, bare, pick, idOf, titleOf, alike, parseDay, dayAfter, dayNumber;
 
-P.links.push(core => {
+const ownLink = core => {
   ({ model, UUID, propSchema, propPages, bare, pick, idOf, titleOf, alike, parseDay, dayAfter, dayNumber } = take(core, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'titleOf', 'alike', 'parseDay', 'dayAfter', 'dayNumber']));
   model = core.provided; // the graph is read through the model (0.4.226)
   ({ later, pending } = P);
-});
+};
+P.links.push(ownLink);
 
 const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -692,5 +693,7 @@ function datedAhead(tagIds, ctx) {
 
 
 Object.assign(P, { contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned });
-(window.refinementParts ||= []).push({ name: 'proposals rules', schema: [], provide: core => core.provide({ pickerOrder }), start() {}, stop: runUnloadTasks });
+// The rules take what they use at their own start too, so the pickers' order (pickerOrder) works without the
+// proposals while writing (0.4.269); parts/shadow.js runs every piece's link again when it starts.
+(window.refinementParts ||= []).push({ name: 'proposals rules', schema: [], provide: core => core.provide({ pickerOrder }), start() { ownLink(window.refinementCore); }, stop: runUnloadTasks });
 })();

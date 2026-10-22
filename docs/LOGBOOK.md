@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Each part stands on its own (0.4.269)
+
+**The owner:** asked for a full test that the split lost nothing, and whether the code is still modular; then "ok do
+it" to the one weak spot. **Found:** the version before the split and 0.4.268 gave the same answer in every case, on the
+Illness Test Graph (324 lines with `--all --why`) and on Stress Check (67,775 lines, about 43,000 properties and
+15,600 tags; timings within noise). Booting with each part left out: the two-way rows, tag map, link text and pickers
+were already apart; the four proposal pieces fell over together. **Built:** `parts/shadow.js` stands in (`SPARE`) for
+Option-Enter and the page piece when either is missing, and stays off with a warning without the rules;
+`shadow-steps.js` and `shadow-page.js` stay out with a warning without `shadow.js`; the rules run their own link at
+their start (`ownLink`), so `pickerOrder` works without `shadow.js`. `tools/boot-test.js` takes `LEAVE_OUT`,
+`ALLOW_WARN`, `QUIET_PARTS`; `tools/shadow-write-test.js` takes `LEAVE_OUT`; new `tools/parts-apart-test.js` (14 ways),
+in `check.sh`. **Seen:** tests; the pickers' order from the rules alone matched all four on the Illness Test Graph.
+
 ## 2026-10-21 · The proposals split into four parts (0.4.268)
 
 **The owner:** "go on to item 10, splitting the proposals code". **Built:** by a script (no lines retyped): lines 76 to 747
