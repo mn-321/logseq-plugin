@@ -79,7 +79,7 @@ const outline = `
 // ---- 4. The tag map, Tags view ----
 const mapHeader = (byTags) => `<div class="pv-maphead"><div class="px-field pv-find">${T('search')}<input type="text" placeholder="Find a tag or property"></div><div class="px-seg"><button class="px-quiet" aria-pressed="${byTags}">Tags</button><button class="px-quiet" aria-pressed="${!byTags}">Properties</button></div><button class="px-quiet px-faint">Inherited</button><button class="px-quiet px-faint">Fold</button><button class="px-quiet px-faint">Unfold</button><button class="px-quiet">${T('layout-sidebar-right')}</button></div>`;
 const tagRow = (name, small, open, depth = 0, acts = false, root = false) => `<div class="pv-trow${root ? ' pv-root' : ''}" style="padding-left:${depth * 22}px"><button class="px-quiet pv-chev${open ? ' pv-down' : ''}">${T('chevron-right')}</button><span class="pv-tname">${esc(name)}</span><span class="px-note">${small}</span>${acts ? `<span class="pv-acts"><button class="px-quiet">${T('plus')}</button><button class="px-quiet">${T('dots')}</button></span>` : ''}</div>`;
-const pRow = (name, kind, accepts, extra = '', depth = 1, inh = '') => `<div class="pv-prow${inh ? ' pv-inh' : ''}" style="padding-left:${depth * 22 + 22}px"><span class="px-kindicon" title="${esc(kind)}">${T(kind === 'link' ? 'arrow-right' : kind === 'date' ? 'calendar' : kind === 'choice' ? 'select' : kind === 'number' ? '123' : 'letter-case')}</span><span class="pv-pn">${esc(name)}</span>${accepts ? `<i>${accepts}</i>` : ''}${extra}${inh ? `<span class="px-note">from ${inh}</span>` : ''}<button class="px-quiet pv-info">${T('info-circle')}</button></div>`;
+const pRow = (name, kind, accepts, extra = '', depth = 1, inh = '') => `<div class="pv-prow${inh ? ' pv-inh' : ''}" style="padding-left:${depth * 22 + 22}px"><span class="px-kindicon" title="${esc(kind)}">${T(kind === 'link' ? 'arrow-right' : kind === 'date' ? 'calendar' : kind === 'choice' ? 'select' : kind === 'number' ? '123' : 'letter-case')}</span><span class="pv-pn">${esc(name)}</span>${accepts ? accepts.split(', ').map(tag).join(', ') : ''}${extra}${inh ? `<span class="px-note">from ${inh}</span>` : ''}<button class="px-quiet pv-info">${T('info-circle')}</button></div>`;
 const tagsView = `
 ${mapHeader(true)}
 <div class="pv-tree">
@@ -105,17 +105,17 @@ const propsView = `
 ${mapHeader(false)}
 <div class="pv-tree">
   <div class="pv-group">Clinical</div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Provider</span><i>Doctor</i><span class="px-note">on 2 tags</span><button class="px-quiet pv-info">${T('info-circle')}</button></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Provider</span><a class="tag px-lstag" href="#">Doctor</a><span class="px-note">on 2 tags</span><button class="px-quiet pv-info">${T('info-circle')}</button></div>
   <div class="pv-pinfo">
-    ${lineOf('Value', `a link to a <i>Doctor</i> node <button class="px-quiet px-faint">Change…</button>`)}
+    ${lineOf('Value', `a link to a ${tag('Doctor')} node <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('On tags', `${tag('Consultation')}<button class="px-quiet pv-x">${T('x')}</button> ${tag('Treatment')}<button class="px-quiet pv-x">${T('x')}</button> <button class="px-quiet px-faint">+ Tag</button>`)}
     ${lineOf('Links to', `${tag('Doctor')} <span class="px-note">nodes, and the tags inside it</span> <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Seen from Doctor as', `<span class="pv-ptrlink">provider of</span> <span class="px-note">a row on every Doctor node</span> <button class="px-quiet px-faint">Reword…</button> <button class="px-quiet px-faint">Turn off</button>`)}
     ${lineOf('Group', `Clinical <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Nodes with it', `<button class="px-quiet px-faint">show nodes</button>`)}
   </div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><i>Topic kind</i> <span class="px-kindicon">${T('stack-2')}</span><span class="px-note">on 15 tags</span></div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('select')}</span><span class="pv-pn">Status</span><i>Open · Met · Closed</i><span class="px-note">on Expectation</span></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a> <span class="px-kindicon">${T('stack-2')}</span><span class="px-note">on 15 tags</span></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('select')}</span><span class="pv-pn">Status</span><span class="px-plainv">Open · Met · Closed</span><span class="px-note">on Expectation</span></div>
   <div class="pv-group">Timing</div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('calendar')}</span><span class="pv-pn">Date</span><span class="px-note">on Occurrence, from there on 7 tags</span></div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('123')}</span><span class="pv-pn">Cycle</span><span class="px-note">on Treatment</span></div>
@@ -132,7 +132,7 @@ const linkBox = `
   <div class="px-field"><input type="text" value="" placeholder="A page’s name"><kbd>⌘⌥L</kbd></div>
   <button class="px-item px-on">Dr. Mei Chen<span class="px-end">${tag('Doctor')}</span></button>
   <button class="px-item">Mei’s clinic notes<span class="px-end">page</span></button>
-  <button class="px-item px-faint"><i>New page “Mei”</i></button>
+  <button class="px-item px-faint"><a class="tag px-lstag" href="#">New page “Mei”</a></button>
 </div>`;
 
 // ---- 7. The settings window ----
