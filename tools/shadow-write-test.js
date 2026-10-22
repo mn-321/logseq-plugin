@@ -307,7 +307,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
     check(sets === 'user.property/date', `14. a guess clicked twice wrote ${JSON.stringify(writes)}; wanted the sure date only`);
   }
-  // 15. Ctrl-Enter (0.4.242): everything shown is accepted and the bullet is left, with no new bullet (Logseq never
+  // 15. Cmd-Option-Enter (0.4.259; Ctrl-Enter from 0.4.242): everything shown is accepted and the bullet is left, with no new bullet (Logseq never
   // hears the key).
   {
     reset();
@@ -317,14 +317,14 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     let exited = false;
     const before = window.logseq.Editor.exitEditingMode;
     window.logseq.Editor.exitEditingMode = async () => { exited = true; };
-    const e = new window.KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true });
+    const e = new window.KeyboardEvent('keydown', { key: 'Enter', metaKey: true, altKey: true, bubbles: true, cancelable: true });
     box.dispatchEvent(e);
-    check(e.defaultPrevented, '15. Ctrl-Enter reached Logseq');
-    check(exited, '15. Ctrl-Enter did not leave the bullet');
+    check(e.defaultPrevented, '15. Cmd-Option-Enter reached Logseq');
+    check(exited, '15. Cmd-Option-Enter did not leave the bullet');
     await leave(box);
     window.logseq.Editor.exitEditingMode = before;
     const sets = writes.filter(w => w[0] === 'set').map(w => w[2]).sort().join();
-    check(sets === 'user.property/date,user.property/symptoms', `15. Ctrl-Enter wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
+    check(sets === 'user.property/date,user.property/symptoms', `15. Cmd-Option-Enter wrote ${JSON.stringify(writes)}; wanted the date and the guessed symptom`);
   }
   // 9. Switched off with a fill still waiting: nothing is written afterwards.
   {

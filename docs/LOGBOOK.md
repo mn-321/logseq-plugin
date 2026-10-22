@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Cmd-Option-Enter for accept without a new bullet (0.4.259)
+
+**The owner:** "instead of ctrl enter accepting proposals but not creating a new bullet, make it cmd-opt-enter".
+**Built:** `onKey` in `parts/shadow.js` takes `metaKey && altKey` (Option-Enter's own check needs no Cmd, so the two
+never meet); README and `tools/shadow-write-test.js` case 15. **Seen:** not in Logseq.
+
 ## 2026-10-21 · One Undo (0.4.258)
 
 **The owner:** "make one pop-up, one Undo and one dialog". **Built:** `shared.undo` (`offer`, `forget`, `clear`, `draw`,

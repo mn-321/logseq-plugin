@@ -857,9 +857,10 @@ function onKey(event) {
   if (!box || uuidOf(box) !== state.live.uuid) return;
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
   if (event.key === 'Enter') {
-    // Ctrl-Enter (0.4.242, the owner: "accepting … with enter and modifier that doesn't create new bullet"): everything
-    // shown is accepted, as with Enter, and the bullet is simply left, with no new bullet made.
-    if (event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey) {
+    // Cmd-Option-Enter (0.4.259, the owner: "instead of ctrl enter … make it cmd-opt-enter"; Ctrl-Enter from 0.4.242,
+    // "accepting … with enter and modifier that doesn't create new bullet"): everything shown is accepted, as with
+    // Enter, and the bullet is simply left, with no new bullet made.
+    if (event.metaKey && event.altKey && !event.shiftKey && !event.ctrlKey) {
       event.preventDefault(); event.stopImmediatePropagation();
       state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
       Promise.resolve(logseq.Editor.exitEditingMode()).catch(error => warnOnce('the bullet could not be left', error));
