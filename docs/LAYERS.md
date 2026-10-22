@@ -55,6 +55,9 @@ count per kind. Layers 4 to 6 are not started.
 - **A value's kind is an icon left of the property's name**: a plain arrow to the right for "points to a node" (the
   same arrow as after a two-way row's name; not the `[[ ]]` of a link in the words, not an arrow leaving), a calendar
   for a date, a box with a chevron for a choice, 123 for a number, Aa for text, a stack for "several".
+- **Nothing is assumed about a new node's tag.** The + after a two-way row opens a line to type the name; Enter then
+  offers the tags the property accepts as quiet words, the most used first, and "no tag"; a property that accepts one
+  tag skips that step (the owner: a property can take many kinds of page).
 - **An action happens in stages**, one thing appearing after the other, in place, never as a window of everything at
   once. The elements page shows adding a property to a tag in four stages: faint "+ Property" on hover, a line opens
   to type the name, Enter shows the kinds as quiet words on the same line, Enter again makes it with a faded Undo arrow.
