@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Two-way tags as Logseq's own #tags (0.4.301)
+
+**Asked:** the owner: "also make the tags look like normal tags"; then on the dates, "no not date first for everyone.
+I am asking logic for consultations first" (answered: a property with more than three nodes folds into a list sorted
+by date, so the date leads; three or fewer sit on the row by name with the date after; nothing changed). **Built:**
+`parts/two-way.js`: `tagLink` draws `a.rf-tw-tag.tag` with "#" before the name, so Logseq's own `a.tag` look applies;
+`.refinement-two-way a:not(.tag)` keeps the rows' inherited colour off it, and the hover patch skips it; only the size
+is the rows' (`--rf-small`). A node with no tag keeps the grey span. **Seen:** light and dark on Dr. Mei Chen, the same
+colour as Logseq's #Task and #Consultation below. **Pictures:** the pretend window of `tools/pictures.js` has no Logseq
+stylesheet, so its tags are the browser's plain link blue; approved knowing that.
+
 ## 2026-10-22 · The + box from the plugin's own pop-up (0.4.300)
 
 **Asked:** the owner, with a picture of 0.4.298's box: "that is really an odd and ugly menu. use default elements from

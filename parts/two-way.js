@@ -218,7 +218,7 @@ const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(g
 const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
 // A record's tag at the right opens the tag's page, Shift-click in the sidebar (0.4.297, the owner: "should be able to
 // click on tag in two-way area on right side"); the kind chips above an open list are what filter it.
-const tagLink = item => item.tag && item.tag !== 'note' ? `<a class="rf-tw-tag" data-tag-page="${esc(item.tag)}" href="#" title="Open #${esc(item.tag)} (Shift-click: in the sidebar)">${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
+const tagLink = item => item.tag && item.tag !== 'note' ? `<a class="rf-tw-tag tag" data-tag-page="${esc(item.tag)}" href="#" title="Open #${esc(item.tag)} (Shift-click: in the sidebar)">#${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
 const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
@@ -887,7 +887,8 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-name { padding-left: 19px; }
 .refinement-two-way .rf-tw-arrow { display: inline-block; margin-left: .35em; opacity: .85; }
 .refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
-.refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
+.refinement-two-way a:not(.tag) { color: inherit; }
+.refinement-two-way a { text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
 .refinement-two-way a.rf-tw-record { border-bottom: 1px solid color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent); }
 .refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
@@ -895,7 +896,10 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line { padding-top: 2px; padding-bottom: 2px; }
 .refinement-two-way .rf-tw-value { row-gap: 4px; }
 .refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
-.refinement-two-way .rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+/* A tag is drawn as Logseq draws a tag, "#Consultation" with its own a.tag look (0.4.301, the owner: "make the tags look like
+   normal tags"); only its size is the rows' small one. */
+.refinement-two-way a.rf-tw-tag.tag { margin-left: .5em; font-size: var(--rf-small, .82em); }
+.refinement-two-way span.rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }
 .refinement-two-way .rf-tw-value { position: relative; }
 .refinement-two-way .rf-tw-fold { position: absolute; left: 3px; top: .75em; width: 16px; height: 16px; margin-top: -8px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--ls-secondary-text-color); }
@@ -923,7 +927,7 @@ const twoWayCss = `
    field's name, the count that opens a list, the kinds, show all, the ⇥ and the +), drawn in the padding a negative
    margin gives back, so nothing moves. */
 .refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add) { border-radius: 4px; padding: 0 .25em; margin-left: -.25em; margin-right: -.25em; transition: background-color .1s ease, color .1s ease; }
-.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add):hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
+.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add):not(.tag):hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
 .refinement-two-way .rf-tw-line:hover a.rf-tw-tag:hover, .refinement-two-way .rf-tw-line:hover .rf-tw-side:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); }
 .refinement-two-way a.rf-tw-field { color: inherit; }
 .refinement-two-way .rf-tw-side { margin-left: .15em; }
