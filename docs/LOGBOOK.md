@@ -2,6 +2,26 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Design audit: the kit trimmed, dialogs can sit beside what they are about (0.4.285)
+
+**Asked:** the owner, through the session that started this one: "remove excess design and padding and make things
+inline instead of this big central popovers. This isn't about a stylesheet, but a basic aspect of design." **Method:**
+access to the running Logseq was declined for this session, so instead of a TEMP-DEV block every piece was rendered in
+headless Chromium (Playwright, the repo's own) with the exact stylesheets pulled from the parts and the markup the
+code builds, and measured: `docs/DESIGN-AUDIT-2026-10-22.md` has the numbers before and after, Logseq's own sizes
+from the earlier in-app measurements (28 px rows, 150 px name column, values at 170 px; capsules 24 px; its text box
+32 px with 14 px text), and the verdict per piece. **Found:** the two-way rows already sit on Logseq's grid to the
+pixel, with a grey band around them; the picking bar's questions and the tag map's three plans were 460 px boxes in
+the middle of the window over a darkened page; the link box's field was a size larger than Logseq's own; the
+settings window's edges and rows were wider than Logseq's. **Built (this commit):** `parts/shared.js`: heading 3/8 px,
+rows and notes 8 px from the sides, dialog 420 px, 12/14 px of edge, 15 px heading, 8 px gaps, buttons 3/10 px,
+backdrop 12 vh and 18 %; `modal(cancelValue, build, width, classes, anchor)` draws an anchored `.rf-dialog.rf-anchored`
+(400 px, 8/10 px) under the anchor with no backdrop, a click elsewhere cancels; `placeBelow(box, anchor)` provided.
+Measured after: a menu 136.6 px instead of 140.6, the Change-to question 141.6 instead of 155.6, the merge plan 179
+instead of 198.4. **Not seen:** nothing checked in the app; the checks to make are listed at the end of the audit.
+**Next:** the two-way band (0.4.286), the questions beside the bar (0.4.287), the tag map's plans beside their rows
+(0.4.288), the link box (0.4.289), the settings window (0.4.290).
+
 ## 2026-10-22 · Measured: a made capsule gives way, the link box's cursor (0.4.284)
 
 **Asked:** the owner, with two pictures: "Did you do a full UI analysis, using measurement …? cursor begins after

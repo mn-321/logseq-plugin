@@ -21,10 +21,12 @@
    - sweepLeftovers(doc)          removes what every part declared in its leaves, part by part.
        updaterFailed(fn, error, list)  retires a screen updater that threw five times;
        listen(win, types, handler)     a capture-phase listener on Logseq's window, removed on unload.
-   - modal(cancelValue, build, width, classes)   THE dialog box of the plugin, in Logseq's window (.rf-dialog); build(box,
+   - modal(cancelValue, build, width, classes, anchor)   THE dialog box of the plugin, in Logseq's window (.rf-dialog); build(box,
                                        finish, doc) fills it, the promise resolves with what finish() is given, Escape
                                        or a click outside resolves with cancelValue; classes adds a part's own
-                                       backdrop and box classes (refinement-prompt-* unless given).
+                                       backdrop and box classes (refinement-prompt-* unless given); with an anchor (0.4.285)
+                                       the box sits under that element, no backdrop, and a click elsewhere cancels.
+   - placeBelow(box, anchor)      puts a fixed box under an element (above it when the room below is short), in the window.
    - dialogCss                    THE look of every pop-up (.rf-pop: .rf-pop-head, .rf-pop-field, .rf-pop-row with
                                   .rf-on, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list) and dialog (.rf-dialog,
                                   .rf-btns, .rf-btn, .rf-go): Logseq's pop-up colours, one size, corner and shadow.
@@ -160,26 +162,38 @@ function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
 /* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
    frames). build(box, finish) fills the box; the promise resolves with what finish() is given.
    Escape or a click outside resolves with cancelValue. Keys typed in the box never reach Logseq. */
-function modal(cancelValue, build, width, classes = {}) {
+/* With an anchor (0.4.285, the owner: "make things inline instead of this big central popovers"): no backdrop; the box
+   sits right under the element it is about (above it when there is no room below), and a click anywhere else closes it. */
+function modal(cancelValue, build, width, classes = {}, anchor = null) {
   const doc = host();
   return new Promise(resolve => {
-    const backdrop = doc.createElement('div');
-    backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
+    const backdrop = anchor ? null : doc.createElement('div');
+    if (backdrop) backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
     const box = doc.createElement('div');
-    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}`;
+    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}${anchor ? ' rf-anchored' : ''}`;
     if (width) box.style.width = width;
     let finished = false;
-    const finish = value => { if (finished) return; finished = true; backdrop.remove(); resolve(value); };
-    backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
+    const away = event => { if (!box.contains(event.target)) finish(cancelValue); };
+    const finish = value => { if (finished) return; finished = true; (backdrop || box).remove(); doc.removeEventListener('mousedown', away, true); resolve(value); };
+    if (backdrop) backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
     for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
     box.addEventListener('keydown', event => {
       event.stopPropagation();
       if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
     });
-    backdrop.append(box);
-    doc.body.appendChild(backdrop);
+    if (backdrop) { backdrop.append(box); doc.body.appendChild(backdrop); }
+    else { doc.body.appendChild(box); doc.addEventListener('mousedown', away, true); }
     build(box, finish, doc);
+    if (anchor) placeBelow(box, anchor);
   });
+}
+/* Puts a fixed box under an element (or above it when the room below is short), kept inside the window; the one
+   placement every anchored pop-up of the plugin uses. */
+function placeBelow(box, anchor) {
+  const win = box.ownerDocument.defaultView, at = anchor.getBoundingClientRect(), size = box.getBoundingClientRect();
+  box.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
+  const below = at.bottom + 4 + size.height < win.innerHeight - 8;
+  box.style.top = `${Math.round(below ? at.bottom + 4 : Math.max(8, at.top - 4 - size.height))}px`;
 }
 /* The dialog's own look (0.4.169, moved from parts/styles.js): the foundation's dialogs (the troubleshooting box,
    the settings window's questions) must be drawn right when the look parts are not running (Foundation only), so it
@@ -196,36 +210,40 @@ const dialogCss = `/* One look for the plugin's pop-ups and dialog boxes (0.4.25
   box-sizing: border-box; background: var(--rf-ui-bg); color: var(--rf-ui-fg); border: 1px solid var(--rf-ui-line); border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .14); font-size: 14px; line-height: 1.4; text-align: left; }
 .rf-pop { position: fixed; z-index: 10001; padding: 4px; }
-.rf-pop-head { padding: 4px 8px 6px; font-size: 12px; color: var(--rf-ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-pop-head { padding: 3px 8px; font-size: 12px; color: var(--rf-ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :is(.rf-pop-field, .rf-pop input[type=text], .rf-pop input:not([type]), .rf-pop textarea) { display: block; box-sizing: border-box; width: calc(100% - 8px);
   min-height: 2em; margin: 0 4px 4px; padding: 5px 8px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent;
   color: inherit; font: inherit; outline: none; box-shadow: none; }
 :is(.rf-pop input, .rf-pop textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
-:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 10px;
+:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 8px;
   border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 :is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button):is(:hover, :focus-visible, .rf-on) { background: var(--rf-ui-hover); outline: none; }
 .rf-pop-kind { flex: none; margin-left: auto; padding-left: 12px; font-size: 12px; color: var(--rf-ui-muted); }
 .rf-pop-new { font-style: italic; color: var(--rf-ui-muted); }
-.rf-pop-note { padding: 5px 10px; font-size: 12px; line-height: 1.45; color: var(--rf-ui-muted); }
+.rf-pop-note { padding: 4px 8px; font-size: 12px; line-height: 1.45; color: var(--rf-ui-muted); }
 .rf-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--rf-ui-line); }
 .rf-pop-list { max-height: 300px; overflow-y: auto; }
-/* A dialog box: the same look, near the top in the middle, over a faint backdrop; Escape or a click outside closes it. */
-.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 16vh; background: rgba(0, 0, 0, .25); }
-.rf-dialog { width: min(460px, 92vw); padding: 16px 18px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
-.rf-dialog h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
-.rf-dialog label { display: block; margin-bottom: 8px; }
-.rf-dialog p, .rf-dialog-note { margin: 0 0 12px; color: var(--rf-ui-muted); }
-.rf-dialog ul { margin: 0 0 12px; padding-left: 18px; }
+/* A dialog box: the same look, near the top in the middle, over a faint backdrop; Escape or a click outside closes it.
+   Trimmed at the audit (0.4.285, docs/DESIGN-AUDIT-2026-10-22.md): narrower, less edge, a smaller heading. */
+.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: rgba(0, 0, 0, .18); }
+.rf-dialog { width: min(420px, 92vw); padding: 12px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
+.rf-dialog h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.rf-dialog label { display: block; margin-bottom: 6px; }
+.rf-dialog p, .rf-dialog-note { margin: 0 0 8px; color: var(--rf-ui-muted); }
+.rf-dialog ul { margin: 0 0 8px; padding-left: 18px; }
+/* Anchored (modal with an anchor): a pop-up beside what it is about, no backdrop, the pop-up's own edge and shadow. */
+.rf-dialog.rf-anchored { position: fixed; z-index: 10003; width: min(400px, 92vw); padding: 8px 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
+.rf-dialog.rf-anchored h2 { font-size: 14px; margin-bottom: 6px; }
 :is(.rf-dialog input[type=text], .rf-dialog input:not([type]), .rf-dialog textarea) { box-sizing: border-box; width: 100%; padding: 5px 8px; border: 1px solid var(--rf-ui-field);
   border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
 :is(.rf-dialog input, .rf-dialog textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
-.rf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-:is(.rf-btn, .rf-btns > button) { padding: 4px 12px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.rf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+:is(.rf-btn, .rf-btns > button) { padding: 3px 10px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 :is(.rf-btn, .rf-btns > button):hover { background: var(--rf-ui-hover); }
 .rf-btn.rf-go { border-color: transparent; background: var(--rf-ui-fg); color: var(--rf-ui-bg); font-weight: 600; }
 :is(.rf-btn, .rf-btns > button):disabled { opacity: .45; cursor: default; }
 :is(.rf-btn, .rf-btns > button):focus-visible { outline: 2px solid color-mix(in srgb, var(--rf-ui-fg) 40%, transparent); outline-offset: 1px; }
-.refinement-prompt-hint { margin-top: 6px; font-size: 12px; color: var(--rf-ui-muted); }
+.refinement-prompt-hint { margin-top: 4px; font-size: 12px; color: var(--rf-ui-muted); }
 /* THE Undo (undo.offer): a faded arrow at the end of what changed, clearer under the pointer; with nothing on screen to sit
    beside, it waits at the bottom right with its words, as quiet. Greys from the text colour, so both themes. */
 .rf-undo { display: inline-flex; align-items: center; gap: 6px; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
@@ -442,5 +460,5 @@ function settingReader(schema) {
 // This file's own boxes: the dialog backdrop and the Undo bar.
 leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
 
-window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, placeBelow, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
 })();
