@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-21 · Link selected text: wider, a field, words first (0.4.254)
+
+**The owner:** a picture from a dark theme, "too short width … hard to see the alias being typed … without any selected text,
+then i can type alias hit enter then the page link search appears". **Built:** `open.step` 'words' then 'page';
+`selected` (what was in the bullet) kept apart from `words` (the link's words); `field()` draws the typed text with a
+caret; width 520; background and text colour read from the bullet (`backgroundOf`), since `--ls-*` were not set.
+`tools/link-text-test.js` 34 checks. **Seen:** see the CHANGELOG line.
+
 ## 2026-10-21 · The pickers: what fits first (0.4.253)
 
 **The owner:** "go on to item 2, the pickers". **Found:** Logseq 2.0.2's list for Spoke with (takes #Person) already lists

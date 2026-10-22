@@ -93,13 +93,26 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   key('Enter');
   check(box.value === 'Met [[Dr. Okafor]]', 'an unknown name becomes a new page’s link: ' + box.value);
 
-  // Nothing selected, or a selection over a line break: a note, nothing written.
-  await select('Nothing here', ''); box.setSelectionRange(3, 3);
+  // Nothing selected (0.4.254): the words first, Enter, then the page; the link goes in at the cursor.
+  box.value = 'Spoke with  today'; box.focus(); box.setSelectionRange(11, 11);
   linkKey(); await wait(20);
-  check(!doc.querySelector('.refinement-link-text') && notes.length === 1, 'with nothing selected, a note and no list');
+  check(/The words to show/.test(doc.querySelector('.refinement-link-text')?.textContent || ''), 'with nothing selected, the list should ask for the words first');
+  key('Enter');
+  check(!!doc.querySelector('.refinement-link-text') && !doc.querySelector('.rlt-row'), 'Enter with no words yet should do nothing');
+  for (const ch of 'my [onc]ologist') key(ch);
+  check(doc.querySelector('.rlt-field')?.textContent === 'my oncologist', 'the words typed show in the field, brackets left out: ' + doc.querySelector('.rlt-field')?.textContent);
+  check(box.value === 'Spoke with  today', 'typing the words should not change the bullet');
+  key('Enter');
+  check(/Link “my oncologist” to/.test(doc.querySelector('.refinement-link-text')?.textContent || ''), 'after Enter, the page is asked for');
+  key('Backspace');
+  for (const ch of 'mei') key(ch);
+  key('Enter');
+  check(box.value === 'Spoke with [my oncologist]([[Dr. Mei Chen]]) today', 'the link goes in at the cursor: ' + box.value);
+  // A selection over a line break: a note, nothing written.
+  const before = notes.length;
   box.value = 'two\nlines'; box.setSelectionRange(0, 9);
   linkKey(); await wait(20);
-  check(!doc.querySelector('.refinement-link-text') && notes.length === 2, 'over a line break, a note and no list');
+  check(!doc.querySelector('.refinement-link-text') && notes.length === before + 1, 'over a line break, a note and no list');
 
   // Another key closes the list and is the bullet's again; switched off, the key is left to Logseq.
   await select('Spoke with Chen', 'Chen');

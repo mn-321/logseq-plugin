@@ -3,7 +3,9 @@
 /* Link selected text (0.4.252, layer 2, rebuilt on the model in place of the old link box in parts/editor.js): select
    words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A small list opens under the
    words with the pages whose names fit them (Dr. Mei Chen for "Chen"), the closest first, each with its tag at the
-   right. Typing changes what the list looks for, as in a search box, though the cursor never leaves the bullet; Up
+   right. With nothing selected (0.4.254, at the owner's word: "I press cmd-option l without any selected text, then i
+   can type alias hit enter then the page link search appears"), the words to show are typed first, Enter, then the page
+   is looked for the same way and the link goes in at the cursor. Typing changes what the list looks for, as in a search box, though the cursor never leaves the bullet; Up
    and Down move, Enter or a click links the highlighted page, Escape closes the list and leaves the words alone.
    The words become [[Dr. Mei Chen]] when they are the page's name, else a link that keeps them, [the oncologist]([[Dr.
    Mei Chen]]): typed into the bullet as if by hand, so Logseq stores it as a real link, the proposals read it at once,
@@ -22,7 +24,7 @@ const settingsSchema = [
     zone: '<div><span class="m">Spoke with</span> <span class="m"><u>Chen</u></span> <span class="m">→ Dr. Mei Chen · Doctor</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'linkText', type: 'boolean', title: 'Link selected text with ⌘⌥L', default: true,
-    description: 'Select words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A list of the pages whose names fit opens under the words; typing changes what it looks for, Up and Down move, Enter or a click links the page, Escape leaves the words alone. The words become a link that keeps them; Cmd+Z takes it back. “New page …” is offered only when no page has that name.' },
+    description: 'Select words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A list of the pages whose names fit opens under the words; typing changes what it looks for, Up and Down move, Enter or a click links the page, Escape leaves the words alone. With nothing selected, type the words to show first, Enter, then pick the page; the link goes in at the cursor. The words become a link that keeps them; Cmd+Z takes it back. “New page …” is offered only when no page has that name.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -93,7 +95,6 @@ const isLinkKey = event => event.altKey && !event.shiftKey && event.code === 'Ke
 
 async function openList(box) {
   const start = box.selectionStart, end = box.selectionEnd, words = box.value.slice(start, end);
-  if (!words.trim()) return notify('Select the words to link first', 'warning');
   if (/[\r\n]/.test(words) || /[[\]]/.test(words)) return notify('Select words on one line, outside any link', 'warning');
   const pages = await propPages().catch(error => { warnOnce('the pages could not be read', error); return []; });
   if (box.ownerDocument.activeElement !== box || box.selectionStart !== start || box.selectionEnd !== end) return; // moved on meanwhile
@@ -101,42 +102,67 @@ async function openList(box) {
   const doc = box.ownerDocument, el = doc.createElement('div');
   el.className = 'refinement-link-text';
   el.setAttribute('role', 'listbox');
+  el.style.background = backgroundOf(box);
+  el.style.color = box.ownerDocument.defaultView.getComputedStyle(box).color;
   doc.body.append(el);
-  open = { box, start, end, words, pages, looked: words.trim(), fresh: true, rows: [], at: 0, el };
+  // Nothing selected (0.4.254): first the words to show, typed here, then the page, as for selected words.
+  const label = words.trim();
+  open = { box, start, end, selected: words, words: label ? words : '', step: label ? 'page' : 'words', pages, looked: label, fresh: !!label, rows: [], at: 0, el };
   place(el, wordsRect(box, start, end));
   draw();
 }
+// The page's own background, read from the bullet up: Logseq's colour variables are not set in every theme (dark mode
+// fell back to white, seen 2026-10-21).
+function backgroundOf(el) {
+  const view = el.ownerDocument.defaultView;
+  for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+    const bg = view.getComputedStyle(node).backgroundColor;
+    if (bg && !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(bg)) return bg;
+  }
+  return '';
+}
 function place(el, at) {
-  const win = el.ownerDocument.defaultView, width = Math.min(340, win.innerWidth - 16);
+  const win = el.ownerDocument.defaultView, width = Math.min(520, win.innerWidth - 16);
   el.style.width = `${width}px`;
   if (!at) return;
   el.style.left = `${Math.max(8, Math.min(at.left - 6, win.innerWidth - width - 8))}px`;
-  if (win.innerHeight - at.bottom < 260 && at.top > win.innerHeight - at.bottom) { el.style.top = ''; el.style.bottom = `${win.innerHeight - at.top + 4}px`; }
+  if (win.innerHeight - at.bottom < 300 && at.top > win.innerHeight - at.bottom) { el.style.top = ''; el.style.bottom = `${win.innerHeight - at.top + 4}px`; }
   else { el.style.bottom = ''; el.style.top = `${at.bottom + 4}px`; }
+}
+// What is typed shows in a field of its own at the top, in the text colour, with a caret; while it is still the
+// selected words untouched it shows selected, since the first letter typed replaces it.
+function field(text, placeholder, fresh) {
+  return `<div class="rlt-field">${text ? `<span class="rlt-typed${fresh ? ' rlt-fresh' : ''}">${esc(text)}</span>` : `<span class="rlt-placeholder">${esc(placeholder)}</span>`}<span class="rlt-caret"></span></div>`;
 }
 function draw() {
   if (!open) return;
+  if (open.step === 'words') {
+    open.rows = [];
+    open.el.innerHTML = '<div class="rlt-head">The words to show</div>' + field(open.looked, 'Type the words, then Enter', false)
+      + '<div class="rlt-none">Enter: choose the page they link to</div>';
+    return;
+  }
   open.rows = rowsFor(open.pages, open.looked);
   // "New page …" is never the default while a page fits.
   open.at = Math.min(open.at, Math.max(0, open.rows.length - 1));
-  const shown = open.looked.trim();
-  open.el.innerHTML = `<div class="rlt-head">Link “${esc(open.words.trim())}” to${shown.toLowerCase() === open.words.trim().toLowerCase() ? '' : ` <span class="rlt-looked">${esc(shown) || '…'}</span>`}</div>`
-    + (open.rows.length ? open.rows.map((row, i) => `<div class="rlt-row${i === open.at ? ' rlt-on' : ''}${row.kind === 'new' ? ' rlt-new' : ''}" role="option" data-i="${i}">`
+  open.el.innerHTML = `<div class="rlt-head">Link “${esc(open.words.trim())}” to</div>` + field(open.looked, 'Type a page’s name', open.fresh)
+    + (open.rows.length ? open.rows.map((row, i) => `<div class="rlt-row${i === open.at ? ' rlt-on' : ''}${row.kind === 'new' ? ' rlt-new' : ''}" role="option" data-i="${i}" title="${esc(row.title)}">`
       + `<span class="rlt-title">${row.kind === 'new' ? `New page “${esc(row.title)}”` : esc(row.title)}</span>${row.right ? `<span class="rlt-kind">${esc(row.right)}</span>` : ''}</div>`).join('')
-      : '<div class="rlt-none">Type a page’s name</div>');
+      : '');
 }
 function close() {
   if (!open) return;
   open.el.remove();
   open = null;
 }
-// Types the link in place of the selected words, as if by hand: Logseq saves it as a link and Cmd+Z takes it back.
+// Types the link in place of the selected words (or at the cursor, when nothing was selected), as if by hand: Logseq
+// saves it as a link and Cmd+Z takes it back.
 function choose(i) {
   const row = open?.rows[i];
   if (!row) return;
-  const { box, start, end, words } = open;
+  const { box, start, end, selected, words } = open;
   close();
-  if (!box.isConnected || box.value.slice(start, end) !== words) return notify('The words changed; select them again', 'warning');
+  if (!box.isConnected || box.value.slice(start, end) !== selected) return notify('The words changed; select them again', 'warning');
   box.focus();
   box.setSelectionRange(start, end);
   const link = linkFor(words, row.title);
@@ -156,10 +182,21 @@ function onKey(event) {
     if (event.target !== open.box) { close(); return; }
     const own = () => { event.preventDefault(); event.stopImmediatePropagation(); };
     if (key === 'Escape') { own(); const { box, start, end } = open; close(); box.setSelectionRange(start, end); return; }
+    if (key === 'Enter') {
+      own();
+      if (open.step === 'page') { choose(open.at); return; }
+      if (!open.looked.trim()) return; // no words yet
+      Object.assign(open, { step: 'page', words: open.looked.trim(), fresh: true, at: 0 });
+      draw();
+      return;
+    }
     if (key === 'ArrowDown' || key === 'ArrowUp') { own(); if (open.rows.length) open.at = (open.at + (key === 'ArrowDown' ? 1 : open.rows.length - 1)) % open.rows.length; draw(); return; }
-    if (key === 'Enter') { own(); choose(open.at); return; }
     if (key === 'Backspace') { own(); open.looked = open.fresh ? '' : open.looked.slice(0, -1); open.fresh = false; open.at = 0; draw(); return; }
-    if (key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) { own(); open.looked = (open.fresh ? '' : open.looked) + key; open.fresh = false; open.at = 0; draw(); return; }
+    if (key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      own();
+      if (/[[\]\r\n]/.test(key)) return; // the words of a link cannot hold brackets
+      open.looked = (open.fresh ? '' : open.looked) + key; open.fresh = false; open.at = 0; draw(); return;
+    }
     if (['Shift', 'Alt', 'Meta', 'Control', 'CapsLock'].includes(key)) return;
     close(); // any other key (Left, Tab, a shortcut) is the bullet's again
     return;
@@ -191,6 +228,14 @@ const css = `
 .refinement-link-text .rlt-new .rlt-title { font-style: italic; color: color-mix(in srgb, currentColor 65%, transparent); }
 .refinement-link-text .rlt-kind { flex: none; font-size: 12px; color: color-mix(in srgb, currentColor 50%, transparent); }
 .refinement-link-text .rlt-none { padding: 5px 8px; color: color-mix(in srgb, currentColor 50%, transparent); }
+.refinement-link-text .rlt-field { display: flex; align-items: baseline; margin: 0 4px 4px; padding: 5px 8px; border-radius: 5px; font-size: 15px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent); min-height: 1.4em; }
+.refinement-link-text .rlt-typed { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.refinement-link-text .rlt-typed.rlt-fresh { background: color-mix(in srgb, currentColor 16%, transparent); border-radius: 2px; }
+.refinement-link-text .rlt-placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
+.refinement-link-text .rlt-caret { display: inline-block; width: 1.5px; height: 1.1em; margin-left: 1px; align-self: center; background: currentColor; animation: rlt-blink 1s steps(1) infinite; }
+.refinement-link-text .rlt-placeholder + .rlt-caret { order: -1; margin: 0 1px 0 0; }
+@keyframes rlt-blink { 50% { opacity: 0; } }
 `;
 
 function start() {
