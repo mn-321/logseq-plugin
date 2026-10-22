@@ -28,6 +28,7 @@ function pretendLogseq(window) {
   const ref = p => ({ ':db/id': p[':db/id'], ':db/ident': p[':db/ident'], ':block/title': p[':block/title'], ':block/uuid': p[':block/uuid'] });
   const tags = [{ ':db/id': 10, ':db/ident': ':user.class/Report', ':block/uuid': 't-Report', ':block/title': 'Report', ':logseq.property.class/extends': [], ':logseq.property.class/properties': props.map(ref) }];
   const settings = { tagTreeRoots: 'Report', twoWayNames: '', twoWayOneEnd: '' };
+  window.pretendTags = tags;
   window.parent = window;
   window.logseq = {
     settings, updateSettings: o => Object.assign(settings, o),
@@ -135,7 +136,27 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (JSON.stringify(window.pretendChoices) !== writesBefore) problem('grouping changed something in the pretend graph');
     }
   }
+  // Renaming a tag takes its place in the order with it, and Undo brings the old name back there too (0.4.274: after
+  // Undo the order kept the new name, so the tag lost its place).
+  {
+    window.logseq.Editor.renamePage = async (uuid, name) => { const t = window.pretendTags.find(t => t[':block/uuid'] === uuid); if (t) t[':block/title'] = name; };
+    [...doc.querySelectorAll('button')].find(b => b.textContent === 'Tags')?.click();
+    const row = await until(() => [...doc.querySelectorAll('.rtg-row')].find(r => /Report$/.test(r.querySelector('.rtg-name')?.textContent || '')));
+    row?.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true }));
+    const field = await until(() => doc.querySelector('.rtg-row input'));
+    if (!field) problem('double-clicking the #Report row opened no name field');
+    else { field.value = 'Reports'; field.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
+    await until(() => window.logseq.settings.tagTreeRoots === 'Reports');
+    if (window.logseq.settings.tagTreeRoots !== 'Reports') problem(`renaming #Report left the order “${window.logseq.settings.tagTreeRoots}”; wanted Reports`);
+    const arrow = await until(() => [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].find(a => /is now #Reports/.test(a.title || a.getAttribute('aria-label') || '')));
+    if (!arrow) problem('renaming a tag has no Undo arrow');
+    else {
+      arrow.click();
+      await until(() => window.logseq.settings.tagTreeRoots === 'Report' && window.pretendTags[0][':block/title'] === 'Report');
+      if (window.pretendTags[0][':block/title'] !== 'Report' || window.logseq.settings.tagTreeRoots !== 'Report') problem(`Undo after renaming a tag left the name “${window.pretendTags[0][':block/title']}” and the order “${window.logseq.settings.tagTreeRoots}”`);
+    }
+  }
   view.destroy();
   if (problems.length) { console.log(`tag map checks: FAILED (${problems.length})`); process.exit(1); }
-  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone)');
+  console.log('tag map checks: OK (an open property box stays with its own property; choices are not moved from the map; a renamed choice can be undone; groups of properties are drawn, moved and undone; Undo of a tag’s new name puts its old name back in the order)');
 })().catch(error => { console.log('PROBLEM: ' + (error?.stack || error)); process.exit(1); });

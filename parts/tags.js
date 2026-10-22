@@ -936,7 +936,11 @@ async function rename(view, tag, name) {
   const renamed = view.fresh(tag).title;
   if (renamed !== old && topOrder().some(n => view.sameTag(n, old))) { view.saveOrder(topOrder().map(n => view.sameTag(n, old) ? renamed : n).join(', ')); view.draw(); }
   view.mark(true); // the renamed tag moves to its new place in the order; keep it on screen
-  if (view.fresh(tag).title !== old) view.showToast(`#${old} is now #${view.fresh(tag).title}`, () => logseq.Editor.renamePage(tag.uuid, old));
+  // Undo puts the old name back in the order too (the audit, 0.4.274: it stayed under the new name).
+  if (renamed !== old) view.showToast(`#${old} is now #${renamed}`, async () => {
+    await logseq.Editor.renamePage(tag.uuid, old);
+    if (topOrder().some(n => view.sameTag(n, renamed))) { view.saveOrder(topOrder().map(n => view.sameTag(n, renamed) ? old : n).join(', ')); view.draw(); }
+  });
 }
 
 // A tag shown in several places stays only in this one (or only at the top level).
@@ -1322,7 +1326,12 @@ function askRenameProp(view, prop, anchor) {
       // Its group goes with it (0.4.243): groups keep properties by name.
       const groups = readGroups(), g = groupOf(groups, old);
       if (g) saveGroups(groups.map(x => x === g ? { ...x, props: x.props.map(p => p.toLowerCase() === old.toLowerCase() ? name : p) } : x));
-      view.showToast(`${old} is now ${name}`, () => logseq.Editor.renamePage(prop.uuid, old));
+      // Undo takes its group back to the old name too (the audit, 0.4.274).
+      view.showToast(`${old} is now ${name}`, async () => {
+        await logseq.Editor.renamePage(prop.uuid, old);
+        const now = readGroups(), back = groupOf(now, name);
+        if (back) saveGroups(now.map(x => x === back ? { ...x, props: x.props.map(p => p.toLowerCase() === name.toLowerCase() ? old : p) } : x));
+      });
     }
   });
   view.doc.body.append(view.paint(view.menu));

@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Undo of a rename puts the old name back in the order and the groups (0.4.274)
+
+**Found** in the audit of layers 1 and 2: renaming #Disease in the map and pressing its Undo arrow gave the tag its old
+name, but `tagTreeRoots` kept the new one. `rename` in `parts/tags.js` moves the name in the order; its Undo only
+renamed the page back. The same for a property's group in `askRenameProp` (`propertyGroups`). **Built:** both Undos
+now also put the old name back in the setting. `tools/tags-test.js`: a tag renamed by double-click and undone, the
+order checked (fails on 0.4.273). **Seen:** see the CHANGELOG line.
+
 ## 2026-10-22 · A slow list no longer ends the stepping (0.4.273)
 
 **Found** in the audit of layers 1 and 2 (`docs/LAYERS-1-2-AUDIT.md`, B5): on Oct 20th, "Spoke with Dr. Chen about Blood in
