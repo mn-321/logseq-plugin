@@ -16,7 +16,7 @@
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
 const { host, openEntity, notify, modal, modalButtons, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-ask' } });
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add, .refinement-two-way-ask' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -214,7 +214,11 @@ function shortName(title) {
   return text;
 }
 const recordLink = item => { const short = shortName(item.title); return `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#"${short !== item.title ? ` title="${esc(item.title)}"` : ''}>${esc(short)}</a>`; };
-const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page, on today’s journal (Option-click: on this page); it opens in the sidebar to type in">+</a>` : '';
+/* The + (as it was until 0.4.296, at the owner's word, 0.4.303: "return that code before we moved around the plus"): at the
+   end of the last node of a short row, after the summary of a list, faint until the pointer is on the row. A click opens
+   the line to type the new node in. Since 0.4.297 a short row's nodes span the row so their tags line up, so the + sits
+   just after the last node's date (or name). */
+const addLink = group => group.ident && state.draft?.field !== group.name ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="Add a${/^[aeiou]/i.test(kindsOf(group)[0] || '') ? 'n' : ''} ${esc(kindsOf(group)[0] || 'node')} with “${esc(group.name)}” set to this page">+</a>` : '';
 const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
 // A record's tag at the right opens the tag's page, Shift-click in the sidebar (0.4.297, the owner: "should be able to
 // click on tag in two-way area on right side"); the kind chips above an open list are what filter it.
@@ -227,11 +231,11 @@ function rowHtml(group) {
   // A row that folds has its chevron just before its list, in the room left of the values (0.4.195, the owner's ask).
   const fold = group.items.length > INLINE ? `<a class="rf-tw-fold" data-key="${esc(key)}" href="#" title="${isOpen(key) ? 'Fold the list' : 'Open the list'}" aria-label="${isOpen(key) ? 'Fold' : 'Open'} ${esc(group.label)}"><span class="rf-tw-chevron"></span></a>` : '';
   const name = group.fieldUuid
-    ? `<div class="rf-tw-name">${addLink(group)}<a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
-    : `<div class="rf-tw-name" title="${tip}">${addLink(group)}${label}</div>`;
+    ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
+    : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
-    const values = group.items.map(item => `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}</span>` : ''}${tagLink(item)}${sideLink(item)}</span>`).join('');
-    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div></div>`;
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
+    return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
   const counts = new Map();
@@ -252,7 +256,7 @@ function rowHtml(group) {
     const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
   }
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a></div>${list}</div>`;
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}${addLineHtml(group)}</div>`;
 }
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
 const OPEN_KEY = 'refinementTwoWayOpen';
@@ -431,7 +435,7 @@ function easeHold(box) {
   settle.ease = setTimeout(() => { box.removeAttribute('data-rf-settling'); if (box.style.getPropertyValue('--rf-tw-hold') === '0px') setHold(box, 0); }, 300);
 }
 function onRoute() {
-  hidePeek(); closeAdd(); state.picked.clear(); state.lastPick = '';
+  hidePeek(); closeAdd(); state.draft = null; state.picked.clear(); state.lastPick = '';
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
@@ -472,7 +476,7 @@ function draw(doc) {
   }
   if (!rows) state.picked.clear();
   const html = rows ? barHtml() + state.groups.map(rowHtml).join('') : '';
-  if (state.html !== html) { state.html = html; box.innerHTML = html; }
+  if (state.html !== html) { const typing = box.contains(box.ownerDocument.activeElement) && box.ownerDocument.activeElement.matches('.rf-tw-draft-name'); state.html = html; box.innerHTML = html; keepDraft(box); if (typing) focusDraft(); }
   box.toggleAttribute('data-picking', state.picked.size > 0);
   if (anchor.nextElementSibling !== box) anchor.after(box);
   holdRoom(doc, box, mode, page);
@@ -490,6 +494,10 @@ function onClick(event) {
   const first = rowEl && rowEl.querySelector(':scope > :not(.rf-tw-pick)');
   const box = rowEl && rowEl.querySelector(':scope > .rf-tw-pick');
   if (box && first && event.clientX < first.getBoundingClientRect().left) { event.preventDefault(); event.stopPropagation(); hidePeek(); return togglePick(box, event.shiftKey); }
+  const plus = event.target.closest?.('.rf-tw-add');
+  if (plus) { event.preventDefault(); event.stopPropagation(); hidePeek(); const group = state.groups.find(g => g.name === plus.dataset.field); if (group) { closeAdd(); draftFor(group); draw(host()); focusDraft(); } return; }
+  const lineEl = event.target.closest?.('.rf-tw-draft');
+  if (lineEl && !event.target.closest('a, input')) { lineEl.querySelector('.rf-tw-draft-field')?.focus(); return; }
   const target = event.target.closest?.('a');
   const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   if (!target && !line) return;
@@ -499,7 +507,7 @@ function onClick(event) {
   if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
   if (target.matches('a.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
-  if (target.matches('.rf-tw-add')) return openAdd(target, event).catch(error => { warnOnce('could not add the new record', error); });
+  if (target.matches('[data-draft="tag"]')) return tagList(target);
   const key = target.dataset.key;
   if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
@@ -538,33 +546,138 @@ async function onRename(event) {
    most records in the row are pages (people, places), else a block on today's journal (visits, tests). Add and open
    also opens it in the sidebar to fill in. The bar at the bottom offers Undo, which removes what was made.
    Nothing is unlinked from here: a link is changed on the record that holds it. */
-/* The + (0.4.302, the owner, after three boxes: "Nothing is this poorly designed elsewhere in the app. the staging and
-   elements that appear is awful"): no box at all, Logseq's own way to make a node. The + makes the node at once, with the
-   tag the linked nodes share and this page in the property, on today's journal (Option-click: on this page), and opens
-   it in the right sidebar with the caret in its words, so what you type is its name, and its tag and properties are
-   Logseq's own capsules there. Most of the linked nodes pages: a page named "New …", opened the same way, its title
-   renamed in place. The faded arrow by the row's name takes it away. */
+/* Adding a node from the page (0.4.303, the owner: "a line under each section that once upon hover a plus appears you
+   can start typing. you hit enter, another logseq input appears about where if it is a node. otherwise it is just a
+   page"). Under each row a quiet line; with the pointer on the row a + shows at its left and the words "Add a …".
+   Typing there is the new node's name. Enter: where most of the linked nodes are pages, the page is made at once;
+   otherwise a second field takes its place on the line, asking where it goes, with today's journal, this page and the
+   pages matching what is typed as rows under it (the plugin's one pop-up); Enter takes the lit one. The tag it gets
+   sits at the line's right in the tags' column, a click lists the others. Escape steps back, then drops it. The faded
+   arrow by the row's name takes a made node away. */
 const adding = { el: null };
 function closeAdd() { adding.el?.remove(); adding.el = null; }
-async function openAdd(button, event) {
-  closeAdd(); hidePeek();
-  const group = state.groups.find(g => g.name === button.dataset.field);
-  if (!group?.ident) return;
-  const page = await logseq.Editor.getPage(state.pageUuid).catch(() => null);
-  if (!page?.id) return notify('This page could not be read, so nothing was added', 'warning');
+const pageTitleNow = () => named.uuid === state.pageUuid && named.title ? named.title : 'this page';
+function kindsOf(group) {
   const counts = new Map();
   for (const item of group.items) if (item.tag !== 'note') counts.set(item.tag, (counts.get(item.tag) || 0) + 1);
-  const kind = [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag)[0] || '';
-  const uuids = group.items.map(item => item.uuid);
-  const asPage = (await provided.pagesAmong(uuids, uuidsIn)) * 2 > uuids.length;
-  const name = asPage ? await freeName(`New ${kind || 'page'}`) : '';
-  try { await addRecord({ group, page, name, kind, open: true, asPage, where: event?.altKey ? 'here' : 'journal', edit: true }); }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
+}
+function draftFor(group) {
+  if (state.draft?.field === group.name) return state.draft;
+  const kinds = kindsOf(group);
+  state.draft = { field: group.name, kinds, kind: kinds[0] || '', step: 'name', name: '', where: '', asPage: null, lit: 0 };
+  readTitle().catch(() => {});
+  provided.pagesAmong(group.items.map(item => item.uuid), uuidsIn).then(pages => { if (state.draft?.field === group.name) state.draft.asPage = pages * 2 > group.items.length; }).catch(() => {});
+  return state.draft;
+}
+function addLineHtml(group) {
+  if (!group.ident) return '';
+  const d = state.draft?.field === group.name ? state.draft : null;
+  // The + in the gap under the row (0.4.303, the owner: "you can just have a plus in the gap that then open input"):
+  // shown with the pointer on the row, it takes no room; the line comes only once it is clicked.
+  if (!d) return '';
+  const kind = d ? d.kind : kindsOf(group)[0] || '';
+  const tag = `<a class="rf-tw-tag tag rf-tw-draft-tag" href="#" data-draft="tag" title="The tag it gets (click for the others)">${kind ? '#' + esc(kind) : 'no tag'}</a>`;
+  const field = d?.step === 'where'
+    ? `<span class="rf-tw-draft-typed">${esc(d.name)}</span><input type="text" class="rf-tw-draft-field rf-tw-draft-where" placeholder="Where? Enter: today’s journal" spellcheck="false" aria-label="Where the new node goes">`
+    : `<input type="text" class="rf-tw-draft-field rf-tw-draft-name" placeholder="Add a${/^[aeiou]/i.test(kind) ? 'n' : ''} ${esc(kind || 'node')}" spellcheck="false" aria-label="Name of a new node">`;
+  return `<div class="rf-tw-draft rf-tw-drafting" data-field="${esc(group.name)}"><span class="rf-tw-draft-plus" aria-hidden="true">+</span><span class="rf-tw-draft-main">${field}</span>${tag}</div>`;
+}
+// The line is drawn again with the rows; what was typed and the caret come back with it.
+function keepDraft(box) {
+  for (const field of box.querySelectorAll('.rf-tw-draft-field')) {
+    const line = field.closest('.rf-tw-draft'), group = state.groups.find(g => g.name === line.dataset.field);
+    const d = state.draft?.field === line.dataset.field ? state.draft : null;
+    if (d) field.value = field.matches('.rf-tw-draft-where') ? d.where : d.name;
+    field.addEventListener('focus', () => { if (group && state.draft?.field !== group.name) { closeAdd(); draftFor(group); draw(host()); focusDraft(); } else if (field.matches('.rf-tw-draft-where')) whereList(field); });
+    field.addEventListener('input', () => {
+      const now = state.draft?.field === line.dataset.field ? state.draft : group && draftFor(group);
+      if (!now) return;
+      if (field.matches('.rf-tw-draft-where')) { now.where = field.value; now.lit = 0; whereList(field); } else now.name = field.value;
+    });
+    field.addEventListener('keydown', onDraftKey);
+    for (const type of ['keyup', 'keypress']) field.addEventListener(type, event => event.stopPropagation());
+  }
+}
+function focusDraft() {
+  const d = state.draft;
+  const field = d && state.box?.querySelector(`.rf-tw-draft[data-field="${CSS.escape(d.field)}"] .rf-tw-draft-field`);
+  if (field) { field.focus({ preventScroll: true }); field.setSelectionRange(field.value.length, field.value.length); }
+}
+function dropDraft() { state.draft = null; closeAdd(); draw(host()); }
+function onDraftKey(event) {
+  event.stopPropagation();
+  if (event.isComposing) return;
+  const d = state.draft, onWhere = event.target.matches('.rf-tw-draft-where');
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    if (onWhere) { d.step = 'name'; d.where = ''; closeAdd(); draw(host()); focusDraft(); }
+    else { dropDraft(); event.target.blur?.(); }
+  } else if (onWhere && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+    event.preventDefault();
+    const rows = adding.el?.querySelectorAll('[data-act]').length || 0;
+    if (rows) { d.lit = (d.lit + (event.key === 'ArrowDown' ? 1 : rows - 1)) % rows; whereList(event.target); }
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    if (!d?.name.trim()) return;
+    if (onWhere) { const lit = adding.el?.querySelectorAll('[data-act]')[d.lit]; return makeDraft(lit?.dataset.act || 'journal', event.metaKey || event.ctrlKey); }
+    if (d.asPage) return makeDraft('page-itself', event.metaKey || event.ctrlKey);
+    d.step = 'where'; d.lit = 0;
+    draw(host()); focusDraft();
+  }
+}
+// The rows under the where field: today's journal, this page, then the pages that match what is typed.
+let pagesRead = null;
+async function whereList(field) {
+  const d = state.draft;
+  if (!d || d.step !== 'where' || !field.isConnected) return;
+  const doc = field.ownerDocument;
+  if (!adding.el) {
+    const el = adding.el = doc.createElement('div');
+    el.className = 'rf-pop refinement-two-way-add';
+    el.addEventListener('mousedown', event => { event.preventDefault(); event.stopPropagation(); });
+    el.addEventListener('click', event => { const pick = event.target.closest('[data-act]'); if (pick) { event.preventDefault(); event.stopPropagation(); makeDraft(pick.dataset.act, event.metaKey); } });
+    doc.body.appendChild(el);
+  }
+  pagesRead ||= await provided.propPages().catch(() => []);
+  if (!adding.el || state.draft !== d) return;
+  const q = d.where.trim().toLowerCase();
+  const rows = [['journal', 'Today’s journal'], ['here', pageTitleNow()]].filter(([, text]) => !q || text.toLowerCase().includes(q));
+  if (q) for (const p of pagesRead.filter(p => p.lower.includes(q) && p.uuid !== state.pageUuid).sort((a, b) => (b.lower.startsWith(q) - a.lower.startsWith(q)) || a.lower.length - b.lower.length).slice(0, 6)) rows.push(['page:' + p.title, p.title]);
+  d.lit = Math.min(d.lit, Math.max(0, rows.length - 1));
+  adding.el.innerHTML = rows.length ? rows.map(([act, text], i) => `<div class="rf-pop-row${i === d.lit ? ' rf-on' : ''}" data-act="${esc(act)}"><span>${esc(text)}</span></div>`).join('') : '<div class="rf-pop-note">No page by that name</div>';
+  shared.placeBelow(adding.el, field);
+}
+async function makeDraft(target, open) {
+  const d = state.draft, group = d && state.groups.find(g => g.name === d.field);
+  if (!group) return dropDraft();
+  const name = d.name.trim();
+  if (!name) return focusDraft();
+  const page = await logseq.Editor.getPage(state.pageUuid).catch(() => null);
+  if (!page?.id) return notify('This page could not be read, so nothing was added', 'warning');
+  const asPage = target === 'page-itself';
+  const where = asPage || target === 'journal' ? 'journal' : target === 'here' ? 'here' : 'page';
+  const other = where === 'page' ? target.slice(5) : '';
+  dropDraft();
+  try { await addRecord({ group, page, name, kind: d.kind, open, asPage, where, other }); }
   catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
 }
-// "New page", "New page 2", … : the first name no page has.
-async function freeName(base) {
-  for (let n = 1; n < 100; n++) { const name = n === 1 ? base : `${base} ${n}`; if (!await logseq.Editor.getPage(name).catch(() => null)) return name; }
-  return `${base} ${Date.now()}`;
+// The other tags, under the tag at the line's right.
+function tagList(anchor) {
+  const line = anchor.closest('.rf-tw-draft'), group = state.groups.find(g => g.name === line?.dataset.field);
+  if (!group) return;
+  closeAdd();
+  const d = draftFor(group);
+  draw(host());
+  const at = state.box?.querySelector(`.rf-tw-draft[data-field="${CSS.escape(d.field)}"] .rf-tw-draft-tag`) || anchor;
+  const doc = at.ownerDocument, el = adding.el = doc.createElement('div');
+  el.className = 'rf-pop refinement-two-way-add';
+  el.innerHTML = [...d.kinds, ''].map(k => `<div class="rf-pop-row${k === d.kind ? ' rf-on' : ''}" data-kind="${esc(k)}"><span>${k ? '#' + esc(k) : 'no tag'}</span></div>`).join('');
+  el.addEventListener('mousedown', event => { event.preventDefault(); event.stopPropagation(); });
+  el.addEventListener('click', event => { const pick = event.target.closest('[data-kind]'); if (!pick) return; event.preventDefault(); event.stopPropagation(); d.kind = pick.dataset.kind; closeAdd(); draw(host()); focusDraft(); });
+  doc.body.appendChild(el);
+  shared.placeBelow(el, at);
+  el.style.left = `${Math.round(Math.max(8, at.getBoundingClientRect().right - el.getBoundingClientRect().width))}px`;
 }
 async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '', edit = false }) {
   if (asPage && await logseq.Editor.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
@@ -865,8 +978,6 @@ const twoWayCss = `
 /* The + (0.4.297, the owner: "plus should be placed to the left of the property name but on hover"): in the room left
    of the name kept for Logseq's property icon, shown while the pointer is on the row. */
 .refinement-two-way .rf-tw-name { position: relative; }
-.refinement-two-way .rf-tw-name a.rf-tw-add { position: absolute; left: 0; top: 0; width: 16px; margin: 0; padding: 0; text-align: center; color: var(--ls-secondary-text-color); visibility: hidden; }
-.refinement-two-way .rf-tw-row:hover > .rf-tw-name a.rf-tw-add, .refinement-two-way .rf-tw-name a.rf-tw-add:focus-visible { visibility: visible; }
 .refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; font-size: var(--rf-small, .82em); }
 .refinement-two-way .rf-tw-chip { padding: 0 .45rem; border-radius: 999px; color: var(--ls-secondary-text-color); border: 1px solid color-mix(in srgb, var(--rf-tw-accent) 30%, transparent); }
 .refinement-two-way .rf-tw-chip { transition: background-color .1s ease, color .1s ease, border-color .1s ease; }
@@ -887,6 +998,23 @@ const twoWayCss = `
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
 .refinement-two-way-peek .rf-tw-peek-lines { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
+/* The line for adding a node (0.4.303): under the row's values, in the value column; quiet until the pointer is on the
+   row or it is in use: a + at its left, the field borderless like the words around it, the tag at the right in the
+   tags' column. It always keeps its height, so nothing moves when it shows. */
+.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 1.2em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
+.refinement-two-way .rf-tw-row { position: relative; }
+.refinement-two-way .rf-tw-add { margin-left: .6em; color: var(--ls-secondary-text-color); opacity: var(--rf-faint, .5); }
+.refinement-two-way .rf-tw-row:hover .rf-tw-add { opacity: 1; }
+.refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
+/* After a date it keeps the room it had after the values (the shared hover patch above pulls a margin in). */
+.refinement-two-way .rf-tw-day > a.rf-tw-add { margin-left: .6em; font-size: calc(1em / .82); }
+.refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; color: var(--ls-secondary-text-color); }
+.refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
+.refinement-two-way .rf-tw-draft-typed { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.refinement-two-way .rf-tw-draft-field { flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
+.refinement-two-way .rf-tw-draft-field::placeholder { color: var(--ls-secondary-text-color); opacity: .75; }
+.refinement-two-way .rf-tw-draft .rf-tw-draft-tag { margin-left: 0; white-space: nowrap; }
+.refinement-two-way-add { z-index: 999; min-width: 200px; max-width: 320px; }
 /* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
@@ -971,6 +1099,10 @@ function start() {
   onUnload(logseq.onSettingsChanged((now, before) => {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   }));
+  // A click away from an empty draft line drops it; one with words keeps them.
+  const away = event => { if (state.draft && !state.draft.name.trim() && !event.target.closest?.('.rf-tw-draft, .refinement-two-way-add, .rf-tw-add')) { state.draft = null; closeAdd(); draw(host()); } };
+  host().addEventListener('mousedown', away, true);
+  onUnload(() => host().removeEventListener('mousedown', away, true));
   const escape = event => { if (event.key === 'Escape' && state.picked.size && !event.target.closest?.('input, textarea, [contenteditable="true"]')) { state.picked.clear(); draw(host()); } };
   host().addEventListener('keydown', escape);
   onUnload(() => host().removeEventListener('keydown', escape));

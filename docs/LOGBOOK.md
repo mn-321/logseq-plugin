@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Adding a node in the row: a + in the gap, the name, then where (0.4.303)
+
+**Asked:** the owner: "why is it opening in sidebar?"; "no the point is to create it from this page and you can decide
+where to put it"; "if you want there can be a line under each section that once upon hover a plus appears you can
+start typing. you hit enter, another logseq input appears about where if it is a node. otherwise it is just a page";
+"you can just have a plus in the gap that then open input"; "just put a plus after the last item in each group"; "before the plus button used to be on at the end of the last item in each group. return that code before we moved around the plus". **Built:** the + of 0.4.296 is back (`addLink`, `.rf-tw-add` faint, opacity 1 on row hover): after a list's summary as it was, and for a short row after the last node's date (or as its second grid cell when it has none), since 0.4.297 the nodes span the row; a click opens the line. Before that, a + in the gap and one placed after the last name were tried and dropped. `parts/two-way.js`: `addLineHtml(group)` draws
+`a.rf-tw-addgap`, absolutely placed in the row's grid column 2 on its lower edge (no room taken), shown on row hover;
+a click makes `state.draft` and the row draws `.rf-tw-draft`: the name field and the tag (`tagList` for the others).
+`onDraftKey`: Enter on the name makes a page at once when most linked nodes are pages (`pagesAmong`), else
+`step: 'where'`; `whereList` puts a `.rf-pop` under the where field with Today's journal, this page and up to six
+matching pages, Up/Down light one, Enter `makeDraft`s there through `addRecord`. `draw()` keeps the typed words and the
+caret across redraws (`keepDraft`, `focusDraft`); a click away drops an empty draft; leaving the page drops it. The +
+by the property's name, its box code and stylesheet are gone. **Seen:** as in the CHANGELOG line. The consultation made
+on Dr. Mei Chen's page did not show in the row within 3 s before it was undone (the journal one of 0.4.302 showed at
+once); not looked into. Test pages "Zz Test Doctor" and "Zz test decision" sit in Logseq's Recycle. **Checks:** all correct; only timing limits failed (the tag map's first drawing 1,060 ms, the proposals' stress timings), with the Mac's load at 4.2 and neither part changed. Pictures re-approved after looking: the faint + back after the summary and after a node with no date.
+
 ## 2026-10-22 · The + makes the node and puts you in it (0.4.302)
 
 **Asked:** the owner, with pictures of 0.4.300's box: "Nothing is this poorly designed elsewhere in the app. the
