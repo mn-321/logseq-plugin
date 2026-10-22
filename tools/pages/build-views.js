@@ -107,14 +107,19 @@ ${mapHeader(false)}
   <div class="pv-group">Clinical</div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Provider</span><a class="tag px-lstag" href="#">Doctor</a><span class="px-note">on 2 tags</span><button class="px-quiet pv-info">${T('info-circle')}</button></div>
   <div class="pv-pinfo">
-    ${lineOf('Value', `a link to a ${tag('Doctor')} node, one <button class="px-quiet px-faint">Change…</button>`)}
+    ${lineOf('Value', `<b>one</b> link to a ${tag('Doctor')} node <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('On tags', `${tag('Consultation')}<button class="px-quiet pv-x">${T('x')}</button> ${tag('Treatment')}<button class="px-quiet pv-x">${T('x')}</button> <button class="px-quiet px-faint">+ Tag</button>`)}
     ${lineOf('Links to', `${tag('Doctor')} <span class="px-note">nodes, and the tags inside it</span> <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Seen from Doctor as', `<span class="pv-ptrlink">provider of</span> <span class="px-note">a row on every Doctor node</span> <button class="px-quiet px-faint">Reword…</button> <button class="px-quiet px-faint">Turn off</button>`)}
     ${lineOf('Group', `Clinical <button class="px-quiet px-faint">Change…</button>`)}
     ${lineOf('Nodes with it', `<button class="px-quiet px-faint">show nodes</button>`)}
   </div>
-  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a><span class="px-note">on 15 tags</span></div>
+  <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev pv-down">${T('chevron-right')}</button><span class="px-kindicon">${T('arrow-right')}</span><span class="pv-pn">Topic</span><a class="tag px-lstag" href="#">Topic kind</a><span class="px-note">on 15 tags</span></div>
+  <div class="pv-pinfo">
+    ${lineOf('Value', `<b>several</b> links to ${tag('Topic kind')} nodes <button class="px-quiet px-faint">Change…</button>`)}
+    ${lineOf('On tags', `${tag('Consultation')} ${tag('Conversation')} ${tag('Decision')} <span class="px-note">and 12 more</span> <button class="px-quiet px-faint">+ Tag</button>`)}
+    ${lineOf('Links to', `${tag('Topic kind')} <span class="px-note">nodes</span> <button class="px-quiet px-faint">Change…</button>`)}
+  </div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('select')}</span><span class="pv-pn">Status</span><span class="px-plainv">Open · Met · Closed</span><span class="px-note">on Expectation</span></div>
   <div class="pv-group">Timing</div>
   <div class="pv-prow pv-ptop" style="padding-left:22px"><button class="px-quiet pv-chev">${T('chevron-right')}</button><span class="px-kindicon">${T('calendar')}</span><span class="pv-pn">Date</span><span class="px-note">on Occurrence, from there on 7 tags</span></div>
@@ -345,7 +350,7 @@ mark.pv-sel { background: color-mix(in srgb, var(--px-fg) 18%, transparent); col
   ${view('props', 'The tag map: Properties', 'The map turned round: every property once, in your groups, with the tags that have it. An open property’s lines say, in plain words, what it holds, which tags have it, what it links to, how it is seen from the other end, its group and its nodes; every change is a quiet word at the end of its line.', propsView, [
     '<b>Groups</b> are small uppercase labels, nothing else; drag a property between them.',
     '<b>An open property</b> lists Value, On tags, Links to, Seen from Doctor as, Group and Nodes with it. Each line ends in the quiet word that changes it: Change…, + Tag, Reword…, Turn off, show nodes. The × on a tag appears on hover.',
-    '<b>Kinds are icons:</b> link, choice, date, number. Whether a property holds one value or several is said in words on its Value line.',
+    '<b>Kinds are icons:</b> link, choice, date, number. Whether a property holds one value or several is the first word of its Value line: “one link to a Doctor node”, “several links to Topic kind nodes”.',
     '<b>+ New property</b> and <b>+ Group</b> are faint at the bottom; + New property walks name, kind and tag on one line, then makes it through Logseq’s own box.',
   ])}
 
