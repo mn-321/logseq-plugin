@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The + makes the node and puts you in it (0.4.302)
+
+**Asked:** the owner, with pictures of 0.4.300's box: "Nothing is this poorly designed elsewhere in the app. the
+staging and elements that appear is awful". Right: Logseq never asks for a name, a tag and a place in a box; it makes
+the node and lets you type. **Built:** `parts/two-way.js`: `openAdd(button, event)` reads the group's commonest tag and
+whether most linked nodes are pages, then `addRecord` with an empty name on today's journal (Option-click: `where:
+'here'`), `open: true` and `edit: true`; `addRecord` then waits for the node's element in `#right-sidebar` (up to 3 s,
+`shared.waitFor`) and calls `logseq.Editor.editBlock(uuid, { pos: 0 })`; for pages `freeName("New Consultation")`. The
+box's code, its stylesheet and its leaves entry are gone (99 lines). **Seen:** first try: node made, sidebar open, but
+the caret not in it (a fixed 350 ms was too early), so "Zz typed here" went to Logseq as shortcuts (the page scrolled;
+nothing else). With the wait: the caret in the node, the typed words its name, the row "Oct 22 Zz typed here" at once,
+the arrow by "provider of" took it away, 4 Consultations again. Not seen: Option-click, a page-kind property.
+
 ## 2026-10-22 · Two-way tags as Logseq's own #tags (0.4.301)
 
 **Asked:** the owner: "also make the tags look like normal tags"; then on the dates, "no not date first for everyone.

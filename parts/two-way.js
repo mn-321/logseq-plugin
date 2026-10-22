@@ -16,7 +16,7 @@
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
 const shared = window.refinementShared;
 const { host, openEntity, notify, modal, modalButtons, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add, .refinement-two-way-ask' } });
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-ask' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -214,7 +214,7 @@ function shortName(title) {
   return text;
 }
 const recordLink = item => { const short = shortName(item.title); return `<a class="rf-tw-record" data-uuid="${esc(item.uuid)}" href="#"${short !== item.title ? ` title="${esc(item.title)}"` : ''}>${esc(short)}</a>`; };
-const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page">+</a>` : '';
+const addLink = group => group.ident ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="New record with “${esc(group.name)}” set to this page, on today’s journal (Option-click: on this page); it opens in the sidebar to type in">+</a>` : '';
 const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
 // A record's tag at the right opens the tag's page, Shift-click in the sidebar (0.4.297, the owner: "should be able to
 // click on tag in two-way area on right side"); the kind chips above an open list are what filter it.
@@ -499,7 +499,7 @@ function onClick(event) {
   if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
   if (target.matches('a.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
-  if (target.matches('.rf-tw-add')) return openAdd(target).catch(error => { warnOnce('could not open the new record box', error); });
+  if (target.matches('.rf-tw-add')) return openAdd(target, event).catch(error => { warnOnce('could not add the new record', error); });
   const key = target.dataset.key;
   if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
@@ -538,106 +538,35 @@ async function onRename(event) {
    most records in the row are pages (people, places), else a block on today's journal (visits, tests). Add and open
    also opens it in the sidebar to fill in. The bar at the bottom offers Undo, which removes what was made.
    Nothing is unlinked from here: a link is changed on the record that holds it. */
+/* The + (0.4.302, the owner, after three boxes: "Nothing is this poorly designed elsewhere in the app. the staging and
+   elements that appear is awful"): no box at all, Logseq's own way to make a node. The + makes the node at once, with the
+   tag the linked nodes share and this page in the property, on today's journal (Option-click: on this page), and opens
+   it in the right sidebar with the caret in its words, so what you type is its name, and its tag and properties are
+   Logseq's own capsules there. Most of the linked nodes pages: a page named "New …", opened the same way, its title
+   renamed in place. The faded arrow by the row's name takes it away. */
 const adding = { el: null };
 function closeAdd() { adding.el?.remove(); adding.el = null; }
-async function openAdd(button) {
+async function openAdd(button, event) {
   closeAdd(); hidePeek();
   const group = state.groups.find(g => g.name === button.dataset.field);
   if (!group?.ident) return;
-  const doc = button.ownerDocument, pageUuid = state.pageUuid;
-  const page = await logseq.Editor.getPage(pageUuid).catch(() => null);
+  const page = await logseq.Editor.getPage(state.pageUuid).catch(() => null);
   if (!page?.id) return notify('This page could not be read, so nothing was added', 'warning');
   const counts = new Map();
   for (const item of group.items) if (item.tag !== 'note') counts.set(item.tag, (counts.get(item.tag) || 0) + 1);
-  const kinds = [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
-  let kind = kinds[0] || '';
+  const kind = [...counts].sort((a, b) => b[1] - a[1]).map(([tag]) => tag)[0] || '';
   const uuids = group.items.map(item => item.uuid);
-  const pages = await provided.pagesAmong(uuids, uuidsIn);
-  const asPage = pages * 2 > uuids.length;
-  const title = page.title || page.originalName || page.name || 'this page';
-  const el = adding.el = doc.createElement('div');
-  el.className = 'refinement-two-way-add rf-pop';
-  /* The box (0.4.299, the owner: "that is really an odd and ugly menu. use default elements from logseq or elements we
-     have built from other to construct it"): the plugin's one pop-up (.rf-pop, parts/shared.js), built as the link box
-     and the tag map's menus are: a grey heading, the name in the field, then rows with their value at the right (the
-     tag, where it goes) that open their choices below them, and Add and Add and open as rows with their keys. */
-  const kinds2 = [...kinds, ''];
-  let where = 'journal', other = '', openList = '';
-  const whereText = () => where === 'here' ? title : where === 'page' ? (other || 'Another page…') : 'Today’s journal';
-  const tagText = () => kind ? `#${kind}` : 'no tag';
-  const row = (act, label, value, on) => `<button type="button" class="rf-pop-row${on ? ' rf-on' : ''}" data-act="${act}"><span>${esc(label)}</span>${value != null ? `<span class="rf-pop-kind${act === 'tag' || act.startsWith('kind:') ? ' rf-tw-add-mono' : ''}">${esc(value)}</span>` : ''}</button>`;
-  const draw = () => {
-    const name = el.querySelector('.rf-tw-add-name')?.value || '';
-    const lists = {
-      tag: () => `<div class="rf-pop-list rf-tw-add-choices">${kinds2.map(k => row('kind:' + k, k ? '#' + k : 'no tag', null, k === kind)).join('')}</div>`,
-      where: () => `<div class="rf-pop-list rf-tw-add-choices">${row('where:journal', 'Today’s journal', null, where === 'journal')}${row('where:here', title, null, where === 'here')}${row('where:page', 'Another page…', null, where === 'page')}</div>`,
-    };
-    el.innerHTML = `<div class="rf-pop-head">New record · ${esc(group.name)}: ${esc(title)}</div>
-      <input type="text" class="rf-pop-field rf-tw-add-name" placeholder="Name, e.g. ${esc(group.items[0]?.title || 'a new visit')}" spellcheck="false">
-      ${row('tag', 'Tag', tagText())}${openList === 'tag' ? lists.tag() : ''}
-      ${asPage ? '<div class="rf-pop-note">Made as a new page, as most of these are.</div>' : row('where', 'Goes on', whereText()) + (openList === 'where' ? lists.where() : '')}
-      ${where === 'page' && !asPage ? '<input type="text" class="rf-pop-field rf-tw-add-page" placeholder="Type a page’s name" spellcheck="false"><div class="rf-pop-list rf-tw-add-pages"></div>' : ''}
-      <hr>${row('add', 'Add', '↵')}${row('open', 'Add and open', '⌘↵')}`;
-    const field = el.querySelector('.rf-tw-add-name');
-    field.value = name;
-    const pageField = el.querySelector('.rf-tw-add-page');
-    if (pageField) { pageField.value = other; pageField.addEventListener('input', () => { other = pageField.value; suggest(pageField.value); }); pageField.addEventListener('keydown', onFieldKey); }
-    field.addEventListener('keydown', onFieldKey);
-    field.addEventListener('input', () => field.removeAttribute('data-empty'));
-  };
-  // Pages that fit what is typed in Another page, as rows under it (the link box's way, without a new page).
-  let pagesRead = null;
-  const suggest = async typed => {
-    const box = el.querySelector('.rf-tw-add-pages');
-    if (!box) return;
-    pagesRead ||= await provided.propPages().catch(() => []);
-    const q = typed.trim().toLowerCase();
-    const hits = q ? pagesRead.filter(p => p.lower.includes(q)).sort((a, b) => (b.lower.startsWith(q) - a.lower.startsWith(q)) || a.lower.length - b.lower.length).slice(0, 6) : [];
-    box.innerHTML = hits.map(p => row('page:' + p.title, p.title, null, p.lower === q)).join('');
-  };
-  const onFieldKey = event => {
-    event.stopPropagation();
-    if (event.key === 'Escape') { event.preventDefault(); closeAdd(); }
-    else if (event.key === 'Enter' && !event.isComposing) {
-      event.preventDefault();
-      if (event.target.matches('.rf-tw-add-page')) { const first = el.querySelector('.rf-tw-add-pages [data-act^="page:"]'); if (first && !el.querySelector('.rf-tw-add-pages .rf-on')) other = first.dataset.act.slice(5); el.querySelector('.rf-tw-add-name').focus(); draw(); el.querySelector('.rf-tw-add-name').focus(); return; }
-      submit(event.metaKey || event.shiftKey);
-    }
-  };
-  el.addEventListener('mousedown', event => event.stopPropagation());
-  el.addEventListener('click', event => {
-    const pick = event.target.closest('button[data-act]');
-    if (!pick) return;
-    event.preventDefault(); event.stopPropagation();
-    const act = pick.dataset.act;
-    if (act === 'add' || act === 'open') return submit(act === 'open');
-    if (act === 'tag' || act === 'where') openList = openList === act ? '' : act;
-    else if (act.startsWith('kind:')) { kind = act.slice(5); openList = ''; }
-    else if (act.startsWith('where:')) { where = act.slice(6); openList = ''; }
-    else if (act.startsWith('page:')) other = act.slice(5);
-    draw();
-    (where === 'page' && !other ? el.querySelector('.rf-tw-add-page') : el.querySelector('.rf-tw-add-name'))?.focus();
-  });
-  const submit = async open => {
-    const input = el.querySelector('.rf-tw-add-name'), name = input.value.trim();
-    if (!name) { input.focus(); input.setAttribute('data-empty', ''); return; }
-    if (where === 'page' && !other.trim()) { const f = el.querySelector('.rf-tw-add-page'); f?.focus(); f?.setAttribute('data-empty', ''); return; }
-    closeAdd();
-    try { await addRecord({ group, page, name, kind, open, asPage, where, other: other.trim() }); }
-    catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
-  };
-  draw();
-  const input = el.querySelector('.rf-tw-add-name');
-  doc.body.appendChild(el);
-  const at = button.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
-  el.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
-  el.style.top = `${Math.round(at.bottom + 6 + size.height < win.innerHeight - 8 ? at.bottom + 6 : Math.max(8, at.top - 6 - size.height))}px`;
-  input.focus();
-  // A click anywhere else closes the box.
-  const away = event => { if (!adding.el) return doc.removeEventListener('mousedown', away, true); if (!adding.el.contains(event.target)) { closeAdd(); doc.removeEventListener('mousedown', away, true); } };
-  doc.addEventListener('mousedown', away, true);
+  const asPage = (await provided.pagesAmong(uuids, uuidsIn)) * 2 > uuids.length;
+  const name = asPage ? await freeName(`New ${kind || 'page'}`) : '';
+  try { await addRecord({ group, page, name, kind, open: true, asPage, where: event?.altKey ? 'here' : 'journal', edit: true }); }
+  catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
 }
-async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '' }) {
+// "New page", "New page 2", … : the first name no page has.
+async function freeName(base) {
+  for (let n = 1; n < 100; n++) { const name = n === 1 ? base : `${base} ${n}`; if (!await logseq.Editor.getPage(name).catch(() => null)) return name; }
+  return `${base} ${Date.now()}`;
+}
+async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '', edit = false }) {
   if (asPage && await logseq.Editor.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
   const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
   let tagUuid = '';
@@ -678,6 +607,8 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
   later(300);
   offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : where === 'here' ? ' to this page' : where === 'page' ? ` to ${other}` : ' to today’s journal'}`, undo, group.name);
   if (open) openEntity(block.uuid, true);
+  // Into its words at once (0.4.302): the sidebar draws it a moment after it opens.
+  if (edit && !asPage) { const uuid = block.uuid; shared.waitFor(() => host().querySelector(`#right-sidebar .ls-block[blockid="${uuid}"]`), 3000).then(found => found && logseq.Editor.editBlock(uuid, { pos: 0 })).catch(error => warnOnce('the new record could not be put in edit', error)); }
 }
 
 /* Picking records and acting on them together (0.4.228, the owner's ask: "selected in groups and be acted on", like
@@ -956,12 +887,6 @@ const twoWayCss = `
 .refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
 .refinement-two-way-peek .rf-tw-peek-lines { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
 .refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
-/* The box the + opens (0.4.299): the plugin's one pop-up (.rf-pop) and its rows, as the link box and the tag map's menus;
-   only its width and the tag in monospace are its own. */
-.refinement-two-way-add { z-index: 999; width: 340px; }
-.refinement-two-way-add .rf-tw-add-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.refinement-two-way-add .rf-tw-add-choices { margin: 0 0 2px 12px; padding-left: 4px; border-left: 1px solid var(--rf-ui-line); }
-.refinement-two-way-add input[data-empty] { border-color: #d9534f; }
 /* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
    with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
 .refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
