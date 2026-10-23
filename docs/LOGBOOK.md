@@ -2,6 +2,26 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Both pages rebuilt from the code (step 4)
+
+**Asked:** step 4 of `docs/LAYERS.md` section 4: "both pages rebuilt from the code once everything is moved, so
+'today' on the elements page shows one drawing per kind and the proposals match". **Done looks like:** each page
+built by `tools/pages/`, drawn with the kit's own stylesheet and the parts' real markup, published to its existing
+link. **Built:** `tools/pages/prepare.js` pulls `kitCss` and the parts' layout stylesheets, reads the kit's `ICONS`
+list (the old icon constants are gone) and the font's codepoints for every name in it, and no longer cuts the sketch
+out of the elements builder. `tools/pages/build-elements.js` rewritten: one specimen per kind in the kit's markup
+(`.rf-pop` with items, list, question and plan; `dialog.rf-dialog` as the settings window; the three buttons; the
+field in its coats; the tick box; the tag, filter, removable word and kind icons; the bar; the + and the draft line;
+the card; the Undo arrow; the proposals' ghost; the quiet line and help paragraph), "An action in stages" from the
+tag map's real rows and pop-ups, the icon list from `ICONS`, a card per kind saying where it comes from and who uses
+it, the tables brought to the state now; the sketch and the proposed rows gone. `tools/pages/build-views.js`
+rewritten: the eight views from the parts' real markup (`rowHtml`'s classes for the two-way rows, the proposals'
+pill markup, the tag map's rows and lines, the link box, the settings window, the troubleshooting list) on
+approximated Logseq furniture. Shot with Playwright section by section to look: the un-anchored pop-up's centring
+transform leaked onto the sheets (cancelled there) and the page's own uppercase heading rule reached the settings
+window's title (scoped). **Checks:** both pages build with no page errors; every section photographed and looked
+at, light theme. **Seen:** the shots; the pages published to their links with the owner's comments kept.
+
 ## 2026-10-22 · The tag map on the kit (0.4.319)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, seventh feature: "the tag map, Tags view then Properties view (kinds

@@ -148,3 +148,8 @@ app's bundle on this Mac) into a scratch directory; `tools/pages/build-elements.
 `tools/pages/build-views.js <dir>` then write `docs/ELEMENTS.html` and `docs/VIEWS.html`. The pages embed the parts'
 CSS verbatim, so rebuilding after the kit lands shows the variations collapse. Publish with the Artifact tool to the
 links above (read them first) so the owner's comments stay attached.
+
+**Rebuilt 2026-10-22 at 0.4.319 (step 4 of section 4 done).** The sketch (`.px-`) is gone from the builders: the elements
+page shows one drawing per kind, built from the kit's own markup with the kit's stylesheet and the parts' layout pulled
+from the source; the views page shows each view from the parts' real markup. `prepare.js` reads the kit's icon list
+(`ICONS`) instead of the deleted icon constants.
