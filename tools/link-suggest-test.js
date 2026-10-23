@@ -22,7 +22,7 @@ const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), 
   page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
-window.logseq = { settings: { linkSuggest: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
+window.logseq = { settings: { linkSuggest: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
@@ -33,7 +33,7 @@ part.provide(window.refinementCore);
 part.start();
 const command = part.commands.find(c => c.key === 'accept-suggested-link');
 check(command && command.places.includes('keys') && command.shortcut === 'linkSuggestKeys', 'the key should be a command in the register, with its keys in a setting');
-// The one register (main.js), stood in for: Tab runs the command.
+// The one register (main.js), stood in for: Tab runs the command (the setting here binds it; as it comes, nothing is bound).
 window.addEventListener('keydown', event => { if (event.key === 'Tab' && command.run(event) === true) { event.preventDefault(); event.stopImmediatePropagation(); } }, true);
 const inner = window.refinementCore.provided.linkSuggestInner;
 
@@ -99,7 +99,34 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   window.logseq.settings.linkSuggest = false; await type('Spoke with Mei');
   check(!inner.showing, 'off in the settings, nothing shows');
   window.logseq.settings.linkSuggest = true;
+  // The Hyper tap: the modifiers down together, one up with nothing between.
+  const hyper = { metaKey: true, ctrlKey: true, altKey: true, shiftKey: true };
+  const up = (k, extra = {}) => { const e = new window.KeyboardEvent('keyup', { key: k, bubbles: true, cancelable: true, ...extra }); box.dispatchEvent(e); return e; };
   await type('Spoke with Mei');
+  key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);
+  up('Shift', { metaKey: true, ctrlKey: true, altKey: true }); up('Alt', { metaKey: true, ctrlKey: true }); up('Control', { metaKey: true }); up('Meta');
+  check(box.value === 'Spoke with [[Dr. Mei Chen]]', 'a lone Hyper tap takes the link: ' + box.value);
+  const esc = key('Escape');
+  check(esc.defaultPrevented, 'an Escape the setup sends right after the tap is swallowed');
+  const escUp = up('Escape');
+  check(escUp.defaultPrevented, 'both halves of it');
+  await type('Spoke with Mei');
+  key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);
+  key('l', { ...hyper, code: 'KeyL' });
+  up('Shift', { metaKey: true, ctrlKey: true, altKey: true }); up('Meta');
+  check(box.value === 'Spoke with Mei', 'Hyper held with a letter is a chord, not a tap: ' + box.value);
+  check(!!inner.showing, 'and the suggestion stays');
+  key('Meta', { metaKey: true }); up('Meta');
+  check(box.value === 'Spoke with Mei', 'Cmd alone is not the Hyper key: ' + box.value);
+  key('Meta', hyper); up('Meta');
+  check(box.value === 'Spoke with [[Dr. Mei Chen]]', 'a tap that sends one modifier down and up works too: ' + box.value);
+  await wait(350);
+  check(!key('Escape').defaultPrevented, 'an Escape later on is Logseq’s own');
+  await type('Spoke with Mei');
+  window.logseq.settings.linkSuggestHyperTap = false;
+  key('Meta', hyper); up('Meta');
+  check(box.value === 'Spoke with Mei', 'the tap off in the settings does nothing: ' + box.value);
+  window.logseq.settings.linkSuggestHyperTap = true;
   await part.stop();
   check(!doc.querySelector('.refinement-link-suggest') && !inner.showing, 'unload leaves nothing');
   console.log(`link-suggest-test: ${cases} checks, ${problems.length} problems`);

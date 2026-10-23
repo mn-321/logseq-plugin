@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The Hyper tap takes the suggested link, branch inline-links (0.4.361)
+
+**Asked:** "Wait tab moves a bullet though", and that the old code (0.4.148) saw a lone Hyper tap. **Done looks
+like:** the grey words end in ⇪; a tap of Caps Lock (⌘⌃⌥⇧) makes the link; Tab indents as always. **Built:** in
+`parts/link-suggest.js` the tap of 0.4.148 (modifiers down together, one up within 600 ms, nothing between; an Escape
+within 300 ms swallowed), the setting `linkSuggestHyperTap` (on) and `linkSuggestKeys` now empty by default; nine more
+checks in `tools/link-suggest-test.js`. Built in a worktree, since the main folder held another session's unfinished
+edits. **Checks:** link-suggest, boot, leaning. **Seen in the app:** not yet (the folder could not be put on the branch).
+
 ## 2026-10-23 · Suggested links while typing, branch inline-links (0.4.360)
 
 **Asked:** "a separate tree or branch to build on proposals to now suggesting wikilinks in line almost like
