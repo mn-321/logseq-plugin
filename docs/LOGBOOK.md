@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Property names faint, as the page draws them (0.4.339)
+
+**Asked:** a picture of the elements page's Proposed values sheet: "properties should be this light? isn't there spec for this somewhere?" **Found:** the spec is `docs/LAYERS.md` section 2 (names lighter than values, the kit's four greys) and the page itself, which draws the name at the kit's faint grey (`tools/pages/build-elements.js`, `.property-key-inner { color: var(--rf-faint) }`); 0.4.337 had used quiet, one step darker. **Built:** `parts/page-look.js`: the names rule at `--rf-faint`. **Checks:** `sh tools/check.sh`. **Not seen:** a one-grey change; the owner reloads and looks at any bullet with properties.
+
 ## 2026-10-23 · The page look on the rest of the page (0.4.338)
 
 **Asked:** "work on this", on the three gaps named after 0.4.337: a page's own property list, journal days, Logseq's tables and the Linked references. Also: "don't take everything from old code. take it and mold for newer decisions". **Built:** `parts/page-look.js`: the link rule widened from a bullet's words to every `a.page-ref` that is not a tag or a journal day (a journal page's uuid starts 00000001- in 2.0.2, the mark the old links part used too); a `quietDates` rule, days as quiet grey words with no underline (the 0.4.141 decision, not the old grey box); a `quietNames` rule for the page's own list and the pills together; the tag rule on every `a.tag`. The kit's variables throughout. README. **Checks:** `sh tools/check.sh` in full. **Seen:** Seen on screen after a reload (the Mac unlocked meanwhile): Dr. Mei Chen's own list with Notes and Date grey and the value in the text colour; “Oct 23rd, 2026” in quiet grey with no underline in the page list, in a bullet's properties and in the Symptom tag page's table, its tag column in mono grey. Left: a table's tag cell still reads “#Symptom” (the # is text there), the Name column has no underline on purpose, and the Linked references could not be opened from the background check.

@@ -25,7 +25,7 @@ const settingsSchema = [
   { key: 'quietDates', type: 'boolean', title: 'Journal days as quiet grey words', default: true,
     description: 'A link to a journal day (“Oct 21st, 2026”) is grey words with no underline, the text colour while you point at it, instead of blue.' },
   { key: 'quietNames', type: 'boolean', title: 'Property names lighter than their values', default: true,
-    description: 'A property’s name and its colon are grey, so the value is what the eye lands on: in a bullet’s properties and in a page’s own list under its title.' },
+    description: 'A property’s name and its colon are light grey, so the value is what the eye lands on: in a bullet’s properties and in a page’s own list under its title.' },
   { key: 'tagsAsClasses', type: 'boolean', title: 'Tags as class names', default: true,
     description: 'A tag at the right of a bullet reads as its name alone in a monospace face, grey, without the #. The × that removes it takes the #’s place under the pointer, so the name does not move.' },
   { key: 'noCapsules', type: 'boolean', title: 'Properties without capsules', default: true,
@@ -47,11 +47,12 @@ ${AREA} a.page-ref${DAY}, ${AREA} .ls-datetime a { color: var(--rf-quiet) !impor
 ${AREA} a.page-ref${DAY}:hover, ${AREA} .ls-datetime a:hover { color: inherit !important; }
 `;
 const namesCss = `
-/* The name and its colon quiet, so the value is what the eye lands on; the value keeps the text colour. */
+/* The name and its colon faint (the kit's 50%, as the elements page draws them; the owner at 0.4.339: "properties should be
+   this light?"), so the value is what the eye lands on; the value keeps the text colour. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child,
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child :is(.property-k, a),
 ${AREA} .ls-properties-area .property-pair .property-key-panel,
-${AREA} .ls-properties-area .property-pair .property-key-panel :is(.property-k, a) { color: var(--rf-quiet) !important; }
+${AREA} .ls-properties-area .property-pair .property-key-panel :is(.property-k, a) { color: var(--rf-faint) !important; }
 `;
 const tagsCss = `
 /* Logseq draws a # link before the name and swaps it for an × (remove) link under the pointer. The # is made
