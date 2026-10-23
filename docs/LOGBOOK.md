@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The ring back on a focused pill (0.4.343)
+
+**Asked:** a picture of the ring round a pill: "But I use keyboard. I didn't say make values lighter than property labels. just revert to this". **Built:** `parts/page-look.js`: the `:focus-within` rules of 0.4.342 removed; the ring hidden only while a pill has no focus, as at 0.4.337; the value's underline kept. **Checks:** `sh tools/check.sh`. **Not seen.**
+
 ## 2026-10-23 · The underline back in a value, focus by colour (0.4.342)
 
 **Asked:** "the link should have an underline"; "The pills that show focus don't fit" (two pictures of Logseq's ring round a pill without its padding); "blood transfusion is lighter because it was in recycle". **Built:** `parts/page-look.js`: the pill's link keeps the link rule's underline; the ring on `::after` gone for good, the pill at `:focus-within` in the full text colour (rules after the names rule, higher specificity). **Corrected:** the 0.4.341 entry's diagnosis: the lighter value was Logseq's mark on a recycled page; whether 0.4.341's one grey now hides that mark is for the owner to look at. **Checks:** `sh tools/check.sh`. **Not seen.**

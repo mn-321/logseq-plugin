@@ -71,13 +71,8 @@ ${AREA} a.tag:not(mark *):hover { opacity: 1; }
 const capsulesCss = `
 /* Logseq draws the capsule's edge on ::after (kept while a capsule has keyboard focus) and its fill on the pill. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill { background: transparent !important; padding-left: 0 !important; padding-right: 0 !important; }
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill::after { box-shadow: none !important; border: 0 !important; }
-/* The keyboard on a pill (0.4.342, the owner: "the pills that show focus don't fit"): no ring, the grammar's no edges; the
-   pill's words go to the full text colour instead, the kit's "pressed" look. */
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:focus-within,
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:focus-within *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *),
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:focus-within > div:first-child,
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:focus-within > div:first-child * { color: inherit !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:not(:focus-within)::after { box-shadow: none !important; border: 0 !important; }
+/* Logseq's ring stays while the keyboard is on a pill (the owner at 0.4.343: "But I use keyboard"). */
 /* The dot sits before a pill that a shown pill comes before: an empty property the proposals hide (parts/shadow.js) does
    not count, or the first shown one would carry a dot of its own. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:is(:not(:has(.empty-value)), [data-refinement-proposal], [data-rfs-at]) ~ .bottom-property-pill::before { content: '·'; margin-right: .5rem; color: var(--rf-faint); }
