@@ -9,7 +9,8 @@ like:** the grey words end in ⇪; a tap of Caps Lock (⌘⌃⌥⇧) makes the l
 `parts/link-suggest.js` the tap of 0.4.148 (modifiers down together, one up within 600 ms, nothing between; an Escape
 within 300 ms swallowed), the setting `linkSuggestHyperTap` (on) and `linkSuggestKeys` now empty by default; nine more
 checks in `tools/link-suggest-test.js`. Built in a worktree, since the main folder held another session's unfinished
-edits. **Checks:** link-suggest, boot, leaning. **Seen in the app:** not yet (the folder could not be put on the branch).
+edits. **Checks:** link-suggest, boot, leaning. **Seen in the app** (after merging main's 0.4.360 in, the folder on the branch): the grey " Chen ⇪", the tap made the
+link, Tab indented the bullet, Hyper+L did nothing to the words; the scratch bullet removed; no warning.
 
 ## 2026-10-23 · Suggested links while typing, branch inline-links (0.4.361)
 
