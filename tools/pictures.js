@@ -122,9 +122,12 @@ async function scenes(page) {
     'shadow': {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'), read('parts/shadow-rules.js'), read('parts/shadow.js'), read('parts/shadow-steps.js'), read('parts/shadow-page.js')],
       draw: async () => {
-        const inner = window.refinementShadowInner;
+        // The proposals give their doors to the core (0.4.315); a pretend core takes them.
+        const core = window.refinementCore = { provided: {}, provide: things => Object.assign(core.provided, things) };
+        window.refinementParts.find(p => p.name === 'proposals').provide(core);
+        const inner = core.provided.proposalsInner;
         const style = document.createElement('style');
-        style.textContent = inner.css + ' .ls-block { margin-bottom: 14px; } .block-main-container > .flex-col > .flex-col { display: flex; flex-direction: column; gap: 2px; } .bullet { display: flex; gap: 8px; align-items: flex-start; } .bullet i { width: 6px; height: 6px; margin-top: 9px; border-radius: 50%; background: currentColor; opacity: .5; flex: none; } .bottom-properties-row { display: flex; gap: 18px; margin-left: 14px; font-size: 13px; } .bottom-property-pill { display: flex; gap: 4px; } .bottom-property-pill > span:first-child { opacity: .8; } .empty-value { opacity: .4; }';
+        style.textContent = window.refinementShared.kitCss + inner.css + ' .ls-block { margin-bottom: 14px; } .block-main-container > .flex-col > .flex-col { display: flex; flex-direction: column; gap: 2px; } .bullet { display: flex; gap: 8px; align-items: flex-start; } .bullet i { width: 6px; height: 6px; margin-top: 9px; border-radius: 50%; background: currentColor; opacity: .5; flex: none; } .bottom-properties-row { display: flex; gap: 18px; margin-left: 14px; font-size: 13px; } .bottom-property-pill { display: flex; gap: 4px; } .bottom-property-pill > span:first-child { opacity: .8; } .empty-value { opacity: .4; }';
         document.head.append(style);
         const stage = document.getElementById('stage');
         stage.style.height = '170px';
@@ -135,11 +138,11 @@ async function scenes(page) {
         stage.innerHTML = block('a', 'Post-op check with Dr. Patel. Wounds fine.', [['Provider'], ['Topic'], ['Date']])
           + block('b', 'Wiped out all day.', [['Symptom type'], ['Severity'], ['Date']]);
         const piece = (title, shown, guess, id) => ({ prop: { title, lower: title.toLowerCase() }, ident: title.toLowerCase(), ids: [id], shown, guess });
-        const draw = (uuid, pieces) => { window.refinementShadow.live = { uuid, recordUuid: uuid, pieces }; inner.drawInPlace(document); };
+        const draw = (uuid, pieces) => { window.refinementCore.provided.proposalsState.live = { uuid, recordUuid: uuid, pieces }; inner.drawInPlace(document); };
         // A guess (Provider, dotted) and a sure value (Date) on the first; the same on the second.
         draw('a', [piece('Provider', 'Dr. Raj Patel', true, 1), piece('Date', 'Aug 18', false, 2)]);
         const first = [...document.querySelectorAll('.rfs-ghost')];
-        window.refinementShadow.live = null;
+        window.refinementCore.provided.proposalsState.live = null;
         draw('b', [piece('Symptom type', 'Fatigue', true, 3), piece('Date', 'Oct 20', false, 4)]);
         // drawInPlace keeps only the live bullet's values; put the first bullet's back for the picture.
         const pills = document.querySelectorAll('.ls-block[blockid="a"] .bottom-property-content');

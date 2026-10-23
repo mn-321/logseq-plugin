@@ -2,6 +2,29 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The proposals on the kit (0.4.315)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, third feature: "the ghost in Logseq's pill, the tag guess in mono
+without #, the stepping keys named in the register". **Done looks like:** a bullet typed with a linked doctor shows
+Spoke with in italic grey with a dotted line (sure values dotted now too), a proposed tag in mono with no #; Enter,
+a click away, Escape, Option-Enter and Cmd-Option-Enter as before; the four files call Logseq nowhere and share
+nothing by a name on the window. **Built:** the kit: `shared.feature(name)` (one bag per feature) and the screen
+door moved from `main.js` into `parts/shared.js` (layer 1's plumbing; `core.screen` publishes it, and the tests'
+pretend windows have it). `main.js`: a graph-change hook (`core.onGraphChange`). `parts/model.js`: the write doors
+`setValue`, `unsetValue`, `addTag`, `removeTag`, `setWords`, `editBlock`, `exitEditing`, `insertBlock`,
+`currentPage`, `currentGraph`. `parts/shadow-rules.js`, `shadow.js`, `shadow-steps.js`, `shadow-page.js`: the bag
+from the kit; every write through the model; `screen.press` and `screen.typeInto` for the copies; the page, graph,
+database and settings hooks from the core; `esc` from the kit; `fillGhost` draws the words and the tag (`tagWord`,
+the kit's tag in mono) in the ghost; `.rfs-ghost` dotted for all, the ring and the made name in the kit's greys;
+`stepKey` (Option-Enter: in the words start stepping, in the properties finish the bullet) and `acceptAllKey`
+(Cmd-Option-Enter) as `keys` commands with settings `shadowStepKeys` and `shadowAcceptKeys`; `onPickKey`'s
+plainEnter now excludes Alt; `proposalsInner` and `proposalsState` on the core in `provide`. Tests: the pretend
+cores get the hooks and `screen`, a stand-in for the register, `provide` called, the tag expectations without #;
+`tools/pictures.js` gives the shadow scene a core and the kit's stylesheet; the two shadow pictures re-approved after
+looking (the dates' dotted lines). README: the two settings. The leaning baseline: the four files 0, names 5.
+**Checks:** shadow-test (117), shadow-write-test (40), shadow-stress, parts-apart (17), boot, leaning, pictures, then
+`sh tools/check.sh` in full. **Seen:** in Logseq after a reload, as the CHANGELOG line says.
+
 ## 2026-10-22 · Link selected text on the kit (0.4.314)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, second feature. **Done looks like:** select a word in a bullet,

@@ -76,7 +76,7 @@ window.logseq = {
 const LEAVE_OUT = (process.env.LEAVE_OUT || '').split(',').filter(Boolean);
 for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js'].filter(f => !LEAVE_OUT.includes(f.slice(6, -3)))) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 let early = () => {};
-const core = window.refinementCore = { watchDomEarly(fn) { early = fn; }, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
+const core = window.refinementCore = { onPageChange() {}, onGraphChange(fn) { window.graphChanged = fn; }, onDatabaseChange() {}, onSettingsChange() {}, screen: window.refinementShared.screen, watchDomEarly(fn) { early = fn; }, dsQuery, UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {},
   propSchema: async () => schema, propPages: async () => pages, bare: v => String(v ?? '').replace(/^:/, ''),
   pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '',
   parseDay: () => null, dayAfter: (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n), dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(),
@@ -84,8 +84,15 @@ const core = window.refinementCore = { watchDomEarly(fn) { early = fn; }, dsQuer
 window.eval(require('./pretend-model')); // the model answers through dsQuery above; the stubs on the core win (0.4.226)
 const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));
 parts.alike.provide(core);
+parts.proposals.provide(core);
 parts.proposals.start();
-const inner = window.refinementShadowInner, state = window.refinementShadow;
+// The one register (main.js), stood in for: the proposals' two `keys` commands run when their keys are pressed.
+window.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' || !event.altKey) return;
+  const command = parts.proposals.commands.find(c => c.key === (event.metaKey ? 'proposals-accept-all' : 'proposals-step'));
+  if (command && command.run(event) === true) { event.preventDefault(); event.stopImmediatePropagation(); }
+}, true);
+const inner = window.refinementCore.provided.proposalsInner, state = window.refinementCore.provided.proposalsState;
 
 // A bullet on screen as Logseq draws it: its box, and its row of property capsules under the words.
 function onScreen(b, text) {
@@ -158,7 +165,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     const b = addBlock(1003, 'Wiped out all day.', []);
     const box = onScreen(b, b.title);
     await type(box);
-    check(ghosts().includes('#Symptom log'), `3. untagged: shown ${JSON.stringify(ghosts())}; wanted the tag #Symptom log`);
+    check(ghosts().includes('Symptom log'), `3. untagged: shown ${JSON.stringify(ghosts())}; wanted the tag Symptom log (in mono, no #, 0.4.315)`);
     key(box, 'Enter');
     await leave(box);
     check(writes[0]?.[0] === 'tag' && writes[0][2] === T.log && writes.slice(1).every(w => w[0] === 'set') && writes.length >= 2, `3. untagged, Enter: wrote ${JSON.stringify(writes)}; wanted the tag first, then the values`);

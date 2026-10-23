@@ -34,13 +34,21 @@ const parseDay = (text, today) => {
   if (m) { const [a, b] = /^\d/.test(m[1]) ? [m[1], m[2]] : [m[2], m[1]]; const month = MO.indexOf(b); if (month < 0) return null; let d = new Date(today.getFullYear(), month, Number(a)); if (d < today) d = new Date(today.getFullYear() + 1, month, Number(a)); return d; }
   return null;
 };
-window.refinementCore = { watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
+window.refinementCore = { onPageChange() {}, onGraphChange(fn) { window.graphChanged = fn; }, onDatabaseChange() {}, onSettingsChange() {}, screen: window.refinementShared.screen, watchDomEarly() {}, dsQuery: async query => answer(query), UUID: /^[0-9a-f-]{36}$/i, propSchema: async () => null, propPages: async () => [], sendStyle() {},
   parseDay, dayAfter, dayNumber: d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(), journalIdFor: async () => 999, journalTitleFor: async () => 'a day',
   bare: v => String(v ?? '').replace(/^:/, ''), pick: (n, name) => n?.[name] ?? n?.[':' + name] ?? n?.[name.slice(name.indexOf('/') + 1)], idOf: v => typeof v === 'number' ? v : v?.['db/id'], titleOf: b => b?.title || '', provided: {}, provide: things => Object.assign(window.refinementCore.provided, things) };
 window.eval(require('./pretend-model')); // the model answers through answer(query); the stubs above win (0.4.226)
 window.refinementParts.find(p => p.name === 'alike').provide(window.refinementCore);
+window.refinementParts.find(p => p.name === 'proposals').provide(window.refinementCore);
+// The one register (main.js), stood in for: the proposals' two `keys` commands run when their keys are pressed.
+window.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' || !event.altKey) return;
+  const part = window.refinementParts.find(p => p.name === 'proposals');
+  const command = part.commands.find(c => c.key === (event.metaKey ? 'proposals-accept-all' : 'proposals-step'));
+  if (command && command.run(event) === true) { event.preventDefault(); event.stopImmediatePropagation(); }
+}, true);
 window.refinementParts.find(p => p.name === 'proposals').start();
-const { piecesFor, addHistory } = window.refinementShadowInner;
+const { piecesFor, addHistory } = window.refinementCore.provided.proposalsInner;
 
 // The pretend graph: tags Entity > Person > Doctor, Place > Hospital, Occurrence > Appointment > Consultation, Symptom log.
 const T = { entity: 1, person: 2, doctor: 3, place: 4, hospital: 5, occurrence: 6, appointment: 7, consultation: 8, log: 9, symptom: 10, treatment: 11, talk: 12 };
@@ -197,7 +205,7 @@ expect('page tagged in the words, doctor filled', piecesFor(bullet('x', [T.appoi
 expect('page tagged in the words, two for one doctor', piecesFor(bullet('x', [T.appointment, T.doctor], journal), 'Saw [[Ann New]]#Doctor and [[Bo New]]#Doctor', ctx), '(nothing)');
 expect('page tagged in the words, a longer word', piecesFor(bullet('x', [T.appointment], journal), 'Saw [[Dr. Test New]]#Doctor\'s nurse', ctx), '(nothing)');
 // Filling in takes the tag out of the words, whichever way Logseq saved it.
-const { withoutPageTag } = window.refinementShadowInner;
+const { withoutPageTag } = window.refinementCore.provided.proposalsInner;
 const drNew = { uuid: 'aaaa-1', title: 'Dr. Test New' };
 for (const [title, tag, want] of [['Call with [[aaaa-1]]#Doctor today', { lower: 'doctor' }, 'Call with [[aaaa-1]] today'],
   ['Call with [[Dr. Test New]]#[[bbbb-2]]', { lower: 'doctor' }, 'Call with [[Dr. Test New]]'],
@@ -208,7 +216,7 @@ for (const [title, tag, want] of [['Call with [[aaaa-1]]#Doctor today', { lower:
   if (got !== want) problem(`page tagged in the words, filling in: "${title}" became "${got}"; wanted "${want}"`);
 }
 cases++;
-const back = window.refinementShadowInner.withPageTag('Call with [[aaaa-1]] today, and more', drNew, '#Doctor');
+const back = window.refinementCore.provided.proposalsInner.withPageTag('Call with [[aaaa-1]] today, and more', drNew, '#Doctor');
 if (back !== 'Call with [[aaaa-1]]#Doctor today, and more') problem(`page tagged in the words, Undo after more was written: "${back}"`);
 
 const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
@@ -221,7 +229,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   //     empty in the app before).
   expect('new page tagged a moment ago, before', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', ctx), 'Date=Oct 20?');
   answer = query => /:block\/name/.test(query) && query.includes('"dr. space test"') ? [[{ 'db/id': 600, 'block/uuid': 'page-600', 'block/title': 'Dr. Space Test', 'block/tags': [{ 'db/id': 999, 'block/title': 'Page', 'db/ident': ':logseq.class/Page' }, { 'db/id': T.doctor, 'block/title': 'Doctor', 'db/ident': ':user.class/Doctor' }] }]] : [];
-  const freshCtx = await window.refinementShadowInner.withFreshLinks('Call with [[Dr. Space Test]] today', ctx);
+  const freshCtx = await window.refinementCore.provided.proposalsInner.withFreshLinks('Call with [[Dr. Space Test]] today', ctx);
   answer = () => [];
   expect('new page tagged a moment ago', piecesFor(bullet('x', [T.appointment], journal), 'Call with [[Dr. Space Test]] today', freshCtx), 'doctor=Dr. Space Test · Date=Oct 20?');
   cases++;
@@ -234,8 +242,8 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const box = doc.querySelector('textarea');
   box.focus();
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
-  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   // The guess is written where the value goes, and nothing else is drawn (the owner: no line of its own, no keys).
   cases++;
   const inPill = doc.querySelector('.bottom-property-pill .bottom-property-content .rfs-ghost.rfs-guess');
@@ -247,66 +255,67 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
     const press = type => { const e = new window.MouseEvent(type, { bubbles: true, cancelable: true }); el.dispatchEvent(e); return e; };
     if (press('pointerdown').defaultPrevented) problem('click on a value: the pointer press is held back, so no mouse press follows');
     if (!press('mousedown').defaultPrevented) problem('click on a value: the mouse press is not held back, so the bullet would leave edit');
-    if (window.refinementShadow.accepted.keys.size) problem('click on a value: a click took the guess; only Enter does');
+    if (window.refinementCore.provided.proposalsState.accepted.keys.size) problem('click on a value: a click took the guess; only Enter does');
   }
   // 13. Enter takes the guesses shown (0.4.202; again 0.4.219 after one version of Tab): Shift+Enter and Tab never do,
   //     and Tab stays Logseq's; an Enter that did not leave the bullet does not count for a later leaving.
   const keydown = (k, more = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...more }); box.dispatchEvent(e); return e; };
   cases++;
   keydown('Enter', { shiftKey: true });
-  if (window.refinementShadow.accepted.keys.size) problem('Shift+Enter (a line break) took the guesses');
+  if (window.refinementCore.provided.proposalsState.accepted.keys.size) problem('Shift+Enter (a line break) took the guesses');
   cases++;
-  if (keydown('Tab').defaultPrevented || window.refinementShadow.accepted.keys.size) problem('Tab was taken by the plugin (it would not indent)');
+  if (keydown('Tab').defaultPrevented || window.refinementCore.provided.proposalsState.accepted.keys.size) problem('Tab was taken by the plugin (it would not indent)');
   cases++;
   keydown('Enter');
-  if (!window.refinementShadow.accepted.keys.has(guessKeyOf(guess))) problem('Enter: the guess shown is not taken');
+  if (!window.refinementCore.provided.proposalsState.accepted.keys.has(guessKeyOf(guess))) problem('Enter: the guess shown is not taken');
   cases++;
-  const stale = window.refinementShadow.live;
-  window.refinementShadow.accepted.at = Date.now() - 5000;
+  const stale = window.refinementCore.provided.proposalsState.live;
+  window.refinementCore.provided.proposalsState.accepted.at = Date.now() - 5000;
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
   await new Promise(resolve => setTimeout(resolve, 200));
-  if (window.refinementShadow.left !== stale || stale.taken?.size) problem('an Enter long before leaving still fills in the guesses');
+  if (window.refinementCore.provided.proposalsState.left !== stale || stale.taken?.size) problem('an Enter long before leaving still fills in the guesses');
   // Back in the bullet for the next check.
-  window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-click', recordUuid: 'b-click', text: box.value, pieces: [guess] };
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   box.focus();
   keydown('Enter');
   // 14. Leaving with Enter puts the next bullet in edit, and its shadow can come before the wait is over: what Enter
   //     took in the bullet left must still be filled in (second reading).
-  const left = window.refinementShadow.live;
+  const left = window.refinementCore.provided.proposalsState.live;
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
-  window.refinementShadow.live = { uuid: 'b-next', recordUuid: 'b-next', text: '', pieces: [] };
-  window.refinementShadow.accepted = { uuid: 'b-next', keys: new Set() };
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-next', recordUuid: 'b-next', text: '', pieces: [] };
+  window.refinementCore.provided.proposalsState.accepted = { uuid: 'b-next', keys: new Set() };
   await new Promise(resolve => setTimeout(resolve, 200));
   cases++;
-  if (window.refinementShadow.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
-  window.refinementShadow.live = null;
-  window.refinementShadowInner.drawInPlace(doc);
+  if (window.refinementCore.provided.proposalsState.left !== left || !left.taken?.has(guessKeyOf(guess))) problem('leaving with Enter: the guess taken in the bullet left is not filled in');
+  window.refinementCore.provided.proposalsState.live = null;
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   cases++;
   if (doc.querySelector('.rfs-ghost, [data-refinement-proposal]')) problem('bullet left: the faint value stays in the property');
   // 14b. A page that would get a tag says so where it shows ("Hannah Reyes #Doctor", the owner's words).
   {
     const loose = onePlace.pieces[0];
-    window.refinementShadow.live = { uuid: 'b-click', recordUuid: 'b-click', text: '', pieces: [loose] };
-    window.refinementShadowInner.drawInPlace(doc);
+    window.refinementCore.provided.proposalsState.live = { uuid: 'b-click', recordUuid: 'b-click', text: '', pieces: [loose] };
+    window.refinementCore.provided.proposalsInner.drawInPlace(doc);
     cases++;
     const shownAs = doc.querySelector('.rfs-ghost')?.textContent;
-    if (shownAs !== 'Hannah Reyes #Tag 3') problem(`untagged page: shows "${shownAs}"; wanted "Hannah Reyes #Tag 3"`);
-    window.refinementShadow.live = null;
-    window.refinementShadowInner.drawInPlace(doc);
+    // The tag reads as a class, in mono with no # (0.4.315, the grammar).
+    if (shownAs !== 'Hannah Reyes Tag 3') problem(`untagged page: shows "${shownAs}"; wanted "Hannah Reyes Tag 3"`);
+    window.refinementCore.provided.proposalsState.live = null;
+    window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   }
   // 15. A record whose row is not on screen (a note zoomed into): nothing is drawn, so nothing may be taken (second reading).
   const unseen = { uuid: 'b-click', recordUuid: 'not-on-screen', text: box.value, pieces: [guess] };
-  window.refinementShadow.live = unseen;
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = unseen;
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   cases++;
   if (unseen.drawn?.size) problem('record not on screen: values counted as shown, so leaving would fill them unseen');
   // 16. A pill marked by a copy cut short, with nothing of ours in it, is given back to Logseq (second reading).
-  window.refinementShadow.live = null;
+  window.refinementCore.provided.proposalsState.live = null;
   doc.querySelector('.bottom-property-pill').setAttribute('data-refinement-proposal', '');
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   cases++;
   if (doc.querySelector('[data-refinement-proposal]')) problem('a marked pill with nothing of ours in it keeps hiding Logseq\'s empty value');
 
@@ -316,7 +325,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
 {
   // From here on the graph counts as one named in the setting (0.4.217: Option-Enter works only there), whatever the
   // checks the focus starts say: this pretend graph has no name.
-  Object.defineProperty(window.refinementShadow, 'allowedNow', { get: () => true, set() {}, configurable: true });
+  Object.defineProperty(window.refinementCore.provided.proposalsState, 'allowedNow', { get: () => true, set() {}, configurable: true });
   const doc = window.document, edited = [];
   window.logseq.Editor.editBlock = async (uuid, opts) => { edited.push([uuid, opts?.pos]); };
   const pill = (name, inner) => `<div class="bottom-property-pill"><span>${name}:</span><span class="bottom-property-content">${inner}</span></div>`;
@@ -331,8 +340,8 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const box = doc.querySelector('textarea');
   box.focus();
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
-  window.refinementShadow.live = { uuid: 'b-opt', recordUuid: 'b-opt', text: box.value, pieces: [guess] };
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-opt', recordUuid: 'b-opt', text: box.value, pieces: [guess] };
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   const pressed = [];
   for (const id of ['t-doctor', 't-with', 't-hospital', 't-date', 't-notes']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
@@ -394,12 +403,12 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   cases++;
   edited.length = 0;
   box.focus();
-  const before = window.refinementShadow.live;
+  const before = window.refinementCore.provided.proposalsState.live;
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 800));
-  if (window.refinementShadow.picking.uuid || before?.left || edited.length) problem('Option-Enter that opens nothing: it took the values, went somewhere, or stayed waiting');
-  window.refinementShadow.live = null;
-  window.refinementShadowInner.drawInPlace(doc);
+  if (window.refinementCore.provided.proposalsState.picking.uuid || before?.left || edited.length) problem('Option-Enter that opens nothing: it took the values, went somewhere, or stayed waiting');
+  window.refinementCore.provided.proposalsState.live = null;
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
 }
 // 19. Enter moves on (0.4.207): Enter in a text value keeps it and opens the next empty property; Enter past the last
 //     one goes to the next bullet (the owner: "enter should go to next bullet on last enter"); Option-Enter in the
@@ -415,7 +424,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const box = doc.querySelector('textarea'), pressed = [];
   for (const id of ['t-notes', 't-hosp']) doc.getElementById(id).addEventListener('pointerdown', () => pressed.push(id));
   box.focus();
-  window.refinementShadow.live = null;
+  window.refinementCore.provided.proposalsState.live = null;
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', altKey: true, bubbles: true, cancelable: true }));
   cases++;
   if (!doc.getElementById('t-notes').closest('[data-rfs-at]')) problem('Option-Enter: the property being filled in is not marked');
@@ -467,20 +476,20 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   await new Promise(resolve => setTimeout(resolve, 100)); // the pretend window works out nothing on focus: let it pass
   const guess = piecesFor(bullet('x', [T.appointment], journal), box.value, ctx).pieces.find(p => p.guess);
   const visit = { uuid: 'b-visit', recordUuid: 'b-visit', text: box.value, pieces: [guess] };
-  window.refinementShadow.live = visit;
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = visit;
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
   doc.getElementById('p-hosp').focus(); // Logseq's Down puts the focus on a capsule
   await new Promise(resolve => setTimeout(resolve, 400));
   cases++;
   if (visit.left || !doc.querySelector('.rfs-ghost')) problem('into the bullet\'s own properties: the proposals were taken or went');
   // Another bullet's proposals come up as the focus goes there: the visited bullet is still left, and filled.
-  window.refinementShadow.live = { uuid: 'b-other', recordUuid: 'b-other', text: '', pieces: [] };
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-other', recordUuid: 'b-other', text: '', pieces: [] };
   doc.getElementById('elsewhere').focus();
   await new Promise(resolve => setTimeout(resolve, 500));
   cases++;
   if (!visit.left) problem('out of the properties into another bullet with proposals: the visited bullet is not left');
-  window.refinementShadow.live = null;
-  window.refinementShadowInner.drawInPlace(doc);
+  window.refinementCore.provided.proposalsState.live = null;
+  window.refinementCore.provided.proposalsInner.drawInPlace(doc);
 }
 // 21. Tab and Shift-Tab through every property, filled or empty (0.4.270, at the owner's word): an empty one opens as
 //     before; on a filled one the ring rests, the keyboard on it and nothing pressed; Enter there opens it; Escape goes
@@ -500,7 +509,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const openList = () => { const list = doc.createElement('div'); list.className = 'cp__select'; list.innerHTML = '<input class="cp__select-input">'; doc.body.appendChild(list); const input = list.querySelector('input'); input.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') list.remove(); }); input.focus(); return input; };
   const key = (el, k, extra = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }); el.dispatchEvent(e); return e; };
   const ringOn = id => !!doc.getElementById(id).closest('.bottom-property-pill')?.hasAttribute('data-rfs-at');
-  window.refinementShadow.live = null;
+  window.refinementCore.provided.proposalsState.live = null;
   box.focus();
   key(box, 'Enter', { altKey: true });
   cases++;
@@ -514,7 +523,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   if (pressed.join() !== 't-hosp3' || !ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc')) problem(`Shift-Tab to a filled property: pressed ${pressed.join()}, ring ${ringOn('v-doc')}, keyboard on ${doc.activeElement?.id || doc.activeElement?.tagName}; wanted the ring and the keyboard on the doctor, nothing pressed`);
   await wait(700);
   cases++;
-  if (window.refinementShadow.picking.uuid !== U) problem('resting on a filled property: the stepping ended by itself');
+  if (window.refinementCore.provided.proposalsState.picking.uuid !== U) problem('resting on a filled property: the stepping ended by itself');
   // Tab: on to the empty hospital, which opens; Tab again: the filled date, which only gets the ring.
   key(doc.getElementById('p-v-doc'), 'Tab');
   await wait(50);
@@ -532,7 +541,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   key(doc.getElementById('p-v-date'), 'Escape');
   await wait(150);
   cases++;
-  if (window.refinementShadow.picking.uuid || !edited.includes(U)) problem(`Escape on a filled property: picking ${window.refinementShadow.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
+  if (window.refinementCore.provided.proposalsState.picking.uuid || !edited.includes(U)) problem(`Escape on a filled property: picking ${window.refinementCore.provided.proposalsState.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
   // Enter after a pick goes on to the next empty one, passing the filled date.
   pressed.length = 0;
   box.focus();
@@ -543,7 +552,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   await wait(300);
   cases++;
   if (pressed.join() !== 't-hosp3,t-notes3') problem(`Enter after a pick: opened ${pressed.join()}; wanted notes next, the filled date passed over`);
-  window.refinementProposals.endPicking(false);
+  window.refinementShared.feature('proposals').endPicking(false);
   for (const el of doc.querySelectorAll('.cp__select')) el.remove();
   // Tab from Logseq's own Down (the keyboard on a capsule, no stepping yet): the next property opens.
   await wait(200);
@@ -551,7 +560,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   doc.getElementById('p-v-doc').focus();
   const tab = key(doc.getElementById('p-v-doc'), 'Tab');
   cases++;
-  if (!tab.defaultPrevented || pressed.join() !== 't-hosp3' || window.refinementShadow.picking.uuid !== U) problem(`Tab after Logseq's Down: pressed ${pressed.join()}, stepping ${window.refinementShadow.picking.uuid}; wanted the hospital opened`);
+  if (!tab.defaultPrevented || pressed.join() !== 't-hosp3' || window.refinementCore.provided.proposalsState.picking.uuid !== U) problem(`Tab after Logseq's Down: pressed ${pressed.join()}, stepping ${window.refinementCore.provided.proposalsState.picking.uuid}; wanted the hospital opened`);
   input = openList();
   await wait(150); // the list seen open, as Logseq's stays open until a key
   key(input, 'Escape');
@@ -584,7 +593,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   key(doc.getElementById('p-v-doc'), 'ArrowLeft');
   await wait(150);
   cases++;
-  if (!ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc') || window.refinementShadow.picking.uuid !== U) problem('Left on the first property: the ring did not stay on it');
+  if (!ringOn('v-doc') || doc.activeElement !== doc.getElementById('p-v-doc') || window.refinementCore.provided.proposalsState.picking.uuid !== U) problem('Left on the first property: the ring did not stay on it');
   key(doc.getElementById('p-v-doc'), 'ArrowRight');
   await wait(50);
   cases++;
@@ -607,7 +616,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   await wait(300);
   // A slow list (0.4.273, seen in the app: Topic's box had the keyboard 1.7 s before its field did): Right from the
   // doctor opens the hospital; the stepping waits for the field, and Escape there goes back to the words.
-  window.refinementProposals.endPicking(false);
+  window.refinementShared.feature('proposals').endPicking(false);
   for (const el of doc.querySelectorAll('.cp__select')) el.remove();
   await wait(200);
   pressed.length = 0; edited.length = 0;
@@ -616,7 +625,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   const slow = doc.createElement('div'); slow.className = 'ui__popover-content'; slow.tabIndex = -1; doc.body.appendChild(slow); slow.focus();
   await wait(1500);
   cases++;
-  if (pressed.join() !== 't-hosp3' || window.refinementShadow.picking.uuid !== U) problem(`a slow list: pressed ${pressed.join() || 'nothing'}, stepping ${window.refinementShadow.picking.uuid || 'ended'}; wanted the hospital opened and the stepping still on`);
+  if (pressed.join() !== 't-hosp3' || window.refinementCore.provided.proposalsState.picking.uuid !== U) problem(`a slow list: pressed ${pressed.join() || 'nothing'}, stepping ${window.refinementCore.provided.proposalsState.picking.uuid || 'ended'}; wanted the hospital opened and the stepping still on`);
   const late = openList(); slow.appendChild(late.closest('.cp__select'));
   late.focus();
   await wait(150);
@@ -624,7 +633,7 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   slow.remove();
   await wait(300);
   cases++;
-  if (window.refinementShadow.picking.uuid || !edited.includes(U)) problem(`Escape in a slow list: stepping ${window.refinementShadow.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
+  if (window.refinementCore.provided.proposalsState.picking.uuid || !edited.includes(U)) problem(`Escape in a slow list: stepping ${window.refinementCore.provided.proposalsState.picking.uuid}, edited ${edited.join()}; wanted back to the words`);
 }
 // 18. Escape clears the proposals only until the bullet is next edited (0.4.204; it was for good).
 {
@@ -632,15 +641,15 @@ const guessKeyOf = piece => `${piece.ident} ${piece.ids.join(',')}`;
   doc.body.innerHTML = '<div class="ls-block" blockid="b-hush"><textarea>Wiped out all day.</textarea></div>';
   const box = doc.querySelector('textarea');
   box.focus();
-  window.refinementShadow.live = { uuid: 'b-hush', recordUuid: 'b-hush', text: box.value, pieces: [] };
+  window.refinementCore.provided.proposalsState.live = { uuid: 'b-hush', recordUuid: 'b-hush', text: box.value, pieces: [] };
   box.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   cases++;
-  if (window.refinementShadow.hushed.uuid !== 'b-hush') problem('Escape: the proposals are not cleared for the bullet');
+  if (window.refinementCore.provided.proposalsState.hushed.uuid !== 'b-hush') problem('Escape: the proposals are not cleared for the bullet');
   box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
   box.blur();
   await new Promise(resolve => setTimeout(resolve, 200));
   cases++;
-  if (window.refinementShadow.hushed.uuid) problem('Escape: the bullet stays cleared after it is left, so its proposals never come back');
+  if (window.refinementCore.provided.proposalsState.hushed.uuid) problem('Escape: the bullet stays cleared after it is left, so its proposals never come back');
 }
 if (problems.length) { console.log(`proposals rules: FAILED (${problems.length})`); process.exit(1); }
 console.log(`proposals rules: OK (${cases} cases on a pretend graph)`);

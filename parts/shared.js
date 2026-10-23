@@ -26,6 +26,9 @@
        listen(win, types, handler)     a capture-phase listener on Logseq's window, removed on unload.
    - take(core, names, warn)      the core's and the parts' things in one object, warning once (through the part's own
                                   warnOnce) for each name missing; every part's take() is this (0.4.294).
+   - feature(name)                the bag the pieces of one feature share (the proposals, the tag map), by name.
+   - screen                       THE screen door (core.screen): waitFor, press, typeInto, key, floating, item, sidebarItems,
+                                  popupOpen, escapeMenus: the one way to work Logseq's own boxes.
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
                                   the saved value is missing or of another type.
@@ -195,6 +198,10 @@ function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
   }
   return { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen };
 }
+/* The pieces of one feature share one bag (0.4.315): the proposals' four files, the tag map's three. Asked for by name,
+   made on the first ask, the same object for every piece; no name on the window. */
+const features = new Map();
+const feature = name => { if (!features.has(name)) features.set(name, {}); return features.get(name); };
 const take = (core, names, warn) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warn(`${name} is missing from the core`); return all; };
 
 // Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
@@ -245,6 +252,61 @@ function settingReader(schema) {
     return typeof value === typeof settingDefaults[key] ? value : settingDefaults[key];
   };
 }
+
+/* THE screen door (0.4.311, docs/LAYERS.md layer 1; here since 0.4.315, published by main.js as core.screen): the one way a part waits for Logseq to draw something, presses one
+   of its buttons, types into one of its fields, finds one of its floating items by its words, finds a page's item in the
+   right sidebar, asks whether one of its pop-ups is open, and closes what floats. Every part that has to work Logseq's
+   own boxes (the tag map's Add property and Add choice, the proposals' Option-Enter) goes through here; the three
+   copies of waitFor, the two of press and the three "is a pop-up open" that the parts carried are gone with it.
+   Checked with Logseq 2.0.2: its lists are .cp__select, its menus and pickers float in .ui__popover-content or a
+   [data-radix-popper-content-wrapper], its windows are .ui__modal. */
+const LOGSEQ_POPUPS = '.cp__select, .ui__popover-content, [data-radix-popper-content-wrapper], .ui__modal-panel, .ui__modal, [role="menu"], [role="dialog"], [role="listbox"]';
+const screen = {
+  // Polls find() every 50 ms until it returns something or ms pass; null then.
+  waitFor: (find, ms = 1500) => new Promise(resolve => {
+    const started = Date.now();
+    const tick = () => { let found = null; try { found = find(); } catch (error) { found = null; } if (found || Date.now() - started > ms) resolve(found || null); else setTimeout(tick, 50); };
+    tick();
+  }),
+  // Presses an element as the mouse does: Logseq opens its lists on the press, not on a click alone (found in the app).
+  press(el) {
+    const win = el.ownerDocument.defaultView;
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
+      el.dispatchEvent(new (type.startsWith('pointer') && win.PointerEvent ? win.PointerEvent : win.MouseEvent)(type, { bubbles: true, cancelable: true, view: win, button: 0, buttons: type.endsWith('down') ? 1 : 0, pointerType: 'mouse', isPrimary: true }));
+  },
+  // Types words into one of Logseq's boxes as typing would (its boxes listen for input); selects them when asked, so the
+  // next key typed replaces them.
+  typeInto(box, words, { select = false } = {}) {
+    const win = box.ownerDocument.defaultView, proto = box.matches('textarea') ? win.HTMLTextAreaElement.prototype : win.HTMLInputElement.prototype;
+    const set = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+    if (set) set.call(box, words); else box.value = words;
+    box.dispatchEvent(new win.Event('input', { bubbles: true }));
+    if (select) box.select?.();
+  },
+  // A key to an element (Escape to a menu, Enter to a row).
+  key: (el, name, init = {}) => !!el?.dispatchEvent(new el.ownerDocument.defaultView.KeyboardEvent('keydown', { key: name, code: name, bubbles: true, cancelable: true, ...init })),
+  // What floats over the page (Logseq's boxes and lists): not the sidebars, the main view, the header or the plugin's own.
+  floating: el => el.getClientRects().length > 0 && !el.closest('#right-sidebar, #main-content-container, #left-sidebar, .cp__header, .rf-pop, .refinement-tags'),
+  // A floating item (a menu row, an option, a button) whose words pass test(text); null when none.
+  item(test, doc = host()) {
+    return [...doc.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemcheckbox"], .menu-link, .cp__select-main .menu-link, button, li, a')].filter(screen.floating).find(el => test(el.textContent.trim())) || null;
+  },
+  // The items of the right sidebar whose header names a page (Logseq's .sidebar-item with its .sidebar-item-header).
+  sidebarItems(title, doc = host()) {
+    const named = text => text.replace(/^[#\s]+/, '').trim().toLowerCase();
+    return [...doc.querySelectorAll('#right-sidebar .sidebar-item')].filter(item => named(item.querySelector('.sidebar-item-header')?.textContent || '').startsWith(String(title).toLowerCase()));
+  },
+  // Is one of Logseq's own pop-ups open (a list, a menu, a picker, a window)? With an element: does it sit in one?
+  popupOpen(el, doc = host()) {
+    if (el) return !!el.closest?.(LOGSEQ_POPUPS);
+    return [...doc.querySelectorAll(LOGSEQ_POPUPS)].some(screen.floating);
+  },
+  // Closes what floats: Escape to each open menu and to whatever has the keyboard.
+  escapeMenus(doc = host()) {
+    for (const menu of [...doc.querySelectorAll('[role="menu"], [role="dialog"], .cp__select')].filter(screen.floating)) screen.key(menu, 'Escape');
+    screen.key(doc.activeElement, 'Escape');
+  },
+};
 
 // ===== Layer 2: the kit =====
 
@@ -811,7 +873,7 @@ function modalHint(doc, text) {
 leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock, .refinement-prompt-backdrop' });
 
 window.refinementShared = {
-  host, notify, lifecycle, sweepLeftovers, take, openEntity, settingReader, graphNamedIn, perf, warnings,
+  host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, settingReader, graphNamedIn, perf, warnings,
   kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, ask, dialog, bar, card, undo,
   modal, modalButtons, modalHint, placeBelow,
 };

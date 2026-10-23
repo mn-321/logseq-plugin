@@ -56,11 +56,13 @@
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (proposals): ', leaves: { elements: '.rfs-ghost, .rfs-made, .rfs-undo', attributes: ['data-refinement-proposal', 'data-rfs-at', 'data-rfs-keep-empty'] } });
-let model, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor;
-const P = window.refinementProposals ||= { links: [] };
+let model, UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor, onPageChange, onGraphChange, onDatabaseChange, onSettingsChange;
+const P = shared.feature('proposals');
+P.links ||= [];
 // What the other pieces of the proposals give (parts/shadow-rules.js, -steps.js, -page.js), taken when the proposals start.
-let contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage;
+let contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage;
 const take = (core, names) => shared.take(core, names, warnOnce);
+const { esc, tag: tagWord } = shared;
 
 const settingsSchema = [
   { key: 'shadowHeading', type: 'heading', group: 'writing', rank: 1, title: 'Proposals', default: null,
@@ -73,6 +75,10 @@ const settingsSchema = [
     description: 'Under a bullet and on a page, a property with no value is hidden until the plugin proposes something for it (a doctor linked in a consultation brings Provider up, with the doctor in grey). Option-Enter still steps through the hidden ones. Only in the graphs named below. Applies at once.' },
   { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
     description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
+  { key: 'shadowStepKeys', type: 'string', title: 'Keys for stepping through a bullet’s properties', default: 'alt+enter',
+    description: 'Option-Enter: in the words, opens the first property that is empty or holds a guess; in the properties, finishes the bullet. In Logseq’s spelling (mod is ⌘ on a Mac and Ctrl elsewhere). Empty binds none. Applies at once.' },
+  { key: 'shadowAcceptKeys', type: 'string', title: 'Keys for accepting everything shown without a new bullet', default: 'mod+alt+enter',
+    description: 'Cmd-Option-Enter: everything shown is accepted, as with Enter, and the bullet is left with no new bullet made. In Logseq’s spelling. Empty binds none. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -83,7 +89,7 @@ const setting = shared.settingReader(settingsSchema);
 // is left right after (0.4.219, as from 0.4.202; for 0.4.218 alone it was Tab, at the owner's word reversed).
 const ENTER_LEAVES = 500;
 // undos: what each fill can take back, by the record it was written on (0.4.218: a faded icon on its line).
-const state = window.refinementShadow = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, filling: new Map(), get undos() { return ownUndos; } };
+const state = { live: null, times: [], accepted: { uuid: '', keys: new Set() }, filling: new Map(), get undos() { return ownUndos; } };
 /* Being filled in (0.4.283): the values a left bullet is getting, kept on screen, solid, until Logseq's own value
    shows in the same spot. Before, every grey value went the moment the bullet was left and Logseq's values came one
    by one a moment later, so the row emptied and filled again (the owner: "things flash"). Keyed by the record's
@@ -268,15 +274,6 @@ function onKey(event) {
   if (!box || uuidOf(box) !== state.live.uuid) return;
   if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
   if (event.key === 'Enter') {
-    // Cmd-Option-Enter (0.4.259, the owner: "instead of ctrl enter … make it cmd-opt-enter"; Ctrl-Enter from 0.4.242,
-    // "accepting … with enter and modifier that doesn't create new bullet"): everything shown is accepted, as with
-    // Enter, and the bullet is simply left, with no new bullet made.
-    if (event.metaKey && event.altKey && !event.shiftKey && !event.ctrlKey) {
-      event.preventDefault(); event.stopImmediatePropagation();
-      state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
-      Promise.resolve(logseq.Editor.exitEditingMode()).catch(error => warnOnce('the bullet could not be left', error));
-      return;
-    }
     if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
     state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
     return;
@@ -286,6 +283,19 @@ function onKey(event) {
   state.live = null;
   noneAccepted();
   hide();
+}
+// Cmd-Option-Enter (0.4.259, the owner: "instead of ctrl enter … make it cmd-opt-enter"; Ctrl-Enter from 0.4.242,
+// "accepting … with enter and modifier that doesn't create new bullet"; a command in the one register since 0.4.315,
+// its keys in the setting shadowAcceptKeys): everything shown is accepted, as with Enter, and the bullet is simply
+// left, with no new bullet made. True when taken.
+function acceptAllKey(event) {
+  if (event.isComposing || !state.live) return false;
+  const box = editingBox(event.target);
+  if (!box || uuidOf(box) !== state.live.uuid) return false;
+  if (box.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return false;
+  state.accepted = { uuid: state.live.uuid, at: Date.now(), keys: shownGuesses(state.live) };
+  Promise.resolve(model.exitEditing()).catch(error => warnOnce('the bullet could not be left', error));
+  return true;
 }
 // A press on a proposed value does nothing (0.4.202: no click to confirm; Enter does): Logseq never hears of it, so
 // its value editor does not open under the value, and the mouse press is held back so the bullet stays in edit. The
@@ -343,18 +353,18 @@ async function writePieces(recordUuid, pieces, bulletUuid) {
     // A value that rests on a proposed tag (stage D) is written only once the bullet has the tag.
     if (piece.needsTag && !written.some(w => w.kind === 'tag')) continue;
     try {
-      if (piece.kind === 'tag') { await logseq.Editor.addBlockTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
+      if (piece.kind === 'tag') { await model.addTag(recordUuid, piece.tag.uuid); written.push(piece); continue; }
       if (piece.asPage) { if (await takeAsPage(piece, bulletUuid, recordUuid)) written.push(piece); continue; }
-      if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await logseq.Editor.addBlockTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
-      if (piece.kind === 'day') { piece.wrote = [piece.journalId ?? await journalPageFor(piece.day)]; await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.wrote[0]); }
-      else if (piece.kind === 'number') await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0]);
-      else if (piece.prop.many) await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids, { entityId: true, reset: true });
-      else await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, piece.ids[0], { entityId: true });
+      if (piece.tagPage) for (const uuid of piece.tagPage.uuids) { await model.addTag(uuid, piece.tagPage.tag.uuid); tagged.push(uuid); }
+      if (piece.kind === 'day') { piece.wrote = [piece.journalId ?? await journalPageFor(piece.day)]; await model.setValue(recordUuid, piece.ident, piece.wrote[0]); }
+      else if (piece.kind === 'number') await model.setValue(recordUuid, piece.ident, piece.ids[0]);
+      else if (piece.prop.many) await model.setValue(recordUuid, piece.ident, piece.ids, { entityId: true, reset: true });
+      else await model.setValue(recordUuid, piece.ident, piece.ids[0], { entityId: true });
       piece.wrote ||= piece.ids;
       written.push(piece);
     } catch (error) {
       // The tag a page was given for this fill goes again when the fill fails.
-      for (const uuid of tagged) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid).catch(() => {});
+      for (const uuid of tagged) await model.removeTag(uuid, piece.tagPage.tag.uuid).catch(() => {});
       warnOnce(`${piece.prop.title} could not be filled in`, error); notify(`${piece.prop.title} could not be filled in`, 'warning');
     }
   }
@@ -365,9 +375,9 @@ async function writePieces(recordUuid, pieces, bulletUuid) {
     for (const piece of [...written].reverse()) {
       try {
         if (piece.undo) { await piece.undo(); continue; }
-        if (piece.kind === 'tag') { await logseq.Editor.removeBlockTag(recordUuid, piece.tag.uuid); continue; }
-        if (await stillAsFilled(recordUuid, piece)) await logseq.Editor.removeBlockProperty(recordUuid, piece.ident);
-        if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await logseq.Editor.removeBlockTag(uuid, piece.tagPage.tag.uuid);
+        if (piece.kind === 'tag') { await model.removeTag(recordUuid, piece.tag.uuid); continue; }
+        if (await stillAsFilled(recordUuid, piece)) await model.unsetValue(recordUuid, piece.ident);
+        if (piece.tagPage) for (const uuid of piece.tagPage.uuids) await model.removeTag(uuid, piece.tagPage.tag.uuid);
       } catch (error) { failed.push(error); }
     }
     if (failed.length) throw failed[0];
@@ -409,29 +419,29 @@ async function takeAsPage(piece, bulletUuid, recordUuid) {
   try {
     for (const { x, page } of pairs) {
       if (await model.hasTag(page.uuid, x.tag.uuid)) continue;
-      await logseq.Editor.addBlockTag(page.uuid, x.tag.uuid);
-      done.push(() => logseq.Editor.removeBlockTag(page.uuid, x.tag.uuid));
+      await model.addTag(page.uuid, x.tag.uuid);
+      done.push(() => model.removeTag(page.uuid, x.tag.uuid));
     }
     const ids = pairs.map(pair => pair.page.id);
-    if (piece.prop.many) await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, ids, { entityId: true, reset: true });
-    else await logseq.Editor.upsertBlockProperty(recordUuid, piece.ident, ids[0], { entityId: true });
-    done.push(() => logseq.Editor.removeBlockProperty(recordUuid, piece.ident));
+    if (piece.prop.many) await model.setValue(recordUuid, piece.ident, ids, { entityId: true, reset: true });
+    else await model.setValue(recordUuid, piece.ident, ids[0], { entityId: true });
+    done.push(() => model.unsetValue(recordUuid, piece.ident));
     const removed = pairs.map(({ x, page }) => ({ page, text: pageTagIn(before, page, x.tag).text }));
     const after = pairs.reduce((title, { x, page }) => withoutPageTag(title, page, x.tag), before);
     // The words read again just before they are changed: words written meanwhile are never lost (the code review,
     // 2026-10-21); then the fill is put back and nothing is taken.
     if (await titleNow() !== before) { await undo(); return false; }
-    await logseq.Editor.updateBlock(bulletUuid, after);
+    await model.setWords(bulletUuid, after);
     // Undo puts the words back as they were, or, when they were written on meanwhile, only the tags after their pages
     // (second reading: the whole old words would have lost what was written since).
     done.push(async () => {
       const now = await titleNow();
       if (now == null) return;
-      await logseq.Editor.updateBlock(bulletUuid, now === after ? before : removed.reduce((title, r) => withPageTag(title, r.page, r.text), now));
+      await model.setWords(bulletUuid, now === after ? before : removed.reduce((title, r) => withPageTag(title, r.page, r.text), now));
     });
     for (const tag of new Set(pairs.map(pair => pair.x.tag))) {
-      await logseq.Editor.removeBlockTag(bulletUuid, tag.uuid);
-      done.push(() => logseq.Editor.addBlockTag(bulletUuid, tag.uuid));
+      await model.removeTag(bulletUuid, tag.uuid);
+      done.push(() => model.addTag(bulletUuid, tag.uuid));
     }
     piece.undo = undo;
     return true;
@@ -504,7 +514,18 @@ function ghostLook(piece) {
   const what = piece.kind === 'tag' ? 'A guess: Enter gives the bullet this tag and fills in the rest'
     : piece.guess ? 'A guess: Enter fills it in with the rest; Option-Enter stops on it to check' : 'Filled in when you leave the bullet';
   const why = reasonOf(piece);
+  // Sure or guessed, one look (0.4.315, the owner: "they are essentially the same thing"); rfs-guess still says which for the keys.
   return { cls: `rfs-ghost${piece.guess ? ' rfs-guess' : ''}`, title: why ? `${why}.\n${what}` : what };
+}
+// What a proposed value shows: its words; a tag as a class, its name in mono with no # (the grammar, docs/LAYERS.md);
+// a page that would get a tag says so after its name ("Hannah Reyes Doctor", the tag in mono).
+function fillGhost(g, piece) {
+  const doc = g.ownerDocument;
+  const words = piece.kind === 'tag' ? '' : piece.shown, tagTitle = piece.kind === 'tag' ? piece.tag?.title || String(piece.shown).replace(/^#/, '') : piece.tagPage?.tag.title || '';
+  const same = g.dataset.rfsWords === words && g.dataset.rfsTag === tagTitle;
+  if (same) return;
+  g.dataset.rfsWords = words; g.dataset.rfsTag = tagTitle;
+  g.replaceChildren(...[words ? doc.createTextNode(words) : null, words && tagTitle ? doc.createTextNode(' ') : null, tagTitle ? tagWord(doc, tagTitle, { class: 'rf-tag rfs-ghost-tag' }) : null].filter(Boolean));
 }
 // The names of the properties Logseq itself shows filled on a row: a proposal for one of them is over.
 const filledNames = row => new Set(pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !(p.querySelector('.bottom-property-content') || p).querySelector('.empty-value')).map(pillName));
@@ -552,9 +573,8 @@ function drawInPlace(doc = host()) {
         if (piece.guess) g.dataset.guess = guessKey(piece);
         target.appendChild(g);
       }
-      // A page that would get a tag says so where it shows ("Hannah Reyes #Doctor"; the owner, 0.4.202–0.4.203).
-      const words = piece.tagPage ? `${piece.shown} #${piece.tagPage.tag.title}` : piece.shown;
-      if (g.textContent !== words) g.textContent = words;
+      // A page that would get a tag says so where it shows ("Hannah Reyes Doctor", the tag in mono; the owner, 0.4.202–0.4.203).
+      fillGhost(g, piece);
       // Taken (clicked, or the bullet left and this value on its way): solid, as it will be.
       const taken = job.live ? job.live.clicked?.has(guessKey(piece)) : true;
       const cls = look.cls + (taken ? ' rfs-taken' : '');
@@ -573,8 +593,9 @@ function hide() { drawInPlace(); }
 const drawEarly = (doc, records) => { pageEarly(doc); if (!state.live && !state.filling.size && !state.undos.size && !doc.querySelector('.rfs-ghost, .rfs-made, .rfs-undo, [data-refinement-proposal]')) return; if (records.some(r => r.type === 'childList' && ![...r.addedNodes, ...r.removedNodes].every(n => n.nodeType === 1 && n.matches?.('.rfs-ghost, .rfs-made, .rfs-undo')))) drawInPlace(doc); };
 
 const css = `
-/* A proposed value (0.4.202): italic grey, in the record's own property where the value goes; a guess has a dotted
-   line under it as well. Greys mixed from the text colour (dark mode). */
+/* A proposed value (0.4.202): italic grey with a dotted line under it, in the record's own property where the value
+   goes, sure or guessed alike (0.4.315, the owner: "underline them both with a dotted line, they are essentially the
+   same thing, keep them both italic"). The kit's greys (parts/shared.js). A proposed tag reads in mono with no #. */
 .ls-block .positioned-properties.block-below .bottom-property-pill[data-refinement-proposal] { display: flex !important; opacity: 1 !important; }
 .bottom-property-pill[data-refinement-proposal] .empty-value { display: none !important; }
 /* A guessed property Option-Enter has opened (0.4.219): Logseq's own empty value is back, for its list to sit under,
@@ -582,11 +603,11 @@ const css = `
 .bottom-property-pill[data-refinement-proposal][data-rfs-at] .empty-value { display: revert !important; }
 .bottom-property-pill[data-rfs-at] .rfs-ghost { display: none; }
 /* A proposal comes in with a short fade, not a pop (0.4.283; @starting-style, Chromium 117+, Logseq 2.0.2 runs on 148). */
-.rfs-ghost { color: color-mix(in srgb, currentColor 50%, transparent); font-style: italic; white-space: nowrap; opacity: 1; transition: opacity .15s ease, color .15s ease; }
+.rfs-ghost { color: var(--rf-faint); font-style: italic; white-space: nowrap; opacity: 1; transition: opacity .15s ease, color .15s ease; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 @starting-style { .rfs-ghost { opacity: 0; } }
-.rfs-ghost.rfs-guess { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.rfs-ghost .rfs-ghost-tag { opacity: 1; border-bottom: 0; color: inherit; }
 /* The property Option-Enter is on (0.4.207): a ring in the text colour, as Logseq marks a focused value. */
-[data-rfs-at] { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; border-radius: 4px; }
+[data-rfs-at] { outline: 1.5px solid var(--rf-line); outline-offset: 2px; border-radius: 4px; }
 /* No ring on a property shown as a row of its own (0.4.291, the owner's picture: a box round "Therapy regimen" inside
    Logseq's own grey highlight of the row, with the caret already in its value): Logseq marks the row itself when the
    keyboard is on it, so the ring said the same thing twice. Nor while a capsule's own text box has the keyboard: the
@@ -597,12 +618,12 @@ const css = `
    the ring's top and bottom cut). The capsule keeps its own round ends. Logseq's own Down, Left and Right put the
    keyboard on a capsule and show nothing; the same ring shows where it is. Logseq takes the outline off a capsule that
    has the keyboard (seen in the app: the ring went as soon as Logseq's window was in front), hence !important. */
-.bottom-property-pill[data-rfs-at], .ls-block .bottom-property-pill-focusable:focus-visible { outline: 1.5px solid color-mix(in srgb, currentColor 45%, transparent) !important; outline-offset: -1.5px !important; border-radius: 9999px; }
+.bottom-property-pill[data-rfs-at], .ls-block .bottom-property-pill-focusable:focus-visible { outline: 1.5px solid var(--rf-line) !important; outline-offset: -1.5px !important; border-radius: 9999px; }
 /* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */
 .positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
 /* The undo arrow (0.4.218): faded, at the end of the bullet's line, a little clearer under the pointer. */
-.rfs-made-name { color: color-mix(in srgb, currentColor 60%, transparent); }
+.rfs-made-name { color: var(--rf-faint); }
 /* A proposal clicked (0.4.242): solid, not grey, filled in when the bullet is left. */
 .rfs-ghost.rfs-taken { color: inherit; font-style: normal; text-decoration: none; }
 /* Empty properties hidden until something is proposed (0.4.242), only in the graphs the proposals write in: the class
@@ -614,7 +635,7 @@ html.rfs-hide-empty :is(.ls-block-properties, .ls-page-properties) .property-pai
    but still opens Logseq's list beside it. */
 .ls-page-properties .property-pair[data-refinement-proposal] .empty-value .ui__icon { visibility: hidden; }
 .rfs-page-ghost { cursor: pointer; align-self: center; margin-left: 3px; margin-right: .5em; }
-.rfs-page-ghost:hover { color: color-mix(in srgb, currentColor 75%, transparent); }
+.rfs-page-ghost:hover { color: var(--rf-quiet); }
 `;
 
 function applyStyles() { sendStyle('refinement-shadow', setting('shadowProposals') ? css : ''); applyHide(); }
@@ -633,8 +654,8 @@ function start() {
   if (!P.piecesFor) { warnOnce('the rules, parts/shadow-rules.js, are not loaded, so the proposals are off'); return; }
   // The pieces of the proposals (0.4.268): each takes what it uses, then this one takes theirs.
   for (const link of P.links) link(window.refinementCore);
-  ({ contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage } = { ...SPARE, ...P });
-  ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag', 'pageLines']));
+  ({ contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned, picking, endPicking, onPickKey, fillPage, pageEarly, pageLive, schedulePage, setPage } = { ...SPARE, ...P });
+  ({ UUID, propSchema, propPages, bare, pick, idOf, sendStyle, titleOf, watchDomEarly, alike, parseDay, dayAfter, dayNumber, journalIdFor, journalTitleFor, onPageChange, onGraphChange, onDatabaseChange, onSettingsChange } = take(window.refinementCore, ['UUID', 'propSchema', 'propPages', 'bare', 'pick', 'idOf', 'sendStyle', 'titleOf', 'watchDomEarly', 'alike', 'parseDay', 'dayAfter', 'dayNumber', 'journalIdFor', 'journalTitleFor', 'onPageChange', 'onGraphChange', 'onDatabaseChange', 'onSettingsChange', 'setValue', 'unsetValue', 'addTag', 'removeTag', 'setWords', 'exitEditing', 'blockInEdit', 'pagesNamed', 'userTagIds', 'taggedNodes', 'aliasPairs', 'plainLines', 'journalDays', 'datedByTag', 'valueTitle', 'numberValues', 'valuesOf', 'titleNow', 'linkedPages', 'hasTag', 'pageLines']));
   model = window.refinementCore.provided; // the graph is read through the model (0.4.226)
   void titleOf;
   applyStyles();
@@ -646,16 +667,15 @@ function start() {
   listen(win, ['keydown'], onPickKey);
   listen(win, ['keydown'], onKey);
   listen(win, ['pointerdown', 'mousedown', 'mouseup', 'click'], onGuessPress);
-  // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written.
-  const offRoute = logseq.App.onRouteChanged?.(() => { state.undos.clear(); schedulePage(); });
-  if (typeof offRoute === 'function') onUnload(offRoute);
+  // Leaving the page ends every undo (0.4.218): the arrows belong to what was just written. The page, graph, database
+  // and settings changes come from the core (0.4.315), which listens to Logseq once.
+  onPageChange(() => { if (stopped) return; state.undos.clear(); schedulePage(); });
   // Another graph: the answer to "may this graph be written in" is not known yet (the audit, 0.4.276: Option-Enter
   // or Down right after a switch started stepping on the old answer), and nothing shown belongs to the new one.
-  const offGraph = logseq.App.onCurrentGraphChanged?.(() => { state.allowedNow = false; clearLive(); applyHide(); });
-  if (typeof offGraph === 'function') onUnload(offGraph);
+  onGraphChange(() => { if (stopped) return; state.allowedNow = false; clearLive(); applyHide(); });
   watchDomEarly(drawEarly);
-  onUnload(logseq.DB.onChanged(({ blocks } = {}) => { learnSoon(blocks); const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); }));
-  onUnload(logseq.onSettingsChanged((now, before) => { if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } }));
+  onDatabaseChange(blocks => { if (stopped) return; learnSoon(blocks); const box = editingBox(host().activeElement); if (box) { clearTimeout(liveTimer); liveTimer = setTimeout(() => compute(box), 150); } if (pageLive.asked) schedulePage(600); });
+  onSettingsChange((now, before) => { if (stopped) return; if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); clearLive(); schedulePage(); } });
   stopped = false;
   onUnload(() => { stopped = true; liveVersion++; clearTimeout(liveTimer); for (const t of pending) clearTimeout(t); pending.clear(); endPicking(false); stopVisiting(); clearLive(); state.filling.clear(); state.undos.clear(); setPage('', [], null); hideVersion++; host().documentElement.classList.remove('rfs-hide-empty'); });
   schedulePage(300);
@@ -663,11 +683,18 @@ function start() {
 }
 Object.assign(P, { later, pending, allowed, editingBox, hushed, leave, shownGuesses, state, uuidOf, ownRow, pillName, pillsOf, ghostLook, guessKey, rememberUndo, undoText, writePieces, setting });
 Object.defineProperty(P, 'stopped', { get: () => stopped, configurable: true });
-// For tools/shadow-check.js and tools/pictures.js (read-only): the rules and what the shadow draws. The rules live in
+// For tools/shadow-check.js, the tests and tools/pictures.js (read-only): the rules and what the shadow draws, through
+// the core (proposalsInner, proposalsState; names on the window before 0.4.315). The rules live in
 // parts/shadow-rules.js since 0.4.268, so they are looked up there when used.
 const fromRules = name => (...args) => P[name](...args);
-window.refinementShadowInner = { reasonOf, drawInPlace, css, guessData: () => P.guessCache?.data, get BLOCK_PULL() { return model.BLOCK_PULL; },
+const inner = { reasonOf, drawInPlace, css, guessData: () => P.guessCache?.data, get BLOCK_PULL() { return model.BLOCK_PULL; },
   ...Object.fromEntries(['piecesFor', 'namedIn', 'namesFor', 'freeWords', 'wordsEarned', 'withFreshLinks', 'withoutPageTag', 'withPageTag', 'contextFor', 'daysFor', 'guessDataFor', 'addHistory'].map(name => [name, fromRules(name)])) };
-(window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, start, stop: runUnloadTasks });
+const provide = core => core.provide({ proposalsInner: inner, proposalsState: state });
+// The keys in the one register (0.4.315): the engine listens for them and reads their setting at each key.
+const commands = [
+  { key: 'proposals-step', label: 'Proposals: step through the bullet’s properties (Option-Enter)', icon: 'proposals', shortcut: 'shadowStepKeys', places: ['keys'], run: event => !!P.stepKey?.(event) },
+  { key: 'proposals-accept-all', label: 'Proposals: accept everything shown, no new bullet', icon: 'proposals', shortcut: 'shadowAcceptKeys', places: ['keys'], run: acceptAllKey },
+];
+(window.refinementParts ||= []).push({ name: 'proposals', schema: settingsSchema, provide, start, stop: runUnloadTasks, commands });
 
 })();

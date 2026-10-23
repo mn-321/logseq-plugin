@@ -2,12 +2,14 @@
 (() => {
 /* The proposals' rules: what the graph holds, what is sure, the guesses, the looks-like learning, the reasons (split out of parts/shadow.js at 0.4.268, layer 2 item 10, so that each piece of the proposals can be read
    and changed on its own). It draws nothing and writes nothing.
-   The pieces share one object, window.refinementProposals (P): each puts there what the others use, and takes what
-   it uses from there when the proposals start (P.links), or at once when the piece that has it is loaded before. */
+   The pieces share one bag, shared.feature('proposals') (P; a name on the window before 0.4.315): each puts there what
+   the others use, and takes what it uses from there when the proposals start (P.links), or at once when the piece
+   that has it is loaded before. */
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (proposals): ' });
-const P = window.refinementProposals ||= { links: [] };
+const P = shared.feature('proposals');
+P.links ||= [];
 const take = (core, names) => shared.take(core, names, warnOnce);
 let later, pending;
 let model, UUID, propSchema, propPages, bare, pick, idOf, titleOf, alike, parseDay, dayAfter, dayNumber;
@@ -19,7 +21,6 @@ const ownLink = core => {
 };
 P.links.push(ownLink);
 
-const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayText = day => day ? `${MONTHS[Math.floor(day / 100) % 100 - 1]} ${day % 100}` : '';
 // A pulled map's values under a property, by its ident, whatever the key's spelling; [] when the property is empty.
@@ -555,7 +556,7 @@ const GUESS_DATA_EVERY = 300000;
 const guessCache = { graph: null, at: 0, data: null, loading: null };
 async function guessDataFor(ctx, { wait = true } = {}) {
   if (ctx.history) return ctx;
-  const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
+  const graph = (await model.currentGraph())?.name || '';
   let data = guessCache.graph === graph ? guessCache.data : null;
   if (!data || Date.now() - guessCache.at > GUESS_DATA_EVERY) {
     // A failed reading is reported once and tried again next time; never left as an error nobody handles.
@@ -633,7 +634,7 @@ async function loadGuessData(ctx) {
 const daysCache = { graph: null, at: 0, data: null, loading: null };
 async function daysFor(ctx, { wait = true } = {}) {
   if (ctx.days) return ctx;
-  const graph = (await Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null))?.name || '';
+  const graph = (await model.currentGraph())?.name || '';
   let data = daysCache.graph === graph ? daysCache.data : null;
   if (!data || Date.now() - daysCache.at > GUESS_DATA_EVERY) {
     daysCache.loading ||= loadDays(ctx.schema).then(fresh => Object.assign(daysCache, { graph, at: Date.now(), data: fresh }).data)
@@ -684,7 +685,7 @@ function datedAhead(tagIds, ctx) {
 }
 
 
-Object.assign(P, { contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, esc, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned });
+Object.assign(P, { contextFor, daysFor, guessDataFor, ownTagsAtStart, piecesFor, pullBlock, withFreshLinks, LINK, TAG, inWords, pageTagIn, plainWords, sameIds, untagged, withPageTag, withoutPageTag, addHistory, freeWords, guessCache, learnSoon, namedIn, namesFor, pickerOrder, wordsEarned });
 // The rules take what they use at their own start too, so the pickers' order (pickerOrder) works without the
 // proposals while writing (0.4.269); parts/shadow.js runs every piece's link again when it starts.
 (window.refinementParts ||= []).push({ name: 'proposals rules', schema: [], provide: core => core.provide({ pickerOrder }), start() { ownLink(window.refinementCore); }, stop: runUnloadTasks });

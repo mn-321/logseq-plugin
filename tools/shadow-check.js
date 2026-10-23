@@ -85,7 +85,7 @@ async function plugin() {
   window.eval(read('parts/alike.js'));
   for (const file of ['parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(read(file));
   const cache = new Map();
-  const core = { host: () => window.document, watchDomEarly() {}, dsQuery: ask, graphWide: (name, load) => { if (!cache.has(name)) cache.set(name, load()); return cache.get(name); },
+  const core = { onPageChange() {}, onGraphChange(fn) { window.graphChanged = fn; }, onDatabaseChange() {}, onSettingsChange() {}, screen: window.refinementShared.screen, host: () => window.document, watchDomEarly() {}, dsQuery: ask, graphWide: (name, load) => { if (!cache.has(name)) cache.set(name, load()); return cache.get(name); },
     UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, sendStyle() {}, provided: {}, provide: things => Object.assign(core.provided, things) };
   window.refinementCore = core;
   const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));
@@ -101,8 +101,9 @@ async function plugin() {
   if (env.ALIKE_TAG_LEAST) limits.tagLeast = Number(env.ALIKE_TAG_LEAST);
   if (env.ALIKE_TAG_LINKS) limits.tagLinks = env.ALIKE_TAG_LINKS !== '0';
   console.log(`looks-like limits: k ${limits.k}, nearest at least ${limits.nearLeast}, lead ${limits.lead}, stem ${limits.stem}; tag: nearest at least ${limits.tagNearLeast}, lead ${limits.tagLead}, agreeing at least ${limits.tagLeast}`);
+  parts.proposals.provide(core);
   parts.proposals.start();
-  return window.refinementShadowInner;
+  return window.refinementCore.provided.proposalsInner;
 }
 
 (async () => {

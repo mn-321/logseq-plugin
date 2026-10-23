@@ -2,20 +2,22 @@
 (() => {
 /* Option-Enter: stepping through a bullet's own properties (split out of parts/shadow.js at 0.4.268, layer 2 item 10, so that each piece of the proposals can be read
    and changed on its own). It moves Logseq's own lists and writes through them.
-   The pieces share one object, window.refinementProposals (P): each puts there what the others use, and takes what
-   it uses from there when the proposals start (P.links), or at once when the piece that has it is loaded before. */
+   The pieces share one bag, shared.feature('proposals') (P; a name on the window before 0.4.315): each puts there what
+   the others use, and takes what it uses from there when the proposals start (P.links), or at once when the piece
+   that has it is loaded before. */
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (proposals): ' });
-const P = window.refinementProposals ||= { links: [] };
+const P = shared.feature('proposals');
+P.links ||= [];
 // This piece works inside the proposals while writing (parts/shadow.js); without them it stays out (0.4.269).
 if (!P.state) { warnOnce('parts/shadow.js is not loaded, so Option-Enter is off'); return; }
 const take = (core, names) => shared.take(core, names, warnOnce);
-let model, UUID, propSchema;
+let model, UUID, propSchema, screen;
 const { allowed, editingBox, hushed, later, leave, shownGuesses, state, uuidOf, ownRow, pillName, pillsOf, setting } = P;
 P.links.push(core => {
-  ({ model, UUID, propSchema } = take(core, ['UUID', 'propSchema']));
-  model = core.provided; // the graph is read through the model (0.4.226)
+  ({ model, UUID, propSchema, screen } = take(core, ['UUID', 'propSchema', 'screen']));
+  model = core.provided; // the graph is read through the model (0.4.226), written through its doors (0.4.315)
 });
 
 /* Option-Enter (0.4.204, at the owner's word: "option enter just goes to the empty property that didn't have anything
@@ -97,14 +99,9 @@ function guessesAt(rowUuid) {
   const live = state.live?.recordUuid === rowUuid ? state.live : null;
   return new Map((live?.pieces || []).filter(piece => piece.guess && piece.kind !== 'tag' && piece.ids.length === 1 && !piece.asPage && !piece.tagPage).map(piece => [piece.prop.lower, piece.shown]));
 }
-// Types words into the box Logseq opened, as typing would (its boxes listen for input), and selects them, so the
-// next key typed replaces them.
-function typeInto(box, words) {
-  const win = box.ownerDocument.defaultView, proto = box.matches('textarea') ? win.HTMLTextAreaElement.prototype : win.HTMLInputElement.prototype;
-  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(box, words);
-  box.dispatchEvent(new win.Event('input', { bubbles: true }));
-  box.select?.();
-}
+// Typing into the box Logseq opened and pressing a trigger go through the screen door (core.screen, 0.4.315).
+const typeInto = (box, words) => screen.typeInto(box, words, { select: true });
+const press = el => screen.press(el);
 // The i-th of the bullet's properties, or the next one going by step: with Tab (any) every property, with its trigger
 // when it is empty; with Enter only the empty ones Option-Enter stops at (one filled meanwhile is passed over).
 function placeAt(doc, i, step, any) {
@@ -116,12 +113,6 @@ function placeAt(doc, i, step, any) {
     if (any || (trigger && picking.stops.has(name))) return { i, place, trigger };
   }
   return null;
-}
-// Presses a trigger as the mouse does: Logseq opens its list on the press, not on a click alone (found in the app).
-function press(el) {
-  const win = el.ownerDocument.defaultView;
-  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
-    el.dispatchEvent(new (type.startsWith('pointer') && win.PointerEvent ? win.PointerEvent : win.MouseEvent)(type, { bubbles: true, cancelable: true, button: 0, buttons: type.endsWith('down') ? 1 : 0, pointerType: 'mouse', isPrimary: true }));
 }
 // In what a property's value opened: Logseq's list ("Set Topic"), or the box of a text or number value, which Logseq
 // opens inside the record's own properties. Nothing else counts (second reading: any input counted before, so the
@@ -152,7 +143,7 @@ function leaveBlank(rowUuid, name) {
       const schema = await propSchema();
       const prop = schema?.props.find(p => p.lower === name && (p.type === 'default' || p.type === 'url'));
       if (!prop || !UUID.test(rowUuid)) return;
-      if (await model.valueTitle(rowUuid, prop.ident) === '') await logseq.Editor.removeBlockProperty(rowUuid, prop.ident);
+      if (await model.valueTitle(rowUuid, prop.ident) === '') await model.unsetValue(rowUuid, prop.ident);
     } catch (error) { warnOnce('an empty value could not be taken off again', error); }
   }, 300);
 }
@@ -244,7 +235,7 @@ async function backToWords() {
   picking.returning = uuid;
   const box = editingBox(host().activeElement);
   try {
-    if (!(box && uuidOf(box) === uuid)) await logseq.Editor.editBlock(uuid, text ? { pos: text.length } : undefined);
+    if (!(box && uuidOf(box) === uuid)) await model.editBlock(uuid, text ? { pos: text.length } : undefined);
   } catch (error) { warnOnce('could not go back to the words', error); }
   setTimeout(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
@@ -264,8 +255,8 @@ async function finishBullet() {
     // Where Logseq's own Enter puts it: the first child of a bullet whose children show, else the next sibling.
     const row = recordRow(host(), uuid);
     const kids = row && [...row.querySelectorAll('.block-children-container .ls-block[blockid]')].some(el => el.parentElement?.closest('.ls-block[blockid]') === row);
-    const next = kids ? await logseq.Editor.insertBlock(uuid, '', { sibling: false, before: true }) : await logseq.Editor.insertBlock(uuid, '', { sibling: true });
-    if (next?.uuid) await logseq.Editor.editBlock(next.uuid);
+    const next = kids ? await model.insertBlock(uuid, '', { sibling: false, before: true }) : await model.insertBlock(uuid, '', { sibling: true });
+    if (next?.uuid) await model.editBlock(next.uuid);
   } catch (error) { warnOnce('could not go on to the next bullet', error); }
   later(() => { if (picking.returning === uuid) picking.returning = ''; }, 400);
 }
@@ -290,23 +281,32 @@ function closeThen(target, next) {
 }
 // The date picker's box is not one: Enter there is Logseq's, which sets the day and closes the picker (stage F).
 const isTextBox = el => !!el?.matches?.('input, textarea, [contenteditable="true"]') && !el.closest('.cp__select') && !picking.pickerRoot?.contains(el);
-function onPickKey(event) {
-  if (event.isComposing) return;
-  const plainEnter = event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey;
-  // Option-Enter in the words (only while the proposals are on).
-  if (plainEnter && event.altKey && !picking.uuid) {
+/* Option-Enter (0.4.315: a command in the one register, its keys in the setting shadowStepKeys; the engine listens):
+   in the words, step through the bullet's properties; in the properties, done with the bullet. True when taken. */
+function stepKey(event) {
+  if (event.isComposing) return false;
+  if (!picking.uuid) {
     const box = editingBox(event.target);
-    if (!box || !setting('shadowProposals') || !state.allowedNow) return;
+    if (!box || !setting('shadowProposals') || !state.allowedNow) return false;
     const uuid = uuidOf(box), doc = box.ownerDocument;
     const rowUuid = state.live?.uuid === uuid ? state.live.recordUuid : uuid;
     const stops = new Set(emptyNames(doc, rowUuid));
-    if (!stops.size) return; // nothing to go to: the key is Logseq's
-    event.preventDefault(); event.stopImmediatePropagation();
+    if (!stops.size) return false; // nothing to go to: the key is Logseq's
     endPicking(false);
     Object.assign(picking, { uuid, text: box.value, live: state.live?.uuid === uuid ? state.live : null, rowUuid, names: propertyPlaces(recordRow(doc, rowUuid)).map(p => p.name), stops, guesses: guessesAt(rowUuid) });
     openAt(doc, 0);
-    return;
+    return true;
   }
+  // On a filled property the ring rests on, or in a value's list or box: done with the bullet, from anywhere.
+  if (picking.restEl?.contains(event.target)) { finishBullet(); return true; }
+  if (!inPicker(event.target)) return false;
+  if (isTextBox(event.target) && event.target.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return false;
+  if (!picking.tab) closeThen(event.target, () => finishBullet());
+  return true;
+}
+function onPickKey(event) {
+  if (event.isComposing) return;
+  const plainEnter = event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
   // Down at the very end of the words: into the bullet's first property, filled or empty (0.4.271).
   if (event.key === 'ArrowDown' && !picking.uuid && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && downIntoProperties(event)) return;
   // Tab in the bullet's properties reached with Logseq's own Down (0.4.208): the same stepping from there (0.4.270);
@@ -321,7 +321,6 @@ function onPickKey(event) {
     const doc = event.target.ownerDocument;
     if (event.key === 'Tab') { event.preventDefault(); event.stopImmediatePropagation(); const step = event.shiftKey ? -1 : 1; openAt(doc, picking.at + step, step, backToWords, true); }
     else if (side) { event.preventDefault(); event.stopImmediatePropagation(); openAt(doc, picking.at + side, side, () => {}, true); } // at an end: it stays
-    else if (plainEnter && event.altKey) { event.preventDefault(); event.stopImmediatePropagation(); finishBullet(); }
     else if (plainEnter) { event.preventDefault(); event.stopImmediatePropagation(); openRested(doc); }
     else if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); backToWords(); }
     return;
@@ -330,12 +329,6 @@ function onPickKey(event) {
   // A list or menu of Logseq's open inside a value's box ("[[" pages, "/" commands) keeps its keys (second reading:
   // Enter there would have saved a half-typed link).
   if (isTextBox(event.target) && event.target.ownerDocument.querySelector('#ui__ac, .absolute-modal, [data-editor-popup-ref]')) return;
-  // Option-Enter in the properties: done with the bullet, from anywhere (a list that holds several included).
-  if (plainEnter && event.altKey) {
-    event.preventDefault(); event.stopImmediatePropagation();
-    if (!picking.tab) closeThen(event.target, () => finishBullet());
-    return;
-  }
   if (event.key === 'Tab') {
     event.preventDefault(); event.stopImmediatePropagation();
     if (picking.tab) return; // one move at a time
@@ -396,6 +389,6 @@ function downIntoProperties(event) {
   return true;
 }
 
-Object.assign(P, { picking, endPicking, onPickKey });
+Object.assign(P, { picking, endPicking, onPickKey, stepKey });
 (window.refinementParts ||= []).push({ name: 'proposals steps', schema: [], start() {}, stop: runUnloadTasks });
 })();

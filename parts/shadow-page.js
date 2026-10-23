@@ -2,12 +2,14 @@
 (() => {
 /* Proposals on a page's own properties (split out of parts/shadow.js at 0.4.268, layer 2 item 10, so that each piece of the proposals can be read
    and changed on its own). It draws in the page's own property rows.
-   The pieces share one object, window.refinementProposals (P): each puts there what the others use, and takes what
-   it uses from there when the proposals start (P.links), or at once when the piece that has it is loaded before. */
+   The pieces share one bag, shared.feature('proposals') (P; a name on the window before 0.4.315): each puts there what
+   the others use, and takes what it uses from there when the proposals start (P.links), or at once when the piece
+   that has it is loaded before. */
 const shared = window.refinementShared;
 const { host, notify, graphNamedIn } = shared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (proposals): ' });
-const P = window.refinementProposals ||= { links: [] };
+const P = shared.feature('proposals');
+P.links ||= [];
 // This piece works inside the proposals while writing (parts/shadow.js); without them it stays out (0.4.269).
 if (!P.state) { warnOnce('parts/shadow.js is not loaded, so proposals on a page’s own properties is off'); return; }
 const take = (core, names) => shared.take(core, names, warnOnce);
@@ -35,7 +37,7 @@ async function computePage() {
   pageLive.asked = box;
   if (!box) return setPage('', [], null);
   try {
-    const uuid = String((await logseq.Editor.getCurrentPage())?.uuid || '');
+    const uuid = String((await model.currentPage())?.uuid || '');
     if (version !== pageLive.version || P.stopped) return;
     if (!UUID.test(uuid) || !await allowed()) return setPage(uuid, [], box);
     const page = await pullBlock(uuid);

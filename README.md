@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.314.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.315.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -104,6 +104,8 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Proposals while you write | `shadowProposals` | on | Proposals |
 | Hide empty properties until something is proposed | `shadowHideEmpty` | on | Proposals |
 | Only in these graphs | `shadowGraphs` | empty | Proposals |
+| Keys for stepping through a bullet’s properties | `shadowStepKeys` | `alt+enter` | Proposals |
+| Keys for accepting everything shown without a new bullet | `shadowAcceptKeys` | `mod+alt+enter` | Proposals |
 | What fits this bullet first | `pickerFitsFirst` | on | Pickers |
 | Use the tag tree | `tagTreeEnabled` | on | Tag tree |
 | Order of the tags | `tagTreeRoots` | empty | Tag tree |

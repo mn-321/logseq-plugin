@@ -28,7 +28,10 @@
      pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines
    - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag,
      valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written
-   - propTextValues, propNamed                                     turning a property into links (0.4.241) */
+   - propTextValues, propNamed                                     turning a property into links (0.4.241)
+   - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph
+                                                                    THE writes (0.4.315, docs/LAYERS.md layer 1): the one door a
+                                                                    part writes the graph through; Logseq's own calls live here only */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (model): ' });
 // From the core, taken when the part starts.
@@ -594,8 +597,24 @@ async function kindOfPage(pageId) {
   };
 }
 
+/* THE writes (0.4.315): every write a part makes to the graph goes through here, so Logseq's own calls live in one
+   place. A property's value (an entity id with { entityId: true }, several with { reset: true }), a value taken off,
+   a tag given or taken from a node, a block's words, a block put in edit or left, a block made after or inside
+   another, the page and the graph open now. */
+const setValue = (uuid, ident, value, opts) => logseq.Editor.upsertBlockProperty(uuid, ident, value, opts);
+const unsetValue = (uuid, ident) => logseq.Editor.removeBlockProperty(uuid, ident);
+const addTag = (uuid, tagUuid) => logseq.Editor.addBlockTag(uuid, tagUuid);
+const removeTag = (uuid, tagUuid) => logseq.Editor.removeBlockTag(uuid, tagUuid);
+const setWords = (uuid, text) => logseq.Editor.updateBlock(uuid, text);
+const editBlock = (uuid, opts) => logseq.Editor.editBlock(uuid, opts);
+const exitEditing = () => logseq.Editor.exitEditingMode();
+const insertBlock = (uuid, text, opts) => logseq.Editor.insertBlock(uuid, text, opts);
+const currentPage = () => logseq.Editor.getCurrentPage();
+const currentGraph = () => Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null);
+
 function provide(core) {
-  core.provide({ titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
+  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph,
+    titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,

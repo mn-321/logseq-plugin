@@ -21,13 +21,14 @@ const { window } = dom;
 window.parent = window;
 window.logseq = { settings: {}, updateSettings() {}, onSettingsChanged: () => () => {}, App: {}, UI: {}, Editor: {}, DB: { onChanged: () => () => {} } };
 for (const file of ['parts/shared.js', 'parts/model.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
-const core = window.refinementCore = { watchDomEarly() {}, dsQuery: async () => [], graphWide: (n, load) => load(), UUID: /^[0-9a-f-]{36}$/i, sendStyle() {}, provided: {},
+const core = window.refinementCore = { onPageChange() {}, onGraphChange(fn) { window.graphChanged = fn; }, onDatabaseChange() {}, onSettingsChange() {}, screen: window.refinementShared.screen, watchDomEarly() {}, dsQuery: async () => [], graphWide: (n, load) => load(), UUID: /^[0-9a-f-]{36}$/i, sendStyle() {}, provided: {},
   provide: things => Object.assign(core.provided, things) };
 const parts = Object.fromEntries(window.refinementParts.map(p => [p.name, p]));
 parts.model.provide(core); parts.model.start(); parts.alike.provide(core);
 Object.assign(core, { propSchema: async () => null, propPages: async () => [] });
+parts.proposals.provide(core);
 parts.proposals.start();
-const { piecesFor, addHistory } = window.refinementShadowInner;
+const { piecesFor, addHistory } = window.refinementCore.provided.proposalsInner;
 const ms = t => Number(process.hrtime.bigint() - t) / 1e6;
 const spread = list => { const a = [...list].sort((x, y) => x - y), at = q => a[Math.min(a.length - 1, Math.floor(q * a.length))]; return `median ${at(.5).toFixed(2)} ms, 95th ${at(.95).toFixed(2)} ms, slowest ${a[a.length - 1].toFixed(2)} ms`; };
 
