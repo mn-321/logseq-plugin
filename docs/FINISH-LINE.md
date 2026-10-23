@@ -34,7 +34,8 @@ at which it became true and one line of proof. Updated with every commit that mo
 - [x] "Reload plugin" with Foundation only on works five times of five, or the cause is found and written down.
       *(0.4.351: on and off five times through Logseq's own reload, 10 of 10 took effect, the two-way rows gone and back
       each time; the earlier failures were with the Plugins panel's button by hand, not reproduced)*
-- [ ] A long property name cut short by Logseq's narrow column ("Therapy regimen") handled, moving nothing.
+- [x] A long property name cut short by Logseq's narrow column ("Therapy regimen") handled, moving nothing. *(0.4.353: the
+      whole name as a tooltip on hover; seen in the app on a name lengthened on screen)*
 - [x] The ring: the plugin draws no ring of its own anywhere; Logseq's stays. *(0.4.352: the proposals' three rules taken
       out; seen in the app, Option-Enter and Tab showing Logseq's own list and calendar; the kit keeps a keyboard-focus
       outline on the plugin's own buttons, which is no ring on Logseq's)*

@@ -5,10 +5,15 @@
    a grey dot there (or its point icon); it gives way to the same icon as in the tag map: an arrow for a link to a node
    (one or several), a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. Only the dot
    goes: an icon you gave a property yourself stays, and a property the plugin does not know (Alias) keeps Logseq's. The
-   icon takes the dot's place in Logseq's own button, so nothing moves and a click on it does what Logseq's does. */
+   icon takes the dot's place in Logseq's own button, so nothing moves and a click on it does what Logseq's does.
+   A property's whole name, too (2026-10-23, the loose end of CLAUDE.md section 7: Logseq's narrow name column cuts a long
+   name short on a row of its own, "Therapy regimen" just fitting): when the pointer rests on a name Logseq has cut, it
+   gets a tooltip with the whole name. Nothing is drawn and nothing is measured until the pointer is there; a wider
+   column was not taken, since it would move every row. */
 const shared = window.refinementShared;
 const { host, kindIcon } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (property kinds): ', leaves: { elements: '.property-m > .rf-kind', attributes: ['data-rf-kind'] } });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (property kinds): ', leaves: { elements: '.property-m > .rf-kind', attributes: ['data-rf-kind'],
+  reset: doc => { for (const el of doc.querySelectorAll('[data-rf-fullname]')) { el.removeAttribute('title'); el.removeAttribute('data-rf-fullname'); } } } });
 let model, sendStyle, watchDom, watchDomEarly, addsElements, onDatabaseChange, onSettingsChange;
 const take = (core, names) => shared.take(core, names, warnOnce);
 
@@ -19,6 +24,8 @@ const settingsSchema = [
     description: 'Changes here apply right away.' },
   { key: 'propertyKindIcons', type: 'boolean', title: 'Each property’s kind as an icon before its name', default: true,
     description: 'In the list of properties under a page’s title, and in a bullet’s list of properties, the grey dot before a property’s name becomes the icon of its kind, as in the tag map: an arrow for a link to a node (one or several), a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. An icon you gave a property yourself stays. Applies at once.' },
+  { key: 'propertyNameTips', type: 'boolean', title: 'A cut property name whole on hover', default: true,
+    description: 'Logseq gives a property’s name a narrow column and cuts a long one short with “…”. With the pointer on such a name, its whole name shows as a tooltip. Nothing moves and nothing is added to the page. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -60,9 +67,21 @@ function draw(doc) {
     button.setAttribute('data-rf-kind', '');
   }
 }
+// The pointer on a property's name: if Logseq has cut it, the whole name as the tooltip (only names it cut; one it no
+// longer cuts loses the tooltip again).
+const NAMES = '.property-key-inner';
+function onOver(event) {
+  if (!setting('propertyNameTips')) return;
+  const name = event.target?.closest?.(NAMES);
+  if (!name) return;
+  const cut = [name, ...name.querySelectorAll('*')].some(el => el.scrollWidth > el.clientWidth + 1);
+  if (cut && !name.hasAttribute('title')) { name.setAttribute('title', name.textContent.trim()); name.setAttribute('data-rf-fullname', ''); }
+  else if (!cut && name.hasAttribute('data-rf-fullname')) { name.removeAttribute('title'); name.removeAttribute('data-rf-fullname'); }
+}
 // Before the screen is drawn, whenever rows came (a page opening, a property added); the frame pass catches the rest.
 const drawEarly = (doc, records) => { if (addsElements(records)) draw(doc); };
 function clear() {
+  for (const el of host().querySelectorAll('[data-rf-fullname]')) { el.removeAttribute('title'); el.removeAttribute('data-rf-fullname'); }
   for (const el of host().querySelectorAll('.property-m > .rf-kind')) el.remove();
   for (const el of host().querySelectorAll('.property-m[data-rf-kind]')) el.removeAttribute('data-rf-kind');
 }
@@ -77,6 +96,7 @@ function start() {
   // A property made, renamed or turned into another kind shows soon after (the model reads its schema again).
   onDatabaseChange(() => { if (stopped) return; clearTimeout(timer); timer = setTimeout(load, 900); });
   onSettingsChange((now, before) => { if (!stopped && now?.propertyKindIcons !== before?.propertyKindIcons) draw(host()); });
+  listen(host().defaultView, ['mouseover'], onOver);
   onUnload(() => { stopped = true; clearTimeout(timer); loading = null; clear(); });
   load();
 }

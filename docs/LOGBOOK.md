@@ -2,6 +2,21 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · A cut property name whole on hover (0.4.353)
+
+**Asked:** the loose end of `CLAUDE.md` section 7 (Logseq's narrow name column cuts a long property name short on a row
+of its own, "Therapy regimen"), by the prompt's rule: the quietest fix that moves nothing, a tooltip with the whole
+name. **Found first:** in a page's own list Logseq lets a name take its room (Colon cancer: nothing cut); under a bullet,
+a property on a row of its own has a narrow column, "Therapy regimen" just fitting on the Oct 16th bullet "Long lunch
+…". **Done looks like:** a property whose name Logseq cuts with "…" shows its whole name as a tooltip with the pointer
+on it; nothing moves, nothing is added. **Built:** `parts/property-kinds.js`: on the pointer coming over a property's
+name, if Logseq cut it, its `title` is the whole name (marked `data-rf-fullname`, taken off on unload or when no longer
+cut); the setting `propertyNameTips` (on). `tools/odd-text-test.js`: a 500-letter name in a 150 px column gets the
+tooltip, "Notes" does not, unload takes it away. README. **Checks:** odd-text-test, boot, leaning, then `sh tools/check.sh`
+in full. **Seen in the app:** no name in the test graph is long enough to be cut, so one name's words were lengthened
+on screen only (Logseq's drawn page, no data): Logseq cut it to "Therapy regimen and the dos…" and, with the pointer
+on it, the whole name became its tooltip; leaving the page let Logseq draw it as it is.
+
 ## 2026-10-23 · No ring of the plugin's own (0.4.352)
 
 **Asked:** `docs/FINISHING-PROMPT.md` section 1C, the ring question of `CLAUDE.md` section 7: "the plugin draws no ring of
