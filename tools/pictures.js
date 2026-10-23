@@ -17,6 +17,7 @@ if (!chromium) { console.log('pictures skipped (needs Playwright and Chromium)')
 if (process.platform !== 'darwin') { console.log('pictures skipped (approved on the Mac; fonts differ elsewhere)'); process.exit(0); }
 
 const root = path.resolve(__dirname, '..');
+const tablerCss = require('./logseq-bundle').tablerStyle();
 const approvedDir = path.join(root, 'test/pictures');
 const newDir = path.join(root, 'check.log/pictures');
 const approve = process.argv.includes('--approve');
@@ -151,7 +152,7 @@ async function scenes(page) {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js')],
       draw: async () => {
         const shared = window.refinementShared;
-        const style = document.createElement('style'); style.textContent = shared.dialogCss; document.head.append(style);
+        const style = document.createElement('style'); style.textContent = shared.kitCss; document.head.append(style);
         const stage = document.getElementById('stage');
         stage.style.height = '560px';
         stage.textContent = 'Linked references, Chemo cycle 7, Date: Dec 2nd, 2026, drugs: Oxaliplatin, Leucovorin. '.repeat(40);
@@ -185,7 +186,8 @@ async function scenes(page) {
     await page.clock.setFixedTime(new Date('2026-10-19T10:00:00'));
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.setContent(`<!doctype html><html${look.attrs}><head><style>${look.css} body { margin: 0; font: 16px -apple-system, system-ui, sans-serif; } #stage { padding: 16px 24px; width: 712px; }</style></head><body><div id="stage"></div></body></html>`);
+    // Logseq's own icon font, from the app's bundle (the kit draws every icon with it, 0.4.311); without the app, the pictures have no icons.
+    await page.setContent(`<!doctype html><html${look.attrs}><head><style>${look.css} body { margin: 0; font: 16px -apple-system, system-ui, sans-serif; } #stage { padding: 16px 24px; width: 712px; }</style><style>${tablerCss}</style></head><body><div id="stage"></div></body></html>`);
     for (const content of scene.scripts) await page.addScriptTag({ content });
     await page.evaluate(scene.draw, scene.arg);
     await page.evaluate(() => document.fonts.ready);

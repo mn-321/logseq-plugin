@@ -2,6 +2,33 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The kit built, nothing moved onto it yet (0.4.311)
+
+**Asked:** the owner: "Build the kit and move each feature onto it, in the order of LAYERS.md section 4: one change
+per commit … each change reloaded and looked at in Logseq … where LAYERS.md and the pages differ, the pages win."
+This is step 1 of section 4. **Done looks like:** nothing on screen changes but the Undo arrow's glyph; the boot test
+and the parts-apart test pass; every piece of section 3 exists under its name. **Built:** `parts/shared.js` rewritten
+around the kit: `kitCss` (one stylesheet: the four greys mixed from the text colour, Logseq's pop-up colours, no
+colour of the plugin's own), `el`, `esc`, `ICONS`/`icon`/`iconHtml` (Logseq's Tabler font, `<i class="ti ti-…">`),
+`KINDS`/`kindIcon`, `tag`, `quiet`/`go` (and pressed by aria-pressed), `field`, `tick`, `chip`, `note`, `guide`,
+`choices`, `popup` (a browser popover: `popover="auto"`, anchored with CSS anchor positioning and
+`position-try-fallbacks` to flip, a 0×0 anchor made for a rect; `manual` for the link box, `hint` for the card; Up,
+Down, Enter, Escape handled once; focus given back on close), `ask`, `dialog` (the browser's `<dialog>`, shown
+modal), `bar`, `card`, and the Undo as before with the font's arrow. The old `modal`, `modalButtons`, `modalHint`,
+`placeBelow` and the old `.rf-pop-row`/`.rf-dialog`/`.rf-btn` rules stay in a marked block until their last user is
+moved; `showUndoBar`, the `.refinement-undo-bar` rule, `waitFor` and `dialogCss` are gone. `main.js`: `core.screen`
+(waitFor, press, typeInto, key, floating, item, sidebarItems, popupOpen, escapeMenus; the proposals' press and typeInto
+and the tag map's boxHands are its sources) and the register (`commands` declared with places palette, toolbar, menu,
+keys; `keys` commands are listened for by the engine on Logseq's window and read their binding from a setting at
+each key, so they can be changed in the settings window; `core.commands()` lists them). `parts/two-way.js`: its one
+`shared.waitFor` goes through the door. `tools/logseq-bundle.js` reads Logseq's icon font out of the app's bundle (from
+`tools/pages/prepare.js`), and `tools/pictures.js` puts it in the pretend page, so pictures show icons as Logseq does.
+**Checks:** syntax, boot test, undo test, parts-apart (17 ways), pictures (the dialog pictures re-approved after
+looking: only the Undo arrows' glyph changed), then `sh tools/check.sh` in full. **Seen:** in Logseq after a reload,
+on the Illness Test Graph: the page as before, the tag map's menus and the two-way rows' boxes as before, the Undo
+arrow's new glyph; the browser's popover, anchor positioning and dialog present in Logseq's Chrome (checked in the
+console). **Not done:** no part draws through the new pieces yet; that is steps 2 onward, one feature per commit.
+
 ## 2026-10-22 · The layers renumbered and the kit settled, from two pages the owner commented on (0.4.310, documents only)
 
 **Asked:** the owner: "there is no cohesive use of layers"; then "define the consistent shared parts", relying on

@@ -1,11 +1,14 @@
 /* Loaded by main.js first, before the other parts. Kept in its own scope. */
 (() => {
-/* Shared plumbing of DB Refinements: the small helpers every part used to carry a copy of, written
-   once. This header is the contract between the files.
+/* The plumbing of layer 1 that lives in the plugin's frame, and THE KIT (layer 2, docs/LAYERS.md section 3): the
+   pieces every part draws with, each drawn once, with one stylesheet. This header is the contract between the files.
 
    WHAT THIS FILE PROVIDES, on window.refinementShared (and nothing else):
+
+   Layer 1, talking to Logseq from the frame (the engine itself, the watcher, the database round, the command register
+   and the screen door are in main.js; the graph in parts/model.js):
    - host()                      the Logseq document (the plugin runs in a frame inside Logseq's window).
-   - notify(message, level)      an in-app message through logseq.UI.showMsg.
+   - notify(message, level)      THE notice: an in-app message at the top, through Logseq's own.
    - lifecycle({ prefix, stopKey, before, sweep, leaves })   one per part; returns
        warnOnce(message, ...details)   a console warning written once per session per message, with the
                                        part's prefix ('Refinements: ', 'Refinements (search): ', …);
@@ -21,25 +24,9 @@
    - sweepLeftovers(doc)          removes what every part declared in its leaves, part by part.
        updaterFailed(fn, error, list)  retires a screen updater that threw five times;
        listen(win, types, handler)     a capture-phase listener on Logseq's window, removed on unload.
-   - modal(cancelValue, build, width, classes, anchor)   THE dialog box of the plugin, in Logseq's window (.rf-dialog); build(box,
-                                       finish, doc) fills it, the promise resolves with what finish() is given, Escape
-                                       or a click outside resolves with cancelValue; classes adds a part's own
-                                       backdrop and box classes (refinement-prompt-* unless given); with an anchor (0.4.285)
-                                       the box sits under that element, no backdrop, and a click elsewhere cancels.
-   - placeBelow(box, anchor)      puts a fixed box under an element (above it when the room below is short), in the window.
    - take(core, names, warn)      the core's and the parts' things in one object, warning once (through the part's own
-                                  warnOnce) for each name missing; every part's take() is this (0.4.294; a copy in each part before).
-   - dialogCss                    THE look of every pop-up (.rf-pop: .rf-pop-head, .rf-pop-field, .rf-pop-row with
-                                  .rf-on, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list) and dialog (.rf-dialog,
-                                  .rf-btns, .rf-btn, .rf-go): Logseq's pop-up colours, one size, corner and shadow.
-   - modalButtons(doc, [[text, onClick, 'go'?], …]) and modalHint(doc, text)   rows for a modal; 'go' fills the one that does it.
-   - undo                         THE Undo (0.4.258): undo.offer({ key, at, text, run, onFail, cls, data }) puts a faded
-                                  arrow at the end of at()'s element(s), or at the bottom right when there is none;
-                                  forget, clear, draw, size, has, stop. Every part offers its Undo through it.
-   - showUndoBar(text, undo, onFail)   the old dark bar at the bottom with Undo for seven seconds: kept for the resting
-                                  parts only; a rebuilt part uses undo.offer.
+                                  warnOnce) for each name missing; every part's take() is this (0.4.294).
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
-   - waitFor(find, ms)            polls find() every 50 ms until it returns something or ms pass.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
                                   the saved value is missing or of another type.
    - graphNamedIn(list)           true when the open graph is named in the comma-separated list (an "Only in
@@ -47,6 +34,48 @@
    - perf                         measuring hooks (add, time, seen, style, frameState, pass, passDone,
                                   ownSettingsOnly): no-ops until the diagnostics part measures.
    - warnings                     every distinct warnOnce message of this session (message, first time, count).
+
+   Layer 2, the kit (0.4.311; the picture is docs/ELEMENTS.html and docs/VIEWS.html, the words docs/LAYERS.md). A part
+   draws nothing of its own: it uses these and adds only its own layout. A new kind of thing goes in here first.
+   - kitCss                       THE stylesheet: the greys, the pop-up, the dialog, the three buttons, the field,
+                                  the tick box, the words for chips, the tag, the kind icons, the picking bar, the
+                                  hover card, the Undo arrow, the quiet line and the help paragraph. Sent by main.js
+                                  before any part. Colours: Logseq's --popover pair and the text colour; the four
+                                  greys mixed from currentColor (quiet .7, faint .5, hairline 12%, line 26%, wash 7%).
+   - el(doc, tag, props, ...children)   THE element builder: class, html (parsed), a function is a listener, true
+                                  is an empty attribute, null and false are skipped.
+   - esc(text)                    THE text escaper for innerHTML.
+   - ICONS, icon(doc, name), iconHtml(name)   THE icon list: a meaning ('undo', 'sidebar', 'tag'…) or a Tabler name,
+                                  drawn from Logseq's own icon font (<i class="ti ti-…">), never by the plugin.
+   - KINDS, kindIcon(doc, kind, { several })   a value's kind as an icon: an arrow for a link to a node, the arrow
+                                  twice for several, a calendar, Aa, 123, a box with a chevron for a choice.
+   - tag(doc, title, props)       a tag as a class: its name alone, no #, mono, the tag grey, a link's faint underline.
+   - quiet(doc, { icon, label, title, faint, pressed, run })   the quiet button; go(doc, { label, run }) the one that
+                                  does what was asked; pressed is a quiet button with aria-pressed="true".
+   - field(doc, { placeholder, value, icon, kbd, inline, keys, input })   THE field: a real text box drawn as a
+                                  hairline underneath; keys typed in it never reach Logseq; .input is the box.
+   - tick(doc, { checked, label, title, change })   the browser's tick box as a small rounded square.
+   - chip(doc, { label, pressed, run, remove })     a filter (greyed, the one in force in the text colour) or a
+                                  removable item (a word with a × on hover); never a pill.
+   - note(doc, text), guide(doc, paragraphs)        the quiet line; the help paragraph with a hairline down its left.
+   - choices(doc, { items, picked, pick })          quiet words to pick one of, on a line, with their icons.
+   - popup({ at, kind, head, items, field, rows, manual, hint, cls, width, onClose })   THE pop-up: the browser's
+                                  popover, placed under its anchor (an element or a rect) by CSS anchor positioning
+                                  and flipped when there is no room, dismissed by the browser on Escape or a click
+                                  outside; a menu filling (items: icon, label, kbd, on, run) or a list filling (the
+                                  field, then rows(query)); Up, Down and Enter handled here. Returns { el, close,
+                                  items, lit, field, query, closed }.
+   - ask({ at, question, note, go, cancel, field })   a question beside what it is about: Cancel and the one that
+                                  does it as words; resolves true/false, or the field's text / null.
+   - dialog({ build, cls, width })   THE window: the browser's <dialog>, shown modal, dressed; for settings only.
+   - bar(doc, { count, total, actions, clear, all })   the picking bar: the count with its tick box, the actions as
+                                  quiet words with icons, a hairline under it; .update({ count, total }).
+   - card({ at, title, tag, day, fields, lines, open })   the hover card: a node's preview, every piece clickable.
+   - undo                         THE Undo (0.4.258): undo.offer({ key, at, text, run, onFail, cls, data }) puts a
+                                  faded arrow at the end of at()'s element(s), or at the bottom right when there is
+                                  none; forget, clear, draw, size, has, stop.
+   Old pieces, kept only until the last part drawing with them is moved onto the kit (deleted then): modal,
+   modalButtons, modalHint, placeBelow and the .rf-pop-row, .rf-pop-field, .rf-dialog (old look), .rf-btn rules.
 
    WHAT EVERY OTHER PART MUST DO:
    - wrap itself in its own scope, `(() => { … })();`
@@ -58,9 +87,11 @@
      tools and the settings window);
      main.js joins the schemas, in the order of PART_FILES, after its own, and from main() calls every
      part's provide(core), then every start(), then every ready() (what draws on screen, once every part
-     has started), and stop() at unload; it registers each command ({ key, label, run, shortcut, menu }:
-     the setting that holds the shortcut, and whether it is also in a bullet's right-click menu) and moves
-     a saved setting named in moved ({ key: [old default, new default] }). The core starts no part by name.
+     has started), and stop() at unload; it puts each command in the one register ({ key, label, run, shortcut,
+     binding, icon, places }: main.js says what each is) and moves a saved setting named in moved
+     ({ key: [old default, new default] }). The core starts no part by name.
+   - call Logseq only through layer 1: the graph through parts/model.js, the screen through core.screen, a
+     command through the register, a notice through notify; never logseq.* itself (docs/LAYERS.md section 1);
    - bring its own troubleshooting: what it looks for on screen and any tool of its own, through
      core.provided.addTroubleshooting({ checks, tools }) from parts/diagnostics.js (0.4.172), never by
      the troubleshooting part reaching into it.
@@ -75,6 +106,8 @@
    nothing of content. main.js itself takes its helpers from here once the parts
    have loaded (useShared), before it gives Logseq the settings and before main() runs, and main()
    publishes window.refinementCore before it starts any part. */
+
+// ===== Layer 1: talking to Logseq from the frame =====
 
 // The Logseq window. The plugin runs in a frame inside it.
 const host = () => window.parent.document;
@@ -160,251 +193,7 @@ function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
   }
   return { warnOnce, onUnload, runUnloadTasks, takeOverFromEarlierCopy, updaterFailed, listen };
 }
-
-/* Small dialog boxes drawn in Logseq's window (window.prompt is unreliable inside plugin
-   frames). build(box, finish) fills the box; the promise resolves with what finish() is given.
-   Escape or a click outside resolves with cancelValue. Keys typed in the box never reach Logseq. */
 const take = (core, names, warn) => { const all = { ...core, ...core.provided }; for (const name of names) if (all[name] === undefined) warn(`${name} is missing from the core`); return all; };
-/* With an anchor (0.4.285, the owner: "make things inline instead of this big central popovers"): no backdrop; the box
-   sits right under the element it is about (above it when there is no room below), and a click anywhere else closes it. */
-function modal(cancelValue, build, width, classes = {}, anchor = null) {
-  const doc = host();
-  return new Promise(resolve => {
-    const backdrop = anchor ? null : doc.createElement('div');
-    if (backdrop) backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
-    const box = doc.createElement('div');
-    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}${anchor ? ' rf-anchored' : ''}`;
-    if (width) box.style.width = width;
-    let finished = false;
-    const away = event => { if (!box.contains(event.target)) finish(cancelValue); };
-    const finish = value => { if (finished) return; finished = true; (backdrop || box).remove(); doc.removeEventListener('mousedown', away, true); resolve(value); };
-    if (backdrop) backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
-    for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
-    box.addEventListener('keydown', event => {
-      event.stopPropagation();
-      if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
-    });
-    if (backdrop) { backdrop.append(box); doc.body.appendChild(backdrop); }
-    else { doc.body.appendChild(box); doc.addEventListener('mousedown', away, true); }
-    build(box, finish, doc);
-    if (anchor) placeBelow(box, anchor);
-  });
-}
-/* Puts a fixed box under an element (or above it when the room below is short), kept inside the window; the one
-   placement every anchored pop-up of the plugin uses. */
-function placeBelow(box, anchor) {
-  const win = box.ownerDocument.defaultView, at = anchor.getBoundingClientRect(), size = box.getBoundingClientRect();
-  box.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
-  const below = at.bottom + 4 + size.height < win.innerHeight - 8;
-  box.style.top = `${Math.round(below ? at.bottom + 4 : Math.max(8, at.top - 4 - size.height))}px`;
-}
-/* The dialog's own look (0.4.169, moved from parts/styles.js): the foundation's dialogs (the troubleshooting box,
-   the settings window's questions) must be drawn right when the look parts are not running (Foundation only), so it
-   goes out with the core at start (main.js), before any part. The look parts may refine it, never be needed for it. */
-const dialogCss = `/* One look for the plugin's pop-ups and dialog boxes (0.4.257, at the owner's word: "we have created a lot of things
-   that use different elements instead of a consistency"). The colours are Logseq's own pop-up colours (--popover and
-   --popover-foreground, set in both themes; its older --ls-* names are empty in some, which left a white box on a dark
-   theme), the greys mixed from the text colour. One size of text, one corner, one shadow. Every part draws its
-   pop-ups with .rf-pop (a head, a field, rows, notes) and its dialogs through modal() (.rf-dialog). */
-:is(.rf-pop, .rf-dialog) {
-  --rf-ui-bg: hsl(var(--popover, 0 0% 100%)); --rf-ui-fg: hsl(var(--popover-foreground, 0 0% 9%));
-  --rf-ui-line: color-mix(in srgb, var(--rf-ui-fg) 14%, transparent); --rf-ui-field: color-mix(in srgb, var(--rf-ui-fg) 24%, transparent);
-  --rf-ui-muted: color-mix(in srgb, var(--rf-ui-fg) 55%, transparent); --rf-ui-hover: color-mix(in srgb, var(--rf-ui-fg) 8%, transparent);
-  box-sizing: border-box; background: var(--rf-ui-bg); color: var(--rf-ui-fg); border: 1px solid var(--rf-ui-line); border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .14); font-size: 14px; line-height: 1.4; text-align: left; }
-.rf-pop { position: fixed; z-index: 10001; padding: 4px; }
-.rf-pop-head { padding: 3px 8px; font-size: 12px; color: var(--rf-ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:is(.rf-pop-field, .rf-pop input[type=text], .rf-pop input:not([type]), .rf-pop textarea) { display: block; box-sizing: border-box; width: calc(100% - 8px);
-  min-height: 2em; margin: 0 4px 4px; padding: 5px 8px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent;
-  color: inherit; font: inherit; outline: none; box-shadow: none; }
-:is(.rf-pop input, .rf-pop textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
-:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 8px;
-  border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-:is(.rf-pop-row, .rf-pop > button, .rf-pop-list > button):is(:hover, :focus-visible, .rf-on) { background: var(--rf-ui-hover); outline: none; }
-.rf-pop-kind { flex: none; margin-left: auto; padding-left: 12px; font-size: 12px; color: var(--rf-ui-muted); }
-.rf-pop-new { font-style: italic; color: var(--rf-ui-muted); }
-.rf-pop-note { padding: 4px 8px; font-size: 12px; line-height: 1.45; color: var(--rf-ui-muted); }
-.rf-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--rf-ui-line); }
-.rf-pop-list { max-height: 300px; overflow-y: auto; }
-/* A dialog box: the same look, near the top in the middle, over a faint backdrop; Escape or a click outside closes it.
-   Trimmed at the audit (0.4.285, docs/DESIGN-AUDIT-2026-10-22.md): narrower, less edge, a smaller heading. */
-.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: rgba(0, 0, 0, .18); }
-.rf-dialog { width: min(420px, 92vw); padding: 12px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
-.rf-dialog h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
-.rf-dialog label { display: block; margin-bottom: 6px; }
-.rf-dialog p, .rf-dialog-note { margin: 0 0 8px; color: var(--rf-ui-muted); }
-.rf-dialog ul { margin: 0 0 8px; padding-left: 18px; }
-/* Anchored (modal with an anchor): a pop-up beside what it is about, no backdrop, the pop-up's own edge and shadow. */
-.rf-dialog.rf-anchored { position: fixed; z-index: 10003; width: min(400px, 92vw); padding: 8px 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
-.rf-dialog.rf-anchored h2 { font-size: 14px; margin-bottom: 6px; }
-:is(.rf-dialog input[type=text], .rf-dialog input:not([type]), .rf-dialog textarea) { box-sizing: border-box; width: 100%; padding: 5px 8px; border: 1px solid var(--rf-ui-field);
-  border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
-:is(.rf-dialog input, .rf-dialog textarea):focus { border-color: color-mix(in srgb, var(--rf-ui-fg) 45%, transparent); }
-.rf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-:is(.rf-btn, .rf-btns > button) { padding: 3px 10px; border: 1px solid var(--rf-ui-field); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-:is(.rf-btn, .rf-btns > button):hover { background: var(--rf-ui-hover); }
-.rf-btn.rf-go { border-color: transparent; background: var(--rf-ui-fg); color: var(--rf-ui-bg); font-weight: 600; }
-:is(.rf-btn, .rf-btns > button):disabled { opacity: .45; cursor: default; }
-:is(.rf-btn, .rf-btns > button):focus-visible { outline: 2px solid color-mix(in srgb, var(--rf-ui-fg) 40%, transparent); outline-offset: 1px; }
-.refinement-prompt-hint { margin-top: 4px; font-size: 12px; color: var(--rf-ui-muted); }
-/* THE Undo (undo.offer): a faded arrow at the end of what changed, clearer under the pointer; with nothing on screen to sit
-   beside, it waits at the bottom right with its words, as quiet. Greys from the text colour, so both themes. */
-.rf-undo { display: inline-flex; align-items: center; gap: 6px; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
-.rf-undo:hover { opacity: .75; }
-.rf-undo-dock { position: fixed; z-index: 10002; right: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: min(420px, 60vw);
-  color: hsl(var(--popover-foreground, 0 0% 9%)); font-size: 12px; }
-.rf-undo-docked { margin: 0; padding: 3px 9px; border-radius: 6px; opacity: 1; background: hsl(var(--popover, 0 0% 100%));
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent); color: color-mix(in srgb, hsl(var(--popover-foreground, 0 0% 9%)) 55%, transparent); }
-.rf-undo-docked:hover { color: hsl(var(--popover-foreground, 0 0% 9%)); }
-.rf-undo-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The bar at the bottom after a write, with Undo (showUndoBar): the popover's colours the other way round. Only Logseq's
-   newer colour names: its --ls-primary-text-color and siblings are empty or unset in 2.0.2, so a bar built on them
-   was see-through, its words lying over the page (0.4.197, seen in both themes). */
-.refinement-undo-bar { position: fixed; z-index: 10002; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; max-width: min(560px, 90vw); padding: 9px 10px 9px 16px; border-radius: var(--rf-window-radius, 8px);
-  background: hsl(var(--popover-foreground, 0 0% 15%)); color: hsl(var(--popover, 0 0% 100%)); font-size: var(--rf-row, .875rem); box-shadow: var(--rf-window-shadow, 0 8px 28px rgba(0, 0, 0, .2)); }
-.refinement-undo-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-undo-bar button { flex: none; border: 0; border-radius: 5px; padding: 3px 10px; background: color-mix(in srgb, currentColor 18%, transparent); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.refinement-undo-bar button:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
-`;
-function modalButtons(doc, buttons) {
-  const row = doc.createElement('div');
-  row.className = 'rf-btns';
-  for (const [text, onClick, go] of buttons) {
-    const b = doc.createElement('button');
-    b.type = 'button';
-    b.textContent = text;
-    // The button that does what the box asks (OK, Delete) is marked 'go' and drawn filled; the others plain.
-    b.className = go === 'go' ? 'rf-btn rf-go' : 'rf-btn';
-    b.addEventListener('click', event => { event.preventDefault(); onClick(); });
-    row.append(b);
-  }
-  return row;
-}
-function modalHint(doc, text) {
-  const hint = doc.createElement('div');
-  hint.className = 'refinement-prompt-hint';
-  hint.textContent = text;
-  return hint;
-}
-
-/* After a write from one of the plugin's flows: one dark bar at the bottom, "… is now …", with Undo for seven
-   seconds, drawn by styles.js as .refinement-undo-bar. Journal dates and the search preview use it; Todos and the
-   tag tree keep bars of their own for now. */
-const undoBar = { el: null, timer: 0 };
-function showUndoBar(text, undo, onFail) {
-  const doc = host();
-  clearTimeout(undoBar.timer); undoBar.el?.remove();
-  const el = undoBar.el = doc.createElement('div');
-  el.className = 'refinement-undo-bar';
-  el.setAttribute('role', 'status');
-  const words = doc.createElement('span'); words.textContent = text;
-  const button = doc.createElement('button'); button.type = 'button'; button.textContent = 'Undo';
-  button.addEventListener('click', async () => {
-    clearTimeout(undoBar.timer); el.remove();
-    try { await undo(); } catch (error) { if (onFail) onFail(error); else notify('The change could not be undone', 'warning'); }
-  });
-  el.append(words, button);
-  doc.body.appendChild(el);
-  undoBar.timer = setTimeout(() => el.remove(), 7000);
-}
-
-/* THE Undo of the plugin (0.4.258, at the owner's word: "make one pop-up, one Undo and one dialog"; its look is the
-   proposals' faded arrow of 0.4.218, which the owner chose over the bar: "the undo toast notification is in an awful place
-   and loud and too far down and distracting. it should be something just where text is but very subtle, like a faded
-   icon"). After a change, a faded arrow sits beside what changed and says what it takes back when pointed at; a click
-   takes it back. Each change keeps its own arrow until it is used, the page is left (main.js clears them), or the part
-   forgets it, so a second change never takes the first one's Undo away (the bar did). A change offered again under the
-   same key adds to that arrow: one click takes both back, the later first. When nothing of the change is on screen to
-   sit beside (the nodes were deleted), the arrow waits at the bottom right with its words beside it, quiet, until used
-   or the page is left.
-   undo.offer({ key, at, text, run, onFail, cls, data })  at() returns the element(s) to sit at the end of, or null;
-   undo.forget(key or entry => bool), undo.clear(), undo.draw(), undo.size, undo.stop(). */
-const UNDO_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14l-4 -4l4 -4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></svg>';
-const attr = text => String(text).replace(/["\\]/g, '\\$&');
-const undoState = { entries: new Map(), observer: null, listening: false, drawing: false };
-const undoTargets = entry => { try { const at = entry.at?.(); return (Array.isArray(at) ? at : at ? [at] : []).filter(el => el?.isConnected); } catch (error) { return []; } };
-function undoArrow(doc, key, entry, docked) {
-  const el = doc.createElement('span');
-  el.className = `rf-undo${entry.cls ? ' ' + entry.cls : ''}${docked ? ' rf-undo-docked' : ''}`;
-  el.dataset.rfUndo = key;
-  el.setAttribute('role', 'button');
-  el.setAttribute('contenteditable', 'false');
-  el.setAttribute('aria-label', `Undo: ${entry.text}`);
-  el.title = `Undo: ${entry.text}`;
-  el.innerHTML = UNDO_ICON + (docked ? `<span class="rf-undo-words"></span>` : '');
-  if (docked) el.querySelector('.rf-undo-words').textContent = entry.text;
-  return el;
-}
-function drawUndoArrows() {
-  const doc = host();
-  if (undoState.drawing) return;
-  undoState.drawing = true;
-  try {
-    const { entries } = undoState;
-    for (const el of doc.querySelectorAll('.rf-undo')) {
-      const entry = entries.get(el.dataset.rfUndo);
-      if (!entry) { el.remove(); continue; }
-      const targets = undoTargets(entry);
-      if (el.classList.contains('rf-undo-docked') ? targets.length : !targets.includes(el.parentElement)) el.remove();
-    }
-    let dock = doc.querySelector('.rf-undo-dock');
-    for (const [key, entry] of entries) {
-      const targets = undoTargets(entry);
-      for (const target of targets) if (![...target.children].some(child => child.dataset?.rfUndo === key)) target.appendChild(undoArrow(doc, key, entry, false));
-      if (!targets.length && !doc.querySelector(`.rf-undo-dock [data-rf-undo="${attr(key)}"]`)) {
-        if (!dock) { dock = doc.createElement('div'); dock.className = 'rf-undo-dock'; doc.body.appendChild(dock); }
-        dock.appendChild(undoArrow(doc, key, entry, true));
-      }
-    }
-    if (dock && !dock.children.length) dock.remove();
-  } finally { undoState.drawing = false; }
-  undoState.observer?.takeRecords();
-}
-// A press on an arrow is the plugin's (inside a bullet Logseq would start editing it); the click takes the change back.
-function onUndoArrow(event) {
-  const el = event.target?.closest?.('.rf-undo');
-  if (!el) return;
-  event.stopImmediatePropagation();
-  if (event.type !== 'pointerdown') event.preventDefault();
-  if (event.type !== 'click') return;
-  const key = el.dataset.rfUndo, entry = undoState.entries.get(key);
-  undoState.entries.delete(key);
-  drawUndoArrows();
-  watchUndos();
-  if (entry) Promise.resolve().then(entry.run).catch(error => { if (entry.onFail) entry.onFail(error); else notify('The change could not be undone', 'warning'); });
-}
-// The arrows are put back whenever Logseq draws the place again; the watcher runs only while there is an arrow.
-function watchUndos() {
-  const doc = host(), win = doc.defaultView, on = undoState.entries.size > 0;
-  if (on && !undoState.observer) {
-    undoState.observer = new win.MutationObserver(() => drawUndoArrows());
-    undoState.observer.observe(doc.body, { childList: true, subtree: true });
-  } else if (!on && undoState.observer) { undoState.observer.disconnect(); undoState.observer = null; }
-  if (on && !undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.addEventListener(type, onUndoArrow, true); undoState.listening = true; }
-  else if (!on && undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.removeEventListener(type, onUndoArrow, true); undoState.listening = false; }
-}
-const undo = {
-  offer({ key, at, text, run, onFail, cls, data }) {
-    const before = undoState.entries.get(key);
-    const all = before ? async () => { let failed = null; try { await run(); } catch (error) { failed = error; } await before.run(); if (failed) throw failed; } : run;
-    undoState.entries.set(key, { at, text: before ? `${text} · ${before.text}` : text, run: all, onFail: onFail || before?.onFail, cls, data: data ?? before?.data });
-    // Drawn again, so an arrow with the old words is replaced.
-    for (const el of host().querySelectorAll(`[data-rf-undo="${attr(key)}"]`)) el.remove();
-    watchUndos();
-    drawUndoArrows();
-  },
-  forget(which) {
-    let gone = false;
-    for (const [key, entry] of undoState.entries) if (typeof which === 'function' ? which({ key, ...entry }) : key === which) { undoState.entries.delete(key); gone = true; }
-    if (gone) { drawUndoArrows(); watchUndos(); }
-  },
-  clear() { if (!undoState.entries.size) return; undoState.entries.clear(); drawUndoArrows(); watchUndos(); },
-  draw: () => drawUndoArrows(),
-  get size() { return undoState.entries.size; },
-  has: key => undoState.entries.has(key),
-  keys: () => [...undoState.entries.keys()],
-  stop() { undoState.entries.clear(); try { drawUndoArrows(); watchUndos(); host().querySelector('.rf-undo-dock')?.remove(); } catch (error) { /* Logseq's window is gone */ } },
-};
 
 // Opens a page or block by uuid; in the right sidebar when asked (Shift-click).
 function openEntity(uuid, inSidebar = false) {
@@ -412,11 +201,6 @@ function openEntity(uuid, inSidebar = false) {
   if (inSidebar) logseq.Editor.openInRightSidebar(uuid);
   else logseq.App.pushState('page', { name: uuid });
 }
-const waitFor = (find, ms = 1500) => new Promise(resolve => {
-  const started = Date.now();
-  const tick = () => { const found = find(); if (found || Date.now() - started > ms) resolve(found || null); else setTimeout(tick, 50); };
-  tick();
-});
 
 /* Measuring, for the troubleshooting tools (parts/diagnostics.js). The core calls perf.* on its hot
    paths (every screen change, every stylesheet, every database round); while nothing is measuring,
@@ -460,8 +244,556 @@ function settingReader(schema) {
   };
 }
 
-// This file's own boxes: the dialog backdrop and the Undo bar.
-leftovers.push({ prefix: 'Refinements: ', elements: '.refinement-prompt-backdrop, .refinement-undo-bar' });
+// ===== Layer 2: the kit =====
 
-window.refinementShared = { host, notify, lifecycle, sweepLeftovers, modal, modalButtons, modalHint, placeBelow, take, dialogCss, showUndoBar, undo, openEntity, waitFor, settingReader, graphNamedIn, perf, warnings };
+/* The grammar the kit keeps (the owner's, docs/LAYERS.md section 2): the plugin fades away; differences by weight and
+   grey, not by boxes; no colour of the plugin's own; a tag is a class, not a tag; property names lighter than their
+   values; a value's kind is an icon left of the name; an action happens in stages, in place; italic only for a
+   proposed value; Undo is the faded arrow. Three sources, in this order: Logseq's own (its colours, pills, lists,
+   icon font, notice), the browser's own (the dialog, the popover and its placement and dismissal, the checkbox, the
+   tooltip), and the kit for what neither gives. */
+
+const esc = text => String(text ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+// THE element builder: el(doc, 'button', { class: 'rf-quiet', title: 'Undo', click: () => … }, icon, 'Undo').
+function el(doc, tag, props = {}, ...children) {
+  const node = doc.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (value == null || value === false) continue;
+    if (key === 'class') node.className = value;
+    else if (key === 'html') { const t = doc.createElement('template'); t.innerHTML = value; node.append(t.content); }
+    else if (typeof value === 'function') node.addEventListener(key, value);
+    else node.setAttribute(key, value === true ? '' : value);
+  }
+  node.append(...children.filter(child => child != null && child !== false));
+  return node;
+}
+
+/* THE icon list: what each icon means, by the name of its Tabler icon in Logseq's own font (loaded on every page;
+   Logseq draws its own toolbar with it), so the plugin draws no icon of its own. */
+const ICONS = {
+  undo: 'arrow-back-up', sidebar: 'layout-sidebar-right', page: 'file-text', fold: 'chevron-right', add: 'plus', more: 'dots',
+  delete: 'trash', find: 'search', settings: 'adjustments-horizontal', close: 'x', remove: 'x', chosen: 'check', help: 'info-circle',
+  map: 'hierarchy', tag: 'tag', property: 'forms', rename: 'cursor-text', copy: 'copy', to: 'arrow-right', picked: 'square-check',
+  warning: 'alert-triangle', show: 'eye', hide: 'eye-off', shortcut: 'keyboard', twoWay: 'arrows-left-right', order: 'arrows-sort',
+  proposals: 'bulb', date: 'calendar', text: 'letter-case', number: '123', choice: 'select', several: 'stack-2', yesNo: 'checkbox', web: 'world',
+  node: 'arrow-right', nodes: 'arrows-right',
+};
+const iconHtml = name => `<i class="ti ti-${esc(ICONS[name] || name)}" aria-hidden="true"></i>`;
+const icon = (doc, name, title) => el(doc, 'i', { class: `ti ti-${ICONS[name] || name}`, 'aria-hidden': title ? null : 'true', title: title || null });
+// A value's kind (Logseq's property types) as an icon left of the property's name; several of them as the arrow twice.
+const KINDS = { node: 'node', date: 'date', datetime: 'date', default: 'text', text: 'text', number: 'number', choice: 'choice', checkbox: 'yesNo', url: 'web', page: 'node' };
+const KIND_WORDS = { node: 'a link to a node', nodes: 'links to several nodes', date: 'a date', text: 'text', number: 'a number', choice: 'a choice', yesNo: 'yes or no', web: 'a web address', several: 'several' };
+function kindIcon(doc, kind, { several = false, title } = {}) {
+  let meaning = KINDS[String(kind || 'text').replace(/^:/, '')] || 'text';
+  if (several) meaning = meaning === 'node' ? 'nodes' : 'several';
+  const i = icon(doc, meaning, title === undefined ? KIND_WORDS[meaning] : title);
+  i.classList.add('rf-kind');
+  return i;
+}
+// A tag as a class: its name alone, no #.
+const tag = (doc, title, props = {}) => el(doc, props.href || props.click ? 'a' : 'span', { class: 'rf-tag', ...props }, String(title ?? '').replace(/^#/, ''));
+// The three buttons: quiet (an icon or greyed words, lit on hover), go (the one that does it), pressed (quiet, in force).
+function quiet(doc, { icon: name, label, title, faint, pressed, run, cls } = {}) {
+  return el(doc, 'button', { type: 'button', class: `rf-quiet${faint ? ' rf-faint' : ''}${cls ? ' ' + cls : ''}`, title: title || null, 'aria-pressed': pressed == null ? null : String(!!pressed), click: run || null },
+    name ? icon(doc, name) : null, label != null ? String(label) : null);
+}
+const go = (doc, { label, title, run, cls } = {}) => el(doc, 'button', { type: 'button', class: `rf-go${cls ? ' ' + cls : ''}`, title: title || null, click: run || null }, label);
+// Keys typed in a box of the plugin's stay out of Logseq's shortcuts (Escape goes on, so a pop-up still closes).
+const keepKeys = box => { for (const type of ['keydown', 'keyup', 'keypress']) box.addEventListener(type, event => { if (event.key !== 'Escape') event.stopPropagation(); }); };
+/* THE field: a real text box drawn as a hairline underneath, firmer while typing; an icon on the left and a key hint
+   on the right when given; inline on a line. keys(event) sees every keydown first (return true to take it). */
+function field(doc, { placeholder = '', value = '', icon: name, kbd, inline, keys, input, title, cls } = {}) {
+  const box = el(doc, 'input', { type: 'text', placeholder, spellcheck: 'false', autocomplete: 'off', title: title || null });
+  box.value = value;
+  const wrap = el(doc, 'span', { class: `rf-field${inline ? ' rf-field-inline' : ''}${cls ? ' ' + cls : ''}` }, name ? icon(doc, name) : null, box, kbd ? el(doc, 'kbd', {}, kbd) : null);
+  keepKeys(box);
+  if (keys) box.addEventListener('keydown', event => { if (keys(event) === true) { event.preventDefault(); event.stopPropagation(); } });
+  if (input) box.addEventListener('input', () => input(box.value));
+  wrap.input = box;
+  return wrap;
+}
+// The browser's tick box as a small rounded square; with a label, in a label.
+function tick(doc, { checked = false, label, title, change, cls } = {}) {
+  const box = el(doc, 'input', { type: 'checkbox', class: `rf-check${label == null && cls ? ' ' + cls : ''}`, title: title || null, change: change ? () => change(box.checked) : null });
+  box.checked = !!checked;
+  if (label == null) return box;
+  return el(doc, 'label', { class: `rf-tick${cls ? ' ' + cls : ''}` }, box, String(label));
+}
+// Words for chips: a filter (pressed or not) or a removable item (a × on hover).
+function chip(doc, { label, pressed, run, remove, title, cls } = {}) {
+  const word = el(doc, run ? 'button' : 'span', { type: run ? 'button' : null, class: `rf-chip${cls ? ' ' + cls : ''}`, 'aria-pressed': pressed == null ? null : String(!!pressed), title: title || null, click: run || null }, String(label));
+  if (remove) word.append(el(doc, 'button', { type: 'button', class: 'rf-chip-x', title: 'Remove', 'aria-label': `Remove ${label}`, click: event => { event.stopPropagation(); remove(); } }, icon(doc, 'remove')));
+  return word;
+}
+const note = (doc, text, cls) => el(doc, 'div', { class: `rf-note${cls ? ' ' + cls : ''}` }, text);
+const guide = (doc, paragraphs) => el(doc, 'div', { class: 'rf-guide', role: 'note' }, ...[].concat(paragraphs).map(p => typeof p === 'string' ? el(doc, 'p', {}, p) : p));
+/* Quiet words to pick one of, on a line (the kinds of a new property, the tags a + may give): items [{ icon, label,
+   value, title }]; pick(value, item). The returned row has key(event): Left/Right move, Enter picks; true when taken. */
+function choices(doc, { items, picked, pick, cls } = {}) {
+  const row = el(doc, 'span', { class: `rf-pick${cls ? ' ' + cls : ''}`, role: 'group' });
+  const buttons = items.map(item => quiet(doc, { icon: item.icon, label: item.label, title: item.title, faint: item.faint, pressed: item.value === picked, run: () => pick(item.value, item) }));
+  row.append(...buttons);
+  const at = () => buttons.findIndex(b => b.getAttribute('aria-pressed') === 'true');
+  row.key = event => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      const i = at(), n = i < 0 ? 0 : (i + (event.key === 'ArrowRight' ? 1 : buttons.length - 1)) % buttons.length;
+      buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === n)));
+      return true;
+    }
+    if (event.key === 'Enter') { const i = at(); if (i >= 0) { pick(items[i].value, items[i]); return true; } }
+    return false;
+  };
+  return row;
+}
+
+/* THE pop-up: the browser's popover (dismissed by it on Escape or a click outside, in the top layer), placed under
+   its anchor by CSS anchor positioning and flipped up or sideways when there is no room; the box is Logseq's own [[
+   menu look. Two fillings: a menu (items) and a list (a field, then rows). With a rect for `at`, a 0×0 anchor is put
+   there. `manual`: the part dismisses it itself (the link box, whose keys stay in the bullet); `hint`: a card that
+   takes no focus (the hover card). Keys typed inside never reach Logseq. */
+let anchorCount = 0;
+function anchorFor(doc, at) {
+  if (!at) return null;
+  const isElement = typeof at.getBoundingClientRect === 'function' && at.nodeType === 1;
+  let node = at, made = false;
+  if (!isElement) {
+    const rect = typeof at.getBoundingClientRect === 'function' ? at.getBoundingClientRect() : at;
+    node = el(doc, 'span', { class: 'rf-anchor', 'aria-hidden': 'true' });
+    Object.assign(node.style, { position: 'fixed', left: `${rect.left}px`, top: `${rect.top}px`, width: `${Math.max(0, (rect.right ?? rect.left) - rect.left)}px`, height: `${Math.max(0, (rect.bottom ?? rect.top) - rect.top)}px`, pointerEvents: 'none' });
+    doc.body.append(node);
+    made = true;
+  }
+  const name = `--rf-anchor-${++anchorCount}`, before = node.style.getPropertyValue('anchor-name');
+  node.style.setProperty('anchor-name', name);
+  return { name, cleanup: () => { if (made) node.remove(); else if (node.style.getPropertyValue('anchor-name') === name) { if (before) node.style.setProperty('anchor-name', before); else node.style.removeProperty('anchor-name'); } } };
+}
+function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manual = false, hint = false, cls = '', width, onClose, doc } = {}) {
+  doc = doc || host();
+  const pop = el(doc, 'div', { class: `rf-pop${cls ? ' ' + cls : ''}`, role: hint ? 'tooltip' : fieldOptions ? 'listbox' : 'menu', tabindex: hint ? null : '-1' });
+  pop.setAttribute('popover', manual ? 'manual' : hint ? 'hint' : 'auto');
+  if (width) pop.style.width = typeof width === 'number' ? `${width}px` : width;
+  const anchor = anchorFor(doc, at);
+  if (anchor) { pop.classList.add('rf-anchored'); pop.style.setProperty('position-anchor', anchor.name); }
+  const wasActive = doc.activeElement;
+  let closed = false, resolveClosed;
+  const closedPromise = new Promise(resolve => { resolveClosed = resolve; });
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    const hadFocus = pop.contains(doc.activeElement);
+    try { if (pop.hidePopover && pop.matches(':popover-open')) pop.hidePopover(); } catch (error) { /* already hidden */ }
+    pop.remove();
+    anchor?.cleanup();
+    if (hadFocus && wasActive?.isConnected && wasActive !== doc.body) try { wasActive.focus({ preventScroll: true }); } catch (error) { /* cannot */ }
+    onClose?.();
+    resolveClosed();
+  };
+  pop.addEventListener('toggle', event => { if (event.newState === 'closed') close(); });
+  if (head) pop.append(el(doc, 'div', { class: 'rf-pop-head' }, head));
+  let fieldEl = null;
+  if (fieldOptions) {
+    fieldEl = field(doc, { ...fieldOptions, input: value => { fieldOptions.input?.(value); if (rows) drawItems(rows(value)); } });
+    pop.append(fieldEl);
+  }
+  const body = el(doc, 'div', { class: 'rf-pop-body' });
+  pop.append(body);
+  const buttons = () => [...body.querySelectorAll('.rf-item')];
+  const lit = i => { const all = buttons(); all.forEach((b, k) => b.classList.toggle('rf-on', k === i)); all[i]?.scrollIntoView?.({ block: 'nearest' }); };
+  const litAt = () => buttons().findIndex(b => b.classList.contains('rf-on'));
+  const run = item => { const keep = item.run?.(item) === 'keep' || item.keep; if (!keep) close(); };
+  function drawItems(list = []) {
+    body.replaceChildren();
+    for (const item of list) {
+      if (!item) continue;
+      if (item.sep) { body.append(el(doc, 'hr')); continue; }
+      if (item.note) { body.append(note(doc, item.note)); continue; }
+      const b = el(doc, 'button', { type: 'button', class: `rf-item${item.on ? ' rf-on' : ''}${item.faint ? ' rf-faint' : ''}${item.cls ? ' ' + item.cls : ''}`, role: 'menuitem', title: item.title || null, disabled: item.disabled || null, click: () => run(item) },
+        item.icon ? icon(doc, item.icon) : null, item.html ? el(doc, 'span', { class: 'rf-item-words', html: item.html }) : el(doc, 'span', { class: 'rf-item-words' }, String(item.label ?? '')),
+        item.kbd ? el(doc, 'kbd', {}, item.kbd) : item.right ? el(doc, 'span', { class: 'rf-end' }, typeof item.right === 'string' ? item.right : '', typeof item.right === 'string' ? null : item.right) : item.chosen ? el(doc, 'span', { class: 'rf-end' }, icon(doc, 'chosen')) : null);
+      b.item = item;
+      body.append(b);
+    }
+    if (list.length && litAt() < 0 && (fieldOptions || kind === 'list')) lit(0);
+  }
+  if (items) drawItems(items);
+  if (rows && fieldOptions) drawItems(rows(fieldEl.input.value));
+  pop.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
+    const all = buttons();
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { if (!all.length) return; event.preventDefault(); event.stopPropagation(); const i = litAt(); lit(i < 0 ? 0 : (i + (event.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length); return; }
+    if (event.key === 'Enter' && !event.isComposing) { const b = all[litAt()]; if (b) { event.preventDefault(); event.stopPropagation(); run(b.item); return; } }
+    if (event.target === pop) event.stopPropagation();
+  });
+  for (const type of ['keyup', 'keypress']) pop.addEventListener(type, event => event.stopPropagation());
+  // The pointer over a row lights it, as in Logseq's own lists.
+  body.addEventListener('mousemove', event => { const b = event.target.closest?.('.rf-item'); if (b && !b.classList.contains('rf-on')) lit(buttons().indexOf(b)); });
+  doc.body.append(pop);
+  try { if (pop.showPopover) pop.showPopover(); } catch (error) { /* shown as a plain box */ }
+  if (!hint) { if (fieldEl) fieldEl.input.focus({ preventScroll: true }); else if (!manual) pop.focus({ preventScroll: true }); }
+  return { el: pop, body, close, items: drawItems, lit, get litAt() { return litAt(); }, field: fieldEl, get query() { return fieldEl?.input.value ?? ''; }, closed: closedPromise, get isClosed() { return closed; } };
+}
+/* A question beside what it is about: the question, a quiet note, Cancel and the one that does it as words (no
+   backdrop, no fill). Resolves true or false; with a field, the text typed (Enter or the go word) or null. */
+function ask({ at, question, note: hint, go: goWord = 'OK', cancel = 'Cancel', field: fieldOptions, width, cls, doc } = {}) {
+  doc = doc || host();
+  return new Promise(resolve => {
+    let answer = fieldOptions ? null : false;
+    const p = popup({ at, doc, cls: `rf-ask${cls ? ' ' + cls : ''}`, width, onClose: () => resolve(answer) });
+    const done = () => { answer = fieldOptions ? f.input.value : true; p.close(); };
+    const f = fieldOptions ? field(doc, { ...fieldOptions, keys: event => { if (event.key === 'Enter' && !event.isComposing) { done(); return true; } return fieldOptions.keys?.(event) === true; } }) : null;
+    p.body.append(el(doc, 'div', { class: 'rf-ask-words' }, question), hint ? note(doc, hint) : null, f,
+      el(doc, 'div', { class: 'rf-btns' }, quiet(doc, { label: cancel, run: () => p.close() }), go(doc, { label: goWord, run: done })));
+    if (f) f.input.focus({ preventScroll: true });
+    p.el.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing && event.target !== f?.input) { event.preventDefault(); done(); } });
+  });
+}
+/* THE window: the browser's own dialog, shown modal (it keeps the keyboard, closes on Escape, draws the backdrop),
+   dressed by the kit; the settings window is its one user. build(box, finish, doc) fills it; the promise resolves
+   with what finish() is given, or undefined on Escape or a click on the backdrop. */
+function dialog({ build, cls = '', width, doc } = {}) {
+  doc = doc || host();
+  return new Promise(resolve => {
+    const box = el(doc, 'dialog', { class: `rf-dialog${cls ? ' ' + cls : ''}` });
+    if (width) box.style.width = width;
+    let done = false;
+    const finish = value => { if (done) return; done = true; try { if (box.open) box.close(); } catch (error) { /* not open */ } box.remove(); resolve(value); };
+    box.addEventListener('cancel', event => { event.preventDefault(); finish(undefined); });
+    box.addEventListener('close', () => finish(undefined));
+    box.addEventListener('mousedown', event => { if (event.target === box) finish(undefined); }); // the backdrop: the box has no edge of its own
+    for (const type of ['keydown', 'keyup', 'keypress']) box.addEventListener(type, event => { if (type !== 'keydown' || event.key !== 'Escape') event.stopPropagation(); });
+    doc.body.append(box);
+    build(box, finish, doc);
+    try { if (box.showModal) box.showModal(); else box.setAttribute('open', ''); } catch (error) { box.setAttribute('open', ''); }
+  });
+}
+/* The picking bar: the count with its tick box (ticked while something is picked; a click picks all or clears),
+   the actions as quiet words with icons, Clear faint at the end; one line with a hairline under it. */
+function bar(doc, { count = 0, total = 0, actions = [], clear, all, cls } = {}) {
+  const box = el(doc, 'div', { class: `rf-bar${cls ? ' ' + cls : ''}`, role: 'toolbar' });
+  const words = el(doc, 'span');
+  const box1 = tick(doc, { checked: count > 0, title: 'Pick all, or none', change: on => (on ? all : clear)?.() });
+  box.append(el(doc, 'label', { class: 'rf-count' }, box1, words));
+  for (const action of actions) box.append(quiet(doc, { icon: action.icon, label: action.label, title: action.title, faint: action.faint, run: action.run }));
+  if (clear) box.append(quiet(doc, { label: 'Clear', faint: true, title: 'Clear what is picked (Escape)', run: clear }));
+  box.update = ({ count: n = count, total: t = total } = {}) => { count = n; total = t; words.textContent = t && t !== n ? `${n} of ${t} picked` : `${n} picked`; box1.checked = n > 0; box1.indeterminate = n > 0 && t > 0 && n < t; };
+  box.update();
+  return box;
+}
+/* The hover card: a node's preview, every piece clickable (open(what, value): 'node', 'tag', 'day', 'prop' with the
+   name, 'line' with the text). A browser popover of the hint kind, placed under what the pointer rests on. */
+function card({ at, title, tag: tagTitle, day, fields = [], lines = [], open, width = 300, cls = '', doc } = {}) {
+  doc = doc || host();
+  const p = popup({ at, doc, hint: true, cls: `rf-card${cls ? ' ' + cls : ''}`, width });
+  const act = (what, value) => event => { event.preventDefault(); event.stopPropagation(); open?.(what, value, event); };
+  const meta = [];
+  if (tagTitle) meta.push(tag(doc, tagTitle, { href: '#', click: act('tag', tagTitle) }));
+  if (day) { if (meta.length) meta.push(' · '); meta.push(el(doc, 'a', { href: '#', class: 'rf-card-day', click: act('day', day) }, day)); }
+  p.body.append(
+    el(doc, 'a', { href: '#', class: 'rf-card-title', click: act('node') }, title),
+    meta.length ? el(doc, 'div', { class: 'rf-note' }, ...meta) : null,
+    fields.length ? el(doc, 'div', { class: 'rf-card-fields' }, ...fields.flatMap(([name, value]) => [el(doc, 'span', { class: 'rf-card-name' }, name), el(doc, 'a', { href: '#', click: act('prop', name) }, value)])) : null,
+    lines.length ? el(doc, 'div', { class: 'rf-card-lines' }, ...lines.map(line => el(doc, 'a', { href: '#', class: 'rf-card-line', click: act('line', line) }, line))) : null);
+  return p;
+}
+
+/* THE Undo of the plugin (0.4.258, at the owner's word: "make one pop-up, one Undo and one dialog"; its look is the
+   proposals' faded arrow of 0.4.218, which the owner chose over the bar: "the undo toast notification is in an awful place
+   and loud and too far down and distracting. it should be something just where text is but very subtle, like a faded
+   icon"). After a change, a faded arrow sits beside what changed and says what it takes back when pointed at; a click
+   takes it back. Each change keeps its own arrow until it is used, the page is left (main.js clears them), or the part
+   forgets it, so a second change never takes the first one's Undo away (the bar did). A change offered again under the
+   same key adds to that arrow: one click takes both back, the later first. When nothing of the change is on screen to
+   sit beside (the nodes were deleted), the arrow waits at the bottom right with its words beside it, quiet, until used
+   or the page is left. The old dark bar at the bottom is gone (0.4.311).
+   undo.offer({ key, at, text, run, onFail, cls, data })  at() returns the element(s) to sit at the end of, or null;
+   undo.forget(key or entry => bool), undo.clear(), undo.draw(), undo.size, undo.stop(). */
+const attr = text => String(text).replace(/["\\]/g, '\\$&');
+const undoState = { entries: new Map(), observer: null, listening: false, drawing: false };
+const undoTargets = entry => { try { const at = entry.at?.(); return (Array.isArray(at) ? at : at ? [at] : []).filter(el => el?.isConnected); } catch (error) { return []; } };
+function undoArrow(doc, key, entry, docked) {
+  const arrow = doc.createElement('span');
+  arrow.className = `rf-undo${entry.cls ? ' ' + entry.cls : ''}${docked ? ' rf-undo-docked' : ''}`;
+  arrow.dataset.rfUndo = key;
+  arrow.setAttribute('role', 'button');
+  arrow.setAttribute('contenteditable', 'false');
+  arrow.setAttribute('aria-label', `Undo: ${entry.text}`);
+  arrow.title = `Undo: ${entry.text}`;
+  arrow.innerHTML = iconHtml('undo') + (docked ? `<span class="rf-undo-words"></span>` : '');
+  if (docked) arrow.querySelector('.rf-undo-words').textContent = entry.text;
+  return arrow;
+}
+function drawUndoArrows() {
+  const doc = host();
+  if (undoState.drawing) return;
+  undoState.drawing = true;
+  try {
+    const { entries } = undoState;
+    for (const arrow of doc.querySelectorAll('.rf-undo')) {
+      const entry = entries.get(arrow.dataset.rfUndo);
+      if (!entry) { arrow.remove(); continue; }
+      const targets = undoTargets(entry);
+      if (arrow.classList.contains('rf-undo-docked') ? targets.length : !targets.includes(arrow.parentElement)) arrow.remove();
+    }
+    let dock = doc.querySelector('.rf-undo-dock');
+    for (const [key, entry] of entries) {
+      const targets = undoTargets(entry);
+      for (const target of targets) if (![...target.children].some(child => child.dataset?.rfUndo === key)) target.appendChild(undoArrow(doc, key, entry, false));
+      if (!targets.length && !doc.querySelector(`.rf-undo-dock [data-rf-undo="${attr(key)}"]`)) {
+        if (!dock) { dock = doc.createElement('div'); dock.className = 'rf-undo-dock'; doc.body.appendChild(dock); }
+        dock.appendChild(undoArrow(doc, key, entry, true));
+      }
+    }
+    if (dock && !dock.children.length) dock.remove();
+  } finally { undoState.drawing = false; }
+  undoState.observer?.takeRecords();
+}
+// A press on an arrow is the plugin's (inside a bullet Logseq would start editing it); the click takes the change back.
+function onUndoArrow(event) {
+  const arrow = event.target?.closest?.('.rf-undo');
+  if (!arrow) return;
+  event.stopImmediatePropagation();
+  if (event.type !== 'pointerdown') event.preventDefault();
+  if (event.type !== 'click') return;
+  const key = arrow.dataset.rfUndo, entry = undoState.entries.get(key);
+  undoState.entries.delete(key);
+  drawUndoArrows();
+  watchUndos();
+  if (entry) Promise.resolve().then(entry.run).catch(error => { if (entry.onFail) entry.onFail(error); else notify('The change could not be undone', 'warning'); });
+}
+// The arrows are put back whenever Logseq draws the place again; the watcher runs only while there is an arrow.
+function watchUndos() {
+  const doc = host(), win = doc.defaultView, on = undoState.entries.size > 0;
+  if (on && !undoState.observer) {
+    undoState.observer = new win.MutationObserver(() => drawUndoArrows());
+    undoState.observer.observe(doc.body, { childList: true, subtree: true });
+  } else if (!on && undoState.observer) { undoState.observer.disconnect(); undoState.observer = null; }
+  if (on && !undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.addEventListener(type, onUndoArrow, true); undoState.listening = true; }
+  else if (!on && undoState.listening) { for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click']) win.removeEventListener(type, onUndoArrow, true); undoState.listening = false; }
+}
+const undo = {
+  offer({ key, at, text, run, onFail, cls, data }) {
+    const before = undoState.entries.get(key);
+    const all = before ? async () => { let failed = null; try { await run(); } catch (error) { failed = error; } await before.run(); if (failed) throw failed; } : run;
+    undoState.entries.set(key, { at, text: before ? `${text} · ${before.text}` : text, run: all, onFail: onFail || before?.onFail, cls, data: data ?? before?.data });
+    // Drawn again, so an arrow with the old words is replaced.
+    for (const arrow of host().querySelectorAll(`[data-rf-undo="${attr(key)}"]`)) arrow.remove();
+    watchUndos();
+    drawUndoArrows();
+  },
+  forget(which) {
+    let gone = false;
+    for (const [key, entry] of undoState.entries) if (typeof which === 'function' ? which({ key, ...entry }) : key === which) { undoState.entries.delete(key); gone = true; }
+    if (gone) { drawUndoArrows(); watchUndos(); }
+  },
+  clear() { if (!undoState.entries.size) return; undoState.entries.clear(); drawUndoArrows(); watchUndos(); },
+  draw: () => drawUndoArrows(),
+  get size() { return undoState.entries.size; },
+  has: key => undoState.entries.has(key),
+  keys: () => [...undoState.entries.keys()],
+  stop() { undoState.entries.clear(); try { drawUndoArrows(); watchUndos(); host().querySelector('.rf-undo-dock')?.remove(); } catch (error) { /* Logseq's window is gone */ } },
+};
+
+/* THE stylesheet of the kit. Sent by main.js before any part (the foundation's own boxes must look right under
+   Foundation only). Greys from currentColor, so the same rules hold on the page and in a pop-up, light and dark. */
+const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3): one pop-up, one dialog, three buttons, one field, one
+   tick box, words for chips, the tag as a class, kinds as icons, the picking bar, the hover card, the Undo arrow, the
+   quiet line and the help paragraph. No colour of the plugin's own: Logseq's pop-up colours (--popover and its
+   partner) and four greys mixed from the text colour. Logseq's own icon font (.ti) draws every icon. */
+:root { --rf-fg: hsl(var(--popover-foreground, 0 0% 9%)); --rf-bg: hsl(var(--popover, 0 0% 100%));
+  --rf-quiet: color-mix(in srgb, currentColor 70%, transparent); --rf-faint: color-mix(in srgb, currentColor 50%, transparent);
+  --rf-hair: color-mix(in srgb, currentColor 12%, transparent); --rf-line: color-mix(in srgb, currentColor 26%, transparent);
+  --rf-wash: color-mix(in srgb, currentColor 7%, transparent); --rf-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+/* The pop-up: Logseq's own [[ menu look (6px corners, its light shadow, 14px rows), in the top layer, placed by the
+   browser under its anchor and flipped when there is no room. */
+.rf-pop { position: fixed; inset: auto; margin: 0; z-index: 10001; box-sizing: border-box; min-width: 160px; max-width: min(420px, 92vw); padding: 4px; overflow: visible;
+  background: var(--rf-bg); color: var(--rf-fg); border: 1px solid var(--rf-hair); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+  font-size: 14px; line-height: 1.4; text-align: left; outline: none; }
+.rf-pop.rf-anchored { top: anchor(bottom); left: anchor(left); margin-top: 4px; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+.rf-pop-head { padding: 3px 8px; font-size: 12px; color: var(--rf-quiet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-pop-body { max-height: 320px; overflow-y: auto; }
+.rf-item { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 6px 8px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.rf-item > .ti { width: 16px; flex: none; color: var(--rf-faint); font-size: 15px; }
+.rf-item:hover, .rf-item.rf-on { background: var(--rf-wash); }
+.rf-item:disabled { opacity: .45; cursor: default; }
+.rf-item-words { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-item kbd, .rf-end { margin-left: auto; flex: none; font: inherit; font-size: 12px; color: var(--rf-faint); }
+.rf-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--rf-hair); }
+.rf-pop .rf-field { margin: 0 8px 4px; }
+/* A question beside what it is about. */
+.rf-ask { padding: 8px 10px; }
+.rf-ask-words { font-weight: 600; margin: 2px 0; }
+.rf-ask .rf-field { margin: 6px 0 2px; width: 100%; }
+.rf-btns { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
+/* The window: the browser's dialog in the kit's colours; the settings window only. */
+.rf-dialog { position: fixed; inset: 0; margin: auto; padding: 0; box-sizing: border-box; width: min(700px, 92vw); max-height: 86vh; overflow: auto;
+  background: var(--rf-bg); color: var(--rf-fg); border: 1px solid var(--rf-hair); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.14); font-size: 14px; line-height: 1.4; text-align: left; }
+.rf-dialog::backdrop { background: rgba(0,0,0,.18); }
+/* The three buttons: quiet, go, pressed. No fills, no edges. */
+.rf-quiet { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--rf-quiet); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; white-space: nowrap; }
+.rf-quiet > .ti { font-size: 15px; }
+.rf-quiet:hover { background: var(--rf-wash); color: inherit; }
+.rf-quiet[aria-pressed="true"] { color: inherit; font-weight: 600; background: none; }
+.rf-quiet:disabled { opacity: .45; cursor: default; background: none; }
+.rf-go { display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+.rf-go:hover { background: var(--rf-wash); }
+.rf-go:disabled { opacity: .45; cursor: default; background: none; }
+:is(.rf-quiet, .rf-go, .rf-item, .rf-chip):focus-visible { outline: 2px solid var(--rf-line); outline-offset: 1px; }
+.rf-faint { color: var(--rf-faint); }
+/* Two or three quiet words with a hairline between them: a two-way choice. */
+.rf-seg { display: inline-flex; }
+.rf-seg > .rf-quiet + .rf-quiet { border-left: 1px solid var(--rf-line); border-radius: 0 4px 4px 0; }
+.rf-seg > .rf-quiet:first-child { border-radius: 4px 0 0 4px; }
+/* The field: a hairline underneath, firmer while typing. */
+.rf-field { display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 2px; border: 0; border-bottom: 1px solid var(--rf-line); background: transparent; min-height: 26px; font-size: 14px; line-height: 1.4; }
+.rf-field:focus-within { border-bottom-color: currentColor; }
+.rf-field > input { flex: 1; min-width: 0; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; outline: none; box-shadow: none; }
+.rf-field > input::placeholder { color: var(--rf-faint); }
+.rf-field > .ti, .rf-field > kbd { flex: none; color: var(--rf-faint); font: inherit; font-size: 12px; }
+.rf-field > .ti { font-size: 15px; }
+.rf-field-inline { display: inline-flex; min-height: 22px; vertical-align: baseline; }
+/* The tick box: the browser's checkbox as a small rounded square, a check mark inside when on. */
+input.rf-check { appearance: none; -webkit-appearance: none; position: relative; box-sizing: border-box; width: 13px; height: 13px; margin: 0; padding: 0; flex: none; border: 1px solid var(--rf-line); border-radius: 3px; background: none; vertical-align: -1px; cursor: pointer; outline: none; }
+input.rf-check:checked, input.rf-check:indeterminate { border-color: currentColor; }
+input.rf-check:checked::before { content: ""; position: absolute; left: 3.5px; top: .5px; width: 3.5px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+input.rf-check:indeterminate::before { content: ""; position: absolute; left: 2px; right: 2px; top: 5px; height: 1.5px; background: currentColor; }
+input.rf-check:focus-visible { outline: 2px solid var(--rf-line); outline-offset: 1px; }
+.rf-tick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+/* Words for chips: a filter, or a removable item with a × on hover. */
+.rf-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; color: var(--rf-quiet); font: inherit; font-size: 14px; cursor: default; }
+button.rf-chip { cursor: pointer; }
+.rf-chip[aria-pressed="true"] { color: inherit; font-weight: 600; }
+.rf-chip-x { display: inline-flex; border: 0; padding: 0 2px; background: none; color: var(--rf-faint); font-size: 12px; cursor: pointer; opacity: 0; }
+.rf-chip:hover .rf-chip-x, .rf-chip-x:focus-visible { opacity: 1; }
+/* A tag as a class: mono, the tag grey, a link's faint underline, no #. */
+.rf-tag { font-family: var(--rf-mono); font-size: 12.5px; font-style: normal; font-weight: 400; color: inherit; opacity: .7; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); cursor: default; }
+a.rf-tag { cursor: pointer; }
+a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
+/* A value's kind as an icon left of the property's name. */
+.rf-kind { display: inline-flex; color: var(--rf-faint); font-size: 15px; vertical-align: -2px; }
+/* The picking bar: one line of words above the list, a hairline under it. */
+.rf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 2px 0 6px; margin-bottom: 6px; border-bottom: 1px solid var(--rf-hair); font-size: 14px; }
+.rf-count { display: inline-flex; align-items: center; gap: 6px; padding-right: 10px; font-weight: 600; cursor: pointer; }
+/* The hover card: a node's preview with a little room. */
+.rf-card { padding: 10px 12px; font-size: 14px; }
+.rf-card a { color: inherit; text-decoration: none; }
+.rf-card-title { display: block; font-weight: 600; margin-bottom: 3px; }
+.rf-card-title:hover, .rf-card-fields a:hover, .rf-card-line:hover, .rf-card-day:hover { text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+.rf-card-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 12px; row-gap: 4px; margin-top: 8px; }
+.rf-card-name { color: var(--rf-faint); }
+.rf-card-lines { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rf-hair); color: var(--rf-quiet); }
+.rf-card-line { display: block; }
+/* The quiet line and the help paragraph. */
+.rf-note { font-size: 12px; line-height: 1.45; color: var(--rf-faint); padding: 2px 0; }
+.rf-pop .rf-note { padding: 4px 8px; }
+.rf-day { color: var(--rf-faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rf-guide { padding: 2px 0 2px 10px; border-left: 1px solid var(--rf-line); font-size: 14px; color: var(--rf-quiet); }
+.rf-guide p { margin: 0 0 4px; }
+.rf-guide p:last-child { margin-bottom: 0; }
+/* Quiet words to pick one of. */
+.rf-pick { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.rf-pick .rf-quiet { font-size: 13px; height: 22px; padding: 0 5px; }
+/* THE Undo (undo.offer): a faded arrow at the end of what changed, clearer under the pointer; with nothing on screen to
+   sit beside, it waits at the bottom right with its words, as quiet. */
+.rf-undo { display: inline-flex; align-items: center; gap: 6px; vertical-align: -2px; margin-left: .4em; color: currentColor; opacity: .28; cursor: pointer; transition: opacity .15s; }
+.rf-undo > .ti { font-size: 14px; }
+.rf-undo:hover { opacity: .75; }
+.rf-undo-dock { position: fixed; z-index: 10002; right: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: min(420px, 60vw); color: var(--rf-fg); font-size: 12px; }
+.rf-undo-docked { margin: 0; padding: 3px 9px; border-radius: 6px; opacity: 1; background: var(--rf-bg); border: 1px solid var(--rf-hair); color: var(--rf-quiet); }
+.rf-undo-docked:hover { color: var(--rf-fg); }
+.rf-undo-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }
+
+/* ----- Old, kept only until the last part drawing with them is moved onto the kit (0.4.311): the old pop-up fillings
+   (.rf-pop-row, .rf-pop-field, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list), the old dialog (modal: .rf-dialog
+   as a div with its backdrop, .rf-anchored) and its buttons (.rf-btn). ----- */
+.rf-pop, div.rf-dialog { --rf-ui-bg: var(--rf-bg); --rf-ui-fg: var(--rf-fg); --rf-ui-line: var(--rf-hair); --rf-ui-field: var(--rf-line); --rf-ui-muted: var(--rf-faint); --rf-ui-hover: var(--rf-wash); }
+:is(.rf-pop-field, .rf-pop input[type=text]:not(.rf-field > input), .rf-pop input:not([type]), .rf-pop textarea) { display: block; box-sizing: border-box; width: calc(100% - 8px);
+  min-height: 2em; margin: 0 4px 4px; padding: 5px 8px; border: 1px solid var(--rf-line); border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
+:is(.rf-pop input:not(.rf-field > input), .rf-pop textarea):focus { border-color: color-mix(in srgb, currentColor 45%, transparent); }
+:is(.rf-pop-row, .rf-pop > button:not(.rf-item):not(.rf-quiet):not(.rf-go), .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 8px;
+  border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+:is(.rf-pop-row, .rf-pop > button:not(.rf-item):not(.rf-quiet):not(.rf-go), .rf-pop-list > button):is(:hover, :focus-visible, .rf-on) { background: var(--rf-wash); outline: none; }
+.rf-pop-kind { flex: none; margin-left: auto; padding-left: 12px; font-size: 12px; color: var(--rf-faint); }
+.rf-pop-new { font-style: italic; color: var(--rf-faint); }
+.rf-pop-note { padding: 4px 8px; font-size: 12px; line-height: 1.45; color: var(--rf-faint); }
+.rf-pop-list { max-height: 300px; overflow-y: auto; }
+.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: rgba(0, 0, 0, .18); }
+div.rf-dialog { position: static; inset: auto; margin: 0; width: min(420px, 92vw); max-height: none; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
+div.rf-dialog h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+div.rf-dialog label { display: block; margin-bottom: 6px; }
+div.rf-dialog p, .rf-dialog-note { margin: 0 0 8px; color: var(--rf-faint); }
+div.rf-dialog ul { margin: 0 0 8px; padding-left: 18px; }
+div.rf-dialog.rf-anchored { position: fixed; z-index: 10003; width: min(400px, 92vw); padding: 8px 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
+div.rf-dialog.rf-anchored h2 { font-size: 14px; margin-bottom: 6px; }
+:is(div.rf-dialog input[type=text], div.rf-dialog input:not([type]), div.rf-dialog textarea) { box-sizing: border-box; width: 100%; padding: 5px 8px; border: 1px solid var(--rf-line);
+  border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
+:is(div.rf-dialog input, div.rf-dialog textarea):focus { border-color: color-mix(in srgb, currentColor 45%, transparent); }
+div.rf-dialog .rf-btns { gap: 8px; }
+:is(.rf-btn, div.rf-dialog .rf-btns > button:not(.rf-quiet):not(.rf-go)) { padding: 3px 10px; border: 1px solid var(--rf-line); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+:is(.rf-btn, div.rf-dialog .rf-btns > button:not(.rf-quiet):not(.rf-go)):hover { background: var(--rf-wash); }
+.rf-btn.rf-go { height: auto; border-color: transparent; background: var(--rf-fg); color: var(--rf-bg); font-weight: 600; text-decoration: none; }
+:is(.rf-btn, div.rf-dialog .rf-btns > button):disabled { opacity: .45; cursor: default; }
+.refinement-prompt-hint { margin-top: 4px; font-size: 12px; color: var(--rf-faint); }
+`;
+
+/* ----- Old pieces, kept until their last user is moved onto the kit: the dialog box drawn as a div (modal), its
+   buttons and hint, and placing a box under an element by hand (placeBelow). ----- */
+function modal(cancelValue, build, width, classes = {}, anchor = null) {
+  const doc = host();
+  return new Promise(resolve => {
+    const backdrop = anchor ? null : doc.createElement('div');
+    if (backdrop) backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
+    const box = doc.createElement('div');
+    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}${anchor ? ' rf-anchored' : ''}`;
+    if (width) box.style.width = width;
+    let finished = false;
+    const away = event => { if (!box.contains(event.target)) finish(cancelValue); };
+    const finish = value => { if (finished) return; finished = true; (backdrop || box).remove(); doc.removeEventListener('mousedown', away, true); resolve(value); };
+    if (backdrop) backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
+    for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
+    box.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
+    });
+    if (backdrop) { backdrop.append(box); doc.body.appendChild(backdrop); }
+    else { doc.body.appendChild(box); doc.addEventListener('mousedown', away, true); }
+    build(box, finish, doc);
+    if (anchor) placeBelow(box, anchor);
+  });
+}
+function placeBelow(box, anchor) {
+  const win = box.ownerDocument.defaultView, at = anchor.getBoundingClientRect(), size = box.getBoundingClientRect();
+  box.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
+  const below = at.bottom + 4 + size.height < win.innerHeight - 8;
+  box.style.top = `${Math.round(below ? at.bottom + 4 : Math.max(8, at.top - 4 - size.height))}px`;
+}
+function modalButtons(doc, buttons) {
+  const row = doc.createElement('div');
+  row.className = 'rf-btns';
+  for (const [text, onClick, goIt] of buttons) {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.textContent = text;
+    b.className = goIt === 'go' ? 'rf-btn rf-go' : 'rf-btn';
+    b.addEventListener('click', event => { event.preventDefault(); onClick(); });
+    row.append(b);
+  }
+  return row;
+}
+function modalHint(doc, text) {
+  const hint = doc.createElement('div');
+  hint.className = 'refinement-prompt-hint';
+  hint.textContent = text;
+  return hint;
+}
+
+// This file's own boxes: the kit's pop-ups, anchors and dialog, the Undo dock, and the old dialog backdrop.
+leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock, .refinement-prompt-backdrop' });
+
+window.refinementShared = {
+  host, notify, lifecycle, sweepLeftovers, take, openEntity, settingReader, graphNamedIn, perf, warnings,
+  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, tick, chip, note, guide, choices, popup, ask, dialog, bar, card, undo,
+  modal, modalButtons, modalHint, placeBelow,
+};
 })();

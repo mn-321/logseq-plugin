@@ -7,7 +7,7 @@ const dir = process.argv[2];
 if (!dir) { console.error('usage: node tools/pages/prepare.js <scratch dir>'); process.exit(1); }
 fs.mkdirSync(path.join(dir, 'css'), { recursive: true });
 // 1. the parts' stylesheets
-const want = { 'parts/shared.js': ['dialogCss'], 'parts/two-way.js': ['twoWayCss', 'openRowsCss', 'hideTagListsCss'], 'parts/tags.js': ['css'], 'parts/link-text.js': ['css'], 'parts/shadow.js': ['css'], 'parts/settings-panel.js': ['css'], 'parts/picker.js': ['css'] };
+const want = { 'parts/shared.js': ['kitCss'], 'parts/two-way.js': ['twoWayCss', 'openRowsCss', 'hideTagListsCss'], 'parts/tags.js': ['css'], 'parts/link-text.js': ['css'], 'parts/shadow.js': ['css'], 'parts/settings-panel.js': ['css'], 'parts/picker.js': ['css'] };
 for (const [file, names] of Object.entries(want)) {
   const src = fs.readFileSync(file, 'utf8');
   for (const n of names) {

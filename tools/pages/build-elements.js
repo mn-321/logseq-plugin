@@ -141,7 +141,7 @@ const peek = [
 ];
 const glyph = (part, name, html, note = '') => `<div class="glyph"><div class="g">${html}</div><div class="gl"><span class="part">${esc(part)}</span><code>${esc(name)}</code>${note ? `<span class="note">${note}</span>` : ''}</div></div>`;
 const iconsHtml = `<div class="glyphs">
-${glyph('kit', 'UNDO_ICON', I('shared.js:UNDO_ICON'), 'not shared with the parts')}
+${glyph('kit', 'UNDO_ICON', T('arrow-back-up'), 'not shared with the parts')}
 ${glyph('tag map', 'TREE_ICON', I('tags-graph.js:TREE_ICON'))}
 ${glyph('tag map', 'SIDEBAR_ICON', I('tags-graph.js:SIDEBAR_ICON'))}
 ${glyph('tag map', 'PAGE_ICON', I('tags-graph.js:PAGE_ICON'))}
@@ -161,8 +161,8 @@ ${glyph('tag map', '“i” in a serif', `<div class="refinement-tags" style="di
 ${glyph('two-way rows', '“→” as text', `<span style="font-size:18px">→</span>`, 'after a row’s name')}
 </div>`;
 const undos = [
-  spec('kit', '.rf-undo', `<span>Provider: Dr. Mei Chen <span class="rf-undo" role="button" style="opacity:.28">${I('shared.js:UNDO_ICON')}</span></span>`, 'faded arrow at the end of what changed'),
-  spec('kit', '.rf-undo-docked', `<div class="rf-undo-dock" style="position:static;align-items:flex-start"><span class="rf-undo rf-undo-docked">${I('shared.js:UNDO_ICON')}<span class="rf-undo-words">Deleted 3 records</span></span></div>`, 'waiting at the bottom right-hand corner when nothing is left on screen to sit beside, with its words; a click takes the change back'),
+  spec('kit', '.rf-undo', `<span>Provider: Dr. Mei Chen <span class="rf-undo" role="button" style="opacity:.28">${T('arrow-back-up')}</span></span>`, 'faded arrow at the end of what changed'),
+  spec('kit', '.rf-undo-docked', `<div class="rf-undo-dock" style="position:static;align-items:flex-start"><span class="rf-undo rf-undo-docked">${T('arrow-back-up')}<span class="rf-undo-words">Deleted 3 records</span></span></div>`, 'waiting at the bottom right-hand corner when nothing is left on screen to sit beside, with its words; a click takes the change back'),
   spec('kit, used by no loaded part', '.refinement-undo-bar', `<div class="refinement-undo-bar" style="position:static;transform:none"><span>Spoke with is now Dr. Mei Chen</span><button type="button">Undo</button></div>`, 'the old bar, still in the code; to be deleted'),
 ];
 const ghost = [
@@ -384,7 +384,7 @@ footer { margin-top: 60px; color: var(--ink-2); font-size: .9rem; border-top: 1p
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ===== The parts' own stylesheets, as the plugin sends them to Logseq (built from the source) ===== */
-${css('shared-dialogCss')}
+${css('shared-kitCss')}
 ${css('two-way-twoWayCss')}
 ${css('tags')}
 ${css('link-text')}

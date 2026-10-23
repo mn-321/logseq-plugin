@@ -268,7 +268,7 @@ async function main() {
   if (keys4.join() !== 'show-settings,troubleshooting') problem('palette commands with Foundation only on: ' + keys4.join(', '));
   const tools4 = logseq4.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
   if (tools4.join() !== 'check-what-is-found,copy-perf-report,copy-styling-details,copy-warnings,take-the-tour,toggle-perf') problem('troubleshooting tools with Foundation only on: ' + tools4.join(', '));
-  if (!logseq4.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinements-dialog')) problem('the dialogs’ look was not sent with Foundation only on');
+  if (!logseq4.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinements-kit')) problem('the kit’s look was not sent with Foundation only on');
   console.log(`foundation only: ${keys4.length} palette commands (${keys4.join(', ')}), nothing drawn`);
   await logseq4._unload();
   await sleep(100);

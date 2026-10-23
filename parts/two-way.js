@@ -758,7 +758,7 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
   offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : where === 'here' ? ' to this page' : where === 'page' ? ` to ${other}` : ' to today’s journal'}`, undo, group.name);
   if (open) openEntity(block.uuid, true);
   // Into its words at once (0.4.302): the sidebar draws it a moment after it opens.
-  if (edit && !asPage) { const uuid = block.uuid; shared.waitFor(() => host().querySelector(`#right-sidebar .ls-block[blockid="${uuid}"]`), 3000).then(found => found && logseq.Editor.editBlock(uuid, { pos: 0 })).catch(error => warnOnce('the new record could not be put in edit', error)); }
+  if (edit && !asPage) { const uuid = block.uuid; window.refinementCore.screen.waitFor(() => host().querySelector(`#right-sidebar .ls-block[blockid="${uuid}"]`), 3000).then(found => found && logseq.Editor.editBlock(uuid, { pos: 0 })).catch(error => warnOnce('the new record could not be put in edit', error)); }
 }
 
 /* Picking records and acting on them together (0.4.228, the owner's ask: "selected in groups and be acted on", like

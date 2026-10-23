@@ -231,6 +231,7 @@ const dbJobs = [];   // database-round jobs, in the order the parts registered t
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
+    screen, commands: commandList,
     UUID, isEntityId, idsIn, uuidsIn, dsQuery,
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
@@ -243,17 +244,132 @@ function publishCore() {
 function moveOldDefaults() {
   for (const part of plugInParts) for (const [key, [old, now]] of Object.entries(part.moved || {})) if (logseq.settings?.[key] === old) logseq.updateSettings({ [key]: now });
 }
-// The palette commands the parts declare ({ key, label, run, shortcut, menu }): each gets its palette entry, with
-// the shortcut read from the setting it names (left empty, none is bound), and a bullet's right-click menu item when asked.
-function registerCommands(parts) {
-  for (const part of parts) for (const { key, label, run, shortcut, menu } of part.commands || []) {
-    let binding = shortcut && setting(shortcut).trim().toLowerCase();
-    const moved = part.moved?.[shortcut];
-    if (binding && moved?.[0] === binding) binding = moved[1]; // the saved setting may not show the move yet
-    logseq.App.registerCommandPalette({ key, label, ...(binding ? { keybinding: { binding } } : {}) }, run);
-    if (menu) logseq.Editor.registerBlockContextMenuItem(label, run);
+/* THE screen door (0.4.311, docs/LAYERS.md layer 1): the one way a part waits for Logseq to draw something, presses one
+   of its buttons, types into one of its fields, finds one of its floating items by its words, finds a page's item in the
+   right sidebar, asks whether one of its pop-ups is open, and closes what floats. Every part that has to work Logseq's
+   own boxes (the tag map's Add property and Add choice, the proposals' Option-Enter) goes through here; the three
+   copies of waitFor, the two of press and the three "is a pop-up open" that the parts carried are gone with it.
+   Checked with Logseq 2.0.2: its lists are .cp__select, its menus and pickers float in .ui__popover-content or a
+   [data-radix-popper-content-wrapper], its windows are .ui__modal. */
+const LOGSEQ_POPUPS = '.cp__select, .ui__popover-content, [data-radix-popper-content-wrapper], .ui__modal-panel, .ui__modal, [role="menu"], [role="dialog"], [role="listbox"]';
+const screen = {
+  // Polls find() every 50 ms until it returns something or ms pass; null then.
+  waitFor: (find, ms = 1500) => new Promise(resolve => {
+    const started = Date.now();
+    const tick = () => { let found = null; try { found = find(); } catch (error) { found = null; } if (found || Date.now() - started > ms) resolve(found || null); else setTimeout(tick, 50); };
+    tick();
+  }),
+  // Presses an element as the mouse does: Logseq opens its lists on the press, not on a click alone (found in the app).
+  press(el) {
+    const win = el.ownerDocument.defaultView;
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
+      el.dispatchEvent(new (type.startsWith('pointer') && win.PointerEvent ? win.PointerEvent : win.MouseEvent)(type, { bubbles: true, cancelable: true, view: win, button: 0, buttons: type.endsWith('down') ? 1 : 0, pointerType: 'mouse', isPrimary: true }));
+  },
+  // Types words into one of Logseq's boxes as typing would (its boxes listen for input); selects them when asked, so the
+  // next key typed replaces them.
+  typeInto(box, words, { select = false } = {}) {
+    const win = box.ownerDocument.defaultView, proto = box.matches('textarea') ? win.HTMLTextAreaElement.prototype : win.HTMLInputElement.prototype;
+    const set = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+    if (set) set.call(box, words); else box.value = words;
+    box.dispatchEvent(new win.Event('input', { bubbles: true }));
+    if (select) box.select?.();
+  },
+  // A key to an element (Escape to a menu, Enter to a row).
+  key: (el, name, init = {}) => !!el?.dispatchEvent(new el.ownerDocument.defaultView.KeyboardEvent('keydown', { key: name, code: name, bubbles: true, cancelable: true, ...init })),
+  // What floats over the page (Logseq's boxes and lists): not the sidebars, the main view, the header or the plugin's own.
+  floating: el => el.getClientRects().length > 0 && !el.closest('#right-sidebar, #main-content-container, #left-sidebar, .cp__header, .rf-pop, .refinement-tags'),
+  // A floating item (a menu row, an option, a button) whose words pass test(text); null when none.
+  item(test, doc = host()) {
+    return [...doc.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemcheckbox"], .menu-link, .cp__select-main .menu-link, button, li, a')].filter(screen.floating).find(el => test(el.textContent.trim())) || null;
+  },
+  // The items of the right sidebar whose header names a page (Logseq's .sidebar-item with its .sidebar-item-header).
+  sidebarItems(title, doc = host()) {
+    const named = text => text.replace(/^[#\s]+/, '').trim().toLowerCase();
+    return [...doc.querySelectorAll('#right-sidebar .sidebar-item')].filter(item => named(item.querySelector('.sidebar-item-header')?.textContent || '').startsWith(String(title).toLowerCase()));
+  },
+  // Is one of Logseq's own pop-ups open (a list, a menu, a picker, a window)? With an element: does it sit in one?
+  popupOpen(el, doc = host()) {
+    if (el) return !!el.closest?.(LOGSEQ_POPUPS);
+    return [...doc.querySelectorAll(LOGSEQ_POPUPS)].some(screen.floating);
+  },
+  // Closes what floats: Escape to each open menu and to whatever has the keyboard.
+  escapeMenus(doc = host()) {
+    for (const menu of [...doc.querySelectorAll('[role="menu"], [role="dialog"], .cp__select')].filter(screen.floating)) screen.key(menu, 'Escape');
+    screen.key(doc.activeElement, 'Escape');
+  },
+};
+/* THE command register (0.4.311, docs/LAYERS.md layer 1): every command of every part, with its name, its shortcut, its
+   icon and where it shows. A part declares commands: [{ key, label, run, shortcut, binding, icon, places, title }]:
+   shortcut names the setting that holds the keys (changed in the settings window; empty binds none), binding is a
+   fixed set of keys when there is no setting; places is any of 'palette' (Logseq's command palette, with the keys as
+   its keybinding; the default), 'toolbar' (a button in Logseq's toolbar with the icon), 'menu' (a bullet's right-click
+   menu), 'keys' (the engine itself listens for the keys on Logseq's window, for commands that work inside a bullet
+   being written, which Logseq's palette does not reach; run(event) returns true when it took the key). The settings
+   window reads the register (core.commands()) for its shortcuts group. */
+const commands = [];
+const keyCommands = [];
+const bindingOf = command => {
+  let binding = command.shortcut ? String(setting(command.shortcut) || '').trim().toLowerCase() : String(command.binding || '').trim().toLowerCase();
+  const moved = command.part?.moved?.[command.shortcut];
+  if (binding && moved?.[0] === binding) binding = moved[1]; // the saved setting may not show the move yet
+  return binding;
+};
+// Logseq's own spelling of a shortcut (mod+alt+l, alt+enter, mod+shift+up): mod is ⌘ on a Mac, Ctrl elsewhere.
+const IS_MAC = /Mac/.test(navigator.platform);
+const KEY_NAMES = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right', ' ': 'space', escape: 'esc' };
+function keyOf(event) {
+  const code = event.code || '';
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  const key = String(event.key || '').toLowerCase();
+  return KEY_NAMES[key] || key;
+}
+function matchesBinding(event, binding) {
+  if (!binding) return false;
+  const parts = binding.split('+').map(p => p.trim()).filter(Boolean);
+  const want = { mod: false, ctrl: false, alt: false, shift: false, meta: false };
+  let key = '';
+  for (const p of parts) { if (p in want) want[p] = true; else key = p === 'escape' ? 'esc' : p; }
+  if (!key || keyOf(event) !== key) return false;
+  const mod = IS_MAC ? event.metaKey : event.ctrlKey;
+  const ctrl = IS_MAC ? event.ctrlKey : false;
+  const meta = IS_MAC ? false : event.metaKey;
+  return mod === want.mod && ctrl === want.ctrl && event.altKey === want.alt && event.shiftKey === want.shift && meta === want.meta;
+}
+function onCommandKey(event) {
+  if (event.defaultPrevented) return;
+  for (const command of keyCommands) {
+    if (!matchesBinding(event, bindingOf(command))) continue;
+    let took = false;
+    try { took = command.run(event) === true; } catch (error) { warnOnce(`the command ${command.key} failed`, error); }
+    if (took) { event.preventDefault(); event.stopImmediatePropagation(); return; }
   }
 }
+function registerCommands(parts) {
+  const model = {};
+  for (const part of parts) for (const declared of part.commands || []) {
+    const command = { places: declared.menu ? ['palette', 'menu'] : ['palette'], ...declared, part, partName: part.name };
+    commands.push(command);
+    const binding = bindingOf(command);
+    const run = (...args) => { try { return command.run(...args); } catch (error) { warnOnce(`the command ${command.key} failed`, error); } };
+    if (command.places.includes('palette')) logseq.App.registerCommandPalette({ key: command.key, label: command.label, ...(binding ? { keybinding: { binding } } : {}) }, run);
+    if (command.places.includes('menu')) logseq.Editor.registerBlockContextMenuItem(command.label, run);
+    if (command.places.includes('toolbar')) {
+      const name = `rfCommand_${command.key.replace(/\W/g, '_')}`;
+      model[name] = run;
+      logseq.App.registerUIItem('toolbar', { key: `refinements-${command.key}`, template: `<a class="button rf-toolbar" data-on-click="${name}" title="${command.title || command.label}"><i class="ti ti-${command.icon || 'adjustments-horizontal'}"></i></a>` });
+    }
+    if (command.places.includes('keys')) keyCommands.push(command);
+  }
+  if (Object.keys(model).length) logseq.provideModel(model);
+  if (keyCommands.length) {
+    const win = host().defaultView;
+    win.addEventListener('keydown', onCommandKey, true);
+    onUnload(() => { win.removeEventListener('keydown', onCommandKey, true); keyCommands.length = 0; });
+  }
+}
+// The register as the settings window reads it: every command with its words, keys, icon and places.
+const commandList = () => commands.map(({ key, label, title, icon, shortcut, binding, places, partName }) => ({ key, label, title, icon, shortcut, binding: bindingOf({ shortcut, binding, part: commands.find(c => c.key === key)?.part }), fixed: !shortcut, places, part: partName }));
 /* Logseq's frame stays where it is (0.4.240). Its outer boxes (the window itself, and the boxes holding the main view
    and the sidebars) do not scroll; only the views inside them do. A focus or scrollIntoView, the plugin's or
    Logseq's, can still push one of them up, and then the top of every view, the toolbar and the titles, stays cut off
@@ -284,7 +400,7 @@ function main() {
   moveOldDefaults();
   takeOverFromEarlierCopy();
   publishCore();
-  logseq.provideStyle({ key: 'refinements-dialog', style: window.refinementShared.dialogCss }); // the dialogs' look, before any part (0.4.169)
+  logseq.provideStyle({ key: 'refinements-kit', style: window.refinementShared.kitCss }); // the kit's look, before any part (0.4.169, the kit since 0.4.311)
   // THE Undo (parts/shared.js, 0.4.258): its arrows belong to the page they were made on, and go with the plugin.
   onUnload(logseq.App.onRouteChanged(() => window.refinementShared.undo.clear()));
   onUnload(() => window.refinementShared.undo.stop());
