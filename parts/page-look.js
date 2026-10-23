@@ -47,18 +47,19 @@ ${AREA} a.page-ref${DAY}, ${AREA} .ls-datetime a { color: var(--rf-quiet) !impor
 ${AREA} a.page-ref${DAY}:hover, ${AREA} .ls-datetime a:hover { color: inherit !important; }
 `;
 const namesCss = `
-/* Everything in a pill and in a page's list value is the kit's quiet grey, whatever Logseq draws it with (the owner at
-   0.4.340: "it should be lighter, not full black"; at 0.4.341 a link in a value had stayed full colour, so no class name of
-   the value side is guessed any more: the pill is coloured whole); then the name and its colon a step lighter still, the
-   kit's faint grey, as the elements page draws them, so the value is what the eye lands on. A tag keeps its own look, and so does a value the proposals pencil in (.rfs-ghost). */
+/* The greys are mixed from currentColor, so they must be set ONCE per box and inherited, never on every descendant: at
+   0.4.343 the value side was coloured on each nested element and a link three levels deep ended near 20% (the owner:
+   "you made it even worse"). The pill (and a page list's value box) takes the quiet grey; everything inside inherits it
+   but a tag and a pencilled proposal; the name, one level in, takes the share of the pill's grey that lands on the kit's
+   faint (50 / 70). */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill,
+${AREA} .ls-properties-area .property-pair .property-value-container { color: var(--rf-quiet) !important; }
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *),
-${AREA} .ls-properties-area .property-pair .property-value-container,
-${AREA} .ls-properties-area .property-pair .property-value-container *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *) { color: var(--rf-quiet) !important; }
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child,
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child *,
-${AREA} .ls-properties-area .property-pair .property-key-panel,
-${AREA} .ls-properties-area .property-pair .property-key-panel * { color: var(--rf-faint) !important; }
+${AREA} .ls-properties-area .property-pair .property-value-container *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *) { color: inherit !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child { color: color-mix(in srgb, currentColor 71.5%, transparent) !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill .rfs-ghost { color: color-mix(in srgb, currentColor 71.5%, transparent) !important; }
+${AREA} .ls-properties-area .property-pair .property-key-panel { color: var(--rf-faint) !important; }
+${AREA} .ls-properties-area .property-pair .property-key-panel * { color: inherit !important; }
 `;
 const tagsCss = `
 /* Logseq draws a # link before the name and swaps it for an × (remove) link under the pointer. The # is made

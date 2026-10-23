@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The greys set once and inherited (0.4.344)
+
+**Asked:** a picture, the values in a bullet's pills nearly invisible and the names darker than them: "you made it even worse". **Found:** `--rf-quiet` is `color-mix(in srgb, currentColor 70%, transparent)`; 0.4.341's rule put it on every descendant of the pill with !important, so each nesting level took 70% of its parent and a value's link, three levels deep, landed near 20%. **Built:** `parts/page-look.js`: the quiet grey on the pill and on `.property-value-container` only, every descendant `color: inherit` (tags and `.rfs-ghost` left out), the name side mixed from the pill's grey at 71.5% (= the kit's 50% of the text colour), the proposals' ghost likewise, the page list's name panel at `--rf-faint` with its children inheriting. **Checks:** `sh tools/check.sh`. **Not seen.** Lesson for the record: never put a currentColor-mixed grey on nested elements.
+
 ## 2026-10-23 · The ring back on a focused pill (0.4.343)
 
 **Asked:** a picture of the ring round a pill: "But I use keyboard. I didn't say make values lighter than property labels. just revert to this". **Built:** `parts/page-look.js`: the `:focus-within` rules of 0.4.342 removed; the ring hidden only while a pill has no focus, as at 0.4.337; the value's underline kept. **Checks:** `sh tools/check.sh`. **Not seen.**
