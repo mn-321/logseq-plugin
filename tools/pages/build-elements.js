@@ -387,7 +387,6 @@ footer { margin-top: 60px; color: var(--ink-2); font-size: .9rem; border-top: 1p
 ${css('shared-kitCss')}
 ${css('two-way-twoWayCss')}
 ${css('tags')}
-${css('link-text')}
 ${css('shadow')}
 ${settingsCss}
 ${css('picker')}

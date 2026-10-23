@@ -169,10 +169,13 @@ async function main() {
   // Each feature does something of its own at start (0.4.279, the audit): its stylesheet goes to Logseq and the tag
   // map's command is registered, exactly when the part is loaded; left out, nothing of it shows (parts-apart-test).
   const styleKeys = logseq.calls.filter(call => call.name === 'provideStyle').map(call => call.args[0]?.key);
-  const SIGNS = { 'two-way': 'refinement-two-way', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'link-text': 'refinement-link-text', 'settings-panel': 'refinement-settings-panel' };
+  const SIGNS = { 'two-way': 'refinement-two-way', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'settings-panel': 'refinement-settings-panel' };
   // The bullet's piece of the proposals stays off, and says so, without the rules (0.4.269).
   const expected = part => part === 'shadow' ? has('shadow') && has('shadow-rules') : part === 'tags' ? tagMap() : has(part);
   for (const [part, key] of Object.entries(SIGNS)) if (expected(part) !== styleKeys.includes(key)) problem(`${expected(part) ? 'with' : 'without'} ${part}, its stylesheet ${key} was ${styleKeys.includes(key) ? 'still' : 'not'} sent`);
+  // Link selected text (on the kit, 0.4.314) sends no stylesheet of its own: its sign is its command in the one register.
+  const registered = (pluginWindow.refinementCore?.commands?.() || []).map(c => c.key);
+  if (has('link-text') !== registered.includes('link-selected-text')) problem(`${has('link-text') ? 'with' : 'without'} link-text, its command was ${registered.includes('link-selected-text') ? 'still' : 'not'} in the register`);
   if (tagMap() !== keys.includes('show-tag-tree')) problem(`${tagMap() ? 'with' : 'without'} the tag map, its command was ${keys.includes('show-tag-tree') ? 'still' : 'not'} registered`);
   if (has('two-way') !== logseq.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinement-two-way' && /rf-tw-row/.test(call.args[0]?.style || ''))) problem('the two-way rows did not send their look');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.

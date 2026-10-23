@@ -22,13 +22,20 @@ const page = (title, kind) => ({ title, lower: title.toLowerCase(), isTag: false
 const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), page('Chemo cycle 4', 'Treatment'), page('Northgate Cancer Center', 'Hospital'),
   { ...tag('Doctor', true), lower: 'doctor' }, page('Chen', 'Person')];
 const notes = [];
-window.logseq = { settings: { linkText: true }, provideStyle() {}, onSettingsChanged: () => () => {}, UI: { showMsg: text => notes.push(text) }, App: { onRouteChanged: () => () => {} } };
+window.logseq = { settings: { linkText: true, linkTextShortcut: 'mod+alt+l' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-text.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = (text) => notes.push(text);
-window.refinementCore = { provided: {}, propPages: async () => pages };
+window.refinementCore = { provided: {}, propPages: async () => pages, onPageChange: () => {} };
+window.refinementCore.provide = things => Object.assign(window.refinementCore.provided, things);
 const part = window.refinementParts.find(p => p.name === 'link text');
+part.provide(window.refinementCore);
 part.start();
-const inner = window.refinementLinkTextInner;
+// The one register (main.js), stood in for: the part's command is a `keys` command, run when its keys are pressed.
+const command = part.commands.find(c => c.key === 'link-selected-text');
+check(command && command.places.includes('keys') && command.shortcut === 'linkTextShortcut', 'the shortcut should be a command in the register, with its keys in a setting');
+window.addEventListener('keydown', event => { if (event.code === 'KeyL' && event.metaKey && event.altKey && command.run(event) === true) { event.preventDefault(); event.stopImmediatePropagation(); } }, true);
+check(!('refinementLinkTextInner' in window), 'the test door should be on the core, not a name on the window');
+const inner = window.refinementCore.provided.linkTextInner;
 
 // The rules.
 const titles = rows => rows.map(r => (r.kind === 'new' ? 'new:' : '') + r.title);
@@ -59,9 +66,9 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   check(e.defaultPrevented, 'Cmd+Option+L in a bullet should be the plugin’s');
   const list = doc.querySelector('.refinement-link-text');
   check(!!list, 'the list should open under the words');
-  check(!doc.querySelector('.rlt-typed') && !doc.querySelector('.rlt-row'), 'the page field should start empty, not with the selected words');
+  check(!doc.querySelector('.rf-typed') && !doc.querySelector('.rf-item'), 'the page field should start empty, not with the selected words');
   for (const ch of 'chen') key(ch);
-  check(list && list.querySelector('.rlt-on')?.textContent.startsWith('Chen'), 'the page named Chen should be highlighted');
+  check(list && list.querySelector('.rf-on')?.textContent.startsWith('Chen'), 'the page named Chen should be highlighted');
   key('ArrowDown'); key('Enter');
   check(box.value === 'Spoke with [Chen]([[Dr. Mei Chen]]) about the scan', 'Down then Enter should link the second page with the words kept: ' + box.value);
   check(!doc.querySelector('.refinement-link-text'), 'the list should close after linking');
@@ -73,7 +80,7 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   linkKey(); await wait(20);
   for (const ch of 'raj') key(ch);
   check(box.value === 'Saw the oncologist today', 'typing while the list is open should not change the bullet');
-  check(doc.querySelector('.refinement-link-text .rlt-on')?.textContent.startsWith('Dr. Raj Patel'), 'typing “raj” should find Dr. Raj Patel');
+  check(doc.querySelector('.refinement-link-text .rf-on')?.textContent.startsWith('Dr. Raj Patel'), 'typing “raj” should find Dr. Raj Patel');
   key('Enter');
   check(box.value === 'Saw [the oncologist]([[Dr. Raj Patel]]) today', 'the chosen page linked with the words kept: ' + box.value);
 
@@ -87,7 +94,7 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   // A click on a row links it.
   linkKey(); await wait(20);
   for (const ch of 'northgate') key(ch);
-  doc.querySelector('.refinement-link-text .rlt-row')?.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  doc.querySelector('.refinement-link-text .rf-item')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   check(box.value === 'Call [Northgate]([[Northgate Cancer Center]]) tomorrow', 'a click on a row should link it: ' + box.value);
 
   // An unknown name: New page is the only row, so Enter makes it.
@@ -102,13 +109,13 @@ async function select(text, words) { box.value = text; box.focus(); const at = t
   linkKey(); await wait(20);
   check(/The words to show/.test(doc.querySelector('.refinement-link-text')?.textContent || ''), 'with nothing selected, the list should ask for the words first');
   key('Enter');
-  check(!!doc.querySelector('.refinement-link-text') && !doc.querySelector('.rlt-row'), 'Enter with no words yet should do nothing');
+  check(!!doc.querySelector('.refinement-link-text') && !doc.querySelector('.rf-item'), 'Enter with no words yet should do nothing');
   for (const ch of 'my [onc]ologist') key(ch);
-  check(doc.querySelector('.rlt-field')?.textContent === 'my oncologist', 'the words typed show in the field, brackets left out: ' + doc.querySelector('.rlt-field')?.textContent);
+  check(doc.querySelector('.rf-field')?.textContent === 'my oncologist', 'the words typed show in the field, brackets left out: ' + doc.querySelector('.rf-field')?.textContent);
   check(box.value === 'Spoke with  today', 'typing the words should not change the bullet');
   key('Enter');
   check(/Link “my oncologist” to/.test(doc.querySelector('.refinement-link-text')?.textContent || ''), 'after Enter, the page is asked for');
-  check(!doc.querySelector('.rlt-typed') && !doc.querySelector('.rlt-row'), 'after Enter, the page field should start empty');
+  check(!doc.querySelector('.rf-typed') && !doc.querySelector('.rf-item'), 'after Enter, the page field should start empty');
   for (const ch of 'mei') key(ch);
   key('Enter');
   check(box.value === 'Spoke with [my oncologist]([[Dr. Mei Chen]]) today', 'the link goes in at the cursor: ' + box.value);

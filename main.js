@@ -315,7 +315,7 @@ const bindingOf = command => {
   return binding;
 };
 // Logseq's own spelling of a shortcut (mod+alt+l, alt+enter, mod+shift+up): mod is ⌘ on a Mac, Ctrl elsewhere.
-const IS_MAC = /Mac/.test(navigator.platform);
+const IS_MAC = /Mac/.test((typeof navigator !== 'undefined' && navigator.platform) || '');
 const KEY_NAMES = { arrowup: 'up', arrowdown: 'down', arrowleft: 'left', arrowright: 'right', ' ': 'space', escape: 'esc' };
 function keyOf(event) {
   const code = event.code || '';

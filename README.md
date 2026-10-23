@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.313.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.314.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -100,6 +100,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Fields shown from one end only | `twoWayOneEnd` | empty | Two-way links |
 | Leave out Logseq’s tag lists the rows repeat | `twoWayHideTagLists` | on | Two-way links |
 | Link selected text with ⌘⌥L | `linkText` | on | Link selected text |
+| Keys for Link selected text | `linkTextShortcut` | `mod+alt+l` | Link selected text |
 | Proposals while you write | `shadowProposals` | on | Proposals |
 | Hide empty properties until something is proposed | `shadowHideEmpty` | on | Proposals |
 | Only in these graphs | `shadowGraphs` | empty | Proposals |
@@ -366,7 +367,7 @@ window. Click **PDF** at the bottom left, then **Save as PDF**; the page title b
 **Link selected text** (0.4.252, the rebuilt one)
 
 1. While writing a bullet, select the words to link, such as `Chen` or `the oncologist`. Or select nothing: the list first asks for the words to show; type them and press `Enter`, and the link goes in at the cursor.
-2. Press `Cmd+Option+L` (`Ctrl+Alt+L` outside a Mac). A box opens under the words; type a page's name and the pages that fit are listed, the closest first, each with its tag at the right.
+2. Press `Cmd+Option+L` (`Ctrl+Alt+L` outside a Mac; the keys can be changed in the setting **Keys for Link selected text**, 0.4.314). A box opens under the words; type a page's name and the pages that fit are listed, the closest first, each with its tag at the right.
 3. Type to look for another page; the bullet's words stay as they are while you type. `Up` and `Down` move, `Enter` or a click links the highlighted page, `Esc` closes the list and leaves the words alone.
 4. The words become `[[Dr. Mei Chen]]` when they are the page's name, otherwise a link that keeps them, `[the oncologist]([[Dr. Mei Chen]])`. It is typed into the bullet as if by hand, so the proposals see it at once and `Cmd+Z` takes it back. **New page “…”** is offered only when no page has that name, and is never first when a page fits.
 

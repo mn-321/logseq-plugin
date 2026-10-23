@@ -2,6 +2,25 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Link selected text on the kit (0.4.314)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, second feature. **Done looks like:** select a word in a bullet,
+Cmd+Option+L: the box opens under the word in the kit's pop-up look, pages that fit with their tag in mono at the
+right, New page last; typing narrows, Up and Down move, Enter links, Escape leaves the words; Cmd+Z takes the link
+back; `parts/link-text.js` calls Logseq nowhere and draws nothing of its own. **Built:** the kit gains `drawnField`
+(the field's look with drawn text and a drawn caret; `.rf-field-drawn`, `.rf-typed`, `.rf-caret`, `.rf-placeholder`)
+and `ICONS.link`; `.rf-item.rf-new` is italic (the views page: New page last and italic). `parts/link-text.js`:
+`shared.popup({ at: wordsRect(...), manual: true })` in place of its own box and `place()`; `wordsRect` gives a rect
+(left 6px before the words) and the kit makes a 0×0 anchor there; `draw()` puts the head and the drawn field before
+the pop-up's body and hands the rows to `pop.items` (`right` is `tag(doc, kind)`, "page" or "tag"); a mousedown in the
+box is prevented so the cursor stays in the bullet; the shortcut is the command `link-selected-text` (places `keys`,
+setting `linkTextShortcut`, default `mod+alt+l`) run by the register, `linkSelectedText(event)` returning true when
+it takes the key; `onPageChange` from the core closes it; no stylesheet of its own; the test door is
+`core.provided.linkTextInner`. `tools/link-text-test.js`: a stand-in for the register, the kit's class names, two
+checks more. `tools/pages/`: no link-text stylesheet to pull. README: the new setting. The leaning baseline: link-text
+0 and 0, names 8. **Checks:** link-text-test (38), leaning-test, boot test, parts-apart, then `sh tools/check.sh` in
+full. **Seen:** in Logseq after a reload, on the Illness Test Graph, as the CHANGELOG line says.
+
 ## 2026-10-22 · The leaning-down check (0.4.313)
 
 **Asked:** step 3 of `docs/LAYERS.md` section 4: "a test that counts direct Logseq calls outside layer 1, parts

@@ -54,6 +54,8 @@
                                   does what was asked; pressed is a quiet button with aria-pressed="true".
    - field(doc, { placeholder, value, icon, kbd, inline, keys, input })   THE field: a real text box drawn as a
                                   hairline underneath; keys typed in it never reach Logseq; .input is the box.
+   - drawnField(doc, { text, placeholder, fresh, kbd })   the same look with drawn text and a drawn caret: only for the
+                                  link box, whose keystrokes must keep going to the bullet.
    - tick(doc, { checked, label, title, change })   the browser's tick box as a small rounded square.
    - chip(doc, { label, pressed, run, remove })     a filter (greyed, the one in force in the text colour) or a
                                   removable item (a word with a × on hover); never a pill.
@@ -276,7 +278,7 @@ const ICONS = {
   map: 'hierarchy', tag: 'tag', property: 'forms', rename: 'cursor-text', copy: 'copy', to: 'arrow-right', picked: 'square-check',
   warning: 'alert-triangle', show: 'eye', hide: 'eye-off', shortcut: 'keyboard', twoWay: 'arrows-left-right', order: 'arrows-sort',
   proposals: 'bulb', date: 'calendar', text: 'letter-case', number: '123', choice: 'select', several: 'stack-2', yesNo: 'checkbox', web: 'world',
-  node: 'arrow-right', nodes: 'arrows-right',
+  node: 'arrow-right', nodes: 'arrows-right', link: 'link',
 };
 const iconHtml = name => `<i class="ti ti-${esc(ICONS[name] || name)}" aria-hidden="true"></i>`;
 const icon = (doc, name, title) => el(doc, 'i', { class: `ti ti-${ICONS[name] || name}`, 'aria-hidden': title ? null : 'true', title: title || null });
@@ -311,6 +313,13 @@ function field(doc, { placeholder = '', value = '', icon: name, kbd, inline, key
   if (input) box.addEventListener('input', () => input(box.value));
   wrap.input = box;
   return wrap;
+}
+/* The drawn field (0.4.314): the field's look with drawn text and a drawn caret, for the one box whose keystrokes must keep
+   going to the bullet (the link box, so that Logseq's own Cmd+Z takes the link back); fresh marks text the next key replaces. */
+function drawnField(doc, { text = '', placeholder = '', fresh = false, kbd, cls } = {}) {
+  return el(doc, 'span', { class: `rf-field rf-field-drawn${cls ? ' ' + cls : ''}` },
+    text ? el(doc, 'span', { class: `rf-typed${fresh ? ' rf-typed-fresh' : ''}` }, text) : el(doc, 'span', { class: 'rf-placeholder' }, placeholder),
+    el(doc, 'span', { class: 'rf-caret', 'aria-hidden': 'true' }), kbd ? el(doc, 'kbd', {}, kbd) : null);
 }
 // The browser's tick box as a small rounded square; with a label, in a label.
 function tick(doc, { checked = false, label, title, change, cls } = {}) {
@@ -652,6 +661,16 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
 .rf-field > .ti, .rf-field > kbd { flex: none; color: var(--rf-faint); font: inherit; font-size: 12px; }
 .rf-field > .ti { font-size: 15px; }
 .rf-field-inline { display: inline-flex; min-height: 22px; vertical-align: baseline; }
+/* The drawn field: the same look, the text and the caret drawn, so nothing takes the keyboard from the bullet. */
+.rf-field-drawn { align-items: baseline; }
+.rf-field-drawn > .rf-typed { flex: 0 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.rf-field-drawn > .rf-typed-fresh { background: var(--rf-wash); border-radius: 2px; }
+.rf-field-drawn > .rf-placeholder { flex: 1; min-width: 0; color: var(--rf-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-field-drawn > .rf-caret { display: inline-block; flex: none; width: 1.5px; height: 1.1em; margin-left: 1px; transform: translateY(.2em); background: currentColor; animation: rf-blink 1s steps(1) infinite; }
+.rf-field-drawn > .rf-placeholder + .rf-caret { order: -1; margin: 0 1px 0 0; }
+.rf-field-drawn > kbd { margin-left: auto; }
+@keyframes rf-blink { 50% { opacity: 0; } }
+.rf-item.rf-new > .rf-item-words { font-style: italic; }
 /* The tick box: the browser's checkbox as a small rounded square, a check mark inside when on. */
 input.rf-check { appearance: none; -webkit-appearance: none; position: relative; box-sizing: border-box; width: 13px; height: 13px; margin: 0; padding: 0; flex: none; border: 1px solid var(--rf-line); border-radius: 3px; background: none; vertical-align: -1px; cursor: pointer; outline: none; }
 input.rf-check:checked, input.rf-check:indeterminate { border-color: currentColor; }
@@ -793,7 +812,7 @@ leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog
 
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, openEntity, settingReader, graphNamedIn, perf, warnings,
-  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, tick, chip, note, guide, choices, popup, ask, dialog, bar, card, undo,
+  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, ask, dialog, bar, card, undo,
   modal, modalButtons, modalHint, placeBelow,
 };
 })();

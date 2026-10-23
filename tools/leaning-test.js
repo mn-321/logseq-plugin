@@ -22,14 +22,14 @@ const OWN_NAMES = ['refinementShared', 'refinementParts', 'refinementCore'];
 // The baseline: lower a number here when a part is moved onto the kit, never raise one.
 const BASELINE = {
   logseq: {
-    'parts/two-way.js': 30, 'parts/tags-graph.js': 65, 'parts/tags-props.js': 20, 'parts/tags.js': 32, 'parts/link-text.js': 2, 'parts/alike.js': 0,
+    'parts/two-way.js': 30, 'parts/tags-graph.js': 65, 'parts/tags-props.js': 20, 'parts/tags.js': 32, 'parts/link-text.js': 0, 'parts/alike.js': 0,
     'parts/shadow-rules.js': 2, 'parts/shadow.js': 24, 'parts/shadow-steps.js': 5, 'parts/shadow-page.js': 1, 'parts/picker.js': 0, 'parts/settings-panel.js': 8,
   },
   sideways: {
-    'parts/two-way.js': 1, 'parts/tags-graph.js': 1, 'parts/tags-props.js': 1, 'parts/tags.js': 2, 'parts/link-text.js': 1, 'parts/alike.js': 0,
+    'parts/two-way.js': 1, 'parts/tags-graph.js': 1, 'parts/tags-props.js': 1, 'parts/tags.js': 2, 'parts/link-text.js': 0, 'parts/alike.js': 0,
     'parts/shadow-rules.js': 1, 'parts/shadow.js': 3, 'parts/shadow-steps.js': 1, 'parts/shadow-page.js': 1, 'parts/picker.js': 0, 'parts/settings-panel.js': 1,
   },
-  names: 9,
+  names: 8,
 };
 
 const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');
