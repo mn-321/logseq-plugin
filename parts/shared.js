@@ -450,6 +450,7 @@ function anchorFor(doc, at) {
   return { name, cleanup: () => { if (made) node.remove(); else if (node.style.getPropertyValue('anchor-name') === name) { if (before) node.style.setProperty('anchor-name', before); else node.style.removeProperty('anchor-name'); } } };
 }
 function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manual = false, hint = false, cls = '', width, onClose, doc } = {}) {
+  let waitUp = null; // set while the pop-up waits for the mouse button that opened it to be let go
   doc = doc || host();
   const pop = el(doc, 'div', { class: `rf-pop${cls ? ' ' + cls : ''}`, role: hint ? 'tooltip' : fieldOptions ? 'listbox' : 'menu', tabindex: hint ? null : '-1' });
   pop.setAttribute('popover', manual ? 'manual' : hint ? 'hint' : 'auto');
@@ -468,6 +469,7 @@ function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manu
     anchor?.cleanup();
     openPops.delete(controller);
     if (hadFocus && wasActive?.isConnected && wasActive !== doc.body) try { wasActive.focus({ preventScroll: true }); } catch (error) { /* cannot */ }
+    waitUp?.();
     onClose?.();
     resolveClosed();
   };
@@ -511,8 +513,22 @@ function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manu
   // The pointer over a row lights it, as in Logseq's own lists.
   body.addEventListener('mousemove', event => { const b = event.target.closest?.('.rf-item'); if (b && !b.classList.contains('rf-on')) lit(buttons().indexOf(b)); });
   doc.body.append(pop);
-  try { if (pop.showPopover) pop.showPopover(); } catch (error) { /* shown as a plain box */ }
-  if (!hint) { if (fieldEl) fieldEl.input.focus({ preventScroll: true }); else if (!manual) pop.focus({ preventScroll: true }); }
+  const show = () => {
+    if (closed) return;
+    try { if (pop.showPopover) pop.showPopover(); } catch (error) { /* shown as a plain box */ }
+    if (!hint) { if (fieldEl) fieldEl.input.focus({ preventScroll: true }); else if (!manual) pop.focus({ preventScroll: true }); }
+  };
+  /* Opened while a mouse button is still down (a right-click opens its menu on the press, on a Mac): shown once the button
+     is let go (0.4.323, the owner: "menu appear for less than a second and then disappears. you can get it to stay if you
+     hold down click"). The browser closes an open pop-up when a press ends outside it, and the press that opened it had
+     begun outside, so the release closed the menu it had just opened. */
+  const win = doc.defaultView;
+  if (!hint && (win?.event?.buttons || 0) > 0) {
+    const up = () => { waitUp(); win.setTimeout(show, 0); };
+    waitUp = () => { waitUp = null; win.removeEventListener('pointerup', up, true); win.removeEventListener('pointercancel', up, true); };
+    win.addEventListener('pointerup', up, true);
+    win.addEventListener('pointercancel', up, true);
+  } else show();
   const controller = { el: pop, body, close, items: drawItems, lit, get litAt() { return litAt(); }, field: fieldEl, get query() { return fieldEl?.input.value ?? ''; }, closed: closedPromise, get isClosed() { return closed; } };
   openPops.add(controller);
   return controller;

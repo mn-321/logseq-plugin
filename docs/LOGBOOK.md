@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A right-click menu that stays (0.4.323)
+
+**Asked:** the owner: a right-click menu on the two-way rows shows for less than a second unless the button is held. **Found:** the menu opened on the press (a Mac fires the right-click on the press); the browser's light dismiss closes a popover when a press that began outside it ends, so the release closed it. **Built:** `parts/shared.js`, `popup`: opened while a button is down (`window.event.buttons`), it is shown on the next pointerup or pointercancel, a tick later; its listeners go with it when it is closed first. **Checks:** boot, tags-test, two-way-check, undo-test, link-text-test, then `sh tools/check.sh` in full. **Seen:** in Logseq, both menus.
+
 ## 2026-10-22 · A steady line under the bullet being written (0.4.322)
 
 **Asked:** "ok" to the recommendation: while a tagged bullet is written, keep its property line showing, empty properties faint. **Found first:** with a test bullet on Oct 22nd, the line appeared with the tag and vanished on Escape (proposals cleared, empty properties hidden since 0.4.242), everything below moving a line each time. **Built:** `parts/shadow.js`: the rule hiding empty properties leaves out the bullet being written (`.block-main-container:has(textarea)`), and shows its empty ones at .45 opacity; the setting's words and the README say so. **Checks:** shadow-test, shadow-write-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq, with a test bullet, taken off again.
