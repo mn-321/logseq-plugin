@@ -270,6 +270,8 @@ async function main() {
   same((await model.tagChain(U(10)))?.chain.length, 1, 'tagChain: a top-level tag is its own chain');
   same(await model.tagChain(U(46)), null, 'tagChain: a page that is not a tag has none');
   same((await model.tagChain(U(60)))?.chain.map(t => t.title), ['A', 'B'], 'tagChain: a loop of two tags stops');
+  same((await model.tagChains(U(41)))?.tags.map(t => t.chain.map(x => x.title)), [['Doctor', 'Person']], 'tagChains: a doctor\'s page reads Doctor / Person');
+  same((await model.tagChains(U(11)))?.tags, [], 'tagChains: a tag page\'s own Tag is left out');
   same(await model.kindOfPage(11), { isTag: true, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of a tag page');
   same(await model.kindOfPage(22), { isTag: false, isProperty: true, plain: false, aliasOf: [] }, 'kindOfPage of a property page');
   same(await model.kindOfPage(46), { isTag: false, isProperty: false, plain: true, aliasOf: [] }, 'kindOfPage of a plain page');

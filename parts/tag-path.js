@@ -6,7 +6,10 @@
    page (Shift: in the sidebar). That end is where Logseq keeps a page's own tags and fades them in only under the
    pointer; the chain stays, and takes their place there, so nothing above or below it moves (a line of its own under
    the title would push the page down one line when it arrived). A long chain is cut at the far end, never wrapped.
-   A tag with no parent of yours shows nothing: its chain would be its own name. Drawn with the kit's tag (no #, mono). */
+   A tag with no parent of yours shows nothing: its chain would be its own name. Drawn with the kit's tag (no #, mono).
+   A page with tags of its own (0.4.329, the owner: "can this be applied to pages with the tag?") reads the same for
+   each: Dr. Mei Chen, "Doctor / Person / Entity", where Logseq fades in #Doctor; two tags are kept apart by a dot.
+   Logseq's kinds of page (Page, Journal) are not tags of yours and show nothing. */
 const shared = window.refinementShared;
 const { host, openEntity, tag } = shared;
 const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (tag path): ', leaves: { elements: '.rf-tag-path' } });
@@ -14,12 +17,12 @@ let model, sendStyle, watchDom, onPageChange, onDatabaseChange, onSettingsChange
 const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
-  { key: 'tagPathHeading', type: 'heading', group: 'reading', rank: 1, title: 'Tag pages', default: null,
-    legend: 'Where a tag sits, in its title’s corner',
-    zone: '<div><b>Consultation</b> &nbsp; <span class="m">Consultation / Occurrence</span></div>',
+  { key: 'tagPathHeading', type: 'heading', group: 'reading', rank: 1, title: 'Tags beside the title', default: null,
+    legend: 'A page’s tags and the tags above them, in its title’s corner',
+    zone: '<div><b>Dr. Mei Chen</b> &nbsp; <span class="m">Doctor / Person / Entity</span></div>',
     description: 'Changes here apply right away.' },
-  { key: 'tagPathInTitle', type: 'boolean', title: 'The tags above a tag, beside its title', default: true,
-    description: 'On a tag’s own page, the right end of the title row reads the tag and the tags it sits under, nearest first: “Consultation / Occurrence”. Each name opens its page; Shift-click opens it in the right sidebar. It stays where Logseq shows a page’s tags only under the pointer, so the page does not move. A tag that sits under none of yours shows nothing there.' },
+  { key: 'tagPathInTitle', type: 'boolean', title: 'A page’s tags and the tags above them, beside its title', default: true,
+    description: 'The right end of a page’s title row reads its tag and the tags that tag sits under, nearest first: “Doctor / Person / Entity” on Dr. Mei Chen; on a tag’s own page, the tag itself and those above it, “Consultation / Occurrence”. Each name opens its page; Shift-click opens it in the right sidebar. It stays where Logseq shows a page’s tags only under the pointer, so the page does not move. A tag page whose tag sits under none of yours shows nothing there.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -29,7 +32,7 @@ const css = `
 .rf-tag-path { display: inline-block; align-self: flex-start; max-width: 24em; margin: 17px 0 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; line-height: 1.6; vertical-align: middle; }
 .rf-tag-path .rf-sep { margin: 0 .35em; opacity: .4; }
 .rf-tag-path .rf-also { opacity: .5; font-size: 12px; }
-/* Logseq's own faded tags on a tag page (its Tag) give way to the chain. */
+/* Logseq's own faded tags (a tag page's Tag, a page's #Doctor) give way to the chain. */
 .ls-block-right:has(> .rf-tag-path) > .block-tags { display: none; }
 `;
 
@@ -42,14 +45,21 @@ function shownTitle(doc) {
 async function load(uuid) {
   const version = ++state.version;
   let path = null;
-  try { path = uuid ? await model.tagChain(uuid) : null; } catch (error) { warnOnce('could not read where this tag sits', error); }
+  try { path = uuid ? await model.tagChains(uuid) : null; } catch (error) { warnOnce('could not read where this tag sits', error); }
   if (version !== state.version) return;
   Object.assign(state, { uuid, path, loading: '' });
   draw(host());
 }
 const later = (uuid, ms) => { clearTimeout(state.timer); state.timer = setTimeout(() => load(uuid), ms); };
 
-function build(doc, path) {
+// What the corner reads: the tag page's own chain when it has a tag above it, then each of the page's own tags.
+const groupsOf = path => !path ? [] : [...(path.own && (path.own.chain.length > 1 || path.own.others.length) ? [path.own] : []), ...path.tags];
+function build(doc, groups) {
+  const parts = [];
+  groups.forEach((path, n) => { if (n) parts.push(shared.el(doc, 'span', { class: 'rf-sep', 'aria-hidden': 'true' }, '·')); parts.push(...buildOne(doc, path)); });
+  return parts;
+}
+function buildOne(doc, path) {
   const parts = [];
   path.chain.forEach((t, i) => {
     if (i) parts.push(shared.el(doc, 'span', { class: 'rf-sep', 'aria-hidden': 'true' }, '/'));
@@ -76,23 +86,23 @@ function draw(doc) {
   if (!uuid) { Object.assign(state, { uuid: '', path: null }); return remove(); }
   // Another page: read its tags once (the screen changes many times while Logseq draws it).
   if (uuid !== state.uuid) { remove(); if (state.loading !== uuid) { state.loading = uuid; later(uuid, 0); } return; }
-  const path = state.path;
+  const groups = groupsOf(state.path);
   const row = title.querySelector('.is-page-title-row');
-  if (!setting('tagPathInTitle') || !row || !path || path.chain.length + path.others.length < 2) return remove();
+  if (!setting('tagPathInTitle') || !row || !groups.length) return remove();
   const spot = row.querySelector('.ls-block-right') || row;
   let box = state.box;
   if (!box || box.ownerDocument !== doc) {
     box = state.box = shared.el(doc, 'span', { class: 'rf-tag-path', click: open, mousedown: keep, pointerdown: keep });
     state.key = '';
   }
-  const key = JSON.stringify(path);
-  if (key !== state.key) { state.key = key; box.replaceChildren(...build(doc, path)); }
+  const key = JSON.stringify(groups);
+  if (key !== state.key) { state.key = key; box.replaceChildren(...build(doc, groups)); }
   if (box.parentElement !== spot) spot.append(box);
 }
 
 let stopped = false;
 function start() {
-  ({ sendStyle, watchDom, onPageChange, onDatabaseChange, onSettingsChange } = take(window.refinementCore, ['sendStyle', 'watchDom', 'onPageChange', 'onDatabaseChange', 'onSettingsChange', 'tagChain', 'pageTitles']));
+  ({ sendStyle, watchDom, onPageChange, onDatabaseChange, onSettingsChange } = take(window.refinementCore, ['sendStyle', 'watchDom', 'onPageChange', 'onDatabaseChange', 'onSettingsChange', 'tagChains', 'pageTitles']));
   model = window.refinementCore.provided; // the graph through the model's doors
   stopped = false;
   sendStyle('refinement-tag-path', css);
