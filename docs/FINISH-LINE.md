@@ -23,7 +23,8 @@ at which it became true and one line of proof. Updated with every commit that mo
 - [x] Layer 4 complete: every resting "getting around" piece brought back on the kit and proved, or left resting with its
       reason written down. *(0.4.358: title words 0.4.354, chrome.js 0.4.355, search step 1 0.4.356, two writing helpers
       0.4.357, each seen in the app; the rest gone or resting, `docs/DECISIONS-AUTONOMOUS.md` 16 to 19)*
-- [ ] Layer 5 complete: `parts/styles.js` emptied and deleted, every rule placed or dropped with its reason.
+- [x] Layer 5 complete: `parts/styles.js` emptied and deleted, every rule placed or dropped with its reason. *(0.4.359:
+      four rules into `page-look.js`, seen on Dr. Mei Chen and Jul 3rd, 2026; the rest dropped, `docs/STYLES-AUDIT.md`)*
 - [ ] Layer 6 decided for `rich-copy.js` and `todos.js`, each decision written down.
 - [ ] `RESTING_FILES` holds only parts decided to stay resting, each named in `docs/DECISIONS-AUTONOMOUS.md`.
 

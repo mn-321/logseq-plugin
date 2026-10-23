@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The old styles emptied into the page look (0.4.359)
+
+**Asked:** Phase 3 (`docs/STYLES-AUDIT.md`). **Done looks like:** on Dr. Mei Chen, "+ Add property" under the
+properties appears only with the pointer on them and nothing moves; the date property has no pencil; on Jul 3rd, 2026
+the line beside the nested bullet is firmer while the pointer is on it. **Found first** (in the app): the pencil is
+still drawn; Logseq's nesting line is already 8% grey, so "fainter" had nothing to do. **Built:** four settings and
+stylesheets in `parts/page-look.js` (the old keys kept for `quietEmptyProps` and `indentGuides`, so saved choices
+carry over); the empty-property rule kept out of the proposals' graphs, which hide or fade empty properties themselves;
+`parts/styles.js` deleted; GUIDE's rules now point at the kit's tokens; README: the Appearance section rewritten to what
+runs, and the settings table given the search and writing-helper rows 0.4.356 and 0.4.357 left out. **Checks:** boot,
+leaning, parts-apart, `sh tools/check.sh`, `node tools/app-frames.js`. **Seen in the app:** as above (opacity 0, then .7
+under the pointer; the pencil display none; the line at the kit's line grey).
+
 ## 2026-10-23 · The properties and links parts judged (0.4.358)
 
 **Asked:** Phase 2, pieces 5 and 6. **Done looks like:** nothing changes on screen (neither part was loaded); the

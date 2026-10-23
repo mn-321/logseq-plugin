@@ -30,7 +30,7 @@ when it was built.
    under a name and with a line on the elements page.
 4. **Where things sit.** What goes on a page, where, and how you get to it: the trimmed page plan (CLAUDE.md section 3),
    sidebars, search, moving about, the `p::` typing. Most of the resting parts belong here.
-5. **How things look.** Colour, size, spacing. The look half of the resting `styles.js`. Deliberately last.
+5. **How things look.** Colour, size, spacing. The look half of the old `styles.js`, emptied into `page-look.js` and deleted at 0.4.359. Deliberately last.
 6. **Separate tools.** Rich copy, todos. Decided one by one.
 
 **Where things stand (2026-10-22).** Layer 3 is built and each feature can be left out (`tools/parts-apart-test.js`).

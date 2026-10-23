@@ -9,7 +9,11 @@
    - a bullet's properties have no capsule: no edge, no fill; the name quiet, the value in the text colour, a faint
      dot between one property and the next.
    Stylesheets only; nothing moves on the page (the pills keep their height, the slots their width). A page's own property
-   list and Logseq's tables are left as Logseq draws them. */
+   list and Logseq's tables are left as Logseq draws them.
+   Four more from the old styles part, emptied into here and deleted at 0.4.359 (docs/STYLES-AUDIT.md): Logseq's "+ Add
+   property" under a page's properties only with the pointer there, its room kept; an empty property faint, never hidden
+   (the owner, 0.4.79); the pencil after a date value left out (the owner, 0.4.85); the nesting line beside the branch
+   under the pointer or being written firmer. */
 const shared = window.refinementShared;
 const { warnOnce, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (page look): ' });
 let sendStyle, onSettingsChange;
@@ -30,6 +34,14 @@ const settingsSchema = [
     description: 'A tag at the right of a bullet reads as its name alone in a monospace face, grey, without the #. The × that removes it takes the #’s place under the pointer, so the name does not move.' },
   { key: 'noCapsules', type: 'boolean', title: 'Properties without capsules', default: true,
     description: 'A bullet’s properties read as “Provider: Hannah Reyes · Date: Oct 21st”: no edge, no fill, the name grey and the value in the text colour, a faint dot between one property and the next.' },
+  { key: 'quietAddProperty', type: 'boolean', title: '“+ Add property” only with the pointer on the properties', default: true,
+    description: 'Under a page’s properties, Logseq’s “+ Add property” shows only while you point at the list or type in it; its room is kept, so nothing moves.' },
+  { key: 'quietEmptyProps', type: 'boolean', title: 'Empty properties faint', default: true,
+    description: 'A property with no value yet stays on screen, faint, under a bullet and in a bullet’s list of properties. A page’s own list under its title is left as it is.' },
+  { key: 'hideDatePencil', type: 'boolean', title: 'No pencil after a date', default: true,
+    description: 'Logseq puts a small pencil after a date value; it is left out. A click on the date still opens Logseq’s date picker.' },
+  { key: 'indentGuides', type: 'boolean', title: 'The nesting line firmer where you are', default: true,
+    description: 'The line beside the bullets nested under the one you point at or type in is a little firmer than Logseq’s faint nesting lines. Nothing moves: Logseq draws the line as a border.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -78,12 +90,36 @@ ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:not(:
    not count, or the first shown one would carry a dot of its own. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:is(:not(:has(.empty-value)), [data-refinement-proposal], [data-rfs-at]) ~ .bottom-property-pill::before { content: '·'; margin-right: .5rem; color: var(--rf-faint); }
 `;
+const addPropertyCss = `
+/* Logseq's "+ Add property" under a page's own list: invisible until the pointer is on the list or the keyboard in it. */
+.ls-page-properties .ls-new-property { opacity: 0 !important; transition: opacity .15s; }
+.ls-page-properties:is(:hover, :focus-within) .ls-new-property { opacity: .7 !important; }
+.ls-page-properties .ls-new-property:is(:hover, :focus-within) { opacity: 1 !important; }
+`;
+const emptyPropsCss = `
+/* Logseq marks an empty pill .empty-value and an empty row .property-panel-row-empty; faint, never hidden. In a graph
+   where the proposals write (html.rfs-hide-empty, parts/shadow.js) they own empty properties, so this stays out; a
+   focused one keeps Logseq's look. */
+html:not(.rfs-hide-empty) ${AREA} .ls-block > .block-main-container .positioned-properties.block-below .bottom-property-pill:has(.empty-value):not(:focus-within) { opacity: .5; }
+html:not(.rfs-hide-empty) ${AREA} .ls-block > .ls-block-content-indent > .ls-properties-area .property-pair.property-panel-row-empty:not(:focus-within) { opacity: .5; }
+`;
+const pencilCss = `
+${AREA} .ls-block .bottom-property-edit-icon { display: none !important; }
+`;
+// Logseq's nesting line is a border in --ls-guideline-color (8% here); only the branch you are in is drawn firmer.
+const guidesCss = `
+${AREA} .ls-block .block-children-container:is(:hover:not(:has(.block-children-container:hover)), :focus-within:not(:has(.block-children-container:focus-within))) > .block-children { border-left-color: var(--rf-line) !important; }
+`;
 function applyStyles() {
   sendStyle('refinement-page-look-links', setting('quietLinks') ? linksCss : '');
   sendStyle('refinement-page-look-dates', setting('quietDates') ? datesCss : '');
   sendStyle('refinement-page-look-names', setting('quietNames') ? namesCss : '');
   sendStyle('refinement-page-look-tags', setting('tagsAsClasses') ? tagsCss : '');
   sendStyle('refinement-page-look-capsules', setting('noCapsules') ? capsulesCss : '');
+  sendStyle('refinement-page-look-add-property', setting('quietAddProperty') ? addPropertyCss : '');
+  sendStyle('refinement-page-look-empty', setting('quietEmptyProps') ? emptyPropsCss : '');
+  sendStyle('refinement-page-look-pencil', setting('hideDatePencil') ? pencilCss : '');
+  sendStyle('refinement-page-look-guides', setting('indentGuides') ? guidesCss : '');
 }
 
 function start() {

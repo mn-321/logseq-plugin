@@ -1,5 +1,11 @@
 # `parts/styles.js`, rule by rule
 
+**Done at 0.4.359:** the four kept rules are in `parts/page-look.js` (`quietAddProperty`, `quietEmptyProps`, `hideDatePencil`,
+`indentGuides`) and `parts/styles.js` is deleted. The open questions, looked at in the app: 2.0.2 still draws the pencil
+after a date (kept out, the owner's 0.4.85 word); its nesting line is `--ls-guideline-color`, already 8%, so only the
+branch you are in is drawn firmer (`--rf-line`); empty properties stay out of the proposals' graphs, which own them
+(`html.rfs-hide-empty`); links to blocks keep page-look's underline (no rule of their own).
+
 Phase 3 of `docs/FINISHING-PROMPT.md` (layer 5): every rule group of the resting `parts/styles.js`, what it changes, layout
 or look, and where it goes. Written 2026-10-23 from the code (a reader agent drafted the table; the claims it rests on were
 checked: the kit defines `--rf-quiet` and `--rf-faint` as colours, `parts/shared.js` 756, while `styles.js` defines them
