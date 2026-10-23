@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Layer 6 decided: the export and Todos rest
+
+**Asked:** Phase 4. **Found** (in the app): 21 tasks in the Illness Test Graph, every one already in Logseq's own Task
+page as a table with status, priority, deadline, scheduled, sort, filter and views. **Decided:** both rest
+(`docs/DECISIONS-AUTONOMOUS.md` 20). Nothing on screen changes; no code changed.
+
 ## 2026-10-23 · The old styles emptied into the page look (0.4.359)
 
 **Asked:** Phase 3 (`docs/STYLES-AUDIT.md`). **Done looks like:** on Dr. Mei Chen, "+ Add property" under the

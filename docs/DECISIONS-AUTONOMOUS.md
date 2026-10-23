@@ -192,3 +192,15 @@ written down:** PDF citations and child asset cues, since the Illness Test Graph
 line above the title, dropped 2026-10-21; its title tags are `tag-path.js` now) and `parts/inline-props.js` (the `p::`
 typing, the owner's "no" of 2026-10-23). With this, layer 4 is complete: the title words, `chrome.js`, search step 1 and
 the two writing helpers back on the kit; everything else gone or resting with its reason here (decisions 16 to 19).
+
+## 20. Layer 6: the document export and Todos both rest (2026-10-23)
+
+**Question:** Phase 4. **`rich-copy.js`, rests.** Its output can be proven only through the clipboard, which is not
+tried through computer use, or by rebuilding its copy step to hand the HTML to a test, with approved samples for five
+export styles and its preview window rebuilt on the kit; the owner rested it twice (0.4.244 to 0.4.250, then at
+0.4.251), and the quietest reversible choice is to leave it so. **`todos.js` (with Expectations), rests.** The graph
+has tasks to show (21: Todo 6, Doing 1, Done 12, Canceled 1), so the third test decides: Logseq 2.0.2's own Task page
+already lists all 21 as a table with Status, Priority, Deadline and Scheduled, sort, filter and views of your own
+("Add new view"), seen in the app; Todos would be a second list of the same tasks (rule 3: Logseq's behaviour beats the
+plugin's). **Flip:** both files are in `parts/`, listed in `RESTING_FILES`; bringing one back is rebuilding it on the
+kit and the model first.

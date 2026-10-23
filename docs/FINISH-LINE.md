@@ -25,8 +25,10 @@ at which it became true and one line of proof. Updated with every commit that mo
       0.4.357, each seen in the app; the rest gone or resting, `docs/DECISIONS-AUTONOMOUS.md` 16 to 19)*
 - [x] Layer 5 complete: `parts/styles.js` emptied and deleted, every rule placed or dropped with its reason. *(0.4.359:
       four rules into `page-look.js`, seen on Dr. Mei Chen and Jul 3rd, 2026; the rest dropped, `docs/STYLES-AUDIT.md`)*
-- [ ] Layer 6 decided for `rich-copy.js` and `todos.js`, each decision written down.
-- [ ] `RESTING_FILES` holds only parts decided to stay resting, each named in `docs/DECISIONS-AUTONOMOUS.md`.
+- [x] Layer 6 decided for `rich-copy.js` and `todos.js`, each decision written down. *(2026-10-23, both rest:
+      `docs/DECISIONS-AUTONOMOUS.md` 20)*
+- [x] `RESTING_FILES` holds only parts decided to stay resting, each named in `docs/DECISIONS-AUTONOMOUS.md`. *(pages,
+      links, search, inline-props: 17 and 19; rich-copy, todos: 20)*
 
 ## C. The loose ends
 
