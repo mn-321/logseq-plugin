@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.316.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.317.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -80,12 +80,12 @@ The files in `parts/`:
 
 Open the settings from **Refinements settings** in Logseq's three-dots menu (top right, under Plugins), or run **Refinements settings** from the command palette.
 
-- Sections are listed on the left under three groups: **Reading a page** (Two-way links), **Writing a record** (Proposals, Link selected text, Pickers) and **Tools** (Tag tree, Troubleshooting). **Changed by you** lists everything you have changed. The resting parts' sections come back with their parts.
+- Sections are listed on the left under three groups: **Reading a page** (Two-way links), **Writing a record** (Proposals, Link selected text, Pickers) and **Tools** (Tag tree, Shortcuts, Troubleshooting), each with its icon. **Shortcuts** (0.4.317) gathers every key the plugin listens for, read from its one register, so each can be changed there. **Changed by you** lists everything you have changed. The resting parts' sections come back with their parts.
 - At the top of each group, a picture shows where on screen each of its sections works, numbered like the list beside it; a click on a part of the picture or on a name in the list opens that section. A click on a group's name shows all its sections at once.
 - The tag tree, in **Tools**, has a first switch (**Use the tag tree**, on); while it is off the rest of its settings are shown faint and do nothing.
 - A search box (press `/` or `Cmd+F` in the window) looks through every setting's name and explanation.
-- A changed setting has a small dot and a **Reset** link. Each change is saved as you make it.
-- Most switches apply at once. Those that need a reload say “after reload”, and a **Reload plugin** button is at the bottom.
+- A changed setting has a small dot and a faint **Reset** word. Each change is saved as you make it. On or off is a tick box; a choice of two or three is a row of words; a list of names is words with a × on hover and a field to add to it (a tag setting offers the graph's tags as you type); text is a field drawn as an underline (0.4.317, the kit's pieces).
+- Most settings apply at once. Those that need a reload say “after reload”, and a **Reload plugin** button is at the bottom.
 - Logseq's own settings page for the plugin (Plugins, `t p`) still works and is one click away at the bottom of the window.
 
 ### Every setting

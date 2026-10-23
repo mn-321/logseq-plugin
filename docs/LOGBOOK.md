@@ -2,6 +2,28 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The settings window on the kit (0.4.317)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, fifth feature: "the settings window (the browser's dialog, the
+register's shortcuts as a group)". **Done looks like:** the window opens from the palette or the three-dots menu as
+the browser's dialog in the kit's look; every control is a kit piece; a Shortcuts section lists the register's keys;
+`parts/settings-panel.js` calls Logseq nowhere. **Built:** `parts/settings-panel.js` rewritten on the kit:
+`shared.dialog` (class `refinement-settings rf-settings`), the kit's `field` for find (icon, kbd /; the first Escape
+empties it, the second is the dialog's), `quiet` for the nav (one per section with `iconOf`: the heading's `icon`,
+else by its key, else by its group), `tick` for booleans, `.rf-seg` of `quiet` for enums, `chip` + an inline `field`
+for lists (tags offered through `shared.popup` as you type, `manual`, Up/Down/Enter in the field), an inline `field`
+for text and numbers, `note` for every quiet line, faint `quiet` for Reset, More, Reload plugin and Logseq's settings
+page; the group card keeps `rs-zone`, `rs-legend`, `rs-n`, `rs-d` (the boot test reads them) in the kit's greys with
+the colours gone; `sectionsOf` adds a Shortcuts section from `core.commands()` and takes each command's setting out of
+its own section; the menu item's drawing is `icon(doc, 'settings')`; `provide` gives `settingsPanel` to the core.
+`main.js`: `settingsNow`, `settingsSchema` (`schemaAll`), `saveSettings`, `openLogseqSettings`, `pluginVersion`,
+`reloadPlugin` on the core. `parts/model.js`: `tagTitles`. `tools/boot-test.js`: opens the window through the core
+and closes it through the kit. The leaning baseline: settings-panel 0 and 0, names 3. README: the window's words.
+**Checks:** boot, leaning, parts-apart, then `sh tools/check.sh` in full. **Seen:** in Logseq after a reload, as the
+CHANGELOG line says; the first look showed Logseq's own forms rule painting the tick box blue with its drawn tick,
+so the kit's rule was made firmer (`input.rf-check[type=checkbox]`, the checked state `!important`), seen right
+after a second reload. Dark mode not looked at (Logseq's theme command was not found from the search box).
+
 ## 2026-10-22 · The troubleshooting tools on the kit (0.4.316)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, fourth feature (troubleshooting). **Done looks like:** the palette's

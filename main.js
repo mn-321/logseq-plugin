@@ -163,6 +163,7 @@ function reloadOnly(schema) {
   return keys;
 }
 let RELOAD_SETTINGS = [];
+let schemaAll = []; // every part's settings, joined (core.settingsSchema)
 
 /* After the database changes, everything the plugin knows from it is looked up again in one round:
    as soon as the changes pause, or every few seconds while they keep coming (typing). Seven
@@ -232,6 +233,11 @@ function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
     screen: window.refinementShared.screen, commands: commandList,
+    // The settings as the settings window reads and writes them (0.4.317): the values now, the joined schema, a save,
+    // Logseq's own settings page, a reload of this plugin, its version.
+    settingsNow: () => logseq.settings || {}, settingsSchema: () => schemaAll, saveSettings: patch => logseq.updateSettings(patch),
+    openLogseqSettings: () => logseq.showSettingsUI(), pluginVersion: () => logseq.baseInfo?.version || '',
+    reloadPlugin: () => { const win = host().defaultView, id = logseq.baseInfo?.id || 'logseq-db-refinements'; win.setTimeout(() => win.LSPluginCore?.reload(id), 0); },
     UUID, isEntityId, idsIn, uuidsIn, dsQuery,
     provided, provide: things => Object.assign(provided, things),
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
@@ -439,6 +445,7 @@ loadParts().then(() => {
   useShared();
   plugInParts = window.refinementParts || [];
   const schema = plugInParts.flatMap(part => part.schema);
+  schemaAll = schema;
   setting = window.refinementShared.settingReader(schema);
   RELOAD_SETTINGS = reloadOnly(schema);
   logseq.useSettingsSchema(schema);

@@ -746,8 +746,9 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
 @keyframes rf-blink { 50% { opacity: 0; } }
 .rf-item.rf-new > .rf-item-words { font-style: italic; }
 /* The tick box: the browser's checkbox as a small rounded square, a check mark inside when on. */
-input.rf-check { appearance: none; -webkit-appearance: none; position: relative; box-sizing: border-box; width: 13px; height: 13px; margin: 0; padding: 0; flex: none; border: 1px solid var(--rf-line); border-radius: 3px; background: none; vertical-align: -1px; cursor: pointer; outline: none; }
-input.rf-check:checked, input.rf-check:indeterminate { border-color: currentColor; }
+input.rf-check[type=checkbox] { appearance: none; -webkit-appearance: none; position: relative; box-sizing: border-box; width: 13px; height: 13px; margin: 0; padding: 0; flex: none; border: 1px solid var(--rf-line); border-radius: 3px; background: none; color: inherit; vertical-align: -1px; cursor: pointer; outline: none; box-shadow: none; }
+/* Logseq's own forms rule paints a checked box blue with a drawn tick (Tailwind forms); the kit's square keeps its own. */
+input.rf-check[type=checkbox]:checked, input.rf-check[type=checkbox]:indeterminate, input.rf-check[type=checkbox]:focus { background-color: transparent !important; background-image: none !important; border-color: currentColor !important; color: inherit !important; box-shadow: none !important; }
 input.rf-check:checked::before { content: ""; position: absolute; left: 3.5px; top: .5px; width: 3.5px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
 input.rf-check:indeterminate::before { content: ""; position: absolute; left: 2px; right: 2px; top: 5px; height: 1.5px; background: currentColor; }
 input.rf-check:focus-visible { outline: 2px solid var(--rf-line); outline-offset: 1px; }

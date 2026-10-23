@@ -23,13 +23,13 @@ const OWN_NAMES = ['refinementShared', 'refinementParts', 'refinementCore'];
 const BASELINE = {
   logseq: {
     'parts/two-way.js': 30, 'parts/tags-graph.js': 65, 'parts/tags-props.js': 20, 'parts/tags.js': 32, 'parts/link-text.js': 0, 'parts/alike.js': 0,
-    'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 8,
+    'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 0,
   },
   sideways: {
     'parts/two-way.js': 1, 'parts/tags-graph.js': 1, 'parts/tags-props.js': 1, 'parts/tags.js': 2, 'parts/link-text.js': 0, 'parts/alike.js': 0,
-    'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 1,
+    'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 0,
   },
-  names: 4,
+  names: 3,
 };
 
 const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');

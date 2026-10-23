@@ -185,7 +185,7 @@ async function main() {
   if (toolKeys.join() !== wantTools.join())
     problem('troubleshooting tools: ' + toolKeys.join(', '));
   // The settings window (0.4.173): every picture comes from the setting or section that owns it.
-  pluginWindow.refinementSettingsPanel.open();
+  pluginWindow.refinementCore.provided.settingsPanel.open();
   const panel = doc.querySelector('.refinement-settings');
   const previews = panel ? panel.querySelectorAll('.rs-pv').length : 0;
   const wantPreviews = parts.flatMap(part => part.schema).filter(item => item.type === 'boolean' && Array.isArray(item.preview)).length;
@@ -195,7 +195,7 @@ async function main() {
   if (!zones.length || zones.length !== legends.length || zones.some(zone => !zone.dataset.n) || legends.some(button => !button.querySelector('.rs-d')?.textContent))
     problem(`the settings window's picture: ${zones.length} zones, ${legends.length} lines beside it`);
   console.log(`settings window: ${previews} small pictures, ${zones.length} zones in the first group's picture`);
-  doc.querySelector('.refinement-settings-backdrop, .refinement-settings')?.remove();
+  pluginWindow.refinementShared.popups.closeAll(); doc.querySelector('dialog.refinement-settings')?.remove();
   // Its screen report holds every running feature's rows, each thing once, with every feature that needs it.
   await pluginWindow.refinementCore.provided.diagnostics.checkWhatIsFound();
   const report = doc.querySelector('textarea')?.value || '';
