@@ -30,7 +30,8 @@
      valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written
    - propTextValues, propNamed                                     turning a property into links (0.4.241)
    - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles,
-     getPage, createPage, deletePage, appendBlock, removeBlock
+     getPage, createPage, deletePage, appendBlock, removeBlock, renamePage, moveBlock, pageBlocksTree, addTagExtends,
+     removeTagExtends, openInSidebar, showSidebar, EXTENDS, ALIAS, ICON, PARENT_TAGS
                                                                     THE writes (0.4.315, docs/LAYERS.md layer 1): the one door a
                                                                     part writes the graph through; Logseq's own calls live here only */
 const shared = window.refinementShared;
@@ -617,11 +618,25 @@ const deletePage = name => logseq.Editor.deletePage(name);
 const appendBlock = (pageUuid, text) => logseq.Editor.appendBlockInPage(pageUuid, text);
 const removeBlock = uuid => logseq.Editor.removeBlock(uuid);
 const currentGraph = () => Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null);
+// The tag map's doors (0.4.319): a page's new name, a block moved after another, a page's blocks as a tree, a tag put
+// under or taken out from under another (its Extends), a page or block opened in the right sidebar, the sidebar shown.
+const renamePage = (uuid, name) => logseq.Editor.renamePage(uuid, name);
+const moveBlock = (uuid, target, opts) => logseq.Editor.moveBlock(uuid, target, opts);
+const pageBlocksTree = uuid => logseq.Editor.getPageBlocksTree(uuid);
+const EXTENDS = 'logseq.property.class/extends';
+// A page's aliases and icon, and Logseq's own tags another tag may extend (Task, Card; its others, Page, Journal …, cannot be parents).
+const ALIAS = 'logseq.property/alias', ICON = 'logseq.property/icon';
+const PARENT_TAGS = new Set(['logseq.class/Task', 'logseq.class/Card']);
+const addTagExtends = (uuid, parentUuid) => logseq.Editor.addTagExtends(uuid, parentUuid);
+const removeTagExtends = (uuid, parentUuid) => logseq.Editor.removeTagExtends(uuid, parentUuid);
+const openInSidebar = uuid => logseq.Editor.openInRightSidebar(uuid);
+const showSidebar = () => Promise.resolve(logseq.App.setRightSidebarVisible?.(true));
 // Every tag's title, for a list to offer (the settings window).
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
 function provide(core) {
   core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock,
+    renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,

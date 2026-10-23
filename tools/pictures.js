@@ -98,7 +98,7 @@ async function scenes(page) {
     'tag-map': {
       scripts: [`(${pretendLogseq})();`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), read('parts/tags-graph.js'), read('parts/tags-props.js'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')],
       draw: async () => {
-        const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);
+        const style = document.createElement('style'); style.textContent = window.refinementShared.kitCss + window.__css; document.head.append(style);
         const view = window.__createView(document, 'page');
         document.getElementById('stage').append(view.node);
         await view.refresh();

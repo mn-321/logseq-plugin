@@ -2,6 +2,33 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The tag map on the kit (0.4.319)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, seventh feature: "the tag map, Tags view then Properties view (kinds
+as icons left of the name, plain words on the lines, stages for every edit)". Both views went in one commit: the
+three files share one bag and the tree's menus, lists and questions are the Properties view's too, so the first half
+alone would not run. **Done looks like:** the map as on the views page; the three files draw only their layout, call
+Logseq nowhere and publish no name on the window. **Built:** `parts/tags-graph.js`: the bag is
+`shared.feature('tagMap')`, every write goes through the model's doors, `boxHands` is the screen door, `tagWord` and
+`tagHtml` draw a tag as the kit's class. `parts/tags-props.js`: `kindIconOf` (the kit's kind icon with a tip, a click
+opens the kind menu), `typeHtml` only the accepted tags or the choices, `lineWord` (a quiet faint word on a line),
+menus as `showMenu` items with icons, the lists as `shared.popup` with `field` + `rows`, `askRenameProp`,
+`askGroupName`, `askDescription` through `view.askText` (the kit's question; `select`, `multiline`), `askChoices` a
+popup filled with kit fields and × icons, `confirmChildTag` and `askLinks` through `view.planPanel`, `newProperty`
+through the kind menu and `makeProperty`. `parts/tags.js`: `showMenu`, `pickTag`, `askText`, `planPanel` on the kit,
+the find box a kit field, the tools and Tags | Properties quiet words (`rf-seg`), `shared.bar` for picking,
+`renameBox` and `addRow` kit fields inline, `pointerRow` with `tagWord`, hosts through `core.mountView`, the three
+commands in the register, `provide({ tagTree })`, `sendStyle`, `onSettingsChange`/`onDatabaseChange` from the core.
+`main.js`: `mountView`. `parts/model.js`: `renamePage`, `moveBlock`, `pageBlocksTree`, `addTagExtends`,
+`removeTagExtends`, `openInSidebar`, `showSidebar`, `EXTENDS`, `ALIAS`, `ICON`, `PARENT_TAGS`. `parts/shared.js`:
+`field({ multiline })`, `ask` with `select` and Shift-Enter in a tall field, `.rf-pop-list` kept as a kit rule, the
+old pieces deleted. Tests: `tools/pretend-model.js` stands in the hooks, the screen door, `saveSettings` and
+`sendStyle`; `tools/tags-test.js` reads the kit's heads and the words without #; the leaning baseline 0 everywhere;
+`tools/pictures.js` gives the map scene the kit's stylesheet (re-approved after looking, light and dark). The first
+picture showed two faults: the quiet words boxed (the scene lacked the kit's stylesheet) and the chevrons not turning
+(`display: inline-block` on the icon). **Checks:** tags-test, tag-drag-test, boot, leaning, parts-apart, pictures,
+then `sh tools/check.sh` in full. **Seen:** in Logseq after a reload, as the CHANGELOG line says.
+
 ## 2026-10-22 · The two-way rows on the kit (0.4.318)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, sixth feature: "the two-way rows (rows on one set of columns, tags

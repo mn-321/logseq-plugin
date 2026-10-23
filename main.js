@@ -232,7 +232,7 @@ const dbJobs = [];   // database-round jobs, in the order the parts registered t
 function publishCore() {
   window.refinementCore = {
     host, setting, notify, graphWide, scheduleDbWork, sendStyle, orNoRules, watchDom, watchDomEarly, addsElements, ensureDomWatch,
-    screen: window.refinementShared.screen, commands: commandList,
+    screen: window.refinementShared.screen, commands: commandList, mountView,
     // The settings as the settings window reads and writes them (0.4.317): the values now, the joined schema, a save,
     // Logseq's own settings page, a reload of this plugin, its version.
     settingsNow: () => logseq.settings || {}, settingsSchema: () => schemaAll, saveSettings: patch => logseq.updateSettings(patch),
@@ -250,6 +250,40 @@ function publishCore() {
 // not reach an existing install.
 function moveOldDefaults() {
   for (const part of plugInParts) for (const [key, [old, now]] of Object.entries(part.moved || {})) if (logseq.settings?.[key] === old) logseq.updateSettings({ [key]: now });
+}
+/* A whole view hosted by Logseq's own React (0.4.319, for the tag map): a page of its own (a route, #/<route>) and a
+   panel in the right sidebar, both registered here so no part reaches Logseq's React itself. mountView({ key, route,
+   sidebarKey, title, holderClass, make }): make(holder, mode) draws into the holder and returns { destroy }; the result
+   says which of the two could be registered (page, sidebar) and opens them (openPage, openSidebar). */
+function mountView({ key, route, sidebarKey, title, holderClass = '', make }) {
+  const React = logseq.Experiments?.React;
+  const hosted = { page: false, sidebar: false };
+  const component = mode => function RefinementView() {
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      const holder = ref.current;
+      if (!holder) return undefined;
+      let view = null;
+      try { view = make(holder, mode); } catch (error) { warnOnce(`the ${title} view could not be drawn`, error); }
+      // Logseq titles a plugin's sidebar panel with its inner name.
+      const heading = mode === 'sidebar' && holder.closest('.sidebar-item')?.querySelector('.page-title h3');
+      if (heading) heading.textContent = title;
+      return () => view?.destroy?.();
+    }, []);
+    return React.createElement('div', { ref, className: `${holderClass} rf-holder-${mode}`.trim() });
+  };
+  if (!React?.createElement) warnOnce(`Logseq gives plugins no React here, so the ${title} view cannot be shown`);
+  else {
+    try { const Page = component('page'); logseq.Experiments.registerRouteRenderer(key, { name: key, path: route, render: () => React.createElement(Page) }); hosted.page = true; }
+    catch (error) { warnOnce(`the ${title} page could not be added`, error); }
+    try { const Side = component('sidebar'); logseq.Experiments.registerSidebarRenderer(sidebarKey, { title, render: () => React.createElement(Side) }); hosted.sidebar = true; }
+    catch (error) { warnOnce(`the ${title} sidebar panel could not be added`, error); }
+  }
+  return {
+    page: hosted.page, sidebar: hosted.sidebar,
+    openPage: () => { host().defaultView.location.hash = '#' + route; },
+    openSidebar: async () => { await logseq.Editor.openInRightSidebar('_sidebar.' + sidebarKey); await logseq.App.setRightSidebarVisible?.(true); },
+  };
 }
 // THE screen door lives in parts/shared.js (layer 1's plumbing, 0.4.315, so the pretend windows of the tests have it too); the core publishes it.
 /* THE command register (0.4.311, docs/LAYERS.md layer 1): every command of every part, with its name, its shortcut, its

@@ -56,8 +56,9 @@
    - tag(doc, title, props)       a tag as a class: its name alone, no #, mono, the tag grey, a link's faint underline.
    - quiet(doc, { icon, label, title, faint, pressed, run })   the quiet button; go(doc, { label, run }) the one that
                                   does what was asked; pressed is a quiet button with aria-pressed="true".
-   - field(doc, { placeholder, value, icon, kbd, inline, keys, input })   THE field: a real text box drawn as a
-                                  hairline underneath; keys typed in it never reach Logseq; .input is the box.
+   - field(doc, { placeholder, value, icon, kbd, inline, multiline, keys, input })   THE field: a real text box drawn
+                                  as a hairline underneath (a few lines tall with multiline); keys typed in it never
+                                  reach Logseq; .input is the box.
    - drawnField(doc, { text, placeholder, fresh, kbd })   the same look with drawn text and a drawn caret: only for the
                                   link box, whose keystrokes must keep going to the bullet.
    - tick(doc, { checked, label, title, change })   the browser's tick box as a small rounded square.
@@ -72,7 +73,8 @@
                                   field, then rows(query)); Up, Down and Enter handled here. Returns { el, close,
                                   items, lit, field, query, closed }. popups.closeAll() closes every open one (unload).
    - ask({ at, question, note, go, cancel, field })   a question beside what it is about: Cancel and the one that
-                                  does it as words; resolves true/false, or the field's text / null.
+                                  does it as words; resolves true/false, or the field's text / null (field.select
+                                  starts with its words selected; multiline takes Shift-Enter for a new line).
    - dialog({ build, cls, width })   THE window: the browser's <dialog>, shown modal, dressed; for settings only.
    - bar(doc, { count, total, actions, clear, all })   the picking bar: the count with its tick box, the actions as
                                   quiet words with icons, a hairline under it; .update({ count, total }).
@@ -81,8 +83,6 @@
    - undo                         THE Undo (0.4.258): undo.offer({ key, at, text, run, onFail, cls, data }) puts a
                                   faded arrow at the end of at()'s element(s), or at the bottom right when there is
                                   none; forget, clear, draw, size, has, stop.
-   Old pieces, kept only until the last part drawing with them is moved onto the kit (deleted then): modal,
-   modalButtons, modalHint, placeBelow and the .rf-pop-row, .rf-pop-field, .rf-dialog (old look), .rf-btn rules.
 
    WHAT EVERY OTHER PART MUST DO:
    - wrap itself in its own scope, `(() => { … })();`
@@ -374,10 +374,10 @@ const go = (doc, { label, title, run, cls } = {}) => el(doc, 'button', { type: '
 const keepKeys = box => { for (const type of ['keydown', 'keyup', 'keypress']) box.addEventListener(type, event => { if (event.key !== 'Escape') event.stopPropagation(); }); };
 /* THE field: a real text box drawn as a hairline underneath, firmer while typing; an icon on the left and a key hint
    on the right when given; inline on a line. keys(event) sees every keydown first (return true to take it). */
-function field(doc, { placeholder = '', value = '', icon: name, kbd, inline, keys, input, title, cls } = {}) {
-  const box = el(doc, 'input', { type: 'text', placeholder, spellcheck: 'false', autocomplete: 'off', title: title || null });
+function field(doc, { placeholder = '', value = '', icon: name, kbd, inline, multiline, keys, input, title, cls } = {}) {
+  const box = multiline ? el(doc, 'textarea', { rows: '3', placeholder, spellcheck: 'true', title: title || null }) : el(doc, 'input', { type: 'text', placeholder, spellcheck: 'false', autocomplete: 'off', title: title || null });
   box.value = value;
-  const wrap = el(doc, 'span', { class: `rf-field${inline ? ' rf-field-inline' : ''}${cls ? ' ' + cls : ''}` }, name ? icon(doc, name) : null, box, kbd ? el(doc, 'kbd', {}, kbd) : null);
+  const wrap = el(doc, 'span', { class: `rf-field${inline ? ' rf-field-inline' : ''}${multiline ? ' rf-field-tall' : ''}${cls ? ' ' + cls : ''}` }, name ? icon(doc, name) : null, box, kbd ? el(doc, 'kbd', {}, kbd) : null);
   keepKeys(box);
   if (keys) box.addEventListener('keydown', event => { if (keys(event) === true) { event.preventDefault(); event.stopPropagation(); } });
   if (input) box.addEventListener('input', () => input(box.value));
@@ -525,10 +525,10 @@ function ask({ at, question, note: hint, go: goWord = 'OK', cancel = 'Cancel', f
     let answer = fieldOptions ? null : false;
     const p = popup({ at, doc, cls: `rf-ask${cls ? ' ' + cls : ''}`, width, onClose: () => resolve(answer) });
     const done = () => { answer = fieldOptions ? f.input.value : true; p.close(); };
-    const f = fieldOptions ? field(doc, { ...fieldOptions, keys: event => { if (event.key === 'Enter' && !event.isComposing) { done(); return true; } return fieldOptions.keys?.(event) === true; } }) : null;
+    const f = fieldOptions ? field(doc, { ...fieldOptions, keys: event => { if (event.key === 'Enter' && !event.isComposing && !(fieldOptions.multiline && event.shiftKey)) { done(); return true; } return fieldOptions.keys?.(event) === true; } }) : null;
     p.body.append(el(doc, 'div', { class: 'rf-ask-words' }, question), hint ? note(doc, hint) : null, f,
       el(doc, 'div', { class: 'rf-btns' }, quiet(doc, { label: cancel, run: () => p.close() }), go(doc, { label: goWord, run: done })));
-    if (f) f.input.focus({ preventScroll: true });
+    if (f) { f.input.focus({ preventScroll: true }); if (fieldOptions.select && f.input.value) f.input.select(); }
     p.el.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing && event.target !== f?.input) { event.preventDefault(); done(); } });
   });
 }
@@ -747,8 +747,11 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
 /* The field: a hairline underneath, firmer while typing. */
 .rf-field { display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 2px; border: 0; border-bottom: 1px solid var(--rf-line); background: transparent; min-height: 26px; font-size: 14px; line-height: 1.4; }
 .rf-field:focus-within { border-bottom-color: currentColor; }
-.rf-field > input { flex: 1; min-width: 0; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; outline: none; box-shadow: none; }
-.rf-field > input::placeholder { color: var(--rf-faint); }
+.rf-field > :is(input, textarea) { flex: 1; min-width: 0; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; outline: none; box-shadow: none; }
+.rf-field > :is(input, textarea)::placeholder { color: var(--rf-faint); }
+.rf-field-tall { align-items: flex-start; }
+.rf-field-tall > textarea { resize: vertical; line-height: 1.4; }
+.rf-pop-list { max-height: 300px; overflow-y: auto; }
 .rf-field > .ti, .rf-field > kbd { flex: none; color: var(--rf-faint); font: inherit; font-size: 12px; }
 .rf-field > .ti { font-size: 15px; }
 .rf-field-inline { display: inline-flex; min-height: 22px; vertical-align: baseline; }
@@ -817,96 +820,13 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .rf-undo-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rf-anchor { position: fixed; width: 0; height: 0; pointer-events: none; }
 
-/* ----- Old, kept only until the last part drawing with them is moved onto the kit (0.4.311): the old pop-up fillings
-   (.rf-pop-row, .rf-pop-field, .rf-pop-kind, .rf-pop-new, .rf-pop-note, .rf-pop-list), the old dialog (modal: .rf-dialog
-   as a div with its backdrop, .rf-anchored) and its buttons (.rf-btn). ----- */
-.rf-pop, div.rf-dialog { --rf-ui-bg: var(--rf-bg); --rf-ui-fg: var(--rf-fg); --rf-ui-line: var(--rf-hair); --rf-ui-field: var(--rf-line); --rf-ui-muted: var(--rf-faint); --rf-ui-hover: var(--rf-wash); }
-:is(.rf-pop-field, .rf-pop input[type=text]:not(.rf-field > input), .rf-pop input:not([type]), .rf-pop textarea) { display: block; box-sizing: border-box; width: calc(100% - 8px);
-  min-height: 2em; margin: 0 4px 4px; padding: 5px 8px; border: 1px solid var(--rf-line); border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
-:is(.rf-pop input:not(.rf-field > input), .rf-pop textarea):focus { border-color: color-mix(in srgb, currentColor 45%, transparent); }
-:is(.rf-pop-row, .rf-pop > button:not(.rf-item):not(.rf-quiet):not(.rf-go), .rf-pop-list > button) { display: flex; align-items: baseline; gap: 10px; width: 100%; box-sizing: border-box; padding: 6px 8px;
-  border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-:is(.rf-pop-row, .rf-pop > button:not(.rf-item):not(.rf-quiet):not(.rf-go), .rf-pop-list > button):is(:hover, :focus-visible, .rf-on) { background: var(--rf-wash); outline: none; }
-.rf-pop-kind { flex: none; margin-left: auto; padding-left: 12px; font-size: 12px; color: var(--rf-faint); }
-.rf-pop-new { font-style: italic; color: var(--rf-faint); }
-.rf-pop-note { padding: 4px 8px; font-size: 12px; line-height: 1.45; color: var(--rf-faint); }
-.rf-pop-list { max-height: 300px; overflow-y: auto; }
-.rf-dialog-backdrop { position: fixed; inset: 0; z-index: 10003; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: rgba(0, 0, 0, .18); }
-div.rf-dialog { position: static; inset: auto; margin: 0; width: min(420px, 92vw); max-height: none; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .2); }
-div.rf-dialog h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
-div.rf-dialog label { display: block; margin-bottom: 6px; }
-div.rf-dialog p, .rf-dialog-note { margin: 0 0 8px; color: var(--rf-faint); }
-div.rf-dialog ul { margin: 0 0 8px; padding-left: 18px; }
-div.rf-dialog.rf-anchored { position: fixed; z-index: 10003; width: min(400px, 92vw); padding: 8px 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
-div.rf-dialog.rf-anchored h2 { font-size: 14px; margin-bottom: 6px; }
-:is(div.rf-dialog input[type=text], div.rf-dialog input:not([type]), div.rf-dialog textarea) { box-sizing: border-box; width: 100%; padding: 5px 8px; border: 1px solid var(--rf-line);
-  border-radius: 5px; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
-:is(div.rf-dialog input, div.rf-dialog textarea):focus { border-color: color-mix(in srgb, currentColor 45%, transparent); }
-div.rf-dialog .rf-btns { gap: 8px; }
-:is(.rf-btn, div.rf-dialog .rf-btns > button:not(.rf-quiet):not(.rf-go)) { padding: 3px 10px; border: 1px solid var(--rf-line); border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-:is(.rf-btn, div.rf-dialog .rf-btns > button:not(.rf-quiet):not(.rf-go)):hover { background: var(--rf-wash); }
-.rf-btn.rf-go { height: auto; border-color: transparent; background: var(--rf-fg); color: var(--rf-bg); font-weight: 600; text-decoration: none; }
-:is(.rf-btn, div.rf-dialog .rf-btns > button):disabled { opacity: .45; cursor: default; }
-.refinement-prompt-hint { margin-top: 4px; font-size: 12px; color: var(--rf-faint); }
 `;
 
-/* ----- Old pieces, kept until their last user is moved onto the kit: the dialog box drawn as a div (modal), its
-   buttons and hint, and placing a box under an element by hand (placeBelow). ----- */
-function modal(cancelValue, build, width, classes = {}, anchor = null) {
-  const doc = host();
-  return new Promise(resolve => {
-    const backdrop = anchor ? null : doc.createElement('div');
-    if (backdrop) backdrop.className = `rf-dialog-backdrop ${classes.backdrop || 'refinement-prompt-backdrop'}`;
-    const box = doc.createElement('div');
-    box.className = `rf-dialog ${classes.box || 'refinement-prompt'}${anchor ? ' rf-anchored' : ''}`;
-    if (width) box.style.width = width;
-    let finished = false;
-    const away = event => { if (!box.contains(event.target)) finish(cancelValue); };
-    const finish = value => { if (finished) return; finished = true; (backdrop || box).remove(); doc.removeEventListener('mousedown', away, true); resolve(value); };
-    if (backdrop) backdrop.addEventListener('mousedown', event => { if (event.target === backdrop) finish(cancelValue); });
-    for (const type of ['keyup', 'keypress']) box.addEventListener(type, event => event.stopPropagation());
-    box.addEventListener('keydown', event => {
-      event.stopPropagation();
-      if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); }
-    });
-    if (backdrop) { backdrop.append(box); doc.body.appendChild(backdrop); }
-    else { doc.body.appendChild(box); doc.addEventListener('mousedown', away, true); }
-    build(box, finish, doc);
-    if (anchor) placeBelow(box, anchor);
-  });
-}
-function placeBelow(box, anchor) {
-  const win = box.ownerDocument.defaultView, at = anchor.getBoundingClientRect(), size = box.getBoundingClientRect();
-  box.style.left = `${Math.round(Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8)))}px`;
-  const below = at.bottom + 4 + size.height < win.innerHeight - 8;
-  box.style.top = `${Math.round(below ? at.bottom + 4 : Math.max(8, at.top - 4 - size.height))}px`;
-}
-function modalButtons(doc, buttons) {
-  const row = doc.createElement('div');
-  row.className = 'rf-btns';
-  for (const [text, onClick, goIt] of buttons) {
-    const b = doc.createElement('button');
-    b.type = 'button';
-    b.textContent = text;
-    b.className = goIt === 'go' ? 'rf-btn rf-go' : 'rf-btn';
-    b.addEventListener('click', event => { event.preventDefault(); onClick(); });
-    row.append(b);
-  }
-  return row;
-}
-function modalHint(doc, text) {
-  const hint = doc.createElement('div');
-  hint.className = 'refinement-prompt-hint';
-  hint.textContent = text;
-  return hint;
-}
-
-// This file's own boxes: the kit's pop-ups, anchors and dialog, the Undo dock, and the old dialog backdrop.
-leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock, .refinement-prompt-backdrop' });
+// This file's own boxes: the kit's pop-ups, anchors and dialog, and the Undo dock.
+leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock' });
 
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, openPageNamed, settingReader, graphNamedIn, perf, warnings,
   kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
-  modal, modalButtons, modalHint, placeBelow,
 };
 })();

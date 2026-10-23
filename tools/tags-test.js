@@ -109,7 +109,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     else {
       if (after === summaryBox) problem('notes now shows the box that was drawn for summary');
       after.querySelector('.rtg-make').click();
-      const heading = doc.querySelector('.refinement-tags-menu .rtg-mh')?.textContent || '';
+      const heading = doc.querySelector('.refinement-tags-menu .rf-pop-head')?.textContent || '';
       if (!heading.startsWith('notes ')) problem(`Change in notes' box opened “${heading}” instead of a menu for notes`);
     }
   }
@@ -146,7 +146,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
   // listed in the panel again, and Undo removes it.
   {
     const made = [];
-    window.refinementTagMap.makeChoice = async (prop, title) => { made.push([prop.title, title]); const c = { uuid: 'c-' + title.toLowerCase(), title, order: 'a9' }; window.pretendChoices.push(c); return c; };
+    window.refinementShared.feature('tagMap').makeChoice = async (prop, title) => { made.push([prop.title, title]); const c = { uuid: 'c-' + title.toLowerCase(), title, order: 'a9' }; window.pretendChoices.push(c); return c; };
     const fresh = doc.querySelector('.rtg-choices input.rtg-newchoice');
     if (!fresh) problem('the choices panel has no New choice field');
     else {
@@ -206,8 +206,8 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     }
     // + Property opens the property picker; + Tag inside opens the line to type in, right under the adds line.
     kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-adds button')?.click();
-    const head = (await until(() => doc.querySelector('.refinement-tags-menu .rtg-mh')))?.textContent || '';
-    if (head !== 'Add a property to #Report') problem(`+ Property opened “${head}”`);
+    const head = (await until(() => doc.querySelector('.refinement-tags-menu .rf-pop-head')))?.textContent || '';
+    if (head !== 'Add a property to Report') problem(`+ Property opened “${head}”`);
     await until(() => menuButton('doctor'));
     if (!menuButton('doctor')) problem('+ Property does not list doctor, the property #Report lacks');
     key(doc.querySelector('.refinement-tags-menu input') || doc.body, 'Escape');
@@ -219,11 +219,11 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     // "also under #Visit" on #Scan’s row under #Report: its menu takes #Scan out of #Visit, the arrow on #Scan’s row; Undo puts it back.
     const scan = kidsOf(tagRow('Report'))?.querySelector('.rtg-row:not(.rtg-prow)');
     const also = scan?.querySelector('.rtg-alsotag');
-    if (also?.textContent !== '#Visit') problem(`#Scan under #Report shows “${also?.textContent}” instead of a clickable #Visit`);
+    if (also?.textContent !== 'Visit') problem(`#Scan under #Report shows “${also?.textContent}” instead of a clickable Visit (mono, no #)`);
     else {
       press(also);
-      if (!menuButton('Go to #Visit') || !menuButton('Keep it only under #Report')) problem('the parent menu lacks Go to or Keep only');
-      menuButton('Take #Scan out of #Visit')?.click();
+      if (!menuButton('Go to Visit') || !menuButton('Keep it only under Report')) problem('the parent menu lacks Go to or Keep only');
+      menuButton('Take Scan out of Visit')?.click();
       await until(() => window.pretendTags[2].parents.length === 1);
       if (window.pretendTags[2].parents.join() !== '10') problem(`taking #Scan out of #Visit left its parents ${window.pretendTags[2].parents}`);
       // The row is drawn again after the change, so it is looked up each time.
@@ -238,7 +238,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     if (ptr?.querySelector('.rtg-val')?.textContent !== 'doctor of') problem(`the links into #Report read “${ptr?.textContent}”`);
     else {
       press(ptr);
-      if (!menuButton('Go to doctor on #Visit') || !menuButton('Turn off on #Report')) problem('the link’s menu lacks Go to or Turn off');
+      if (!menuButton('Go to doctor on Visit') || !menuButton('Turn off on Report')) problem('the link’s menu lacks Go to or Turn off');
       menuButton('Change how it reads here')?.click();
       const box = doc.querySelector('.refinement-tags-menu input');
       if (box?.value !== 'doctor of') problem(`the wording box holds “${box?.value}”`);
@@ -256,7 +256,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       }
       const again = kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-ptr');
       press(again);
-      menuButton('Turn off on #Report')?.click();
+      menuButton('Turn off on Report')?.click();
       await until(() => kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off'));
       if (!kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off')) problem('turning the link off here is not shown as (turned off)');
       kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow > .rf-undo')?.click();
@@ -264,7 +264,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       if (kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-off')) problem('Undo did not turn the link on again');
       // Go to: the cursor lands on #Visit with doctor open under it.
       press(kidsOf(tagRow('Report'))?.querySelector(':scope > .rtg-pointrow .rtg-ptr'));
-      menuButton('Go to doctor on #Visit')?.click();
+      menuButton('Go to doctor on Visit')?.click();
       if (!tagRow('Visit')?.classList.contains('rtg-current')) problem('Go to doctor on #Visit did not put the cursor on #Visit');
       if (!kidsOf(tagRow('Visit'))?.querySelector(':scope > .rtg-prow + .rtg-pinfo')) problem('Go to doctor on #Visit did not open doctor’s details');
     }
@@ -320,7 +320,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
       const labels = [...(info?.querySelectorAll('.rtg-plbl') || [])].map(l => l.textContent);
       if (!labels.includes('Holds') || !labels.includes('On') || !labels.includes('Group')) problem(`result’s opened lines read ${JSON.stringify(labels)}; wanted Holds, On and Group among them`);
       const chip = info?.querySelector('.rtg-onchip');
-      if (!chip || chip.textContent.replace('×', '').trim() !== '#Report') problem(`the On line shows “${chip?.textContent}” instead of #Report`);
+      if (!chip || chip.textContent.replace('×', '').trim() !== 'Report') problem(`the On line shows “${chip?.textContent}” instead of Report`);
       if (!chip?.querySelector('.rtg-onx')) problem('the On line’s tag has no × to take the property off it');
       if (![...(info?.querySelectorAll('button') || [])].some(b => b.textContent === '+ Tag')) problem('the On line has no + Tag');
       if (info?.querySelector('.rtg-pnoderow')) problem('the nodes are listed before show nodes is pressed');
@@ -339,7 +339,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     }
     // + New property: the name, Number, on #Report.
     const made = [];
-    window.refinementTagMap.makeProperty = async (tag, name, kind) => {
+    window.refinementShared.feature('tagMap').makeProperty = async (tag, name, kind) => {
       made.push([tag.title, name, kind]);
       const p = { ':db/id': 24, ':db/ident': ':user.property/' + name, ':block/title': name, ':block/uuid': 'p-' + name, ':logseq.property/type': ':' + kind, ':db/cardinality': ':db.cardinality/one', ':logseq.property/classes': [] };
       window.pretendProps.push(p);
@@ -359,7 +359,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
         if (!kind) problem('Enter on the name offered no kinds');
         else {
           kind.click();
-          const tagRow = await until(() => [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.includes('#Report')));
+          const tagRow = await until(() => [...doc.querySelectorAll('.refinement-tags-menu button')].find(b => b.textContent.includes('Report')));
           if (!tagRow) problem('the kind picked offered no tag to put the property on');
           else {
             tagRow.click();
@@ -368,7 +368,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
             if (!row) problem('the new property has no row after it was made');
             const arrow = await until(() => row?.querySelector('.rf-undo'));
             if (!arrow) problem('the new property’s row has no Undo arrow');
-            else if (!/Made weight on #Report/.test(arrow.title || arrow.getAttribute('aria-label') || '')) problem(`the Undo arrow says “${arrow.title || arrow.getAttribute('aria-label')}”`);
+            else if (!/Made weight on Report/.test(arrow.title || arrow.getAttribute('aria-label') || '')) problem(`the Undo arrow says “${arrow.title || arrow.getAttribute('aria-label')}”`);
           }
         }
       }
@@ -386,7 +386,7 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     else { field.value = 'Reports'; field.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
     await until(() => window.logseq.settings.tagTreeRoots === 'Reports');
     if (window.logseq.settings.tagTreeRoots !== 'Reports') problem(`renaming #Report left the order “${window.logseq.settings.tagTreeRoots}”; wanted Reports`);
-    const arrow = await until(() => [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].find(a => /is now #Reports/.test(a.title || a.getAttribute('aria-label') || '')));
+    const arrow = await until(() => [...doc.querySelectorAll('.rf-undo[data-rf-undo^="tags:"]')].find(a => /is now Reports/.test(a.title || a.getAttribute('aria-label') || '')));
     if (!arrow) problem('renaming a tag has no Undo arrow');
     else {
       arrow.click();
