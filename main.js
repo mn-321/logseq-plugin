@@ -449,15 +449,15 @@ function main() {
    window.refinementParts; they are loaded here, in order, before the settings are given, because
    Logseq can keep an older loader.js cached that only loads this file. */
 // shared.js first: the other parts read window.refinementShared as they load. model.js second: the Logseq
-// model, which every part reads the graph through (core.provided). sidebar.js right after
-// chrome.js: its settings have no heading of their own, so they join chrome's "Sidebars and toolbar".
+// model, which every part reads the graph through (core.provided). sidebar.js (back at 0.4.336, layer 4) after the
+// page pieces, with a heading of its own under Around the page.
 // Resting (0.4.175, at the owner's word: "just running the foundations and tag tree ... for the sake of understanding
 // what is important"): the plugin loads only the foundation, the tag and property map, and the two-way links that the
 // map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
 // check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
 // PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
-const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/property-kinds.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
-const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/sidebar.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
+const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/property-kinds.js', 'parts/sidebar.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
+const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
 void RESTING_FILES;
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];
