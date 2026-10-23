@@ -506,7 +506,8 @@ async function askLinks(view, tag, prop, anchor) {
         return hits.length ? hits.map(c => ({ html: tagHtml(c.tag.title), right: c.path, run: () => { tagField.input.value = c.tag.title; fill().catch(() => {}); tagField.input.focus(); } })) : [{ note: 'No tag by that name' }]; } });
     void list;
   } });
-  const newPages = plan.titles.filter(t => !plan.pages.has(t)).length;
+  const newPages = plan.titles.filter(t => !plan.pages.has(t) && !plan.recycled?.has(t)).length;
+  const fromRecycle = plan.recycled?.size || 0;
   const first = [...plan.byNode][0];
   const firstName = await model().titleNow(first[0]).catch(() => '') || 'a node';
   const fill = async () => {
@@ -515,7 +516,7 @@ async function askLinks(view, tag, prop, anchor) {
     const tagNamed = plan.data.byName.get(name.toLowerCase());
     const items = [same ? `${P} is renamed “${P} (old)” and keeps its values, so nothing is lost` : `${P} stays as it is, with its words; delete it yourself when ${N} looks right`,
       `a new ${N} is made on ${T}, holding a link to a ${G} page (Logseq’s own new-property box opens in the right sidebar for a moment; the plugin fills it in)`,
-      `${plural(plan.titles.length, 'page')}: ${plan.titles.join(', ')}${newPages < plan.titles.length ? ` (${plan.titles.length - newPages} already there, given ${G})` : ''}${tagNamed && !tagNamed.builtIn ? ` (${G} is a tag already: used as it is)` : ''}`,
+      `${plural(plan.titles.length, 'page')}: ${plan.titles.join(', ')}${newPages + fromRecycle < plan.titles.length ? ` (${plan.titles.length - newPages - fromRecycle} already there, given ${G})` : ''}${fromRecycle ? ` (${fromRecycle} brought back from Logseq’s Recycle)` : ''}${tagNamed && !tagNamed.builtIn ? ` (${G} is a tag already: used as it is)` : ''}`,
       `${plural(n, 'node')} get their link, for example ${firstName} → ${first[1][0]}`];
     panel.lines.replaceChildren(...items.map(text => el(doc, 'li', {}, text)));
     const page = name && !tagNamed ? await model().getPage(name).catch(() => null) : null;

@@ -329,9 +329,15 @@ async function planLinks(tag, prop, data) {
   for (const row of rows) byNode.set(row.uuid, [...byNode.get(row.uuid) || [], row.value]);
   const several = [...byNode.values()].some(values => values.length > 1);
   const titles = [...new Set(rows.map(r => r.value))].sort((a, b) => a.localeCompare(b));
-  const pages = new Map();
-  for (const title of titles) { const page = await model().getPage(title).catch(() => null); if (page?.uuid && page.uuid !== prop.uuid) pages.set(title, page); }
-  return { tag, prop, data, byNode, several, titles, pages };
+  // A page already there is used; one in Logseq's Recycle is not there (the loose end of 0.4.305: after an Undo, doing it
+  // again linked the nodes to the recycled pages): it is brought back from the Recycle and used (recycled).
+  const pages = new Map(), recycled = new Map();
+  for (const title of titles) {
+    const page = await model().getPage(title).catch(() => null);
+    if (!page?.uuid || page.uuid === prop.uuid) continue;
+    if (await model().inRecycle(page.uuid).catch(() => false)) recycled.set(title, page); else pages.set(title, page);
+  }
+  return { tag, prop, data, byNode, several, titles, pages, recycled };
 }
 async function freeName(base) {
   for (let n = 1; n < 50; n++) { const name = n === 1 ? base : `${base} ${n}`; if (!await model().getPage(name).catch(() => null)) return name; }
@@ -350,16 +356,43 @@ function boxHands(doc) {
   return { waitFor: (find, tries = 40) => s.waitFor(find, tries * 100), press: s.press, floating: s.floating, item: test => () => s.item(test, doc),
     sidebarItems: title => s.sidebarItems(title, doc), setValue: (input, text) => s.typeInto(input, text), key: s.key, escape: () => s.escapeMenus(doc) };
 }
-async function makeProperty(tag, name, kind = 'node') {
-  const doc = host(), { waitFor, press, item, sidebarItems, setValue, key } = boxHands(doc);
+/* Logseq's own boxes are on a page in the right sidebar, which is opened for them; afterwards the sidebar is as it was:
+   the page's item closed if it was not there before, the sidebar hidden again if it was hidden (2026-10-23: the tag's
+   page stayed open there after Turn into links, the plan's "for a moment" notwithstanding). */
+async function besideInSidebar(node, run) {
+  const doc = host(), s = screen();
+  const wasOpen = !!doc.querySelector('#right-sidebar.open'), had = s.sidebarItems(node.title, doc).length;
+  try { return await run(); }
+  finally {
+    try {
+      if (!had) for (const item of s.sidebarItems(node.title, doc)) {
+        const close = [...item.querySelectorAll('.sidebar-item-header :is(button, a)')].find(b => b.querySelector('.ti-x') || /close/i.test(b.getAttribute('title') || b.getAttribute('aria-label') || ''));
+        if (close) s.press(close);
+      }
+      if (!wasOpen) await model().showSidebar(false);
+    } catch (error) { warnOnce('the right sidebar could not be put back as it was', error); }
+  }
+}
+const makeProperty = (tag, name, kind = 'node') => besideInSidebar(tag, () => makePropertyThere(tag, name, kind));
+async function makePropertyThere(tag, name, kind) {
+  const doc = host(), { waitFor, press, item, sidebarItems, setValue, key, escape } = boxHands(doc);
   await model().openInSidebar(tag.uuid);
   await model().showSidebar();
   // On a tag's page in the sidebar the button under Tag Properties reads "Add property"; in the main view, above the
   // title, "Add tag property" (both seen in the app).
-  const button = await waitFor(() => sidebarItems(tag.title).flatMap(item => [...item.querySelectorAll('button')]).find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
-  if (!button) throw new Error(`${tag.title}’s page, with its Add property button, was not found in the right sidebar`);
-  press(button);
-  const input = await waitFor(() => doc.querySelector('input[placeholder="Add or change property"]') || (doc.activeElement?.matches?.('#right-sidebar input, .ui__popover-content input, [data-radix-popper-content-wrapper] input') ? doc.activeElement : null));
+  const findButton = () => waitFor(() => sidebarItems(tag.title).flatMap(item => [...item.querySelectorAll('button')]).find(b => /^Add (tag )?property$/.test(b.textContent.trim())));
+  const findBox = () => waitFor(() => doc.querySelector('input[placeholder="Add or change property"]') || (doc.activeElement?.matches?.('#right-sidebar input, .ui__popover-content input, [data-radix-popper-content-wrapper] input') ? doc.activeElement : null));
+  // Now and then Logseq is slow to open its box after the press (seen once in the stress test, 2026-10-23, the second
+  // Turn into links right after the first one's Undo): then what floats is closed and the button, found afresh, is
+  // pressed once more.
+  let input = null;
+  for (let attempt = 0; attempt < 2 && !input; attempt++) {
+    if (attempt) { escape(); await sleep(400); }
+    const button = await findButton();
+    if (!button) throw new Error(`${tag.title}’s page, with its Add property button, was not found in the right sidebar`);
+    press(button);
+    input = await findBox();
+  }
   if (!input) throw new Error('Logseq’s new property box did not open');
   setValue(input, name);
   const fail = what => { key(doc.activeElement, 'Escape'); return new Error(`Logseq’s new property box did not show ${what}`); };
@@ -389,7 +422,8 @@ const makeLinkProperty = (tag, name) => makeProperty(tag, name, 'node');
    the plugin presses Logseq's own box: the property's page in the right sidebar, the header of the column with the
    property's name, Available choices, Add choice, the title typed in, Save (the path seen in the app). The choice is
    read back before it counts. */
-async function makeChoice(prop, title) {
+const makeChoice = (prop, title) => besideInSidebar(prop, () => makeChoiceThere(prop, title));
+async function makeChoiceThere(prop, title) {
   const doc = host(), { waitFor, press, floating, item, sidebarItems, setValue, key, escape } = boxHands(doc);
   await model().openInSidebar(prop.uuid);
   await model().showSidebar();
@@ -425,7 +459,7 @@ async function makeChoice(prop, title) {
 async function runLinks(plan, tagName, propName = plan.prop.title) {
   const { prop, tag } = plan;
   const m = model();
-  const done = { oldTitle: prop.title, renamed: false, newProp: null, givers: [], madeTag: null, linkTag: null, made: [], tagged: [], filled: [] };
+  const done = { oldTitle: prop.title, renamed: false, newProp: null, givers: [], madeTag: null, linkTag: null, made: [], restored: [], tagged: [], filled: [] };
   const undo = () => undoLinks(plan, done);
   try {
     if (propName.toLowerCase() === prop.title.toLowerCase()) {
@@ -444,6 +478,8 @@ async function runLinks(plan, tagName, propName = plan.prop.title) {
     const ids = new Map();
     for (const title of plan.titles) {
       let page = plan.pages.get(title);
+      // A page of that name in the Recycle comes back from it (Undo puts it back there).
+      if (!page && plan.recycled?.has(title)) { page = plan.recycled.get(title); await m.restorePage(page.uuid); done.restored.push(page.uuid); }
       if (page) {
         const tags = await valuesOf(page.uuid, 'block/tags');
         if (!tags.includes(done.linkTag.id)) { await m.addTag(page.uuid, done.linkTag.uuid); done.tagged.push(page.uuid); }
@@ -470,6 +506,7 @@ async function undoLinks(plan, done) {
   for (const uuid of done.filled.splice(0).reverse()) await m.unsetValue(uuid, done.newProp.ident);
   for (const uuid of done.made.splice(0).reverse()) await m.deletePage(uuid);
   for (const uuid of done.tagged.splice(0)) await m.removeTag(uuid, done.linkTag.uuid);
+  for (const uuid of done.restored.splice(0).reverse()) await m.deletePage(uuid); // back to the Recycle
   if (done.madeTag) { await m.deletePage(done.madeTag.uuid); done.madeTag = null; }
   for (const giver of done.givers.splice(0)) await removeTagProp(giver, done.newProp);
   if (done.newProp) { await removeTagProp(plan.tag, done.newProp).catch(() => {}); await m.deletePage(done.newProp.uuid); done.newProp = null; }

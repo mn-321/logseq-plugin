@@ -154,9 +154,10 @@ function pageOf(p) {
   const tags = (pick(p, 'block/tags') || []).map(t => ({ id: idOf(t), title: String(pick(t, 'block/title') ?? ''), ident: bare(pick(t, 'db/ident')) })).filter(t => t.title);
   return { id: idOf(p), uuid: String(pick(p, 'block/uuid') ?? ''), title, lower: title.toLowerCase(), tags, icon: pick(p, 'logseq.property/icon'), isTag: tags.some(t => t.ident === 'logseq.class/Tag') };
 }
+// Pages in Logseq's Recycle are left out (2026-10-23): Logseq keeps them, findable by name, but they are not there.
 async function loadPages() {
   const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title :logseq.property/icon {:block/tags [:db/id :block/title :db/ident]}])
-    :where [?p :block/name _] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`);
+    :where [?p :block/name _] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _]) (not [?p :logseq.property/deleted-at _])]`);
   const pages = rows.map(([p]) => pageOf(p)).filter(Boolean);
   pages.sort((a, b) => a.lower.localeCompare(b.lower));
   return pages;
@@ -165,7 +166,7 @@ async function loadPages() {
 async function pagesNamed(names) {
   if (!names.length) return [];
   const rows = await dsQuery(`[:find (pull ?p [:db/id :block/uuid :block/title {:block/tags [:db/id :block/title :db/ident]}])
-    :where [(ground [${names.map(name => JSON.stringify(name)).join(' ')}]) [?n ...]] [?p :block/name ?n] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _])]`).catch(() => []);
+    :where [(ground [${names.map(name => JSON.stringify(name)).join(' ')}]) [?n ...]] [?p :block/name ?n] (not [?p :block/tags :logseq.class/Property]) (not [?p :block/journal-day _]) (not [?p :logseq.property/deleted-at _])]`).catch(() => []);
   return rows.map(([p]) => pageOf(p)).filter(Boolean);
 }
 
@@ -668,6 +669,11 @@ const exitEditing = () => logseq.Editor.exitEditingMode();
 const insertBlock = (uuid, text, opts) => logseq.Editor.insertBlock(uuid, text, opts);
 const currentPage = () => logseq.Editor.getCurrentPage();
 const getPage = key => logseq.Editor.getPage(key);
+// A page in Logseq's Recycle (deleted, kept for a while): Logseq still finds it by its name, and "making" a page of that
+// name hands it back still in the Recycle (seen in the app, 2026-10-23), so a part that makes pages by name asks this
+// first and brings it back with restorePage.
+const inRecycle = async uuid => UUID.test(String(uuid)) && (await dsQuery(`[:find ?d :where [?p :block/uuid #uuid "${uuid}"] [?p :logseq.property/deleted-at ?d]]`)).length > 0;
+const restorePage = uuid => logseq.Editor.restorePage(uuid);
 const createPage = (name, props, opts) => logseq.Editor.createPage(name, props, opts);
 const deletePage = name => logseq.Editor.deletePage(name);
 const appendBlock = (pageUuid, text) => logseq.Editor.appendBlockInPage(pageUuid, text);
@@ -685,12 +691,12 @@ const PARENT_TAGS = new Set(['logseq.class/Task', 'logseq.class/Card']);
 const addTagExtends = (uuid, parentUuid) => logseq.Editor.addTagExtends(uuid, parentUuid);
 const removeTagExtends = (uuid, parentUuid) => logseq.Editor.removeTagExtends(uuid, parentUuid);
 const openInSidebar = uuid => logseq.Editor.openInRightSidebar(uuid);
-const showSidebar = () => Promise.resolve(logseq.App.setRightSidebarVisible?.(true));
+const showSidebar = (on = true) => Promise.resolve(logseq.App.setRightSidebarVisible?.(on));
 // Every tag's title, for a list to offer (the settings window).
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
 function provide(core) {
-  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock,
+  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, tagChain, tagChains, tagChainIndex, parseDay, dayNumber, sameDay, dayAfter, DAYS,

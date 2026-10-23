@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Pages in Logseq's Recycle are not there (0.4.349)
+
+**Asked:** the loose end of 0.4.305 (`CLAUDE.md` section 7): Turn into links counted a page in Logseq's Recycle as there,
+so doing it again after an Undo linked the nodes to recycled pages. **Found first** (in the app, with a throwaway page
+removed for good after): Logseq finds a recycled page by its name and, asked to make a page of that name, hands the same
+recycled page back, still in the Recycle; a plugin can bring it back (`restorePage`). The model's new check also showed
+its page lists counting recycled pages: nine are in the Illness Test Graph's Recycle ("Zz Test Doctor", three addresses
+from an earlier Turn into links …), and the proposals and pickers could offer them. **Done looks like:** in the tag
+map's Properties view, Location → Holds → Change … → Turn into links to pages: the plan reads "3 pages: … (3 brought
+back from Logseq's Recycle)"; after it, the three address pages are live and linked; the faded arrow puts everything
+back and the three pages back in the Recycle; doing it again does the same. **Built:** `parts/model.js`: `inRecycle`,
+`restorePage`; `propPages` and `pagesNamed` leave recycled pages out. `parts/tags-graph.js`: the plan keeps recycled
+pages apart, the run brings each back and uses it, the Undo puts it back. `parts/tags-props.js`: the plan's words.
+Two things the same runs showed, in the same path: Logseq's "new property" box once did not open the second time in a row (the button is now found afresh and pressed once more), and the tag's page stayed open in the right sidebar after Turn into links or a new choice (now closed again, and the sidebar hidden again if it was hidden). `tools/model-test.js`: `inRecycle`, and the page list without the recycled page (red before).
+**Checks:** model-test, tags-test, then `sh tools/check.sh` in full. **Seen in the app** (driven over the debugging port, the Illness Test Graph): Turn into links on Location twice in a row, each undone: the three address pages brought back from the Recycle, the three nodes linked, Undo putting the pages back in the Recycle; the sidebar closed and hidden after each; the graph as it was.
+
 ## 2026-10-23 · The tag map's Undo puts back one move; a rename is one redraw (0.4.348)
 
 **Found** by the tag map's stress test (`tools/tags-stress.js`, 600 tags): after three moves, undoing an older move first

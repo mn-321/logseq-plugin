@@ -67,6 +67,7 @@ function smallGraph() {
   add(45, { title: 'Holds a link to [[' + U(40) + ']]', name: 'holds a link' });
   add(46, { title: 'Plain', name: 'plain', tags: [3] });
   add(48, { title: 'Mat', name: 'mat', tags: [3] });
+  add(49, { title: 'Old symptom', name: 'old symptom', deleted: true }); // in Logseq's Recycle (2026-10-23)
   e[40].alias = [48];
   // Blocks.
   add(50, { title: 'Budget review', page: 42 });
@@ -78,16 +79,17 @@ function smallGraph() {
   e[60].fields = [24]; e[61].fields = [25];
   return e;
 }
-// A large graph for the timing: 300 properties with choices and fields, 20,000 pages with tags.
-function largeGraph() {
+// A large graph for the timing: 300 properties with choices and fields, 20,000 pages with tags (with --big, also
+// 600 properties and 100,000 pages: the stress run of docs/FINISHING-PROMPT.md section 4).
+function largeGraph(pages = 20000, propCount = 300) {
   const e = smallGraph();
   let id = 1000;
   const props = [];
-  for (let i = 0; i < 300; i++) { const p = id++; props.push(p); e[p] = { id: p, uuid: U(p), title: `prop ${i}`, ident: `user.property/p${i}`, tags: [1], type: i % 3 ? 'default' : 'node' }; }
+  for (let i = 0; i < propCount; i++) { const p = id++; props.push(p); e[p] = { id: p, uuid: U(p), title: `prop ${i}`, ident: `user.property/p${i}`, tags: [1], type: i % 3 ? 'default' : 'node' }; }
   for (const p of props.slice(0, 100)) for (let c = 0; c < 5; c++) { const v = id++; e[v] = { id: v, uuid: U(v), title: `choice ${c}`, closedFor: p, order: 'a' + (5 - c) }; }
   const tags = [];
   for (let t = 0; t < 200; t++) { const c = id++; tags.push(c); e[c] = { id: c, uuid: U(c), title: `Tag ${t}`, name: `tag ${t}`, tags: [2], fields: props.slice(t % 290, t % 290 + 10), extends: t ? [tags[t - 1]] : [] }; }
-  for (let n = 0; n < 20000; n++) { const p = id++; e[p] = { id: p, uuid: U(p), title: `Page ${n}`, name: `page ${n}`, tags: [tags[n % 200]] }; }
+  for (let n = 0; n < pages; n++) { const p = id++; e[p] = { id: p, uuid: U(p), title: `Page ${n}`, name: `page ${n}`, tags: [tags[n % 200]] }; }
   return e;
 }
 
@@ -111,12 +113,14 @@ function fakeDb(graph, log) {
     // The tags and their idents (0.4.220: which are Logseq's own).
     [/:find \?t \?i :where \[\?t :block\/tags :logseq\.class\/Tag\] \[\?t :db\/ident \?i\]/, () => all().filter(x => (x.tags || []).includes(2) && x.ident).map(x => [x.id, ':' + x.ident])],
     [/:where \[\?p :block\/name _\] \(not \[\?p :block\/tags :logseq\.class\/Property\]\) \(not \[\?p :block\/journal-day _\]\)/,
-      () => all().filter(x => x.name && !isProperty(x) && !x.journalDay).map(x => [{ id: x.id, uuid: x.uuid, title: x.title,
+      () => all().filter(x => x.name && !isProperty(x) && !x.journalDay && !x.deleted).map(x => [{ id: x.id, uuid: x.uuid, title: x.title,
         ...(x.tags ? { tags: x.tags.map(t => ({ id: t, title: graph[t].title, ...(graph[t].ident ? { ident: ':' + graph[t].ident } : {}) })) } : {}) }])],
     [/:find \?t :where \[\?b :block\/uuid #uuid "([^"]+)"\] \[\?b :block\/tags \?t\]/, m => { const b = all().find(x => x.uuid === m[1]); return (b?.tags || []).map(t => [t]); }],
     [/:find \?t :where \[\?p :block\/journal-day (\d+)\] \[\?p :block\/title \?t\]/, m => all().filter(x => x.journalDay === Number(m[1])).map(x => [x.title])],
     [/:find \?ident\s+:where \[\(identity (\d+)\) \?p\] \[\?p :block\/tags \?c\] \[\?c :db\/ident \?ident\]/, m => (graph[m[1]]?.tags || []).filter(t => graph[t]?.ident).map(t => [':' + graph[t].ident])],
     [/:find \?uuid \?title\s+:where \[\(identity (\d+)\) \?p\] \[\?o :block\/alias \?p\] \[\?o :block\/uuid \?uuid\] \[\?o :block\/title \?title\]/, m => all().filter(x => (x.alias || []).includes(Number(m[1]))).map(x => [x.uuid, x.title])],
+    // Is a page in the Recycle (inRecycle, 2026-10-23).
+    [/:find \?d :where \[\?p :block\/uuid #uuid "([^"]+)"\] \[\?p :logseq\.property\/deleted-at \?d\]/, m => all().filter(x => x.uuid === m[1] && x.deleted).map(() => [1]),],
     [/:find \(pull \?p \[:db\/id\]\) :where \[\?p :block\/journal-day (\d+)\]\]/, m => all().filter(x => x.journalDay === Number(m[1])).map(x => [ref(x.id)])],
   ];
   return async query => {
@@ -293,24 +297,44 @@ async function main() {
     same(doc.querySelectorAll(model.PAGE_TITLE).length, 1, 'PAGE_TITLE finds a page title');
   }
   same(/^\d+\.\d+\.\d+$/.test(model.CHECKED_WITH), true, 'CHECKED_WITH is a version');
+  same([await model.inRecycle(U(49)), await model.inRecycle(U(40)), await model.inRecycle('not a uuid')], [true, false, false], 'inRecycle: a page in the Recycle, a live one, a bad uuid');
 
   // The model's own work on a large graph (Logseq's query time left out).
-  const big = loadModel(largeGraph()).model;
-  const time = async (what, fn, limit) => {
-    const t = process.hrtime.bigint();
-    const result = await fn();
-    const ms = Number(process.hrtime.bigint() - t) / 1e6;
-    console.log(`  ${what}: ${ms.toFixed(1)} ms`);
-    if (ms > limit) problem(`${what} took ${ms.toFixed(0)} ms (limit ${limit})`);
-    return result;
+  const timings = async (pages, propCount, scale = 1) => {
+    const big = loadModel(largeGraph(pages, propCount)).model;
+    const took = {};
+    const time = async (what, fn, limit) => {
+      const t = process.hrtime.bigint();
+      const result = await fn();
+      const ms = Number(process.hrtime.bigint() - t) / 1e6;
+      took[what] = ms;
+      console.log(`  ${what}: ${ms.toFixed(1)} ms`);
+      if (ms > limit * scale) problem(`${what} took ${ms.toFixed(0)} ms (limit ${limit * scale})`);
+      return result;
+    };
+    console.log(`timings on a large pretend graph (${pages.toLocaleString('en')} pages, ${propCount} properties, 200 tags in one long chain):`);
+    const bigSchema = await time('the property schema', () => big.propSchema(), 2000);
+    const bigPages = await time('the page list', () => big.propPages(), 2000);
+    same(bigPages.length > pages, true, 'the page list holds every page');
+    await time('the page list again (remembered)', () => big.propPages(), 50);
+    await time('fields of a record with the deepest tag', async () => { const deep = bigPages.find(p => p.title === 'Page 199'); return big.fieldsOf(deep.uuid, bigSchema); }, 500);
+    await time('every tag\'s chain (tagChainIndex)', () => big.tagChainIndex(), 2000);
+    await time('a page\'s tags read with their chains (tagChains)', () => big.tagChains(bigPages.find(p => p.title === 'Page 199').uuid), 500);
+    await time('10,000 days read from words', () => { for (let i = 0; i < 10000; i++) big.parseDay(['next fri', '23 oct', '+3', 'tomorrow', '2026-12-01'][i % 5], today); }, 1000);
+    return took;
   };
-  console.log('timings on a large pretend graph (20,000 pages, 300 properties, 200 tags in one long chain):');
-  const bigSchema = await time('the property schema', () => big.propSchema(), 2000);
-  const bigPages = await time('the page list', () => big.propPages(), 2000);
-  same(bigPages.length > 20000, true, 'the page list holds every page');
-  await time('the page list again (remembered)', () => big.propPages(), 50);
-  await time('fields of a record with the deepest tag', async () => { const deep = bigPages.find(p => p.title === 'Page 199'); return big.fieldsOf(deep.uuid, bigSchema); }, 500);
-  await time('10,000 days read from words', () => { for (let i = 0; i < 10000; i++) big.parseDay(['next fri', '23 oct', '+3', 'tomorrow', '2026-12-01'][i % 5], today); }, 1000);
+  const base = await timings(20000, 300);
+  // The stress run (tools/stress.sh): five times the pages, twice the properties. A door may take up to ten times its
+  // time on 20,000 pages (about linear; a door taking the square would take 25 to 50 times). Doors under 5 ms on the
+  // small graph are left out of the ratio (their time is mostly noise).
+  if (process.argv.includes('--big')) {
+    const big = await timings(100000, 600, 10);
+    for (const [what, ms] of Object.entries(big)) {
+      const was = base[what];
+      if (was >= 5 && ms > was * 10) problem(`${what}: ${ms.toFixed(0)} ms on 100,000 pages, more than ten times its ${was.toFixed(0)} ms on 20,000 (does not scale)`);
+      else console.log(`  ${what}: ${(ms / Math.max(was, 0.001)).toFixed(1)}× its time on 20,000 pages`);
+    }
+  }
 
   console.log(`model-test: ${passed} checks passed`);
   if (problems.length) { console.log(`model-test: FAILED (${problems.length})`); process.exit(1); }
