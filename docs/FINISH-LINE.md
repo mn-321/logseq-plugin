@@ -31,7 +31,9 @@ at which it became true and one line of proof. Updated with every commit that mo
 - [ ] "Reload plugin" with Foundation only on works five times of five, or the cause is found and written down.
 - [ ] A long property name cut short by Logseq's narrow column ("Therapy regimen") handled, moving nothing.
 - [ ] The ring: the plugin draws no ring of its own anywhere; Logseq's stays.
-- [ ] The tag map's speed limits gate on the Mac's load.
+- [x] The tag map's speed limits gate on the Mac's load. *(0.4.350: `tools/quiet.js`; on a busy Mac a time over its limit
+      fails only when 25% slower than the committed version timed in the same run; seen passing at load 2.3 and failing
+      the old version's renames)*
 
 ## D. The documents and the release
 

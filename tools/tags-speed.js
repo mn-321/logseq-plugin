@@ -5,7 +5,10 @@
    - the first drawing of the map;
    - after a change (a tag moved, a property added, a choice renamed), the time until the map shows it;
    - how far the rows on screen jump when a change happens below them (they should not move at all).
-   Fails when one is over its limit.
+   Fails when one is over its limit, on a quiet Mac. The gate on load (2026-10-23, tools/quiet.js): the Mac's load is
+   read first (waiting up to two minutes for it to fall under 2); on a busy Mac a measure over its limit is taken again
+   of the previous version (the parts as committed, HEAD) in the same browser, and it fails only when this one is more
+   than 25% slower than that under the same load. The jump limit (0 px) holds whatever the load.
 
    Needs Playwright and Chromium; skipped quietly where they are missing (tools/check.sh runs it when they are there).
    Run from the repo root: node tools/tags-speed.js */
@@ -51,22 +54,26 @@ function pretendLogseq() {
   window.refinementCore = { provided: { backwardsLabel: n => n + ' of', setBackwards() {}, shownAtOtherEnd: () => true, setShownAtOtherEnd() {} } };
 }
 
-(async () => {
-  const source = fs.readFileSync(path.join(root, 'parts/tags.js'), 'utf8');
+const { execSync } = require('child_process');
+const gate = require('./quiet');
+// The parts' text now, or as committed (HEAD) for the comparison under load.
+const FILES = ['parts/shared.js', 'parts/model.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js'];
+const sources = which => Object.fromEntries(FILES.map(file => [file, which === 'HEAD'
+  ? execSync(`git show HEAD:${file}`, { cwd: root, maxBuffer: 1 << 26 }).toString() : fs.readFileSync(path.join(root, file), 'utf8')]));
+
+async function measure(browser, src) {
+  const source = src['parts/tags.js'];
   const exposed = source.replace(/\}\)\(\);\s*$/, 'window.__createView = createView; window.__css = css; })();');
-  if (exposed === source) { console.log('PROBLEM: the end of parts/tags.js changed; tools/tags-speed.js cannot reach the map'); process.exit(1); }
-  let browser;
-  try { browser = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {}); }
-  catch (error) { console.log('tag map timings skipped (Chromium did not start)'); process.exit(0); }
+  if (exposed === source) throw new Error('the end of parts/tags.js changed; tools/tags-speed.js cannot reach the map');
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.setContent('<!doctype html><html><body style="margin:0;font-family:system-ui"><div id="scroll" style="height:900px;overflow:auto"></div></body></html>');
   await page.addScriptTag({ content: `(${pretendLogseq})();` });
-  await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/shared.js'), 'utf8') });
-  await page.addScriptTag({ content: fs.readFileSync(path.join(root, 'parts/model.js'), 'utf8') });
+  await page.addScriptTag({ content: src['parts/shared.js'] });
+  await page.addScriptTag({ content: src['parts/model.js'] });
   await page.addScriptTag({ content: require('./pretend-model') });
-  for (const piece of ['parts/tags-graph.js', 'parts/tags-props.js']) await page.addScriptTag({ content: fs.readFileSync(path.join(root, piece), 'utf8') });
+  for (const piece of ['parts/tags-graph.js', 'parts/tags-props.js']) await page.addScriptTag({ content: src[piece] });
   await page.addScriptTag({ content: exposed });
   const result = await page.evaluate(async () => {
     const style = document.createElement('style'); style.textContent = window.__css; document.head.append(style);
@@ -101,14 +108,31 @@ function pretendLogseq() {
     view.destroy();
     return out;
   });
-  await browser.close();
+  await page.close();
+  return { result, errors };
+}
+
+(async () => {
+  let browser;
+  try { browser = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {}); }
+  catch (error) { console.log('tag map timings skipped (Chromium did not start)'); process.exit(0); }
+  const mac = await gate.waitQuiet({ minutes: process.argv.includes('--no-wait') ? 0 : 2 });
+  const { result, errors } = await measure(browser, sources('now'));
   const problems = [...errors.map(e => 'error in the page: ' + e)];
+  // Over a limit on a busy Mac: the committed version timed in the same run decides (a 25% margin).
+  const over = result.first > LIMITS.first || result.changes.some(c => c.ms > LIMITS.change);
+  let head = null;
+  if (over && !mac.quiet) { try { head = (await measure(browser, sources('HEAD'))).result; } catch (error) { head = null; } }
+  await browser.close();
+  // No committed time to compare with (a measure new since HEAD): judged by the limit alone.
+  const slower = (now, was) => head && was != null ? now > was * 1.25 : true;
+  if (!mac.quiet) console.log(`  (the Mac is busy, load ${mac.load.toFixed(2)}: a time over its limit fails only when more than 25% slower than the committed version${head ? `, which took ${head.first.toFixed(0)} ms to draw and ${head.changes.map(c => c.ms.toFixed(0)).join(', ')} ms for the changes` : ''})`);
   console.log(`tag map timings in a real browser, on a large pretend graph (600 tags, 300 properties, ${result.rows} rows):`);
   console.log(`  first drawing: ${result.first.toFixed(0)} ms`);
-  if (result.first > LIMITS.first) problems.push(`the first drawing took ${result.first.toFixed(0)} ms (limit ${LIMITS.first})`);
+  if (result.first > LIMITS.first && slower(result.first, head?.first)) problems.push(`the first drawing took ${result.first.toFixed(0)} ms (limit ${LIMITS.first})`);
   for (const c of result.changes) {
     console.log(`  ${c.what}: shown after ${c.ms.toFixed(0)} ms; rows on screen moved ${c.jump.toFixed(0)} px`);
-    if (c.ms > LIMITS.change) problems.push(`${c.what} took ${c.ms.toFixed(0)} ms to show (limit ${LIMITS.change})`);
+    if (c.ms > LIMITS.change && slower(c.ms, head?.changes.find(h => h.what === c.what)?.ms)) problems.push(`${c.what} took ${c.ms.toFixed(0)} ms to show (limit ${LIMITS.change})`);
     if (c.jump > LIMITS.jump) problems.push(`${c.what} moved the rows on screen by ${c.jump.toFixed(0)} px (should not move)`);
   }
   for (const p of problems) console.log('PROBLEM: ' + p);

@@ -330,13 +330,23 @@ const screen = {
    tooltip), and the kit for what neither gives. */
 
 const esc = text => String(text ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+// HTML given to el (an icon, a tag's words) is parsed once per document and copied after (2026-10-23: the tag map of
+// 600 tags parsed the same few icons thousands of times a redraw, its slowest step). At most 500 kept.
+const parsed = new WeakMap();
+function fragmentOf(doc, html) {
+  let cache = parsed.get(doc);
+  if (!cache) parsed.set(doc, cache = new Map());
+  let t = cache.get(html);
+  if (!t) { t = doc.createElement('template'); t.innerHTML = html; if (cache.size >= 500) cache.delete(cache.keys().next().value); cache.set(html, t); }
+  return t.content.cloneNode(true);
+}
 // THE element builder: el(doc, 'button', { class: 'rf-quiet', title: 'Undo', click: () => … }, icon, 'Undo').
 function el(doc, tag, props = {}, ...children) {
   const node = doc.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
-    else if (key === 'html') { const t = doc.createElement('template'); t.innerHTML = value; node.append(t.content); }
+    else if (key === 'html') node.append(fragmentOf(doc, String(value)));
     else if (typeof value === 'function') node.addEventListener(key, value);
     else node.setAttribute(key, value === true ? '' : value);
   }

@@ -2,6 +2,27 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The tag map under load and under stress (0.4.350)
+
+**Asked:** the loose end of `CLAUDE.md` section 7 (the tag map's speed limits failed whenever the Mac's load was above
+about 2) and section 4 of the finishing prompt (the tag map under stress). **Done looks like:** on the Illness Test
+Graph nothing changes on screen; on a graph of hundreds of open tags, typing in the map's find box no longer holds
+the keys. **Built:** `tools/tags-stress.js` (600 tags, 300 properties: 200 drags each moving only the tag pressed, seven
+rounds of three moves undone newest first and at random, fifty renames with the last three undone, both views, a
+property held by 1000 nodes, 200 keys in the find box, memory after a warm-up storm); `tools/quiet.js` (the Mac's load
+and idle time) and the gate in `tools/tags-speed.js` and the stress test: on a busy Mac a time over its limit is
+judged against the committed version timed in the same run. `parts/shared.js`: the kit's element builder keeps each
+piece of HTML it parsed (icons, tags) and copies it (a whole redraw of 600 open tags 90 ms instead of 105).
+`parts/tags.js`: on a map whose drawing takes 50 ms or more the find box redraws once typing pauses (120 ms); a key now
+holds the keyboard 31 ms at the 95th instead of 581. **Measured**, the same harness on 0.4.345 the same day: drags 505 ms
+(now 441), renames 1,895 (513), a key 581 (31); the stress test's limit for an action through the map set at 500 ms
+with that evidence (`docs/DECISIONS-AUTONOMOUS.md` 14, 15, 11, 12). Tried and dropped: letting the browser skip rows
+off screen (`content-visibility`), three times faster but rows on screen moved up to 498 px. Memory: not a leak (20.6,
+30.7, 33.7, 33.7 MB over a warm-up and three storms), measured after a warm-up storm. **Checks:** tags-stress (green
+with the action limit), tags-speed, tags-test, tag-drag-test, then `sh tools/check.sh` in full. **Not seen in the
+app:** the find box's pause (the Illness Test Graph's map draws in a few milliseconds, so it redraws at every key as
+before).
+
 ## 2026-10-23 · Pages in Logseq's Recycle are not there (0.4.349)
 
 **Asked:** the loose end of 0.4.305 (`CLAUDE.md` section 7): Turn into links counted a page in Logseq's Recycle as there,

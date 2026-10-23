@@ -247,8 +247,16 @@ function createView(doc, mode) {
   view.loaded = false; // nothing is drawn until the tags have been read once
 
   // The find box: the kit's field, with the arrows and Enter still driving the tree.
-  view.findField = shared.field(view.doc, { placeholder: 'Find a tag or property', icon: 'find', title: 'Find a tag or property', input: () => { view.cursorKey = null; view.cursorTag = null; view.draw(); },
-    keys: event => { if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(event.key)) view.onKey(event); return false; } });
+  // Typing in the find box: on a map that draws in under 50 ms, at once; on a larger one, once typing pauses (120 ms),
+  // so a first letter that matches every tag does not hold the keys (2026-10-23, the stress test: 0.3 s a key on 600
+  // open tags). A key that acts on the list draws first what is pending.
+  const findNow = () => { clearTimeout(view.findTimer); view.findTimer = 0; view.draw(); };
+  view.findField = shared.field(view.doc, { placeholder: 'Find a tag or property', icon: 'find', title: 'Find a tag or property', input: () => {
+    view.cursorKey = null; view.cursorTag = null;
+    if ((view.drawMs || 0) < 50) findNow();
+    else { clearTimeout(view.findTimer); view.findTimer = setTimeout(findNow, 120); }
+  },
+    keys: event => { if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(event.key)) { if (view.findTimer) findNow(); view.onKey(event); } return false; } });
   view.find = view.findField.input;
   view.find.setAttribute('aria-label', 'Find a tag or property');
   const tool = (label, title, run, extra = {}) => shared.quiet(view.doc, { label, title, faint: true, cls: 'rtg-tool', run, ...extra });
@@ -730,6 +738,7 @@ function highlight(view, node, title, q) {
 const matches = (tag, q) => tag.title.toLowerCase().includes(q) || tag.propList.some(p => String(p.title || '').toLowerCase().includes(q));
 function draw(view) {
   if (!view.box.isConnected && view.shown.length) return;
+  const drawStart = performance.now();
   // While the tags are read: nothing, and the note only when reading takes over half a second (a note shown for the
   // usual 50 ms and gone was a flash in the app's frames, 2026-10-23).
   if (!view.loaded) {
@@ -770,6 +779,7 @@ function draw(view) {
     view.cursorKey = again?.key || null;
   }
   view.mark(false);
+  view.drawMs = performance.now() - drawStart; // how long a whole drawing takes, for the find box
   if (scrollKeep && top != null) scrollKeep.scrollTop = top;
   const again = heldTop != null && view.shown.find(item => item.key === view.cursorKey)?.row;
   const scroller = again?.isConnected && scrollingParent(view.box);
@@ -1278,6 +1288,7 @@ function destroy(view) {
   view.closeMenu();
   clearTimeout(view.timer);
   clearTimeout(view.readingNote);
+  clearTimeout(view.findTimer);
   view.doc.removeEventListener('mousemove', view.endDrag, true);
   openViews.delete(view.draw);
   shared.undo.forget(entry => entry.key.startsWith('tags:') && entry.data?.view === view);
