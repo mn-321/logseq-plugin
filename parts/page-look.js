@@ -47,18 +47,18 @@ ${AREA} a.page-ref${DAY}, ${AREA} .ls-datetime a { color: var(--rf-quiet) !impor
 ${AREA} a.page-ref${DAY}:hover, ${AREA} .ls-datetime a:hover { color: inherit !important; }
 `;
 const namesCss = `
-/* The name and its colon faint (the kit's 50%, as the elements page draws them; the owner at 0.4.339: "properties should be
-   this light?"), so the value is what the eye lands on; the value keeps the text colour. */
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child,
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child :is(.property-k, a),
-${AREA} .ls-properties-area .property-pair .property-key-panel,
-${AREA} .ls-properties-area .property-pair .property-key-panel :is(.property-k, a) { color: var(--rf-faint) !important; }
-/* The value lighter than the words too, the kit's quiet grey (the owner at 0.4.340: "it should be lighter, not full black"),
-   so a bullet's facts sit a step behind its words and two steps ahead of their names. */
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > .bottom-property-content,
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > .bottom-property-content a:not(.tag),
+/* Everything in a pill and in a page's list value is the kit's quiet grey, whatever Logseq draws it with (the owner at
+   0.4.340: "it should be lighter, not full black"; at 0.4.341 a link in a value had stayed full colour, so no class name of
+   the value side is guessed any more: the pill is coloured whole); then the name and its colon a step lighter still, the
+   kit's faint grey, as the elements page draws them, so the value is what the eye lands on. A tag keeps its own look, and so does a value the proposals pencil in (.rfs-ghost). */
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill,
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *),
 ${AREA} .ls-properties-area .property-pair .property-value-container,
-${AREA} .ls-properties-area .property-pair .property-value-container a:not(.tag) { color: var(--rf-quiet) !important; }
+${AREA} .ls-properties-area .property-pair .property-value-container *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *) { color: var(--rf-quiet) !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child,
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child *,
+${AREA} .ls-properties-area .property-pair .property-key-panel,
+${AREA} .ls-properties-area .property-pair .property-key-panel * { color: var(--rf-faint) !important; }
 `;
 const tagsCss = `
 /* Logseq draws a # link before the name and swaps it for an × (remove) link under the pointer. The # is made
@@ -75,7 +75,7 @@ ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:not(:
 /* The dot sits before a pill that a shown pill comes before: an empty property the proposals hide (parts/shadow.js) does
    not count, or the first shown one would carry a dot of its own. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill:is(:not(:has(.empty-value)), [data-refinement-proposal], [data-rfs-at]) ~ .bottom-property-pill::before { content: '·'; margin-right: .5rem; color: var(--rf-faint); }
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill a.page-ref:not(.tag) { color: inherit !important; text-decoration: none !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill a.page-ref:not(.tag) { text-decoration: none !important; }
 `;
 function applyStyles() {
   sendStyle('refinement-page-look-links', setting('quietLinks') ? linksCss : '');

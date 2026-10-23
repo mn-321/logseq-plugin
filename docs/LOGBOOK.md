@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · One grey for every value (0.4.341)
+
+**Asked:** a picture, “Treatment used: Blood transfusion · Ordered by: Jay Varughese”, the first grey and the second full colour: "why are there two different colors for values?" **Found:** 0.4.340 coloured the value side through `.bottom-property-content`, a class from `tools/pages/build-elements.js`'s pretend pill, not Logseq's markup; a link in a value took `color: inherit` from the pill and stayed full colour. **Built:** `parts/page-look.js`: the pill and the page list's `.property-value-container` coloured whole (every descendant but a tag or a `.rfs-ghost`) at `--rf-quiet`, the name side (`> div:first-child`, `.property-key-panel`, the selectors the old styles.js proved) at `--rf-faint`. **Checks:** `sh tools/check.sh`. **Not seen:** the background check stopped reaching the Logseq window this evening; the owner reloads and looks at the same bullet.
+
 ## 2026-10-23 · Property values lighter than the words (0.4.340)
 
 **Asked:** "you didn't change values. only properties", then "no it should be lighter, not full black". **Built:** `parts/page-look.js`: the value side of a bullet's pill (`.bottom-property-content`) and of a page's list (`.property-value-container`), links included, at `--rf-quiet`; names stay at `--rf-faint`; the switch renamed Property names and values lighter than the words. README. **Checks:** `sh tools/check.sh`. **Not seen:** the owner reloads and looks at a bullet with properties.
