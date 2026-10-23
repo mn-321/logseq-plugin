@@ -1,7 +1,8 @@
 /* Loaded by loader.js before main.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Search part of DB Refinements (was the Calmer Search plugin 1.0.1): Logseq's own search window, easier to read, with details, grouping, a preview
-   panel and typed filters. Split out of DB Refinements 0.2.156, which kept it under "Search". */
+/* Search extras, resting (was the Calmer Search plugin 1.0.1): details, grouping, a preview panel, typed filters and the sidebar
+   search button. The window's look moved to the loaded parts/search-look.js at 0.4.356; why the rest rests:
+   docs/DECISIONS-AUTONOMOUS.md 17. */
 // The shared plumbing (parts/shared.js): its header says what each helper does.
 const shared = window.refinementShared;
 const { host, notify, openEntity, waitFor } = shared;
@@ -19,7 +20,6 @@ let watchDom, watchDomEarly;
 // used to carry a copy. The key stays, since a provideStyle key is part of the contract with the settings file.
 const tokensCss = '/* the tokens are declared in parts/styles.js */';
 // The plain page outline DB Refinements uses for page icons, so search results match.
-const plainPageMask = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="4" y="3" width="8" height="10" rx="1.5" fill="none" stroke="black" stroke-width="1.2"/></svg>');
 
 
 let titleOf, trailingTags; // from the model part (0.4.171; this part kept its own copies before)
@@ -69,123 +69,7 @@ async function mentionedTitles(texts) {
 // the values point at and the titles their text mentions.
 
 
-// Logseq's own search (popover, and the copy kept in the right sidebar): calmer rows,
-// quiet group headings and softer match highlights. Ranking and keys stay native.
-const searchCss = `
-.cp__cmdk-input-row { background: transparent !important; border-bottom: 1px solid var(--ls-border-color, rgba(128,128,128,.16)) !important; }
-.cp__cmdk-search-input { font-size: 1.05rem !important; padding: 12px 16px !important; }
-.cp__cmdk-input-row + div { background: var(--ls-primary-background-color) !important; }
-.cp__cmdk__block .cp__cmdk-input-row + div { background: transparent !important; min-height: 0 !important; max-height: none !important; }
-.cp__cmdk > .hints { background: transparent !important; border-top-color: var(--ls-border-color, rgba(128,128,128,.16)) !important; opacity: var(--rf-quiet); }
-
-/* Groups: no grey bars or dividers; a small, light heading instead. */
-.cp__cmdk div:has(> .search-results) { border-bottom: 0 !important; padding-bottom: 6px !important; }
-.cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) {
-  height: auto !important; padding: 10px 12px 3px !important; background: transparent !important;
-  font-size: var(--rf-tiny) !important; letter-spacing: .05em; text-transform: uppercase; opacity: var(--rf-quiet);
-}
-.cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) > .font-bold { font-weight: 500 !important; }
-
-/* Rows: compact, one weight of text, quiet icon and path. */
-/* The rows in the popup look (0.4.140): Logseq's own [[ menu's padding and corner, the chosen row and the row under the pointer on the wash. */
-.cp__cmdk [data-cmdk-item] { padding: 6px 8px !important; gap: 1px !important; border-radius: 4px !important; }
-.cp__cmdk [data-cmdk-item] > .flex.items-start { gap: 8px !important; }
-.cp__cmdk [data-cmdk-item] > .flex.items-start > div:first-child {
-  width: 16px !important; height: 20px !important; background: none !important; box-shadow: none !important;
-  color: inherit !important; opacity: var(--rf-faint);
-}
-.cp__cmdk [data-cmdk-item] > .text-xs:first-child { padding-left: 24px !important; margin-top: 0 !important; font-size: var(--rf-tiny) !important; opacity: var(--rf-quiet); }
-.cp__cmdk [data-cmdk-item] .breadcrumb a { text-decoration: none !important; }
-.cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text { font-weight: 400 !important; line-height: 1.45; color: var(--ls-primary-text-color) !important; }
-.cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text a { text-decoration: none !important; }
-.cp__cmdk-current-page-badge { border: 0 !important; padding: 1px 6px !important; font-size: var(--rf-tiny) !important; font-weight: 400 !important; }
-
-/* Matched words: the soft wash used in the preview, in place of Logseq's yellow block. In a loose match
-   Logseq marks stray letters; those stay plain, and the closest word gets the wash instead. */
-/* The searched words: bold, as the result list shows them (a wash was tried and dropped in 0.4.83). */
-.cp__cmdk mark { background: transparent !important; color: inherit !important; font-weight: 600; padding: 0; border-radius: 0; }
-.cp__cmdk [data-rf-loose] mark { background: transparent !important; padding: 0; }
-::highlight(refinement-search-near) { background-color: color-mix(in srgb, var(--ls-primary-text-color, #888) 24%, transparent); }
-/* Typing markup such as [[ ]] and ** stays visible but faded. */
-::highlight(refinement-search-markup) { color: var(--lx-gray-08, rgba(128, 128, 128, .55)); }
-
-/* Selected and hovered rows: a faint grey wash, no outline. */
-.cp__cmdk [data-cmdk-item][data-highlighted],
-.cp__cmdk [data-cmdk-item][data-kb-highlighted],
-.cp__cmdk [data-cmdk-item][data-hoverable][data-highlighted]:hover {
-  background-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent) !important; box-shadow: none !important;
-}
-.cp__cmdk [data-cmdk-item][data-hoverable]:not([data-highlighted]):hover { background-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) var(--rf-wash-pct), transparent) !important; box-shadow: none !important; }
-
-/* Page results use the plugin's plain page rectangle. */
-.cp__cmdk [data-cmdk-item] :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description) {
-  background: currentColor !important;
-  mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
-  -webkit-mask: url("data:image/svg+xml,${plainPageMask}") center / contain no-repeat !important;
-}
-.cp__cmdk [data-cmdk-item] :is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description) > * { visibility: hidden !important; }
-/* A page that has its own icon shows it beside its name, so the plain rectangle (which read as an
-   empty checkbox) is left out there; the name stays in line with the other rows. */
-.cp__cmdk [data-cmdk-item] > .flex.items-start:has(.cp__cmdk-item-main-text :is(svg, img, .ui__icon)) > div:first-child:has(:is(svg.tabler-icon-file, svg.icon-tabler-file, svg.tabler-icon-file-description, svg.icon-tabler-file-description)) { visibility: hidden !important; }
-`;
-
-// Roomier search: a bigger popover with more space around rows and group headings.
-// Only the popover (.ls-dialog-cmdk); the copy kept in the right sidebar stays as it is.
-const roomySearchCss = `
-.ls-dialog-cmdk { max-width: none !important; }
-.ls-dialog-cmdk .cp__cmdk__modal { width: min(1180px, 94dvw) !important; max-width: none !important; }
-.ls-dialog-cmdk .cp__cmdk-input-row + div { min-height: 76dvh !important; max-height: 76dvh !important; }
-.ls-dialog-cmdk .cp__cmdk-search-input { font-size: 1.3rem !important; padding: 18px 22px !important; }
-
-/* Groups: more room above each one, a plain heading in normal capitals. */
-.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) { padding-bottom: 12px !important; }
-.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) > div:first-child:not(.search-results) {
-  height: auto !important; padding: 20px 22px 8px 48px !important; /* in line with the result titles below */
-  font-size: .85rem !important; letter-spacing: 0 !important; text-transform: none !important;
-}
-.ls-dialog-cmdk .cp__cmdk-input-row + div > div:first-child > div:first-child:not(.search-results) { padding-top: 12px !important; }
-
-/* Rows: more padding, larger text, up to three lines of a block. */
-.ls-dialog-cmdk .cp__cmdk .search-results { padding: 0 8px !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] { padding: 9px 14px !important; gap: 3px !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .flex.items-start { gap: 10px !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text { font-size: .97rem !important; line-height: 1.55 !important; -webkit-line-clamp: 3 !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child { font-size: .8rem !important; padding-left: 26px !important; }
-
-/* Steady while typing. Logseq redraws the results in a few quick steps; new rows and headings fade in
-   instead of snapping. "Show more" shows only under the pointer, and the key hints at the bottom
-   (which change with the selected row) are hidden; the keys still work. */
-@keyframes rf-search-in { from { opacity: 0; } to { opacity: 1; } }
-.ls-dialog-cmdk .cp__cmdk :is([data-cmdk-item], div:has(> .search-results) > div:first-child:not(.search-results)) { animation: rf-search-in 160ms ease-out; }
-@media (prefers-reduced-motion: reduce) { .ls-dialog-cmdk .cp__cmdk :is([data-cmdk-item], div:has(> .search-results) > div:first-child) { animation: none; } }
-.ls-dialog-cmdk .cp__cmdk div:has(> .search-results) > div:first-child a.select-node { opacity: 0 !important; transition: opacity .15s; }
-.ls-dialog-cmdk .cp__cmdk div:has(> .search-results):hover > div:first-child a.select-node { opacity: .7 !important; }
-.ls-dialog-cmdk .cp__cmdk > .hints { display: none !important; }
-/* The page and parent above a block are shown in full; a long path wraps instead of ending in "…". */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child { white-space: normal !important; flex-wrap: wrap !important; overflow: visible !important; row-gap: 2px; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb { flex-wrap: wrap !important; white-space: normal !important; overflow: visible !important; max-width: none !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child :is(.breadcrumb__segment, .breadcrumb__label) {
-  max-width: none !important; overflow: visible !important; text-overflow: clip !important; white-space: normal !important;
-}
-/* Logseq's "···" for skipped levels is drawn as a plain "…" in the line's own tone, right after the page name. */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"] {
-  display: inline-flex !important; align-items: center; font-size: 0 !important; opacity: 1 !important; padding: 0 !important; margin-left: 8px !important;
-}
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"]::after { content: '…'; font-size: .8rem; }
-/* After the "…" the bullet sits as far from it as the "…" sits from the page name. */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > [role="button"] ~ .breadcrumb__segment::before { margin-left: 8px !important; }
-/* The page name is firmer than the blocks after it: medium weight, in the normal text colour (still quiet, like the whole line). */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > .breadcrumb__segment:first-child { font-weight: 500 !important; color: var(--ls-primary-text-color) !important; }
-/* The first part names the page; each part after it is a block, so it gets a small bullet instead of "/". */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb > :not(.breadcrumb__segment, [role="button"]) { display: none !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] > .text-xs:first-child .breadcrumb__segment ~ .breadcrumb__segment::before {
-  content: ''; flex: none; display: inline-block; width: 4px; height: 4px; border-radius: 50%;
-  margin: 0 7px 0 9px; background: currentColor; opacity: .8;
-}
-/* Key shortcuts beside results show only on the row under the pointer; they keep their room, so nothing moves. */
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item] [data-shortcut-binding] { visibility: hidden !important; }
-.ls-dialog-cmdk .cp__cmdk [data-cmdk-item]:hover [data-shortcut-binding] { visibility: visible !important; }
-`;
+// The search window's look (tidy, roomy) is the loaded parts/search-look.js since 0.4.356.
 
 // Opens Logseq's own search and moves it into the right sidebar (search's own Mod+Enter
 // action), so results stay listed while you open them. Reuses a search already there.
@@ -239,62 +123,6 @@ function startSidebarSearchButton() {
     watchDom(ensureSidebarSearchButton);
     onUnload(() => { for (const el of host().querySelectorAll('[data-refinement-search-button]')) el.remove(); });
   } catch (error) { warnOnce('sidebar search button is unavailable', error); }
-}
-
-// Search shows block text as typed, so links and bold come through as [[Page]] and **text**.
-// Fade that markup in result text and paths. Uses the browser's highlight ranges, so
-// Logseq's own text is never edited. The one exception is a block holding a table: its
-// pipes and "| --- |" rule are rewritten (in the search row only) into cells split by " · "
-// and rows split by " / ", and those separators are faded too.
-const searchMarkup = /\[\[|\]\]|\*\*|__|~~|\^\^|==|`| · | \/ /g;
-const tableCell = ' · ', tableRow = ' / ';
-function tidyTableText(text, first, last) {
-  let out = text
-    .replace(/\|(?:[ \t]*:?-{3,}:?[ \t]*\|)+/g, '|')  // the rule under the header row
-    .replace(/\|(?:\s*\|)+/g, '\u0000')              // end of one row and start of the next
-    .replace(/\s*\|\s*/g, tableCell);
-  if (first) out = out.replace(/^\s*(?:\u0000|· )\s*/, '');
-  if (last) out = out.replace(/\s*(?:\u0000| ·)\s*$/, '');
-  return out.replace(/\s*\u0000\s*/g, tableRow);
-}
-function tidySearchTables(doc) {
-  for (const area of doc.querySelectorAll('.cp__cmdk [data-cmdk-item] .cp__cmdk-item-main-text')) {
-    if (!/^\s*\|[^|\n]*\|/.test(area.textContent)) continue;
-    const walker = doc.createTreeWalker(area, doc.defaultView.NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
-    nodes.forEach((node, i) => {
-      if (!node.nodeValue.includes('|')) return;
-      const tidy = tidyTableText(node.nodeValue, i === 0, i === nodes.length - 1);
-      if (tidy !== node.nodeValue) node.nodeValue = tidy;
-    });
-  }
-}
-function cleanSearchResults(doc) {
-  const win = doc.defaultView;
-  if (!win.CSS?.highlights || !win.Highlight || !doc.querySelector('.cp__cmdk')) return;
-  tidySearchTables(doc);
-  const ranges = [];
-  for (const area of doc.querySelectorAll('[data-cmdk-item] .cp__cmdk-item-main-text, [data-cmdk-item] > .text-xs:first-child')) {
-    const walker = doc.createTreeWalker(area, win.NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      for (const match of node.nodeValue.matchAll(searchMarkup)) {
-        const range = doc.createRange();
-        range.setStart(node, match.index);
-        range.setEnd(node, match.index + match[0].length);
-        ranges.push(range);
-      }
-    }
-  }
-  win.CSS.highlights.set('refinement-search-markup', new win.Highlight(...ranges));
-}
-function startSearchCleanup() {
-  try {
-    // Tables are rewritten before the screen is drawn, so their pipes never show.
-    watchDomEarly(function searchTablesEarly(doc) { if (doc.querySelector('.cp__cmdk')) tidySearchTables(doc); });
-    watchDom(cleanSearchResults);
-    onUnload(() => { for (const name of ['refinement-search-markup', 'refinement-search-near']) host().defaultView.CSS?.highlights?.delete(name); });
-  } catch (error) { warnOnce('search text cleanup is unavailable', error); }
 }
 
 /* Search details, grouping and the preview panel. Logseq's search rows carry no block ids, so the
@@ -1814,16 +1642,10 @@ const settingsSchema = [
     description: 'Opens Logseq search in the right sidebar, where it stays while you open results. Shift-click a result to open it in the sidebar too.' },
   { key: 'sidebarSearchButton', type: 'boolean', title: 'Search button in the right sidebar', default: true,
     description: 'A Search button at the start of the right sidebar’s top row, next to Contents and Help.' },
-  { key: 'searchHeading', type: 'heading', group: 'around', rank: 2, title: 'Search', default: null,
+  { key: 'searchExtrasHeading', type: 'heading', group: 'around', rank: 4, title: 'Search extras (resting)', default: null,
     legend: 'The search window: grouping, details, a preview',
     zone: '<div class="box">echo</div><div class="h">Echo</div><div class="ind"><i class="b"></i>Kickoff <span class="m">· today</span></div><div class="ind"><i class="b"></i>Budget <span class="m">· Oct 9</span></div>',
     description: 'Changes here apply after you reload the plugin.' },
-  { key: 'tidySearch', type: 'boolean', title: 'Tidy the search window', default: true,
-    preview: ['<div><i class="b"></i>Kickoff for <span class="hl">Echo</span></div><div><i class="b"></i><span class="hl">Echo</span> budget</div>', '<div><i class="b"></i>Kickoff for <span class="wash">Echo</span></div><div><i class="b"></i><span class="wash">Echo</span> budget</div>'],
-    description: 'Compact result rows, quieter group headings, a soft grey wash on matches instead of yellow highlights, and faded [[ ]] and ** markup in results. Turn off to get Logseq’s original look.' },
-  { key: 'roomySearch', type: 'boolean', title: 'Roomier search window', default: true,
-    preview: ['<div style="font-size:10px;line-height:1.2"><i class="b"></i>Echo kickoff<br><i class="b"></i>Echo budget<br><i class="b"></i>Echo notes</div>', '<div style="font-size:12px"><i class="b"></i>Echo kickoff</div><div style="font-size:12px;margin-top:3px"><i class="b"></i>Echo budget</div>'],
-    description: 'A larger search window with bigger text, more space between results and groups, and up to three lines of each block. The page and parent blocks above a result are named in full, with a small bullet before each parent block. Results fade in as you type, “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. Turn off to get Logseq’s normal size.' },
   { key: 'searchDetails', type: 'boolean', title: 'Say more about each search result', default: true,
     preview: ['<div class="row"><span><i class="b"></i>Echo</span></div>', '<div class="row"><span><i class="b"></i>Echo</span><span class="m">#Project · today</span></div>'],
     description: 'At the right of each result: what it is (its tags, or Page) and when it was last edited. Under a result that is only a heading, such as “Timeline”, the first line beneath it and how many more there are. When the searched words are not in the text shown, where they were found (a property, a tag, further into the text).' },
@@ -1847,11 +1669,7 @@ function main() {
   ({ titleOf, trailingTags } = window.refinementCore.provided);
   takeOverFromEarlierCopy();
   logseq.provideStyle({ key: 'calmer-search-tokens', style: tokensCss });
-  if (setting('tidySearch')) {
-    logseq.provideStyle({ key: 'personal-db-search', style: searchCss });
-    startSearchCleanup();
-  }
-  if (setting('roomySearch')) logseq.provideStyle({ key: 'personal-db-search-roomy', style: roomySearchCss });
+  onUnload(() => host().defaultView.CSS?.highlights?.delete('refinement-search-near'));
   startSearchExtras();
   onUnload(unmountPreviewEditor);
   // Registered early: Logseq draws the piece that hosts its editor the next time it redraws the app.

@@ -172,7 +172,7 @@ async function main() {
   // Each feature does something of its own at start (0.4.279, the audit): its stylesheet goes to Logseq and the tag
   // map's command is registered, exactly when the part is loaded; left out, nothing of it shows (parts-apart-test).
   const styleKeys = logseq.calls.filter(call => call.name === 'provideStyle').map(call => call.args[0]?.key);
-  const SIGNS = { 'two-way': 'refinement-two-way', 'tag-path': 'refinement-tag-path', 'title-row': 'refinement-title-row', 'property-kinds': 'refinement-property-kinds', sidebar: 'refinement-sidebar-titles', chrome: 'refinement-chrome-sidebar', 'page-look': 'refinement-page-look-links', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'settings-panel': 'refinement-settings-panel' };
+  const SIGNS = { 'two-way': 'refinement-two-way', 'tag-path': 'refinement-tag-path', 'title-row': 'refinement-title-row', 'property-kinds': 'refinement-property-kinds', sidebar: 'refinement-sidebar-titles', chrome: 'refinement-chrome-sidebar', 'search-look': 'refinement-search-tidy', 'page-look': 'refinement-page-look-links', tags: 'refinement-tags', shadow: 'refinement-shadow', picker: 'refinement-picker', 'settings-panel': 'refinement-settings-panel' };
   // The bullet's piece of the proposals stays off, and says so, without the rules (0.4.269).
   const expected = part => part === 'shadow' ? has('shadow') && has('shadow-rules') : part === 'tags' ? tagMap() : has(part);
   for (const [part, key] of Object.entries(SIGNS)) if (expected(part) !== styleKeys.includes(key)) problem(`${expected(part) ? 'with' : 'without'} ${part}, its stylesheet ${key} was ${styleKeys.includes(key) ? 'still' : 'not'} sent`);

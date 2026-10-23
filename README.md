@@ -1,12 +1,12 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.355.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.356.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
 Besides the look of pages, it holds:
 
-- **Search** (resting): a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
+- **Search**: Logseq's search window easier to read and roomier (loaded since 0.4.356); its details, grouping, preview, typed filters and sidebar search button rest.
 - **Links, tags and properties** (on since 0.4.337; five switches under **Reading a page**): a link is the text colour with a faint underline, not blue, in a bullet's words, a property's value, Logseq's tables and the Linked references alike (0.4.338); a journal day is quiet grey words with no underline (0.4.338); a property's value is a lighter grey than the words and its name lighter still, in a bullet's pills and in a page's own list (0.4.338, 0.4.340); a tag at the right of a bullet reads as its name in mono, grey, without the #; a bullet's properties have no capsules, “Provider: Hannah Reyes · Date: Oct 21st”, the name grey and the value in the text colour.
 - **Right sidebar** (on since 0.4.336; its two switches under **Around the page**): clicking the title of a page or block in the right sidebar opens it in the main view (the small arrow before it still folds it; Shift-click as in Logseq), and a line between the sidebar's items.
 - **Todos** (resting): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
@@ -63,7 +63,8 @@ The files in `parts/`:
 | `tag-path.js` | A page's tags and the tags above them, in its title's corner (Doctor / Person / Entity). |
 | `property-kinds.js` | Each property's kind as an icon before its name, and a cut name whole on hover. |
 | `title-row.js` | Logseq's “Add icon” and “Set property” by a page's title left out, their room kept (0.4.354). |
-| `search.js` | The search window: tidying, details, grouping, the preview, the typed codes. |
+| `search-look.js` | Logseq's search window easier to read and roomier (loaded since 0.4.356). |
+| `search.js` | Resting: search details, grouping, the preview, the typed codes, the sidebar search button. |
 | `inline-props.js` | Properties in the line: the list after `p::`, `name::` or `name;;`. |
 | `rich-copy.js` | Copy as rich text. |
 | `todos.js` | Todos and Expectations (paused: off unless switched on in the settings). |
@@ -265,9 +266,13 @@ Settings (section **Tag tree**): **Order of the tags** (empty: by name), **Group
 
 ## Search
 
-Logseq's search window is calmer and easier to read. Every setting in this section applies after a reload. Typing markup in result text and paths, such as `[[ ]]` and `**`, is faded so the words stand out (your blocks are unchanged). It also has compact rows, small light group headings instead of grey bars, a quiet icon and path, bold matched words instead of yellow highlights, and a faint grey wash on the selected row. Page results use the plugin's plain page rectangle. Results, ranking and keyboard keys are Logseq's own. **Shift+Enter** or **Shift-click** opens the selected result in the right sidebar instead of the main view (the bar along the bottom of the window says so), and search closes. Turn this off with **Tidy the search window**.
+Logseq's search window, easier to read (part `search-look.js`, 0.4.356). Its results, their order and its keys are Logseq's own; nothing is added to its list. Changes apply right away.
 
-**Roomier search window** (on by default): a larger search window with bigger text and more room between results and groups. Results fade in as you type. “Show more” and key shortcuts appear only under the pointer, and the key hints at the bottom are hidden. The page and parent blocks above a result are named in full, with the page in firmer text, a small bullet before each parent block, and “…” where Logseq skips levels. Turn it off in the plugin settings.
+**Tidy the search window** (on): quieter group headings, one weight of text in the results, a quiet icon and path, the searched words in bold instead of yellow, a faint grey wash on the chosen row, and typing markup in results (`[[ ]]`, `**`, a table's `|`) in a faint grey so the words stand out (your blocks are unchanged).
+
+**Roomier search window** (on): the search window larger (up to 1100 px wide), with bigger text, more room between results, up to three lines of each block, and the page and parent blocks above a result named in full. Key shortcuts beside results show only with the pointer on the row. The search kept in the right sidebar (Logseq's own `Cmd+Enter` inside search) stays as it is.
+
+The rest of the old search part rests, not loaded (`docs/DECISIONS-AUTONOMOUS.md` 17): what follows describes it as it was.
 
 **Search in right sidebar**
 

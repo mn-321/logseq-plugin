@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Search easier to read (0.4.356)
+
+**Asked:** Phase 2, piece 3 (`parts/search.js` in five steps; "the plugin only quiets and orders, adding nothing to its
+list"). **Done looks like:** open search, type "nausea": quiet headings, "Nausea" in bold not yellow, the [[ ]] around a
+link faint, a wider window with full paths; Logseq's order and keys unchanged. **Built:** step 1 as `parts/search-look.js`
+(two switches, `tidySearch` and `roomySearch`, on the kit's greys, the core's watcher and stylesheets, no Logseq call);
+the old look taken out of the resting `parts/search.js`, whose heading key is renamed so the two can never clash; steps
+2 to 5 and the sidebar Search button rest, each with its reason (`docs/DECISIONS-AUTONOMOUS.md` 17). Boot, leaning and
+parts-apart tests know the part. **Checks:** `sh tools/check.sh` in full; `node tools/app-frames.js`. **Seen in the
+app:** "chen" and "nausea", light and dark. Two faults fixed on the way: the old roomy rule widened Logseq's outer box to
+the whole window while the window inside stayed 1180 px, leaving an empty band at the right (now the outer box is
+limited, 1100 px, the window fills it); in dark mode the faded [[ ]] all but vanished, since `currentColor` inside a
+highlight reads as nothing there (now mixed from Logseq's text colour; seen in both themes).
+
 ## 2026-10-23 · Quieter sidebars, toolbar and [[ menu (0.4.355)
 
 **Asked:** Phase 2, piece 2 (`parts/chrome.js`). **Done looks like:** open the right sidebar: its header reads Contents and

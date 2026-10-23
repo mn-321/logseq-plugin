@@ -141,3 +141,19 @@ does not press Logseq's controls for you: Logseq's behaviour beats the plugin's)
 sidebar (it needed dates read by the resting links part), and the Hyper key tap (a personal keyboard setup the plan
 does not list). **Flip:** the four switches under Sidebars and toolbar; the three resting pieces are in git history at
 0.4.354's `parts/chrome.js`.
+
+## 17. Search: the window's look back, the four extras resting (2026-10-23)
+
+**Question:** Phase 2 piece 3, `search.js` in five steps: easier to read; details; grouping; the preview panel; typed
+filters, under the rule "Logseq's search window is Logseq's: the plugin only quiets and orders, adding nothing to its
+list". **Chosen:** step 1 back as a part of its own, `parts/search-look.js`, on the kit's greys, two switches on (the
+owner's earlier defaults): Tidy (quiet headings, one weight of text, the searched words bold instead of yellow, the chosen
+row on the kit's wash, `[[ ]]`, `**` and a table's `|` faded through the browser's highlights) and Roomy (the popover
+1100 px wide at most, bigger text, three lines of a block, full paths, shortcuts only under the pointer). Dropped from the
+old look: the plugin's own page icon (an icon of its own), rewriting a table's text (it edited Logseq's text; the pipes
+are faded instead), the fade-in of rows and the hidden key hints. Seen in the app, light and dark, on "chen" and "nausea".
+**Resting:** details (it adds words to each row and asks Logseq's search a second time on every key to learn which
+result a row is), grouping (it reorders Logseq's ranking from that second search and takes the arrow keys from Logseq),
+the preview panel and typed filters (each adds a panel or list of its own beside Logseq's), and the sidebar search
+button (Logseq's own Cmd-Enter already keeps search in the sidebar, and its tip says so). **Flip:** the two switches
+under Search; the extras stay in `parts/search.js`, resting, for the owner to call back.
