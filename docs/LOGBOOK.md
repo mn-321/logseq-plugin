@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Two-way tags beside their node (0.4.320)
+
+**Asked:** "move tags for two-way link next to item, not right aligned" (the owner, with a picture of KEYNOTE-966 in their own graph: Cisplatin, Gemcitabine, Pembrolizumab with Cancer Drug at the far right). **Done looks like:** each node's tag right after its name. **Built:** `parts/two-way.js`, the rows' grid only: the name's column `minmax(0, max-content)` (a long name still wraps), then the tag, the sidebar icon, and a last `1fr` column taking the rest, in short rows, open lists, date first and name first; the draft line's field `minmax(8em, 22em)` with its tag after it. `tools/pictures.js` re-approved after looking. **Checks:** pictures, boot, leaning, then `sh tools/check.sh` in full. **Seen:** Dr. Mei Chen after a reload.
+
 ## 2026-10-22 · Both pages rebuilt from the code (step 4)
 
 **Asked:** step 4 of `docs/LAYERS.md` section 4: "both pages rebuilt from the code once everything is moved, so

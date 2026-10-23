@@ -15,7 +15,7 @@
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings.
    On the kit since 0.4.318 (docs/LAYERS.md; the pages): the rows keep their own layout (one set of columns: the
-   day where Logseq's values start, the name, the tag at the right edge, the tick box in the margin) and draw
+   day where Logseq's values start, the name, its tag right after it (0.4.320), the tick box in the margin) and draw
    everything else with the kit: a tag as a class (mono, no #), the tick box, the picking bar as a line of quiet
    words above the rows, filters as words, the fold chevron and the arrow after a name from Logseq's font, the +
    and the sidebar icon as quiet buttons, the draft line's field, the menus and the lists as the kit's pop-up
@@ -948,7 +948,7 @@ const twoWayCss = `
 /* The list a count opens into: date, record, tag, one per line, under the value. */
 /* The line drops from under the fold arrow (centred 11px in, 0.4.196), as Logseq's own guide lines drop from theirs; the words stay where they were. */
 .refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid var(--rf-line); padding-left: calc(.6rem + 11.5px); }
-.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
+.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, max-content) auto 1.4em 1fr; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
 .refinement-two-way .rf-tw-more { display: inline-flex; margin-top: .1rem; height: 22px; padding: 0 4px; }
 /* Moving around (0.4.184): a record's line lit under the pointer, the sidebar icon shown there, the field's name
@@ -967,19 +967,21 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-earlier { display: flex; align-items: center; gap: .5em; margin: .2rem 0 .1rem; padding: 0; }
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px solid var(--rf-hair); }
 /* The line for adding a node (0.4.303): under the row's values, in the value column; a + at its left, the kit's
-   field inline, the tag at the right in the tags' column. */
-.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
+   field inline, the tag right after it. */
+/* A node's tag sits right after its name, and the sidebar icon after the tag (0.4.320, the owner: "move tags for two-way
+   link next to item, not right aligned"); the last column takes the rest of the row. */
+.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(8em, 22em) auto 1.4em 1fr; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
 .refinement-two-way .rf-tw-row { position: relative; }
 .refinement-two-way .rf-tw-add { margin-left: .6em; height: 20px; padding: 0 5px; }
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
 .refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, max-content) auto 1.4em 1fr; }
 .refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
 .refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
 .refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
 .refinement-two-way .rf-tw-namecell > .rf-tw-add { flex: none; margin-left: .6em; }
-.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; }
+.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1.4em 1fr; }
 .refinement-two-way .rf-tw-day > .rf-tw-add { margin-left: .6em; }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
@@ -995,12 +997,12 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.45em + 2px); }
 /* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
-/* Each record on a line of its own, its tag at the right edge as in an open list (0.4.297, the owner: "the tags under
-   decided should be right aligned"); the sidebar icon keeps the list's last column. */
+/* Each record on a line of its own, as in an open list (0.4.297); its tag right after its name since 0.4.320 (it was at
+   the right edge from 0.4.297, the owner then: "the tags under decided should be right aligned"). */
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
 .refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
-.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1.4em 1fr; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
 /* A record with no day still has its tag and the sidebar icon in the last two columns. */
 .refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
