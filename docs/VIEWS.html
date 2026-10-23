@@ -21,7 +21,7 @@
 .ti { font-family: "tabler-icons" !important; font-style: normal; font-weight: 400; font-variant: normal; text-transform: none; line-height: 1; display: inline-block; -webkit-font-smoothing: antialiased; }
 .ti-123::before { content: "\f554"; }
 .ti-arrow-back-up::before { content: "\eb77"; }
-.ti-layout-sidebar-right::before { content: "\ead9"; }
+.ti-layout-sidebar-right-expand::before { content: "\f007"; }
 .ti-file-text::before { content: "\eaa2"; }
 .ti-chevron-right::before { content: "\ea61"; }
 .ti-plus::before { content: "\eb0b"; }
@@ -52,7 +52,6 @@
 .ti-stack-2::before { content: "\eef7"; }
 .ti-checkbox::before { content: "\eba6"; }
 .ti-world::before { content: "\eb54"; }
-.ti-arrows-right::before { content: "\edb3"; }
 .ti-link::before { content: "\eade"; }
 .ti-chevron-down::before { content: "\ea5f"; }
 .ti-chevron-left::before { content: "\ea60"; }
@@ -156,13 +155,15 @@ footer { margin-top: 60px; color: var(--ink-2); font-size: .9rem; border-top: 1p
 .rf-field > .ti { font-size: 15px; }
 .rf-field-inline { display: inline-flex; min-height: 22px; vertical-align: baseline; }
 /* The drawn field: the same look, the text and the caret drawn, so nothing takes the keyboard from the bullet. */
-.rf-field-drawn { align-items: baseline; }
+/* The drawn caret sits right against the letters (0.4.321, the owner: "the cursor is a couple spaces ahead of text"): no gap
+   between the pieces of the drawn field, the key hint kept apart by its own room. */
+.rf-field-drawn { align-items: baseline; gap: 0; }
 .rf-field-drawn > .rf-typed { flex: 0 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .rf-field-drawn > .rf-typed-fresh { background: var(--rf-wash); border-radius: 2px; }
 .rf-field-drawn > .rf-placeholder { flex: 1; min-width: 0; color: var(--rf-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rf-field-drawn > .rf-caret { display: inline-block; flex: none; width: 1.5px; height: 1.1em; margin-left: 1px; transform: translateY(.2em); background: currentColor; animation: rf-blink 1s steps(1) infinite; }
 .rf-field-drawn > .rf-placeholder + .rf-caret { order: -1; margin: 0 1px 0 0; }
-.rf-field-drawn > kbd { margin-left: auto; }
+.rf-field-drawn > kbd { margin-left: auto; padding-left: 6px; }
 @keyframes rf-blink { 50% { opacity: 0; } }
 .rf-item.rf-new > .rf-item-words { font-style: italic; }
 /* The tick box: the browser's checkbox as a small rounded square, a check mark inside when on. */
@@ -179,10 +180,11 @@ button.rf-chip { cursor: pointer; }
 .rf-chip[aria-pressed="true"] { color: inherit; font-weight: 600; }
 .rf-chip-x { display: inline-flex; border: 0; padding: 0 2px; background: none; color: var(--rf-faint); font-size: 12px; cursor: pointer; opacity: 0; }
 .rf-chip:hover .rf-chip-x, .rf-chip-x:focus-visible { opacity: 1; }
-/* A tag as a class: mono, the tag grey, a link's faint underline, no #. */
-.rf-tag { font-family: var(--rf-mono); font-size: 12.5px; font-style: normal; font-weight: 400; color: inherit; opacity: .7; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); cursor: default; }
+/* A tag as a class: mono, the tag grey, no #, no underline (0.4.332: the mono face says it is a tag, and every tag is a
+   link); darker under the pointer. */
+.rf-tag { font-family: var(--rf-mono); font-size: 12.5px; font-style: normal; font-weight: 400; color: inherit; opacity: .7; text-decoration: none; border: 0; cursor: default; }
 a.rf-tag { cursor: pointer; }
-a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
+a.rf-tag:hover { opacity: 1; }
 /* A value's kind as an icon left of the property's name. */
 .rf-kind { display: inline-flex; color: var(--rf-faint); font-size: 15px; vertical-align: -2px; }
 /* The picking bar: one line of words above the list, a hairline under it. */
@@ -235,6 +237,8 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
   margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .5rem; padding: 0;
   line-height: 1.5; user-select: text;
 }
+/* Waiting unseen in its place for Logseq's property list on a first visit (0.4.333). */
+.refinement-two-way[data-rf-waiting] { visibility: hidden; }
 /* Only holding room while the page settles: no field, no rows. */
 .refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; }
 /* The room held while the page settled eases away (0.4.283), only then: while the page settles the held room shrinks in the same frame Logseq's list grows, and must not lag. */
@@ -258,7 +262,7 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 /* The list a count opens into: date, record, tag, one per line, under the value. */
 /* The line drops from under the fold arrow (centred 11px in, 0.4.196), as Logseq's own guide lines drop from theirs; the words stay where they were. */
 .refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid var(--rf-line); padding-left: calc(.6rem + 11.5px); }
-.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
+.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, max-content) auto 1fr 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
 .refinement-two-way .rf-tw-more { display: inline-flex; margin-top: .1rem; height: 22px; padding: 0 4px; }
 /* Moving around (0.4.184): a record's line lit under the pointer, the sidebar icon shown there, the field's name
@@ -277,19 +281,21 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .refinement-two-way .rf-tw-earlier { display: flex; align-items: center; gap: .5em; margin: .2rem 0 .1rem; padding: 0; }
 .refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px solid var(--rf-hair); }
 /* The line for adding a node (0.4.303): under the row's values, in the value column; a + at its left, the kit's
-   field inline, the tag at the right in the tags' column. */
-.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
+   field inline, the tag right after it. */
+/* A node's tag sits right after its name, and the sidebar icon after the tag (0.4.320, the owner: "move tags for two-way
+   link next to item, not right aligned"); the last column takes the rest of the row. */
+.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(8em, 22em) auto 1.4em 1fr; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
 .refinement-two-way .rf-tw-row { position: relative; }
 .refinement-two-way .rf-tw-add { margin-left: .6em; height: 20px; padding: 0 5px; }
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
 .refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, max-content) auto 1fr 1.4em; }
 .refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
 .refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
 .refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
 .refinement-two-way .rf-tw-namecell > .rf-tw-add { flex: none; margin-left: .6em; }
-.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; }
+.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; }
 .refinement-two-way .rf-tw-day > .rf-tw-add { margin-left: .6em; }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
@@ -305,16 +311,18 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.45em + 2px); }
 /* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
-/* Each record on a line of its own, its tag at the right edge as in an open list (0.4.297, the owner: "the tags under
-   decided should be right aligned"); the sidebar icon keeps the list's last column. */
+/* Each record on a line of its own, as in an open list (0.4.297); its tag right after its name since 0.4.320 (it was at
+   the right edge from 0.4.297, the owner then: "the tags under decided should be right aligned"). */
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
 .refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
-.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
 /* A record with no day still has its tag and the sidebar icon in the last two columns. */
 .refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
-.refinement-two-way .rf-tw-item .rf-tw-side { grid-column: 4; }
+/* The sidebar icon at the far right of its line (0.4.327, the owner: "the sidebar items should be on far right and have
+   some sort of arrow to the right signifying sidebar opening"): the last column; the icon is a sidebar with an arrow. */
+.refinement-two-way :is(.rf-tw-item, .rf-tw-line) .rf-tw-side { grid-column: -2; justify-self: end; }
 .refinement-two-way .rf-tw-item a.rf-tw-record { justify-self: start; min-width: 0; } /* a long name wraps, never cut (0.4.263) */
 /* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
@@ -322,6 +330,13 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-pick, .refinement-two-way[data-picking] .rf-tw-row .rf-tw-pick { visibility: visible; }
 .refinement-two-way { position: relative; }
 .refinement-two-way .rf-tw-bar { margin: 0 0 6px 19px; }
+.refinement-two-way .rf-tw-bar[data-idle] { visibility: hidden; }
+.refinement-two-way .rf-tw-bar { flex-wrap: nowrap; min-width: 0; }
+.refinement-two-way .rf-tw-bar .rf-tw-to-side { margin-left: auto; }
+.refinement-two-way .rf-tw-menu { gap: 3px; min-width: 0; }
+.refinement-two-way .rf-tw-menu-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14em; }
+.refinement-two-way .rf-tw-menu > .ti:last-child { font-size: 12px; opacity: .7; }
+.refinement-two-way .rf-tw-bar .rf-count { white-space: nowrap; }
 
 
 .refinement-tags { font-size: 16px; }
@@ -409,7 +424,9 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .refinement-tags .rtg-inh .rtg-main { opacity: .62; }
 .refinement-tags .rtg-ptype { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 15px; cursor: pointer; }
 .refinement-tags .rtg-ptype [data-act] { border-radius: 4px; }
-.refinement-tags .rtg-ptype .rtg-tv:hover .rf-tag, .refinement-tags .rtg-ptype .rtg-tv:hover { text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+.refinement-tags .rtg-ptype .rtg-tv:hover { text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+/* The tags in it keep no underline (0.4.332): an inline block does not take its parent's. */
+.refinement-tags .rtg-ptype .rtg-tv .rf-tag { display: inline-block; }
 .refinement-tags .rtg-tv { color: var(--rf-quiet); }
 .refinement-tags .rtg-prow .rtg-small { font-size: 14px; }
 .refinement-tags .rtg-i { height: 20px; padding: 0 3px; opacity: 0; }
@@ -500,9 +517,17 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .rfs-ghost.rfs-taken { color: inherit; font-style: normal; text-decoration: none; }
 /* Empty properties hidden until something is proposed (0.4.242), only in the graphs the proposals write in: the class
    is on Logseq's page while that holds. One Option-Enter is on (data-rfs-at), or being typed in, stays. */
-html.rfs-hide-empty .ls-block .positioned-properties .bottom-property-pill:has(.empty-value):not([data-refinement-proposal]):not([data-rfs-at]):not(:focus-within) { display: none !important; }
+html.rfs-hide-empty .ls-block .positioned-properties .bottom-property-pill:has(.empty-value):not([data-refinement-proposal]):not([data-rfs-at]):not(:focus-within):not(.block-main-container:has(textarea) *) { display: none !important; }
+/* Not under the bullet being written (0.4.322, the owner saw elements "jump up and down"): its empty properties stay, faint,
+   so the line under it appears once, with its tag, and proposals coming and going (or Escape clearing them) change only
+   the words in it, never its height. Hidden again once the bullet is left. */
+html.rfs-hide-empty .block-main-container:has(textarea) .positioned-properties .bottom-property-pill:has(.empty-value):not([data-refinement-proposal]):not([data-rfs-at]):not(:focus-within) { opacity: .45; }
 /* Never on a tag's or a property's page (0.4.260): known at once from Logseq's own Tag Properties row, else when the page is read. */
-html.rfs-hide-empty :is(.ls-block-properties, .ls-page-properties) .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within):not(.ls-page-properties:is([data-rfs-keep-empty], :has([data-property-title="Tag Properties"], [data-property-title="Extends"])) *) { display: none !important; }
+html.rfs-hide-empty .ls-block-properties .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within) { display: none !important; }
+/* A page's own empty properties stay, faint (0.4.333, measured with the tour: on Leucovorin, Side Effects came up with
+   its proposal 0.8 s after the page, pushing everything under it down a row); a tag's or property's page keeps them as
+   they are (0.4.260). */
+html.rfs-hide-empty .ls-page-properties .property-pair.property-panel-row-empty:not([data-refinement-proposal]):not(:has([data-rfs-at])):not(:focus-within):not(.ls-page-properties:is([data-rfs-keep-empty], :has([data-property-title="Tag Properties"], [data-property-title="Extends"])) *) { opacity: .45; }
 /* A page's own empty property with a proposal (0.4.239): the grey value before Logseq's dashed mark, which is hidden
    but still opens Logseq's list beside it. */
 .ls-page-properties .property-pair[data-refinement-proposal] .empty-value .ui__icon { visibility: hidden; }
@@ -651,9 +676,9 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
   <div class="pv-prop"><span class="pv-pname">Works at</span><span class="pv-pval"><a class="pv-link" href="#">Northgate Cancer Center</a></span></div>
 </div>
 <div class="refinement-two-way">
-  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">provider of<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">12 Aug</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Follow-up on the scan</a></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Scan results explained</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span></div></div>
+  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">provider of<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">12 Aug</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Follow-up on the scan</a></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Scan results explained</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span></div></div>
   <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">spoke with<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><a class="rf-quiet rf-tw-fold" href="#"><i class="ti ti-chevron-right" aria-hidden="true"></i></a><a class="rf-tw-toggle" href="#">9 Conversations · 21 Jul – 2 Jun</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></div></div>
-  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">decided by<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Decision on oxaliplatin dose</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Decision</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span></div></div>
+  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">decided by<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Decision on oxaliplatin dose</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Decision</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span></div></div>
 </div>
 <div class="pv-addrow"><span>Add icon</span><span>Set property</span></div>
 <div class="pv-blocks">
@@ -672,17 +697,17 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
 <div class="pv-titlebar"><h1 class="pv-title">Dr. Mei Chen</h1><a class="rf-tag" href="#">Doctor</a></div>
 <div class="pv-props"><div class="pv-prop"><span class="pv-pname">Specialized in</span><span class="pv-pval"><a class="pv-link" href="#">Oncology</a></span></div><div class="pv-prop"><span class="pv-pname">Works at</span><span class="pv-pval"><a class="pv-link" href="#">Northgate Cancer Center</a></span></div></div>
 <div class="refinement-two-way">
-  <div class="rf-bar rf-tw-bar" role="toolbar"><label class="rf-count"><input type="checkbox" class="rf-check" checked><span>3 picked</span></label><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i>Sidebar</button><button type="button" class="rf-quiet"><i class="ti ti-arrow-right" aria-hidden="true"></i>Change “Dr. Mei Chen” to …</button><button type="button" class="rf-quiet"><i class="ti ti-x" aria-hidden="true"></i>Remove “Dr. Mei Chen”</button><button type="button" class="rf-quiet"><i class="ti ti-tag" aria-hidden="true"></i>Tag</button><button type="button" class="rf-quiet"><i class="ti ti-copy" aria-hidden="true"></i>Copy</button><button type="button" class="rf-quiet"><i class="ti ti-forms" aria-hidden="true"></i>Set property</button><button type="button" class="rf-quiet"><i class="ti ti-trash" aria-hidden="true"></i></button><button type="button" class="rf-quiet rf-faint">Clear</button></div>
-  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">provider of<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">12 Aug</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Follow-up on the scan</a></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Scan results explained</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span></div></div>
+  <div class="rf-bar rf-tw-bar" role="toolbar"><label class="rf-count"><input type="checkbox" class="rf-check" checked><span>3 picked</span></label><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i>Sidebar</button><button type="button" class="rf-quiet"><i class="ti ti-arrow-right" aria-hidden="true"></i>Change “Dr. Mei Chen” to …</button><button type="button" class="rf-quiet"><i class="ti ti-x" aria-hidden="true"></i>Remove “Dr. Mei Chen”</button><button type="button" class="rf-quiet"><i class="ti ti-tag" aria-hidden="true"></i>Tag</button><button type="button" class="rf-quiet"><i class="ti ti-copy" aria-hidden="true"></i>Copy</button><button type="button" class="rf-quiet"><i class="ti ti-forms" aria-hidden="true"></i>Set property</button><button type="button" class="rf-quiet"><i class="ti ti-trash" aria-hidden="true"></i></button><button type="button" class="rf-quiet rf-faint">Clear</button></div>
+  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">provider of<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">12 Aug</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Follow-up on the scan</a></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Scan results explained</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span></div></div>
   <div class="rf-tw-row" data-open=""><div class="rf-tw-name"><a class="rf-tw-field" href="#">spoke with<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><a class="rf-quiet rf-tw-fold" href="#"><i class="ti ti-chevron-right" aria-hidden="true"></i></a><a class="rf-tw-toggle" href="#">9 Conversations · 21 Jul – 2 Jun</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></div><div class="rf-tw-list"><div class="rf-tw-chips"><button type="button" class="rf-chip rf-tw-chip" aria-pressed="true">All 9</button><button type="button" class="rf-chip rf-tw-chip" aria-pressed="false">Conversation 6</button><button type="button" class="rf-chip rf-tw-chip" aria-pressed="false">Consultation 3</button></div>
-    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">21 Jul</span><a class="rf-tw-record" href="#">Asked about tingling fingers</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></div>
-    <div class="rf-tw-line"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><a class="rf-tw-record" href="#">Second opinion on the dose</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></div>
-    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">7 Jul</span><a class="rf-tw-record" href="#">Cycle 3 side effects</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></div>
+    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">21 Jul</span><a class="rf-tw-record" href="#">Asked about tingling fingers</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></div>
+    <div class="rf-tw-line"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><a class="rf-tw-record" href="#">Second opinion on the dose</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></div>
+    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">7 Jul</span><a class="rf-tw-record" href="#">Cycle 3 side effects</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></div>
     <div class="rf-tw-earlier rf-note">earlier</div>
-    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><a class="rf-tw-record" href="#">Scan results explained</a><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></div>
-    <div class="rf-tw-line"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">16 Jun</span><a class="rf-tw-record" href="#">Port care questions</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></div>
+    <div class="rf-tw-line rf-tw-picked"><input type="checkbox" class="rf-check rf-tw-pick" checked aria-label="Pick"><span class="rf-tw-day rf-day">23 Jun</span><a class="rf-tw-record" href="#">Scan results explained</a><a class="rf-tag rf-tw-tag" href="#">Consultation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></div>
+    <div class="rf-tw-line"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">16 Jun</span><a class="rf-tw-record" href="#">Port care questions</a><a class="rf-tag rf-tw-tag" href="#">Conversation</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></div>
     <button type="button" class="rf-quiet rf-faint rf-tw-more">show all 9</button></div></div>
-  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">decided by<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Decision on oxaliplatin dose</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Decision</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></a></span></div></div>
+  <div class="rf-tw-row"><div class="rf-tw-name"><a class="rf-tw-field" href="#">decided by<span class="rf-tw-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></span></a></div><div class="rf-tw-value"><span class="rf-tw-item rf-tw-datefirst"><input type="checkbox" class="rf-check rf-tw-pick" aria-label="Pick"><span class="rf-tw-day rf-day">14 Jul</span><span class="rf-tw-namecell"><a class="rf-tw-record" href="#">Decision on oxaliplatin dose</a><button type="button" class="rf-quiet rf-faint rf-tw-add">+</button></span><a class="rf-tag rf-tw-tag" href="#">Decision</a><a class="rf-quiet rf-tw-side" href="#" aria-label="Open in the sidebar"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></a></span></div></div>
 </div></div></figure>
   <ul class="notes"><li><b>The bar</b> (<code>shared.bar</code>) appears above the rows when the first thing is picked and goes when the last is cleared; Escape clears. The count sits first, the actions as quiet words with icons.</li><li><b>Filters</b> (<code>shared.chip</code>) are words: the one in force in the text colour, the others grey.</li><li><b>Picked lines</b> get the wash; unpicked lines show their box faint while the pointer is on the list.</li><li><b>“earlier”</b> is a quiet word with a hairline between what is to come and what has been.</li></ul>
 </section>
@@ -707,7 +732,7 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
   <h2>The tag map: Tags</h2>
   <p class="intro">The map as an outline of tags. The find field as an underline, Tags | Properties with a hairline between, the tools as quiet words. Under an open tag: its properties with their kind as an icon and what they accept as tags in mono, inherited ones faded with where they come from, the “Shows up here as” line, and the faint line of what can be made.</p>
   <figure class="spec"><div class="sheet pv"><div class="refinement-tags rtg-mode-page">
-<header><span class="rf-field"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Find a tag or property"></span><div class="rf-seg rtg-switch" role="group"><button type="button" class="rf-quiet rtg-by" aria-pressed="true">Tags</button><button type="button" class="rf-quiet rtg-by" aria-pressed="false">Properties</button></div><button type="button" class="rf-quiet rf-faint rtg-tool">Hide inherited</button><button type="button" class="rf-quiet rf-faint rtg-tool">Fold</button><button type="button" class="rf-quiet rf-faint rtg-tool">Unfold</button><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></button></header>
+<header><span class="rf-field"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Find a tag or property"></span><div class="rf-seg rtg-switch" role="group"><button type="button" class="rf-quiet rtg-by" aria-pressed="true">Tags</button><button type="button" class="rf-quiet rtg-by" aria-pressed="false">Properties</button></div><button type="button" class="rf-quiet rf-faint rtg-tool">Hide inherited</button><button type="button" class="rf-quiet rf-faint rtg-tool">Fold</button><button type="button" class="rf-quiet rf-faint rtg-tool">Unfold</button><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></button></header>
 <div class="rtg-body"><div class="rtg-section rtg-top">
   <div class="rtg-row rtg-root"><button type="button" class="rf-quiet rtg-fold" aria-label="Fold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><span class="rtg-name">Occurrence</span></div></div><span class="rtg-acts" style="opacity:1"><button type="button" class="rf-quiet rtg-act"><i class="ti ti-plus" aria-hidden="true"></i></button><button type="button" class="rf-quiet rtg-act rtg-more"><i class="ti ti-dots" aria-hidden="true"></i></button></span></div>
   <div class="rtg-kids">
@@ -717,7 +742,7 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
     <div class="rtg-kids">
       <div class="rtg-row rtg-prow rtg-inh"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-calendar rf-kind"></i><span class="rtg-pname">Date</span><span class="rtg-ptype"></span><span class="rtg-small">from <a class="rf-tag" href="#">Occurrence</a></span></div></div></div>
       <div class="rtg-row rtg-prow"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrow-right rf-kind"></i><span class="rtg-pname">Provider</span><span class="rtg-ptype"><a class="rf-tag" href="#">Doctor</a></span><button type="button" class="rf-quiet rtg-i" aria-pressed="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button></div></div></div>
-      <div class="rtg-row rtg-prow"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrows-right rf-kind"></i><span class="rtg-pname">Topic</span><span class="rtg-ptype"><a class="rf-tag" href="#">Phenomena</a>, <a class="rf-tag" href="#">Doctor</a>, <a class="rf-tag" href="#">Symptom</a> <span class="rtg-note">· 11 more</span></span><span class="rtg-small">also on 1 other tag</span><button type="button" class="rf-quiet rtg-i" aria-pressed="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button></div></div></div>
+      <div class="rtg-row rtg-prow"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrow-right rf-kind"></i><span class="rtg-pname">Topic</span><span class="rtg-ptype"><a class="rf-tag" href="#">Phenomena</a>, <a class="rf-tag" href="#">Doctor</a>, <a class="rf-tag" href="#">Symptom</a> <span class="rtg-note">· 11 more</span></span><span class="rtg-small">also on 1 other tag</span><button type="button" class="rf-quiet rtg-i" aria-pressed="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button></div></div></div>
       <div class="rtg-pointrow"><span class="rtg-note">Shows up here as</span><span class="rtg-ptr"><span class="rtg-val">topic of</span> <span class="rtg-note"><i class="ti ti-arrow-right" aria-hidden="true"></i></span><span class="rtg-note"> filled in on </span><a class="rf-tag" href="#">Consultation</a></span></div>
       <div class="rtg-adds"><button type="button" class="rf-quiet rf-faint rtg-addline">+ Property</button><button type="button" class="rf-quiet rf-faint rtg-addline">+ Tag inside</button><button type="button" class="rf-quiet rf-faint rtg-addline">+ Description</button></div>
     </div>
@@ -737,7 +762,7 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
   <h2>The tag map: Properties</h2>
   <p class="intro">The map turned round: every property once, in your groups, with the tags that have it. An open property’s lines say, in plain words, what it holds, which tags have it, what it accepts, how it reads on the other page and its group; every change is a quiet word at the end of its line.</p>
   <figure class="spec"><div class="sheet pv"><div class="refinement-tags rtg-mode-page rtg-by-prop">
-<header><span class="rf-field"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Find a tag or property"></span><div class="rf-seg rtg-switch" role="group"><button type="button" class="rf-quiet rtg-by" aria-pressed="false">Tags</button><button type="button" class="rf-quiet rtg-by" aria-pressed="true">Properties</button></div><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right" aria-hidden="true"></i></button></header>
+<header><span class="rf-field"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Find a tag or property"></span><div class="rf-seg rtg-switch" role="group"><button type="button" class="rf-quiet rtg-by" aria-pressed="false">Tags</button><button type="button" class="rf-quiet rtg-by" aria-pressed="true">Properties</button></div><button type="button" class="rf-quiet"><i class="ti ti-layout-sidebar-right-expand" aria-hidden="true"></i></button></header>
 <div class="rtg-body">
   <div class="rtg-section rtg-pgroup"><h3 class="rtg-group rtg-ghead"><button type="button" class="rf-quiet rtg-fold" aria-label="Fold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><span>Relational</span><span class="rtg-small">5</span><button type="button" class="rf-quiet rtg-make rtg-gmenu"><i class="ti ti-dots" aria-hidden="true"></i></button></h3>
     <div class="rtg-row rtg-prow rtg-ptop"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrow-right rf-kind"></i><span class="rtg-pname">Decided by</span><span class="rtg-ptype"><a class="rf-tag" href="#">Doctor</a></span><span class="rtg-small rtg-on">on <a class="rf-tag rtg-ontag" href="#">Decision</a></span></div></div></div>
@@ -749,7 +774,7 @@ mark.pv-sel { background: color-mix(in srgb, currentColor 18%, transparent); col
       <div><span class="rtg-plbl">On the other page</span><span class="rtg-pline"><span class="rf-field rf-field-inline"><input type="text" value="provider of"></span><span class="rtg-note"><i class="ti ti-arrow-right" aria-hidden="true"></i></span><button type="button" class="rf-quiet rf-faint rtg-make">Turn off</button></span></div>
       <div><span class="rtg-plbl">Group</span><span class="rtg-pline"><span class="rtg-val">Relational</span><button type="button" class="rf-quiet rf-faint rtg-make">Change …</button></span></div>
     </div>
-    <div class="rtg-row rtg-prow rtg-ptop"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrows-right rf-kind"></i><span class="rtg-pname">Spoke with</span><span class="rtg-ptype"><a class="rf-tag" href="#">Person</a></span><span class="rtg-small rtg-on">on <a class="rf-tag rtg-ontag" href="#">Conversation</a></span></div></div></div>
+    <div class="rtg-row rtg-prow rtg-ptop"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-arrow-right rf-kind"></i><span class="rtg-pname">Spoke with</span><span class="rtg-ptype"><a class="rf-tag" href="#">Person</a></span><span class="rtg-small rtg-on">on <a class="rf-tag rtg-ontag" href="#">Conversation</a></span></div></div></div>
   </div>
   <div class="rtg-section rtg-pgroup"><h3 class="rtg-group rtg-ghead"><button type="button" class="rf-quiet rtg-fold" aria-label="Fold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><span>Metadata</span><span class="rtg-small">4</span><button type="button" class="rf-quiet rtg-make rtg-gmenu"><i class="ti ti-dots" aria-hidden="true"></i></button></h3>
     <div class="rtg-row rtg-prow rtg-ptop"><button type="button" class="rf-quiet rtg-fold rtg-shut" aria-label="Unfold"><i class="ti ti-chevron-right" aria-hidden="true"></i></button><div class="rtg-main"><div class="rtg-line"><i class="ti ti-calendar rf-kind"></i><span class="rtg-pname">End</span><span class="rtg-ptype"></span><span class="rtg-small rtg-on">on <a class="rf-tag rtg-ontag" href="#">Hospitalization</a></span></div></div></div>
