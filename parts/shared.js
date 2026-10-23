@@ -349,11 +349,13 @@ const ICONS = {
   map: 'hierarchy', tag: 'tag', property: 'forms', rename: 'cursor-text', copy: 'copy', to: 'arrow-right', picked: 'square-check',
   warning: 'alert-triangle', show: 'eye', hide: 'eye-off', shortcut: 'keyboard', twoWay: 'arrows-left-right', order: 'arrows-sort',
   proposals: 'bulb', date: 'calendar', text: 'letter-case', number: '123', choice: 'select', several: 'stack-2', yesNo: 'checkbox', web: 'world',
-  node: 'arrow-right', nodes: 'arrows-right', link: 'link',
+  node: 'arrow-right', nodes: 'arrow-right', link: 'link',
 };
 const iconHtml = name => `<i class="ti ti-${esc(ICONS[name] || name)}" aria-hidden="true"></i>`;
 const icon = (doc, name, title) => el(doc, 'i', { class: `ti ti-${ICONS[name] || name}`, 'aria-hidden': title ? null : 'true', title: title || null });
-// A value's kind (Logseq's property types) as an icon left of the property's name; several of them as the arrow twice.
+// A value's kind (Logseq's property types) as an icon left of the property's name. Links to several nodes take the same
+// arrow as one since 0.4.335 (the owner: "change the linked property with multiple back to a normal right pointing arrow");
+// its words on hover still say several.
 const KINDS = { node: 'node', date: 'date', datetime: 'date', default: 'text', text: 'text', number: 'number', choice: 'choice', checkbox: 'yesNo', url: 'web', page: 'node' };
 const KIND_WORDS = { node: 'a link to a node', nodes: 'links to several nodes', date: 'a date', text: 'text', number: 'a number', choice: 'a choice', yesNo: 'yes or no', web: 'a web address', several: 'several' };
 function kindIcon(doc, kind, { several = false, title } = {}) {

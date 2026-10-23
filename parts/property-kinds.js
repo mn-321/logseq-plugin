@@ -2,8 +2,8 @@
 (() => {
 /* A property's kind, left of its name in a page's or a bullet's list of property rows (0.4.334, the owner, with a picture
    of Jay Varughese's page: "why don't the properties of pages not have the icons of the tag map page?"). Logseq draws
-   a grey dot there (or its point icon); it gives way to the same icon as in the tag map: an arrow for a link to a node,
-   two for several, a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. Only the dot
+   a grey dot there (or its point icon); it gives way to the same icon as in the tag map: an arrow for a link to a node
+   (one or several), a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. Only the dot
    goes: an icon you gave a property yourself stays, and a property the plugin does not know (Alias) keeps Logseq's. The
    icon takes the dot's place in Logseq's own button, so nothing moves and a click on it does what Logseq's does. */
 const shared = window.refinementShared;
@@ -18,7 +18,7 @@ const settingsSchema = [
     zone: '<div><span class="m">→</span> Works at &nbsp; <span class="m">Aa</span> Notes</div>',
     description: 'Changes here apply right away.' },
   { key: 'propertyKindIcons', type: 'boolean', title: 'Each property’s kind as an icon before its name', default: true,
-    description: 'In the list of properties under a page’s title, and in a bullet’s list of properties, the grey dot before a property’s name becomes the icon of its kind, as in the tag map: an arrow for a link to a node (two for several), a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. An icon you gave a property yourself stays. Applies at once.' },
+    description: 'In the list of properties under a page’s title, and in a bullet’s list of properties, the grey dot before a property’s name becomes the icon of its kind, as in the tag map: an arrow for a link to a node (one or several), a calendar for a date, Aa for text, 123 for a number, a box with a chevron for a choice. An icon you gave a property yourself stays. Applies at once.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 

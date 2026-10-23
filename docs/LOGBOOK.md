@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Several links, one arrow (0.4.335)
+
+**Asked:** "you can change the linked property with multiple back to a normal right pointing arrow", then "custom icons override" (already so: only Logseq's own dot is replaced). **Built:** `parts/shared.js`: the kit's icon for several nodes is the arrow-right of one (its hover words unchanged); `parts/property-kinds.js`, README and `docs/LAYERS.md` say one or several. Pictures re-approved after looking (the tag map's symptoms and medicines). **Checks:** `sh tools/check.sh` in full. **Seen:** the settings window's new Property kinds section; Oxaliplatin after a reload, Side Effects with one arrow.
+
 ## 2026-10-22 · Property kinds before their names (0.4.334)
 
 **Asked:** "why don't the properties of pages not have the icons of the tag map page?" (a picture of Jay Varughese in the owner's graph), then "yes do that". **Found first:** a temporary probe saved two of Dr. Mei Chen's rows to the settings file (removed after): each `.property-pair.property-panel-row` carries `data-property-title` and `data-property-type`, and its key holds `.property-icon > button.property-m` with Logseq's dot (`.bullet-container`) or its point icon (`.ls-icon-point-filled`). **Built:** `parts/property-kinds.js` (layer 4, after the tag chain): the model's `propSchema` read once and again after a graph change, then in the early screen pass the kit's `kindIcon` appended into that button with the dot hidden by CSS, only where the dot is Logseq's and the property has no icon of its own; setting `propertyKindIcons` with a section, Property kinds, under Reading a page. Boot, leaning and parts-apart tests know the part. **Checks:** `sh tools/check.sh` in full. **Seen:** Dr. Mei Chen after a reload: Aa, an arrow, two arrows, Alias's own icon; the names at the same place as with the dots.

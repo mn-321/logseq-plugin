@@ -54,8 +54,9 @@ count per kind. Layers 4 to 6 are not started.
 - **Property names lighter than their values**, on pills under a bullet and on page rows alike.
 - **A value's kind is an icon left of the property's name**: a plain arrow to the right for "points to a node" (the
   same arrow as after a two-way row's name; not the `[[ ]]` of a link in the words, not an arrow leaving), a calendar
-  for a date, a box with a chevron for a choice, 123 for a number, Aa for text; the same arrow twice for a property that
-  links to several nodes (the owner's pick). The Properties view's Value line says one or several in words too.
+  for a date, a box with a chevron for a choice, 123 for a number, Aa for text; the same single arrow for a property that
+  links to several nodes (the owner, 2026-10-23, in place of the arrow twice). The Properties view's Value line says one
+  or several in words.
 - **Nothing is assumed about a new node's tag.** The + after a two-way row opens a line to type the name; Enter then
   offers the tags the property accepts as quiet words, the most used first, and "no tag"; a property that accepts one
   tag skips that step (the owner: a property can take many kinds of page).
