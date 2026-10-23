@@ -137,7 +137,7 @@ function draw() {
   pop.items(open.rows.length
     ? open.rows.map((row, i) => row.kind === 'new'
       ? { label: `New page “${row.title}”`, cls: 'rf-new', faint: true, on: i === open.at, title: row.title, run: () => choose(i) }
-      : { label: row.title, on: i === open.at, title: row.title, right: row.right === 'tag' ? 'tag' : row.right ? tag(doc, row.right) : 'page', run: () => choose(i) })
+      : { label: row.title, on: i === open.at, title: row.title, right: row.right === 'tag' ? 'tag' : row.right ? tag(doc, row.right, { plain: true }) : 'page', run: () => choose(i) })
     : [{ note: 'Type the page’s name' }]);
 }
 function close() {

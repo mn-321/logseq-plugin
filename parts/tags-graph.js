@@ -491,9 +491,12 @@ function el(doc, tag, props = {}, ...children) {
 const keepKeys = shared.keepKeys;
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 // A tag's name as a class (the kit's tag: mono, no #), for the small words beside a row and on the lines.
-const tagWord = (doc, tag, props) => shared.tag(doc, typeof tag === 'string' ? tag : tag.title, props);
+// A tag the map knows opens by its uuid (the kit's tag opens by name).
+const tagWord = (doc, tag, props = {}) => typeof tag === 'string' || props.click || props.href || props.plain ? shared.tag(doc, typeof tag === 'string' ? tag : tag.title, props)
+  : shared.tag(doc, tag.title, { ...props, click: event => { event.preventDefault(); event.stopPropagation(); openTag(tag, event.shiftKey); } });
 // The same as HTML, for a pop-up row or a help paragraph.
-const tagHtml = title => `<span class="rf-tag">${escapeHtml(String(title ?? '').replace(/^#/, ''))}</span>`;
+// As words; link: true in a paragraph, where it opens the tag's page (in a list's row or a line a click edits, plain).
+const tagHtml = (title, link) => link ? shared.tagLinkHtml(title) : `<span class="rf-tag">${escapeHtml(String(title ?? '').replace(/^#/, ''))}</span>`;
 
 Object.assign(TM, { ACCEPTS: () => model().ACCEPTS, CHOICE_TYPES, PARENT_BUILT_INS, acting, acts, addTagProp, below, childTagName, choicesOf, el, escapeHtml, flip, folded, freeName, groupOf, groupsOverride, groupsShut, infoOpen, inheritedProps, isAbove, keepKeys, loadProps, loadTags, makeChoice, makeLinkProperty, makeProperty, makeTag, model, openTag, openViews, pathOf, placeInGroup, planChildTag, planLinks, planMerge, plural, propsOpen, readGroups, removeChoice, removeTagProp, renameChoice, resetGroups, runChildTag, runLinks, runMerge, saveFolded, saveGroups, saveGroupsShut, saveInherited, saveProps, setAccepts, setDescription, setParents, setTagProps, setValues, shown, sleep, tagHtml, tagPropIds, tagWord, twoWay, undoChildTag, undoLinks, userValues, valuesOf, writeGroups });
 TM.graphLoaded = true;

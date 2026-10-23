@@ -232,16 +232,16 @@ function askAddToTag(view, prop, anchor) {
 function propGuide(view, tag, prop) {
   const doc = view.doc, inside = [...below(tag)].map(id => view.data.tags.get(id)).filter(Boolean);
   const p = html => el(doc, 'p', { html });
-  const e = escapeHtml, name = `<b>${e(prop.title)}</b>`, T = tagHtml(tag.title), tw = twoWay();
+  const e = escapeHtml, name = `<b>${e(prop.title)}</b>`, T = tagHtml(tag.title, true), tw = twoWay();
   const paragraphs = [p(`<b>What this means.</b> Every node tagged ${T}${inside.length ? ` (and the ${plural(inside.length, 'tag')} inside it)` : ''} gets an empty ${name} to fill in. Taking it off the tag later only hides it; values already filled in stay.`)];
   if (prop.type === 'node') {
     const to = prop.accepts.map(id => view.data.tags.get(id)).filter(Boolean);
-    const there = to.length ? tagHtml(to[0].title) : 'other';
+    const there = to.length ? tagHtml(to[0].title, true) : 'other';
     const back = e(tw ? tw.backwardsLabel(prop.title) : prop.title + ' of');
     paragraphs.push(p(`<b>How it looks from each end.</b><span class="rtg-end">On a ${T} node: ${name}: the ${there} node you pick. You fill it in here.</span><span class="rtg-end">On that ${there} node: ${iconHtml('to')} ${back}: every ${T} node that names it. This shows up by itself.</span>`),
       p(`<b>Which way to link.</b> Put the property on the side that has one answer; the other side then lists everything that points at it, with nothing to keep up to date there.`));
     if (!to.length) paragraphs.push(p(`<b>It accepts any node.</b> Choosing a tag for it, in the property’s own settings, keeps the list you pick from short and the links tidy. A tag also lets in the tags inside it.`));
-    else paragraphs.push(p(`<b>What it accepts.</b> Nodes tagged ${to.map(t => tagHtml(t.title)).join(', ')}, and nodes tagged with any tag inside ${to.length === 1 ? 'it' : 'them'}.`));
+    else paragraphs.push(p(`<b>What it accepts.</b> Nodes tagged ${to.map(t => tagHtml(t.title, true)).join(', ')}, and nodes tagged with any tag inside ${to.length === 1 ? 'it' : 'them'}.`));
     if (tw) paragraphs.push(p(`<b>Turned off on the other page.</b> The ${there} page no longer lists these at the top. The link is not deleted: it still shows in Linked references at the bottom of that page, and searches and queries still find it. Worth it for a busy page, such as a status or a city with hundreds of people.`));
   }
   paragraphs.push(p(prop.many

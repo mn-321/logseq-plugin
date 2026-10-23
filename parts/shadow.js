@@ -525,7 +525,7 @@ function fillGhost(g, piece) {
   const same = g.dataset.rfsWords === words && g.dataset.rfsTag === tagTitle;
   if (same) return;
   g.dataset.rfsWords = words; g.dataset.rfsTag = tagTitle;
-  g.replaceChildren(...[words ? doc.createTextNode(words) : null, words && tagTitle ? doc.createTextNode(' ') : null, tagTitle ? tagWord(doc, tagTitle, { class: 'rf-tag rfs-ghost-tag' }) : null].filter(Boolean));
+  g.replaceChildren(...[words ? doc.createTextNode(words) : null, words && tagTitle ? doc.createTextNode(' ') : null, tagTitle ? tagWord(doc, tagTitle, { class: 'rf-tag rfs-ghost-tag', plain: true }) : null].filter(Boolean));
 }
 // The names of the properties Logseq itself shows filled on a row: a proposal for one of them is over.
 const filledNames = row => new Set(pillsOf(row).filter(p => !p.classList.contains('rfs-made') && !(p.querySelector('.bottom-property-content') || p).querySelector('.empty-value')).map(pillName));

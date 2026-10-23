@@ -165,7 +165,9 @@ const css = `
 .refinement-tags .rtg-inh .rtg-main { opacity: .62; }
 .refinement-tags .rtg-ptype { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 15px; cursor: pointer; }
 .refinement-tags .rtg-ptype [data-act] { border-radius: 4px; }
-.refinement-tags .rtg-ptype .rtg-tv:hover .rf-tag, .refinement-tags .rtg-ptype .rtg-tv:hover { text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+.refinement-tags .rtg-ptype .rtg-tv:hover { text-decoration: underline; text-decoration-color: var(--rf-line); text-underline-offset: 3px; }
+/* The tags in it keep no underline (0.4.332): an inline block does not take its parent's. */
+.refinement-tags .rtg-ptype .rtg-tv .rf-tag { display: inline-block; }
 .refinement-tags .rtg-tv { color: var(--rf-quiet); }
 .refinement-tags .rtg-prow .rtg-small { font-size: 14px; }
 .refinement-tags .rtg-i { height: 20px; padding: 0 3px; opacity: 0; }

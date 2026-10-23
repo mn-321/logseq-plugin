@@ -53,7 +53,8 @@
                                   drawn from Logseq's own icon font (<i class="ti ti-…">), never by the plugin.
    - KINDS, kindIcon(doc, kind, { several })   a value's kind as an icon: an arrow for a link to a node, the arrow
                                   twice for several, a calendar, Aa, 123, a box with a chevron for a choice.
-   - tag(doc, title, props)       a tag as a class: its name alone, no #, mono, the tag grey, a link's faint underline.
+   - tag(doc, title, props)       a tag as a class: its name alone, no #, mono, the tag grey, a link to its page (plain:
+                                  true where a click already chooses); tagLinkHtml(title) the same as words.
    - quiet(doc, { icon, label, title, faint, pressed, run })   the quiet button; go(doc, { label, run }) the one that
                                   does what was asked; pressed is a quiet button with aria-pressed="true".
    - field(doc, { placeholder, value, icon, kbd, inline, multiline, keys, input })   THE field: a real text box drawn
@@ -362,8 +363,18 @@ function kindIcon(doc, kind, { several = false, title } = {}) {
   i.classList.add('rf-kind');
   return i;
 }
-// A tag as a class: its name alone, no #.
-const tag = (doc, title, props = {}) => el(doc, props.href || props.click ? 'a' : 'span', { class: 'rf-tag', ...props }, String(title ?? '').replace(/^#/, ''));
+// A tag as a class: its name alone, no #. Always a link to its page (0.4.332, the owner: "they should always be
+// clickable"; Shift: in the sidebar), unless it sits where a click already chooses something (a list's row, a proposal):
+// plain. A caller with its own href or click handles the click itself.
+function tag(doc, title, props = {}) {
+  const { plain, ...rest } = props, name = String(title ?? '').replace(/^#/, '');
+  if (plain) return el(doc, 'span', { class: 'rf-tag', ...rest }, name);
+  const own = rest.href || rest.click;
+  return el(doc, 'a', { class: 'rf-tag', href: '#', title: `Open ${name} (Shift: in the sidebar)`, ...rest,
+    click: own ? rest.click : event => { event.preventDefault(); event.stopPropagation(); openPageNamed(name, event.shiftKey); } }, name);
+}
+// The same as words for a paragraph (the help paragraph opens it, guide below).
+const tagLinkHtml = title => { const name = esc(String(title ?? '').replace(/^#/, '')); return `<a class="rf-tag" href="#" data-tag-page="${name}" title="Open ${name} (Shift: in the sidebar)">${name}</a>`; };
 // The three buttons: quiet (an icon or greyed words, lit on hover), go (the one that does it), pressed (quiet, in force).
 function quiet(doc, { icon: name, label, title, faint, pressed, run, cls } = {}) {
   return el(doc, 'button', { type: 'button', class: `rf-quiet${faint ? ' rf-faint' : ''}${cls ? ' ' + cls : ''}`, title: title || null, 'aria-pressed': pressed == null ? null : String(!!pressed), click: run || null },
@@ -405,7 +416,14 @@ function chip(doc, { label, pressed, run, remove, title, cls } = {}) {
   return word;
 }
 const note = (doc, text, cls) => el(doc, 'div', { class: `rf-note${cls ? ' ' + cls : ''}` }, text);
-const guide = (doc, paragraphs) => el(doc, 'div', { class: 'rf-guide', role: 'note' }, ...[].concat(paragraphs).map(p => typeof p === 'string' ? el(doc, 'p', {}, p) : p));
+const guide = (doc, paragraphs) => el(doc, 'div', { class: 'rf-guide', role: 'note', click: openTagIn }, ...[].concat(paragraphs).map(p => typeof p === 'string' ? el(doc, 'p', {}, p) : p));
+// A tag written as words (tagLinkHtml) opens its page.
+function openTagIn(event) {
+  const link = event.target.closest?.('a.rf-tag[data-tag-page]');
+  if (!link) return;
+  event.preventDefault(); event.stopPropagation();
+  openPageNamed(link.dataset.tagPage, event.shiftKey);
+}
 /* Quiet words to pick one of, on a line (the kinds of a new property, the tags a + may give): items [{ icon, label,
    value, title }]; pick(value, item). The returned row has key(event): Left/Right move, Enter picks; true when taken. */
 function choices(doc, { items, picked, pick, cls } = {}) {
@@ -799,10 +817,11 @@ button.rf-chip { cursor: pointer; }
 .rf-chip[aria-pressed="true"] { color: inherit; font-weight: 600; }
 .rf-chip-x { display: inline-flex; border: 0; padding: 0 2px; background: none; color: var(--rf-faint); font-size: 12px; cursor: pointer; opacity: 0; }
 .rf-chip:hover .rf-chip-x, .rf-chip-x:focus-visible { opacity: 1; }
-/* A tag as a class: mono, the tag grey, a link's faint underline, no #. */
-.rf-tag { font-family: var(--rf-mono); font-size: 12.5px; font-style: normal; font-weight: 400; color: inherit; opacity: .7; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); cursor: default; }
+/* A tag as a class: mono, the tag grey, no #, no underline (0.4.332: the mono face says it is a tag, and every tag is a
+   link); darker under the pointer. */
+.rf-tag { font-family: var(--rf-mono); font-size: 12.5px; font-style: normal; font-weight: 400; color: inherit; opacity: .7; text-decoration: none; border: 0; cursor: default; }
 a.rf-tag { cursor: pointer; }
-a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
+a.rf-tag:hover { opacity: 1; }
 /* A value's kind as an icon left of the property's name. */
 .rf-kind { display: inline-flex; color: var(--rf-faint); font-size: 15px; vertical-align: -2px; }
 /* The picking bar: one line of words above the list, a hairline under it. */
@@ -847,6 +866,6 @@ leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog
 
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, openPageNamed, settingReader, graphNamedIn, perf, warnings,
-  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
+  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, tagLinkHtml, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
 };
 })();
