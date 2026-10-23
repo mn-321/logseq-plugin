@@ -456,7 +456,7 @@ function main() {
 // map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
 // check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
 // PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
-const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/property-kinds.js', 'parts/sidebar.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
+const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/property-kinds.js', 'parts/sidebar.js', 'parts/page-look.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
 const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/chrome.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
 void RESTING_FILES;
 const partsBase = document.currentScript?.src || location.href;

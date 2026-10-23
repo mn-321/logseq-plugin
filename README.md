@@ -1,12 +1,13 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.336.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.337.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
 Besides the look of pages, it holds:
 
 - **Search** (resting): a calmer search window with details, grouping, a preview and typed filters, and search that can stay open in the right sidebar.
+- **Links, tags and properties** (on since 0.4.337; three switches under **Reading a page**): a link in a bullet's words is the text colour with a faint underline, not blue; a tag at the right of a bullet reads as its name in mono, grey, without the #; a bullet's properties have no capsules, “Provider: Hannah Reyes · Date: Oct 21st”, the name grey and the value in the text colour.
 - **Right sidebar** (on since 0.4.336; its two switches under **Around the page**): clicking the title of a page or block in the right sidebar opens it in the main view (the small arrow before it still folds it; Shift-click as in Logseq), and a line between the sidebar's items.
 - **Todos** (resting): a window with every task in the graph, grouped by when it needs you, by status or by page, where you change a task's status, priority and due date in place.
 - **Where a tag sits** (on; switch off with **A page’s tags and the tags above them, beside its title** under **Reading a page**): the right end of a page's title row reads its tag and the tags that tag sits under, nearest first (“Doctor / Person / Entity” on Dr. Mei Chen; on a tag's own page only the tags above it, “Occurrence” on Consultation, since its name is the title), each name opening its page, Shift-click in the right sidebar. It stays where Logseq shows a page's tags only under the pointer, so nothing on the page moves.
@@ -57,6 +58,7 @@ The files in `parts/`:
 | `links.js` | The marks on links and rows, dates, references, PDF citations, and the marks in Logseq's pickers. |
 | `chrome.js` | Quieter sidebar and toolbar items, the right sidebar's presentation, the empty `[[ ]]` menu. |
 | `styles.js` | The stylesheets. |
+| `page-look.js` | How Logseq's own page looks: links with a faint underline, tags as class names, properties without capsules. |
 | `sidebar.js` | Right sidebar titles that open their page, and the line between items. |
 | `search.js` | The search window: tidying, details, grouping, the preview, the typed codes. |
 | `inline-props.js` | Properties in the line: the list after `p::`, `name::` or `name;;`. |

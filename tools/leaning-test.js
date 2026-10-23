@@ -22,11 +22,11 @@ const OWN_NAMES = ['refinementShared', 'refinementParts', 'refinementCore'];
 // The baseline: lower a number here when a part is moved onto the kit, never raise one.
 const BASELINE = {
   logseq: {
-    'parts/two-way.js': 0, 'parts/tag-path.js': 0, 'parts/property-kinds.js': 0, 'parts/sidebar.js': 0, 'parts/tags-graph.js': 0, 'parts/tags-props.js': 0, 'parts/tags.js': 0, 'parts/link-text.js': 0, 'parts/alike.js': 0,
+    'parts/two-way.js': 0, 'parts/tag-path.js': 0, 'parts/property-kinds.js': 0, 'parts/sidebar.js': 0, 'parts/page-look.js': 0, 'parts/tags-graph.js': 0, 'parts/tags-props.js': 0, 'parts/tags.js': 0, 'parts/link-text.js': 0, 'parts/alike.js': 0,
     'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 0,
   },
   sideways: {
-    'parts/two-way.js': 0, 'parts/tag-path.js': 0, 'parts/property-kinds.js': 0, 'parts/sidebar.js': 0, 'parts/tags-graph.js': 0, 'parts/tags-props.js': 0, 'parts/tags.js': 0, 'parts/link-text.js': 0, 'parts/alike.js': 0,
+    'parts/two-way.js': 0, 'parts/tag-path.js': 0, 'parts/property-kinds.js': 0, 'parts/sidebar.js': 0, 'parts/page-look.js': 0, 'parts/tags-graph.js': 0, 'parts/tags-props.js': 0, 'parts/tags.js': 0, 'parts/link-text.js': 0, 'parts/alike.js': 0,
     'parts/shadow-rules.js': 0, 'parts/shadow.js': 0, 'parts/shadow-steps.js': 0, 'parts/shadow-page.js': 0, 'parts/picker.js': 0, 'parts/settings-panel.js': 0,
   },
   names: 0,
