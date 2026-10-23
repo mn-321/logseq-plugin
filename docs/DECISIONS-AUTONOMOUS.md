@@ -129,3 +129,15 @@ the find box 50 ms; the speed test's own limits (`tools/tags-speed.js`: 1 s, 0.4
 **Chosen:** when a whole drawing of the map takes 50 ms or more, the find box redraws 120 ms after the last key; a
 smaller map (the Illness Test Graph's) still redraws at every key, as before; Up, Down, Enter and Escape draw what is
 pending first. **Flip:** the 50 ms in `parts/tags.js` (find box).
+
+## 16. chrome.js back, three of its pieces, two left resting (2026-10-23)
+
+**Question:** Phase 2 piece 2: the right sidebar's presentation, the quiet sidebar and toolbar items, the empty `[[ ]]`
+menu, "each a setting of its own". **Chosen:** back on the kit, each with its switch on (the owner's earlier defaults):
+the Page graph and (Dev) tabs left out of the right sidebar's header; Flashcards and Graph view quieter and at 13 px;
+Logseq's generic page icon left out of the left sidebar's lists, its room kept; the `[[` menu held back until a letter
+is typed. **Left resting:** the old part also pressed Logseq's "Show properties" in the sidebar on its own (the plugin
+does not press Logseq's controls for you: Logseq's behaviour beats the plugin's), greyed journal days in the left
+sidebar (it needed dates read by the resting links part), and the Hyper key tap (a personal keyboard setup the plan
+does not list). **Flip:** the four switches under Sidebars and toolbar; the three resting pieces are in git history at
+0.4.354's `parts/chrome.js`.

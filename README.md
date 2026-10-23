@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.354.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.355.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -56,10 +56,13 @@ The files in `parts/`:
 | `pages.js` | What is drawn around a page's title: the page's kind, Alias of, and the shape box (what a tag or property holds, and where a tag sits). |
 | `properties.js` | List properties, fold all, hidden properties, one column for a page's property values. |
 | `links.js` | The marks on links and rows, dates, references, PDF citations, and the marks in Logseq's pickers. |
-| `chrome.js` | Quieter sidebar and toolbar items, the right sidebar's presentation, the empty `[[ ]]` menu. |
+| `chrome.js` | Quieter sidebar and toolbar items, the right sidebar without its Page graph and (Dev) tabs, plain page icons in the left sidebar, the empty `[[ ]]` menu (loaded since 0.4.355). |
 | `styles.js` | The stylesheets. |
 | `page-look.js` | How Logseq's own page looks: links with a faint underline, tags as class names, properties without capsules. |
 | `sidebar.js` | Right sidebar titles that open their page, and the line between items. |
+| `tag-path.js` | A page's tags and the tags above them, in its title's corner (Doctor / Person / Entity). |
+| `property-kinds.js` | Each property's kind as an icon before its name, and a cut name whole on hover. |
+| `title-row.js` | Logseq's “Add icon” and “Set property” by a page's title left out, their room kept (0.4.354). |
 | `search.js` | The search window: tidying, details, grouping, the preview, the typed codes. |
 | `inline-props.js` | Properties in the line: the list after `p::`, `name::` or `name;;`. |
 | `rich-copy.js` | Copy as rich text. |
@@ -104,6 +107,17 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | Leave out “Add icon” and “Set property” by a title (their room kept, so nothing moves) | `hideTitleWords` | on | By the title |
 | Each property’s kind as an icon before its name | `propertyKindIcons` | on | Property kinds |
 | A cut property name whole on hover (Logseq cuts a long name in its narrow column; the pointer on it shows the whole name) | `propertyNameTips` | on | Property kinds |
+| Sidebar titles open their page | `sidebarTitleOpens` | on | Right sidebar |
+| A line between sidebar items | `sidebarThickDividers` | on | Right sidebar |
+| The right sidebar without its Page graph and (Dev) tabs | `tidySidebar` | on | Sidebars and toolbar |
+| Quiet these sidebar and toolbar items | `quietItems` | Flashcards, Graph view | Sidebars and toolbar |
+| Left sidebar icons only where they mean something | `quietSidebarIcons` | on | Sidebars and toolbar |
+| Empty [[ ]] menu until you type | `quietLinkMenu` | on | Sidebars and toolbar |
+| Links in the text colour with a faint underline | `quietLinks` | on | Links, tags and properties |
+| Journal days as quiet grey words | `quietDates` | on | Links, tags and properties |
+| Property names and values lighter than the words | `quietNames` | on | Links, tags and properties |
+| Tags as class names | `tagsAsClasses` | on | Links, tags and properties |
+| Properties without capsules | `noCapsules` | on | Links, tags and properties |
 | Links read the same from both ends | `twoWayRows` | on | Two-way links |
 | Fields read backwards | `twoWayNames` | symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to | Two-way links |
 | Fields shown from one end only | `twoWayOneEnd` | empty | Two-way links |
@@ -164,7 +178,7 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | What a tag or property holds | Under a tag page's title, a box closed to one line: where the tag sits (“#Entity › #Person › #Doctor”, “also under #X” for a second parent), how many fields it has and how many records it tags. Click the line to open it: each field and what it takes (“authors → Person · many”), the inherited ones faint. On a property page the line says what it takes and how many blocks hold it; opened, its most used values with bars. Open or closed is remembered | Turn off with **Show what a tag or property holds**. |
 | Links inside a reference | A page link or tag shown inside a block reference opens its own page when clicked (Shift-click: in the sidebar); the rest of the reference still opens the block | Turn off with **Links inside a reference open their own page**. |
 | Sidebar and toolbar items | The items named under **Quiet these sidebar and toolbar items** (default: Flashcards, Graph view) are smaller and lighter, in place | Set the list empty to turn it off; applies after a reload. |
-| Right sidebar | Flat panels; page properties opened and their Hide control hidden; Page graph and (Dev) buttons hidden | Turn off with **Tidy the right sidebar** (reload). The **Search** button there is turned on and off under **Search in the right sidebar**. |
+| Right sidebar | Page graph and the (Dev) tabs left out of its header; Contents and Help stay | Turn off with **The right sidebar without its Page graph and (Dev) tabs**. |
 | Right sidebar titles | Clicking the title of a page or block in the right sidebar opens it in the main view, with a faint underline while you point at it. The small arrow before the title, and the empty part of the title bar, still fold and unfold it; Shift-click works as before. Search, Help and other items with nothing to open still fold | Turn off with **Sidebar titles open their page**. |
 | Lines between sidebar items | A line between the items in the right sidebar, the plugin's usual line grey | Turn off with **A line between sidebar items**. |
 | Page icons | Generic page icons in titles and sidebars become a small plain rectangle; custom icons are unchanged | Turn off with **Simpler page icons**. |

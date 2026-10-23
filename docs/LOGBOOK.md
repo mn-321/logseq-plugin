@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Quieter sidebars, toolbar and [[ menu (0.4.355)
+
+**Asked:** Phase 2, piece 2 (`parts/chrome.js`). **Done looks like:** open the right sidebar: its header reads Contents and
+Help, no Page graph or (Dev) tabs; the left sidebar: Flashcards and Graph view a little smaller and quieter, Recent's
+names lined up without Logseq's generic page icon (Consultation keeps its #); type [[ in a bullet: no list of date words
+until a letter is typed. **Built:** `parts/chrome.js` rewritten on the kit and loaded (after the right sidebar part): four
+switches under Sidebars and toolbar (`tidySidebar`, `quietItems`, `quietSidebarIcons`, `quietLinkMenu`), the kit's quiet
+grey, the core's watcher and stylesheets, no Logseq call; three old pieces left resting (`docs/DECISIONS-AUTONOMOUS.md` 16).
+README: every loaded setting now listed (the right sidebar's and the page look's were missing), the parts list current.
+Boot, leaning and parts-apart tests know the part. **Checks:** boot, leaning, parts-apart, then `sh tools/check.sh` in
+full; `node tools/app-frames.js` on Dr. Mei Chen, Oct 22nd, 2026 and the tag map, light and dark: clean. **Seen in the
+app:** the sidebar's tabs as above (Page graph and three (Dev) tabs hidden, Contents and Help shown); Flashcards and
+Graph view at 13 px in the quiet grey (the first try came out larger, .9em of the parent, fixed to 13 px); Recent
+without the generic icons; after "See [[" the list held back, after "D" shown with Logseq's own rows. **Lesson:** the
+test's Escape saved "See [[D]]" and Logseq made a page D, removed for good at once (the graph checked equal): a test
+that types a link clears its words before leaving the bullet.
+
 ## 2026-10-23 · The words by the title left out, their room kept (0.4.354)
 
 **Asked:** Phase 2, piece 1 of `docs/FINISHING-PROMPT.md` section 5; the owner on 2026-10-21 and 2026-10-23: "hide text but
