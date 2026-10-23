@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The pickers on the kit (0.4.312)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, the smallest feature first, "so the kit is proved before the big
+one". **Done looks like:** Logseq's list for a property on a bullet looks and behaves as before (the fitting nodes
+first, the faint line, Up and Down in the order shown), and `parts/picker.js` calls Logseq nowhere. **Built:**
+`parts/picker.js`: `sendStyle` from the core in place of `logseq.provideStyle`; the line after the fitting rows is
+`var(--rf-hair)`; the test door (`shown`, `open`) is given through `core.provide` as `pickerInner`, and
+`window.refinementPickerInner` is gone. `tools/picker-test.js`: a pretend `sendStyle` and `provide`; two new checks (the
+stylesheet through the core with the kit's hairline; no name on the window). **Checks:** picker-test (17), boot test,
+parts-apart, then `sh tools/check.sh` in full. **Seen:** in Logseq after a reload, on the Illness Test Graph: a
+bullet's property list with the fitting node first and the faint line under it, as before.
+
 ## 2026-10-22 · The kit built, nothing moved onto it yet (0.4.311)
 
 **Asked:** the owner: "Build the kit and move each feature onto it, in the order of LAYERS.md section 4: one change

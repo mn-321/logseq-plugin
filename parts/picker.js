@@ -10,11 +10,13 @@
    moving Logseq's own highlight (the pointer moving over a row, which is how Logseq highlights one). Enter, a click and
    typing to filter are Logseq's own, unchanged. Checked with Logseq 2.0.2 (2026-10-21): each row is a .menu-link-wrap
    in one plain container, the highlighted row is .menu-link.chosen, the box is input.cp__select-input "Set …". */
+/* On the kit since 0.4.312 (docs/LAYERS.md): the pickers draw nothing of their own (only CSS order and a hairline from the
+   kit's greys), send their stylesheet through layer 1 and give their test door to the core; no logseq.* call here. */
 const shared = window.refinementShared;
 const { host } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (pickers): ',
   leaves: { attributes: ['data-refinement-fit', 'data-refinement-fit-last', 'data-refinement-fit-list'] } });
-let propPages, watchDomEarly, provided;
+let propPages, watchDomEarly, sendStyle, provided;
 const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
@@ -104,6 +106,7 @@ function onKey(event) {
   highlight(rows[next]);
 }
 
+// On the kit (0.4.312): the hairline is the kit's grey; the stylesheet goes through layer 1 (sendStyle), not Logseq itself.
 const css = `
 [data-refinement-fit-list] { display: flex; flex-direction: column; }
 [data-refinement-fit-list] > [data-refinement-fit="0"] { order: -100; }
@@ -111,13 +114,12 @@ const css = `
 [data-refinement-fit-list] > [data-refinement-fit="2"] { order: -98; }
 [data-refinement-fit-list] > [data-refinement-fit="3"] { order: -97; }
 [data-refinement-fit-list] > [data-refinement-fit="4"] { order: -96; }
-[data-refinement-fit-list] > [data-refinement-fit-last] { border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); margin-bottom: 3px; padding-bottom: 3px; }
+[data-refinement-fit-list] > [data-refinement-fit-last] { border-bottom: 1px solid var(--rf-hair); margin-bottom: 3px; padding-bottom: 3px; }
 `;
 
 function start() {
-  ({ propPages, watchDomEarly } = take(window.refinementCore, ['propPages', 'watchDomEarly']));
-  provided = window.refinementCore.provided;
-  logseq.provideStyle({ key: 'refinement-picker', style: css });
+  ({ propPages, watchDomEarly, sendStyle, provided } = take(window.refinementCore, ['propPages', 'watchDomEarly', 'sendStyle', 'provided']));
+  sendStyle('refinement-picker', css);
   const win = host().defaultView;
   listen(win, ['pointerdown', 'keydown'], noteBlock);
   listen(win, ['focusin'], event => { onFocus(event).catch(error => warnOnce('the list could not be ordered', error)); });
@@ -134,7 +136,7 @@ function start() {
     for (const name of ['data-refinement-fit', 'data-refinement-fit-last', 'data-refinement-fit-list']) for (const el of host().querySelectorAll(`[${name}]`)) el.removeAttribute(name);
   });
 }
-(window.refinementParts ||= []).push({ name: 'pickers', schema: settingsSchema, start, stop: runUnloadTasks });
-// For tools/picker-test.js (read-only).
-window.refinementPickerInner = { shown, get open() { return open; } };
+// For tools/picker-test.js (read-only): through the core, not a name on the window (0.4.312).
+const provide = core => core.provide({ pickerInner: { shown, get open() { return open; } } });
+(window.refinementParts ||= []).push({ name: 'pickers', schema: settingsSchema, provide, start, stop: runUnloadTasks });
 })();

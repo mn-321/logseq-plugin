@@ -26,10 +26,16 @@ window.logseq = { settings: { pickerFitsFirst: true }, provideStyle() {}, onSett
 for (const file of ['parts/shared.js', 'parts/picker.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 // The screen watcher: the part's early updater is run by hand after each change, as main.js runs it.
 const early = [];
-window.refinementCore = { propPages: async () => pages, watchDomEarly: fn => early.push(fn),
+const sent = [];
+window.refinementCore = { propPages: async () => pages, watchDomEarly: fn => early.push(fn), sendStyle: (key, style) => sent.push([key, style]),
   provided: { pickerOrder: async (uuid, title, words) => { asked.push([uuid, title, words]); return title === 'Spoke with' ? [103, 105] : []; } } };
+window.refinementCore.provide = things => Object.assign(window.refinementCore.provided, things);
 const part = window.refinementParts.find(p => p.name === 'pickers');
+part.provide(window.refinementCore);
 part.start();
+check(sent.length === 1 && sent[0][0] === 'refinement-picker' && /--rf-hair/.test(sent[0][1]), 'the stylesheet should go through the core (sendStyle) and take its hairline from the kit');
+check(!('refinementPickerInner' in window), 'the test door should be on the core, not a name on the window');
+const inner = window.refinementCore.provided.pickerInner;
 const changed = () => early.forEach(fn => fn(doc, [{ type: 'childList', target: doc.body }]));
 
 // Logseq's list: a box and the rows, the chosen one set by the pointer moving over a row (or by typing: back to the first).
@@ -45,7 +51,7 @@ function drawList(title, filter = '') {
   popup.querySelectorAll('.menu-link').forEach((link, i) => link.addEventListener('mousemove', () => { chosen = i; popup.querySelectorAll('.menu-link').forEach((l, j) => l.classList.toggle('chosen', j === i)); }));
   return popup.querySelector('input');
 }
-const seen = () => window.refinementPickerInner.shown([...popup.querySelectorAll('.menu-link-wrap')]).map(w => w.textContent.trim());
+const seen = () => inner.shown([...popup.querySelectorAll('.menu-link-wrap')]).map(w => w.textContent.trim());
 const highlighted = () => popup.querySelector('.menu-link.chosen')?.textContent.trim();
 const key = (box, k) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }); box.dispatchEvent(e); return e; };
 
@@ -75,7 +81,7 @@ const key = (box, k) => { const e = new window.KeyboardEvent('keydown', { key: k
   // Typing: Logseq draws the rows again with its own first row highlighted; the top row shown gets it back.
   chosen = 0;
   box = drawList('Spoke with', 'dr');
-  window.refinementPickerInner.open.box = box; // the same box in Logseq; drawn again in this pretend list
+  inner.open.box = box; // the same box in Logseq; drawn again in this pretend list
   box.dispatchEvent(new window.InputEvent('input', { bubbles: true }));
   changed();
   check(seen()[0] === 'Dr. Kenji Watanabe' && highlighted() === 'Dr. Kenji Watanabe', 'after typing, the top row shown should be highlighted: ' + seen() + ' / ' + highlighted());
