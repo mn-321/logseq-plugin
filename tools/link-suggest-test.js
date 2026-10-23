@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Suggested links while typing (parts/link-suggest.js, 0.4.360) in a pretend Logseq window: which page is suggested for
+/* Suggested links while typing (parts/link-suggest.js, 0.4.361) in a pretend Logseq window: which page is suggested for
    the words before the cursor, when nothing is, what Tab types into the bullet, and the keys that leave the words alone.
    Needs node and jsdom. Run from the repo root: node tools/link-suggest-test.js   (tools/check.sh runs it) */
 const fs = require('fs');

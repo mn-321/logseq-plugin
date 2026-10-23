@@ -2,7 +2,7 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
-## 2026-10-23 · The Hyper tap takes the suggested link, branch inline-links (0.4.361)
+## 2026-10-23 · The Hyper tap takes the suggested link, branch inline-links (0.4.362)
 
 **Asked:** "Wait tab moves a bullet though", and that the old code (0.4.148) saw a lone Hyper tap. **Done looks
 like:** the grey words end in ⇪; a tap of Caps Lock (⌘⌃⌥⇧) makes the link; Tab indents as always. **Built:** in
@@ -11,7 +11,7 @@ within 300 ms swallowed), the setting `linkSuggestHyperTap` (on) and `linkSugges
 checks in `tools/link-suggest-test.js`. Built in a worktree, since the main folder held another session's unfinished
 edits. **Checks:** link-suggest, boot, leaning. **Seen in the app:** not yet (the folder could not be put on the branch).
 
-## 2026-10-23 · Suggested links while typing, branch inline-links (0.4.360)
+## 2026-10-23 · Suggested links while typing, branch inline-links (0.4.361)
 
 **Asked:** "a separate tree or branch to build on proposals to now suggesting wikilinks in line almost like
 autosuggestion like on an iphone … complete with a space or tab or maybe a hyperkey". **Decided:** Tab takes it (space
@@ -23,6 +23,19 @@ the command `accept-suggested-link` in the register, places: keys); `tools/link-
 `tools/check.sh`; the leaning baseline and parts-apart list. **Checks:** link-suggest, boot, leaning, parts-apart.
 **Seen in the app** (today's journal, a scratch bullet since removed): the grey " Chen ⇥" after "Spoke with Mei", the
 link after Tab, " and Nor" → "thgate Cancer Center", "way" → nothing, "Tingling fi" → "ngers"; no warning.
+
+## 2026-10-23 · Three faults from the owner's main computer (0.4.360)
+
+**Asked:** the owner: a right-click on a property in the tag map flashes; a #Appointment bullet on a journal gets no date;
+"did you really assess the most basic things". They did not: nothing had been tried as a fresh install, from GitHub,
+with default settings. **Found:** (1) the kit's pop-up waited for the button's release by reading the window's current
+event, which an installed copy (its own frame) never sees, so the menu opened under the pressed button and the release
+closed it; reproduced here by hiding that event, with the real mouse. (2) `shadowGraphs` starts empty, so a fresh install
+proposes nothing anywhere. (3) the journal day needed history. **Built:** the kit follows the buttons itself (started by
+the core); `shadowSkipGraphs` in place of `shadowGraphs`; the `guess-day` rule; the rule and write tests brought to the
+new behaviour (23 and 3 expectations). **Checks:** `sh tools/check.sh`; in the app with fresh-install settings (this
+Mac's own saved and put back): the menu stays, dates proposed and saved. **Lesson:** test as a fresh install: default
+settings, and the installed copy's frame.
 
 ## 2026-10-23 · Layer 6 decided: the export and Todos rest
 

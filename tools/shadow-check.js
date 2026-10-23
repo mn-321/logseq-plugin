@@ -77,7 +77,7 @@ async function plugin() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   window.parent = window;
-  window.logseq = { settings: { shadowProposals: true, shadowGraphs: GRAPH }, updateSettings() {}, onSettingsChanged: () => () => {},
+  window.logseq = { settings: { shadowProposals: true, shadowSkipGraphs: '' }, updateSettings() {}, onSettingsChanged: () => () => {},
     App: { getCurrentGraph: async () => ({ name: GRAPH }), getUserConfigs: async () => ({}) }, UI: { showMsg() {} }, Editor: {}, DB: { onChanged: () => () => {} } };
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
   window.eval(read('parts/shared.js'));

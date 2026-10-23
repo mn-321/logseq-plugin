@@ -61,7 +61,7 @@ async function dsQuery(q) {
   return []; // aliases, plain lines, pages linked in the words, …
 }
 window.logseq = {
-  settings: { shadowProposals: true, shadowGraphs: 'Test' }, updateSettings() {}, onSettingsChanged: () => () => {},
+  settings: { shadowProposals: true, shadowSkipGraphs: '' }, updateSettings() {}, onSettingsChanged: () => () => {},
   App: { getCurrentGraph: async () => ({ name: 'Test' }), getUserConfigs: async () => ({}), onCurrentGraphChanged: fn => { window.graphChanged = fn; return () => {}; } }, UI: { showMsg() {} }, DB: { onChanged: () => () => {} },
   Editor: {
     async upsertBlockProperty(uuid, ident, value, opts) { writes.push(['set', uuid, ident, value]); store.get(uuid)?.props.set(ident, Array.isArray(value) ? [...value] : opts?.entityId ? [value] : value); },
@@ -225,10 +225,10 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     await wait(200);
     check(!ghosts().length && !state.live, `7. a late check after leaving: faint values left on screen (${JSON.stringify(ghosts())})`);
   }
-  // 8. Not one of the graphs named in the setting: nothing shown, nothing written, Option-Enter is Logseq's.
+  // 8. A graph left out in the setting: nothing shown, nothing written, Option-Enter is Logseq's.
   {
     reset();
-    window.logseq.settings.shadowGraphs = 'Another';
+    window.logseq.settings.shadowSkipGraphs = 'Another, Test';
     const b = addBlock(1008, 'Saw [[Dr. Mei Chen]] there', [T.consultation]);
     const box = onScreen(b, b.title);
     // An empty property Option-Enter could open.
@@ -240,7 +240,7 @@ const reset = () => { writes.length = 0; slowPull = 0; failRemoves = 0; state.li
     check(!optEnter.defaultPrevented, '8. another graph: Option-Enter was taken by the plugin');
     await leave(box);
     check(!writes.length, `8. another graph: wrote ${JSON.stringify(writes)}`);
-    window.logseq.settings.shadowGraphs = 'Test';
+    window.logseq.settings.shadowSkipGraphs = '';
   }
   // 10. [[Dr. New]]#Doctor: the page gets the tag, the property the page, and the tag goes from the bullet and its words.
   {

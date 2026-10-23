@@ -73,8 +73,8 @@ const settingsSchema = [
     description: 'While you write a bullet, what the plugin is sure of shows faintly in the bullet’s own properties, where it will go: from your words, the page, the bullet a note is written under and the journal day (a linked doctor for the doctor property, the day for the date). Leaving the bullet (Enter, a click elsewhere, the arrows) fills those in, and a faded undo arrow at the end of the bullet’s line takes them off again until you next edit it. They are in italic grey; a guess has a dotted line under it as well: a page named in plain words (“Dr. Patel”), the values the earlier lines most like this one had (their words, links and tags), the parent bullet’s values, a linked page with no tag yet, the journal day for a tag with only a few dated bullets so far, a date written in the words (“on Friday”, “the 4th”, “4 Aug”) for a Date nothing else fills, a number beside a number property’s name (“cycle 5”). A bullet with no tag yet gets the tag of the lines it looks like, in a dotted Tags pill, with that tag’s properties beside it; Enter gives it the tag and fills them in. Enter fills in everything shown, guesses too; leaving the bullet any other way fills in only what is not a guess. Escape clears them until you type in the bullet again. Option-Enter opens the first property that is empty or holds a guess (a capsule or a row of its own; a date opens Logseq’s date picker with the keyboard in its text box, so “next fri” and Enter set it; a guess is already typed in, so Enter keeps it and typing puts something else); Enter there keeps your choice and moves on, and on the last one makes the next bullet; Tab skips; Option-Enter again finishes the bullet; Escape comes back to the words. A tag written right after a link, with no space ([[Dr. New]]#Doctor), is that page’s tag: the page is proposed for the property that takes the tag, and filling it in gives the page the tag and takes it off the bullet and its words. Otherwise your words are never changed. Applies at once.' },
   { key: 'shadowHideEmpty', type: 'boolean', title: 'Hide empty properties until something is proposed', default: true,
     description: 'Under a bullet, a property with no value is hidden until the plugin proposes something for it (a doctor linked in a consultation brings Provider up, with the doctor in grey); under the bullet you are writing, and in a page’s own properties, they stay, faint, so nothing comes and goes. Option-Enter still steps through the hidden ones. Only in the graphs named below. Applies at once.' },
-  { key: 'shadowGraphs', type: 'string', title: 'Only in these graphs', default: '',
-    description: 'The graphs the proposals may write in, separated by commas (the plugin’s settings are shared by every graph). Empty: none. Applies at once.' },
+  { key: 'shadowSkipGraphs', type: 'string', title: 'Not in these graphs', default: '',
+    description: 'Graphs the proposals leave alone, separated by commas (the plugin’s settings are shared by every graph). Empty: every graph. Applies at once.' },
   { key: 'shadowStepKeys', type: 'string', title: 'Keys for stepping through a bullet’s properties', default: 'alt+enter',
     description: 'Option-Enter: in the words, opens the first property that is empty or holds a guess; in the properties, finishes the bullet. In Logseq’s spelling (mod is ⌘ on a Mac and Ctrl elsewhere). Empty binds none. Applies at once.' },
   { key: 'shadowAcceptKeys', type: 'string', title: 'Keys for accepting everything shown without a new bullet', default: 'mod+alt+enter',
@@ -152,7 +152,8 @@ function leave(live, taken = new Set()) {
 // The bullet's own tags when its editing began (ownTagsAtStart), read again each time a bullet's box gets the focus.
 const startTags = { uuid: '', own: new Set() };
 async function allowed() {
-  return setting('shadowProposals') && await graphNamedIn(setting('shadowGraphs'));
+  // Every graph but those left out (0.4.360, the owner: a fresh install named no graph, so nothing was ever filled).
+  return setting('shadowProposals') && !(await graphNamedIn(setting('shadowSkipGraphs')));
 }
 // No shadow: nor anything taken in it, so a guess taken earlier is never written on a later visit (second reading).
 function clearLive() { state.live = null; noneAccepted(); hide(); }
@@ -499,7 +500,7 @@ const ownUndos = { get size() { return shared.undo.keys().filter(key => key.star
    “CT scan on Tuesday.”, “Colonoscopy on Friday”". Then what Enter does, as before. */
 const REASONS = {
   alike: piece => `Earlier bullets like this one had ${piece.shown}`, 'alike-tag': () => 'Earlier lines like this one have this tag',
-  words: () => 'Named in your words', parent: () => 'The bullet above has it', day: () => 'The day this is written on',
+  words: () => 'Named in your words', parent: () => 'The bullet above has it', day: () => 'The day this is written on', 'guess-day': () => 'The day this is written on; change it if it happens another day',
   'words-day': () => 'A day named in your words', 'words-number': piece => `The number beside “${piece.prop.title.toLowerCase()}” in your words`,
   untagged: () => 'A page linked in your words that has no tag yet; taking it gives the page the tag too',
   linked: () => 'A page linked in your words', 'linked-wide': () => 'A page linked in your words', page: () => 'The page this is written on',

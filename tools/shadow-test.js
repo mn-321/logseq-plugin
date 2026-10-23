@@ -105,6 +105,10 @@ expect('untagged link, two places', piecesFor(bullet('x', [T.appointment], journ
 // 5. The journal day: a symptom log (dated the day written, as the graph shows) gets it; an appointment (often written ahead) does not.
 expect('day for a log', piecesFor(bullet('Nausea bad by evening', [T.log], journal), 'Nausea bad by evening', ctx), 'Date=Oct 20 · symptoms=Nausea?');
 expect('no day for an appointment', piecesFor(bullet('Review next month', [T.appointment], journal), 'Review next month', ctx), '(nothing)');
+// A tag with no dated nodes yet: the journal day as a guess (0.4.360, the owner: "the date is not filled with a proposal on
+// a journal entry for something like #Appointment"); words that point ahead without a day leave nothing.
+expect('the day as a guess for a tag with no history', piecesFor(bullet('Scan done', [T.hospital], journal), 'Scan done', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), 'Date=Oct 20?');
+expect('no day for a new tag when the words point ahead', piecesFor(bullet('Scan next week', [T.hospital], journal), 'Scan next week', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), '(nothing)');
 // A tag with too few dated nodes to be sure, none dated another day (a treatment, 3 in the graph): the day as a guess (0.4.211).
 expect('day for a tag with few examples', piecesFor(bullet('Iron tablets started', [T.treatment], journal), 'Iron tablets started', ctx), 'Date=Oct 20?');
 expect('no journal day for a tag with no dated nodes yet (the words give next Tuesday, stage E)', piecesFor(bullet('Scan next Tuesday', [T.hospital], journal), 'Scan next Tuesday', { ...ctx, schema: { ...schema, classProps: new Map([...schema.classProps, [T.hospital, [23]]]) } }), 'Date=Nov 3?');

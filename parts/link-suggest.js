@@ -1,10 +1,10 @@
 /* Loaded by main.js after parts/link-text.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Suggested links while typing (0.4.360, layer 3; the owner, 2026-10-23: "suggesting wikilinks in line almost like
+/* Suggested links while typing (0.4.361, layer 3; the owner, 2026-10-23: "suggesting wikilinks in line almost like
    autosuggestion like on an iphone … I can easily ignore it by just keeping writing"). While a bullet is written, when
    the last word or words typed start a page's name, or a word inside it, the rest of the name shows in grey right after
    the cursor: "Spoke with Dr. Mei" shows " Chen", "Mei" alone shows " Chen" too (the name is Dr. Mei Chen). A tap of the
-   Hyper key takes it (0.4.361; the owner's Caps Lock sends Cmd+Ctrl+Opt+Shift, and "Tab moves a bullet"): the words
+   Hyper key takes it (0.4.362; the owner's Caps Lock sends Cmd+Ctrl+Opt+Shift, and "Tab moves a bullet"): the words
    typed become [[Dr. Mei Chen]], typed as if by hand, so Cmd+Z takes it back. Anything else ignores it:
    keep writing and it changes or goes; a space, Enter, an arrow, a click or Escape leaves the words as they are. It shows nothing inside [[ ]], after #, while one of Logseq's own lists is open, or
    for a short lower-case word (three letters capitalised, or four, before it looks: "the" never shows a page).

@@ -204,3 +204,14 @@ already lists all 21 as a table with Status, Priority, Deadline and Scheduled, s
 ("Add new view"), seen in the app; Todos would be a second list of the same tasks (rule 3: Logseq's behaviour beats the
 plugin's). **Flip:** both files are in `parts/`, listed in `RESTING_FILES`; bringing one back is rebuilding it on the
 kit and the model first.
+
+## 21. Proposals in every graph; the journal day for any Date (2026-10-23, at the owner's word)
+
+**Question:** on the owner's main computer, an installed copy, a #Appointment bullet on a journal got no date. **Found:**
+`shadowGraphs` ("Only in these graphs") starts empty on a fresh install, so the proposals filled nothing there; and the
+journal day was proposed only for tags whose history shows them dated the day written. **Chosen (the owner, asked):**
+the proposals work in every graph; the setting is now `shadowSkipGraphs`, graphs to leave out. And a bullet's own empty
+Date on a journal page gets the journal day as a guess when nothing else gives a day (not from a note under a record, not
+when the words name two days or point ahead, not for a tag whose earlier nodes are mostly dated another day: 8 wrong
+guesses on the test graph's Expectations without that). **Flip:** add a graph to Not in these graphs; the day guess is one line in
+`parts/shadow-rules.js` (`guess-day`).
