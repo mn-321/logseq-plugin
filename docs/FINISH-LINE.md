@@ -28,7 +28,9 @@ at which it became true and one line of proof. Updated with every commit that mo
 
 ## C. The loose ends
 
-- [ ] The branch `claude/tag-tree-editable-22bf91` and the old `claude/project-thread-*` branches settled.
+- [x] The branch `claude/tag-tree-editable-22bf91` and the old `claude/project-thread-*` branches settled. *(2026-10-23:
+      the tag-tree branch and worktree removed, nothing `main` lacked; thirteen merged branches removed; three kept, their
+      changes already in `main` by `git cherry`)*
 - [x] Turn into links no longer counts a page in Logseq's Recycle as there. *(0.4.349; seen in the app: Location twice
       in a row, the recycled address pages brought back and put back)*
 - [x] "Reload plugin" with Foundation only on works five times of five, or the cause is found and written down.

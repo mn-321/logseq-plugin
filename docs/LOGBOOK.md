@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Old branches settled (no version)
+
+**Asked:** `docs/FINISHING-PROMPT.md` 1C. **Found:** `claude/tag-tree-editable-22bf91` had no commit `main` lacks (0.4.310 did
+its work on `main`); its worktree held only an untracked `node_modules`. Thirteen remote `claude/project-thread-*`
+branches were merged into `main`. Three are not merged by their commits' names (`at5qzj`, 1 commit; `ocmi6u`, 6;
+`qogakv`, 3), though `git cherry` finds every one of their changes in `main` already. **Done:** the tag-tree worktree and
+its branch removed, locally and on GitHub; the thirteen merged branches removed from GitHub; the three kept, as the rule
+says (none deleted that holds commits `main` lacks by name). Nothing of the plugin changed.
+
 ## 2026-10-23 · A cut property name whole on hover (0.4.353)
 
 **Asked:** the loose end of `CLAUDE.md` section 7 (Logseq's narrow name column cuts a long property name short on a row
