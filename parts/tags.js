@@ -886,7 +886,7 @@ function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
 function rowListeners(view, row, item, tag, key) {
   row.addEventListener('mousedown', event => { if (!event.target.closest('input')) { if (event.shiftKey || event.metaKey || event.ctrlKey) event.preventDefault(); else view.setCursor(key, false); } });
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-name')) view.pickClick(item, event); });
-  row.addEventListener('contextmenu', event => { event.preventDefault(); view.setCursor(key); view.rowMenu(item, { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }); });
+  row.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); view.setCursor(key); view.rowMenu(item, { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }); });
   row.addEventListener('dblclick', event => { if (!tag.builtIn && !event.target.closest('button, input')) { view.renaming = key; view.draw(); } });
 }
 // The top level: every tag with no parent; then, while a tag is dragged, a place to drop it last at the top level,

@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · Only the map's menu on a right-click (0.4.324)
+
+**Found** while checking 0.4.323 in the app: a right-click on a tag in the tag map also opened Logseq's own page menu behind the map's. **Built:** `parts/tags.js` and `parts/tags-props.js`: the three right-click handlers stop the event as well as preventing the browser's menu. **Checks:** tags-test, tag-drag-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq.
+
 ## 2026-10-22 · A right-click menu that stays (0.4.323)
 
 **Asked:** the owner: a right-click menu on the two-way rows shows for less than a second unless the button is held. **Found:** the menu opened on the press (a Mac fires the right-click on the press); the browser's light dismiss closes a popover when a press that began outside it ends, so the release closed it. **Built:** `parts/shared.js`, `popup`: opened while a button is down (`window.event.buttons`), it is shown on the next pointerup or pointercancel, a tick later; its listeners go with it when it is closed first. **Checks:** boot, tags-test, two-way-check, undo-test, link-text-test, then `sh tools/check.sh` in full. **Seen:** in Logseq, both menus.

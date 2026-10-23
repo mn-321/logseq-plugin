@@ -663,7 +663,7 @@ function groupHeading(view, group, i, count, members, shut) {
     head.append(fold, el(doc, 'span', {}, group.name), el(doc, 'span', { class: 'rtg-small' }, String(members)),
       shared.quiet(doc, { icon: 'more', cls: 'rtg-make rtg-gmenu', title: 'The group’s menu', run: event => { event.stopPropagation(); view.groupMenu(group, i, count, event.currentTarget); } }));
     head.addEventListener('click', event => { if (event.target.closest('.rtg-gmenu')) return; const key = group.name.toLowerCase(); if (groupsShut.has(key)) groupsShut.delete(key); else groupsShut.add(key); saveGroupsShut(); view.draw(); });
-    head.addEventListener('contextmenu', event => { event.preventDefault(); view.groupMenu(group, i, count, rectAt(event)); });
+    head.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); view.groupMenu(group, i, count, rectAt(event)); });
   } else head.append(el(doc, 'span', {}, 'Not in a group'));
   head.addEventListener('dragover', event => { if (!view.draggingProp) return; event.preventDefault(); head.classList.add('rtg-gdrop'); });
   head.addEventListener('dragleave', () => head.classList.remove('rtg-gdrop'));
@@ -731,7 +731,7 @@ function propTopRow(view, pass, prop) {
   row.addEventListener('dragstart', event => { view.draggingProp = prop; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', prop.title); event.stopPropagation(); });
   row.addEventListener('dragend', () => { view.draggingProp = null; for (const h of doc.querySelectorAll('.rtg-gdrop')) h.classList.remove('rtg-gdrop'); });
   row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag, .rf-kind')) fold.click(); });
-  row.addEventListener('contextmenu', event => { event.preventDefault(); aim(); view.propMenu(tag, prop, null, rectAt(event), true); });
+  row.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); aim(); view.propMenu(tag, prop, null, rectAt(event), true); });
   const nodes = [row];
   if (open) nodes.push(view.propDetails(tag, prop, null, true));
   return nodes;
