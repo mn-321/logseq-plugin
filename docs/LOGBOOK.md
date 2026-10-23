@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The leaning-down check (0.4.313)
+
+**Asked:** step 3 of `docs/LAYERS.md` section 4: "a test that counts direct Logseq calls outside layer 1, parts
+reaching sideways, and names on the window beyond one, and fails the commit when any grows. Added once the first
+feature is moved, so it starts with the true count and only ever goes down." **Built:** `tools/leaning-test.js`:
+reads `PART_FILES` from `main.js`, leaves out layer 1 (`main.js`, `parts/shared.js`, `parts/model.js`,
+`parts/diagnostics.js`), strips comments, and counts per part `logseq.` and reads of `window.refinementX` other than
+the engine's three (Shared, Parts, Core); over `main.js` and every loaded part it counts distinct names published on
+the window (`window.x =`, `||=`, `??=`) beyond those three. Each count must equal its baseline: above fails as
+leaning, below fails with "lower the baseline", so the file always holds the truth. Today's baseline: Logseq calls
+two-way 30, tags-graph 65, tags-props 20, tags 32, link-text 2, shadow-rules 2, shadow 24, shadow-steps 5,
+shadow-page 1, settings-panel 8 (189); sideways 13; names 9 (refinementDiagnostics, refinementTwoWay,
+refinementTagMap, refinementTags, refinementLinkTextInner, refinementProposals, refinementShadow,
+refinementShadowInner, refinementSettingsPanel). `tools/check.sh` runs it with the other pretend-window checks.
+**Checks:** the test itself (OK at its baseline), then `sh tools/check.sh` in full. **Seen:** nothing to see; no
+code of the plugin changed.
+
 ## 2026-10-22 · The pickers on the kit (0.4.312)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, the smallest feature first, "so the kit is proved before the big
