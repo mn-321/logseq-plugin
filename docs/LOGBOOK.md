@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The name lighter (0.4.345)
+
+**Asked:** two pictures of “Ordered by: Jay Varughese”, the name lighter in the first: "why don't you just make it like this. you keep making ordered by darker. do the lighter version". **Built:** `parts/page-look.js`: the pill's name side at 57% of the pill's quiet grey (40% of the text colour), the page list's name panel at 40% directly. **Checks:** `sh tools/check.sh`. **Not seen.**
+
 ## 2026-10-23 · The greys set once and inherited (0.4.344)
 
 **Asked:** a picture, the values in a bullet's pills nearly invisible and the names darker than them: "you made it even worse". **Found:** `--rf-quiet` is `color-mix(in srgb, currentColor 70%, transparent)`; 0.4.341's rule put it on every descendant of the pill with !important, so each nesting level took 70% of its parent and a value's link, three levels deep, landed near 20%. **Built:** `parts/page-look.js`: the quiet grey on the pill and on `.property-value-container` only, every descendant `color: inherit` (tags and `.rfs-ghost` left out), the name side mixed from the pill's grey at 71.5% (= the kit's 50% of the text colour), the proposals' ghost likewise, the page list's name panel at `--rf-faint` with its children inheriting. **Checks:** `sh tools/check.sh`. **Not seen.** Lesson for the record: never put a currentColor-mixed grey on nested elements.

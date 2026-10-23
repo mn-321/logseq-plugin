@@ -51,14 +51,14 @@ const namesCss = `
    0.4.343 the value side was coloured on each nested element and a link three levels deep ended near 20% (the owner:
    "you made it even worse"). The pill (and a page list's value box) takes the quiet grey; everything inside inherits it
    but a tag and a pencilled proposal; the name, one level in, takes the share of the pill's grey that lands on the kit's
-   faint (50 / 70). */
+   faint (50 / 70); at 0.4.345 the name lighter still, 40% of the text colour, the owner's pick from two pictures. */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill,
 ${AREA} .ls-properties-area .property-pair .property-value-container { color: var(--rf-quiet) !important; }
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *),
 ${AREA} .ls-properties-area .property-pair .property-value-container *:not(.tag):not(.tag *):not(.rfs-ghost):not(.rfs-ghost *) { color: inherit !important; }
-${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child { color: color-mix(in srgb, currentColor 71.5%, transparent) !important; }
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child { color: color-mix(in srgb, currentColor 57%, transparent) !important; } /* 40% of the text colour (the owner at 0.4.345: "do the lighter version") */
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill .rfs-ghost { color: color-mix(in srgb, currentColor 71.5%, transparent) !important; }
-${AREA} .ls-properties-area .property-pair .property-key-panel { color: var(--rf-faint) !important; }
+${AREA} .ls-properties-area .property-pair .property-key-panel { color: color-mix(in srgb, currentColor 40%, transparent) !important; }
 ${AREA} .ls-properties-area .property-pair .property-key-panel * { color: inherit !important; }
 `;
 const tagsCss = `
