@@ -343,7 +343,7 @@ function el(doc, tag, props = {}, ...children) {
 /* THE icon list: what each icon means, by the name of its Tabler icon in Logseq's own font (loaded on every page;
    Logseq draws its own toolbar with it), so the plugin draws no icon of its own. */
 const ICONS = {
-  undo: 'arrow-back-up', sidebar: 'layout-sidebar-right', page: 'file-text', fold: 'chevron-right', add: 'plus', more: 'dots',
+  undo: 'arrow-back-up', sidebar: 'layout-sidebar-right-expand', page: 'file-text', fold: 'chevron-right', add: 'plus', more: 'dots',
   delete: 'trash', find: 'search', settings: 'adjustments-horizontal', close: 'x', remove: 'x', chosen: 'check', help: 'info-circle',
   map: 'hierarchy', tag: 'tag', property: 'forms', rename: 'cursor-text', copy: 'copy', to: 'arrow-right', picked: 'square-check',
   warning: 'alert-triangle', show: 'eye', hide: 'eye-off', shortcut: 'keyboard', twoWay: 'arrows-left-right', order: 'arrows-sort',

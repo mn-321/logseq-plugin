@@ -743,12 +743,22 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
    "the toolbar jumps in and causes the link table to jump down … that space is fine. allows breathing room"). */
 function barHtml() {
   const idle = !state.picked.size;
-  const b = (act, text, title, name) => `<button type="button" class="rf-quiet" data-act="${act}" title="${esc(title)}">${name ? iconHtml(name) : ''}${text}</button>`;
-  return `<div class="rf-bar rf-tw-bar"${idle ? ' data-idle="" aria-hidden="true"' : ''}><label class="rf-count"><input type="checkbox" class="rf-check" checked data-act="clear" title="Clear the picks (Escape)" aria-label="Clear the picks">${state.picked.size} picked</label>${
-    b('sidebar', 'Sidebar', 'Open them in the sidebar', 'sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one', '')}${
-    b('unlink', `Remove “${esc(pageTitle())}”`, 'Take this page out of their field', '')}${b('tag', 'Tag', 'Add a tag', 'tag')}${b('copy', 'Copy', 'Copy them as references', 'copy')}${
-    b('set', 'Set property', 'Give them all one value', 'property')}${b('unset', 'Unset property', 'Clear a property on them all', '')}${b('delete', '', 'Delete them', 'delete')}<button type="button" class="rf-quiet rf-faint" data-act="clear" title="Clear the picks (Escape)">Clear</button></div>`;
+  const total = allKeys().length, n = state.picked.size;
+  /* One line (0.4.327, the owner: "why are two lines needed? the clear button can be consolidated. some of the menu items
+     like change and remove can go under one menu item and so can property. the sidebar items should be on far right";
+     "have select all button"): the count's tick box clears, Select all picks every node listed here, the page's own two
+     actions and the two property actions each under one word with a menu, Sidebar last at the right. */
+  const b = (act, text, title, name, cls = '') => `<button type="button" class="rf-quiet${cls ? ' ' + cls : ''}" data-act="${act}" title="${esc(title)}">${name ? iconHtml(name) : ''}${text}</button>`;
+  const menu = (act, text, title, name) => `<button type="button" class="rf-quiet rf-tw-menu" data-act="${act}" title="${esc(title)}" aria-haspopup="menu">${name ? iconHtml(name) : ''}<span class="rf-tw-menu-words">${text}</span>${iconHtml('chevron-down')}</button>`;
+  return `<div class="rf-bar rf-tw-bar"${idle ? ' data-idle="" aria-hidden="true"' : ''}><label class="rf-count"><input type="checkbox" class="rf-check" checked data-act="clear" title="Clear the picks (Escape)" aria-label="Clear the picks">${n} picked</label>${
+    n < total ? b('all', 'Select all', `Pick all ${total} listed here`, '') : ''}${
+    menu('page-menu', `“${esc(pageTitle())}”`, `Change “${pageTitle()}” to another page in their field, or take it out`, '')}${
+    b('tag', 'Tag', 'Add a tag', 'tag')}${b('copy', 'Copy', 'Copy them as references', 'copy')}${
+    menu('prop-menu', 'Property', 'Give them all one value, or clear one', 'property')}${b('delete', '', 'Delete them', 'delete')}${
+    b('sidebar', 'Sidebar', 'Open them in the right sidebar', 'sidebar', 'rf-tw-to-side')}</div>`;
 }
+// Every node listed here, as picks are kept: "uuid|property".
+const allKeys = () => state.groups.flatMap(g => g.items.map(item => `${item.uuid}|${g.name}`));
 // The page's own name, for the bar's "Change “Dr. Mei Chen” to…" (0.4.233, the owner: "make it clear"), read once per page.
 const named = { uuid: '', title: '' };
 const pageTitle = () => named.uuid === state.pageUuid && named.title ? named.title : 'this page';
@@ -820,7 +830,16 @@ async function pageNamed(name, prop) {
 async function act(what, at = null) {
   const chosen = picks(), nodes = nodesPicked();
   if (what === 'clear') { state.picked.clear(); return draw(host()); }
+  if (what === 'all') { for (const key of allKeys()) state.picked.add(key); readTitle().catch(() => {}); return draw(host()); }
   if (!chosen.length) return;
+  // The two words with a menu (0.4.327): the menu opens under the word, and what is picked from it acts as its own word did.
+  if (what === 'page-menu' || what === 'prop-menu') {
+    const items = what === 'page-menu'
+      ? [{ icon: 'to', label: `Change “${pageTitle()}” to…`, run: () => { act('point', at); } }, { icon: 'remove', label: `Remove “${pageTitle()}”`, run: () => { act('unlink', at); } }]
+      : [{ icon: 'property', label: 'Set property…', run: () => { act('set', at); } }, { icon: 'remove', label: 'Unset property…', run: () => { act('unset', at); } }];
+    shared.popup({ at, width: 240, items });
+    return;
+  }
   if (what === 'sidebar') { for (const uuid of nodes) openEntity(uuid, true); state.picked.clear(); return draw(host()); }
   try {
     if (what === 'copy') {
@@ -950,7 +969,7 @@ const twoWayCss = `
 /* The list a count opens into: date, record, tag, one per line, under the value. */
 /* The line drops from under the fold arrow (centred 11px in, 0.4.196), as Logseq's own guide lines drop from theirs; the words stay where they were. */
 .refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid var(--rf-line); padding-left: calc(.6rem + 11.5px); }
-.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, max-content) auto 1.4em 1fr; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
+.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, max-content) auto 1fr 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
 .refinement-two-way .rf-tw-more { display: inline-flex; margin-top: .1rem; height: 22px; padding: 0 4px; }
 /* Moving around (0.4.184): a record's line lit under the pointer, the sidebar icon shown there, the field's name
@@ -978,12 +997,12 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
 .refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, max-content) auto 1.4em 1fr; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, max-content) auto 1fr 1.4em; }
 .refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
 .refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
 .refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
 .refinement-two-way .rf-tw-namecell > .rf-tw-add { flex: none; margin-left: .6em; }
-.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1.4em 1fr; }
+.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; }
 .refinement-two-way .rf-tw-day > .rf-tw-add { margin-left: .6em; }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
@@ -1004,11 +1023,13 @@ const twoWayCss = `
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
 .refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
-.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1.4em 1fr; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
 /* A record with no day still has its tag and the sidebar icon in the last two columns. */
 .refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
-.refinement-two-way .rf-tw-item .rf-tw-side { grid-column: 4; }
+/* The sidebar icon at the far right of its line (0.4.327, the owner: "the sidebar items should be on far right and have
+   some sort of arrow to the right signifying sidebar opening"): the last column; the icon is a sidebar with an arrow. */
+.refinement-two-way :is(.rf-tw-item, .rf-tw-line) .rf-tw-side { grid-column: -2; justify-self: end; }
 .refinement-two-way .rf-tw-item a.rf-tw-record { justify-self: start; min-width: 0; } /* a long name wraps, never cut (0.4.263) */
 /* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
@@ -1017,6 +1038,12 @@ const twoWayCss = `
 .refinement-two-way { position: relative; }
 .refinement-two-way .rf-tw-bar { margin: 0 0 6px 19px; }
 .refinement-two-way .rf-tw-bar[data-idle] { visibility: hidden; }
+.refinement-two-way .rf-tw-bar { flex-wrap: nowrap; min-width: 0; }
+.refinement-two-way .rf-tw-bar .rf-tw-to-side { margin-left: auto; }
+.refinement-two-way .rf-tw-menu { gap: 3px; min-width: 0; }
+.refinement-two-way .rf-tw-menu-words { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14em; }
+.refinement-two-way .rf-tw-menu > .ti:last-child { font-size: 12px; opacity: .7; }
+.refinement-two-way .rf-tw-bar .rf-count { white-space: nowrap; }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the

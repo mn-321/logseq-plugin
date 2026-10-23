@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The picking bar on one line, Select all, the sidebar at the right (0.4.327)
+
+**Asked:** the owner, on the bar's two lines: consolidate Clear, put Change and Remove under one word and the two property actions under another, put the sidebar items at the far right with an arrow; then "have select all button". **Built:** `parts/two-way.js`: `barHtml` one line (`flex-wrap: nowrap`): the count's tick box clears; `all` (Select all, `allKeys()`); `page-menu` and `prop-menu`, words with a chevron that open the kit's pop-up under them, their items calling `act('point' | 'unlink' | 'set' | 'unset', at)` so the questions open under the word; Sidebar with `margin-left: auto`. The rows' grids end `auto 1fr 1.4em`, the sidebar icon in the last column (`grid-column: -2`). `parts/shared.js`: `ICONS.sidebar` is `layout-sidebar-right-expand` (in Logseq 2.0.2's font). README. **Checks:** boot, two-way-check, tags-test, pictures, then `sh tools/check.sh` in full. **Seen:** in Logseq, as the CHANGELOG line says.
+
 ## 2026-10-22 · No "null" in the card or a question (0.4.326)
 
 **Found** while checking 0.4.325: a card showed "nullnull". **Built:** `parts/shared.js`: `card` and `ask` append only the pieces that are there (`Element.append` writes `null` as text; `el()` already left them out). **Checks:** boot, undo-test, two-way-check, tags-test, then `sh tools/check.sh` in full. **Seen:** in Logseq.
