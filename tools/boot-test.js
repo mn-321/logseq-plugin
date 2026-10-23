@@ -197,7 +197,7 @@ async function main() {
   console.log(`settings window: ${previews} small pictures, ${zones.length} zones in the first group's picture`);
   doc.querySelector('.refinement-settings-backdrop, .refinement-settings')?.remove();
   // Its screen report holds every running feature's rows, each thing once, with every feature that needs it.
-  await pluginWindow.refinementDiagnostics.checkWhatIsFound();
+  await pluginWindow.refinementCore.provided.diagnostics.checkWhatIsFound();
   const report = doc.querySelector('textarea')?.value || '';
   if (ALL_PARTS) {
   for (const row of ['the page area', 'reference areas', 'title row', 'fold state', 'nesting lines', 'right sidebar', 'toolbar'])

@@ -69,7 +69,7 @@
                                   and flipped when there is no room, dismissed by the browser on Escape or a click
                                   outside; a menu filling (items: icon, label, kbd, on, run) or a list filling (the
                                   field, then rows(query)); Up, Down and Enter handled here. Returns { el, close,
-                                  items, lit, field, query, closed }.
+                                  items, lit, field, query, closed }. popups.closeAll() closes every open one (unload).
    - ask({ at, question, note, go, cancel, field })   a question beside what it is about: Cancel and the one that
                                   does it as words; resolves true/false, or the field's text / null.
    - dialog({ build, cls, width })   THE window: the browser's <dialog>, shown modal, dressed; for settings only.
@@ -423,6 +423,9 @@ function choices(doc, { items, picked, pick, cls } = {}) {
    there. `manual`: the part dismisses it itself (the link box, whose keys stay in the bullet); `hint`: a card that
    takes no focus (the hover card). Keys typed inside never reach Logseq. */
 let anchorCount = 0;
+// Every pop-up open now, so an unload closes them all (main.js calls popups.closeAll; the boot test looks for leftovers).
+const openPops = new Set();
+const popups = { closeAll() { for (const pop of [...openPops]) pop.close(); }, get size() { return openPops.size; } };
 function anchorFor(doc, at) {
   if (!at) return null;
   const isElement = typeof at.getBoundingClientRect === 'function' && at.nodeType === 1;
@@ -455,6 +458,7 @@ function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manu
     try { if (pop.hidePopover && pop.matches(':popover-open')) pop.hidePopover(); } catch (error) { /* already hidden */ }
     pop.remove();
     anchor?.cleanup();
+    openPops.delete(controller);
     if (hadFocus && wasActive?.isConnected && wasActive !== doc.body) try { wasActive.focus({ preventScroll: true }); } catch (error) { /* cannot */ }
     onClose?.();
     resolveClosed();
@@ -501,7 +505,9 @@ function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manu
   doc.body.append(pop);
   try { if (pop.showPopover) pop.showPopover(); } catch (error) { /* shown as a plain box */ }
   if (!hint) { if (fieldEl) fieldEl.input.focus({ preventScroll: true }); else if (!manual) pop.focus({ preventScroll: true }); }
-  return { el: pop, body, close, items: drawItems, lit, get litAt() { return litAt(); }, field: fieldEl, get query() { return fieldEl?.input.value ?? ''; }, closed: closedPromise, get isClosed() { return closed; } };
+  const controller = { el: pop, body, close, items: drawItems, lit, get litAt() { return litAt(); }, field: fieldEl, get query() { return fieldEl?.input.value ?? ''; }, closed: closedPromise, get isClosed() { return closed; } };
+  openPops.add(controller);
+  return controller;
 }
 /* A question beside what it is about: the question, a quiet note, Cancel and the one that does it as words (no
    backdrop, no fill). Resolves true or false; with a field, the text typed (Enter or the go word) or null. */
@@ -680,6 +686,8 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
   background: var(--rf-bg); color: var(--rf-fg); border: 1px solid var(--rf-hair); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
   font-size: 14px; line-height: 1.4; text-align: left; outline: none; }
 .rf-pop.rf-anchored { top: anchor(bottom); left: anchor(left); margin-top: 4px; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; }
+/* With nothing to sit under (a pop-up opened from the palette): near the top, in the middle. */
+.rf-pop:not(.rf-anchored) { top: 12vh; left: 50%; transform: translateX(-50%); }
 .rf-pop-head { padding: 3px 8px; font-size: 12px; color: var(--rf-quiet); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rf-pop-body { max-height: 320px; overflow-y: auto; }
 .rf-item { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 6px 8px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -690,6 +698,10 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
 .rf-item kbd, .rf-end { margin-left: auto; flex: none; font: inherit; font-size: 12px; color: var(--rf-faint); }
 .rf-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--rf-hair); }
 .rf-pop .rf-field { margin: 0 8px 4px; }
+/* A report to copy (the troubleshooting tools): the text in a quiet box, Copy as the one word. */
+.rf-report { padding: 8px 10px; max-width: min(720px, 92vw); }
+.rf-report > .rf-pop-body { max-height: none; }
+.rf-report textarea { display: block; box-sizing: border-box; width: 100%; height: min(50vh, 420px); margin: 6px 0 0; padding: 6px 8px; border: 0; border-radius: 4px; background: var(--rf-wash); color: inherit; font: 12px/1.45 var(--rf-mono); resize: vertical; outline: none; }
 /* A question beside what it is about. */
 .rf-ask { padding: 8px 10px; }
 .rf-ask-words { font-weight: 600; margin: 2px 0; }
@@ -874,7 +886,7 @@ leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog
 
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, settingReader, graphNamedIn, perf, warnings,
-  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, ask, dialog, bar, card, undo,
+  kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
   modal, modalButtons, modalHint, placeBelow,
 };
 })();

@@ -352,6 +352,7 @@ function main() {
   // THE Undo (parts/shared.js, 0.4.258): its arrows belong to the page they were made on, and go with the plugin.
   onUnload(logseq.App.onRouteChanged(() => window.refinementShared.undo.clear()));
   onUnload(() => window.refinementShared.undo.stop());
+  onUnload(() => window.refinementShared.popups.closeAll()); // no pop-up outlives the plugin (0.4.316)
   // The main view keeps room for its scroll bar (0.4.182), so a page growing past the window's height, or a list
   // unfolding, no longer moves everything 8px sideways as the bar comes and goes (seen in the owner's Logseq).
   // Off until layer 3 (0.4.251: page looks wait for their layer); put back with the rest of layer 3:

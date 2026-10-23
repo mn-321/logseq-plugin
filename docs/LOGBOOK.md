@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The troubleshooting tools on the kit (0.4.316)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, fourth feature (troubleshooting). **Done looks like:** the palette's
+"Refinements: troubleshooting" opens a list pop-up with icons, measuring ticked when on; a report is the same pop-up
+with the text and Copy; nothing of the part's own is drawn. **Built:** `parts/diagnostics.js`: `openTroubleshooting`
+is `shared.popup({ head, items })` with the tools as items (`icon`, `chosen` from `on()`), the features' tools after
+a `sep`; `showDiagnostics` is a pop-up (`rf-report`) with a textarea, a quiet Copy and a note, copied as it opens;
+the tools' doors on the core as `diagnostics` (no `window.refinementDiagnostics`); the palette command has an icon.
+The kit: `.rf-pop:not(.rf-anchored)` sits at 12vh in the middle; `.rf-report textarea`; `popups.closeAll()` (every
+open pop-up is remembered; `main.js` closes them at unload, which the boot test caught as leftovers). This part is
+layer 1, so its own Logseq calls stay. `tools/pictures.js`: the "dialog" scene draws the troubleshooting list
+(re-approved after looking: head, five items with icons, a tick on Measuring, a line, a feature's tool).
+`tools/boot-test.js` reads the tools through the core. The leaning baseline: names 4. **Checks:** boot, parts-apart,
+leaning, pictures, then `sh tools/check.sh` in full. **Seen:** in Logseq after a reload, as the CHANGELOG line says.
+**Also today:** the test bullet of 0.4.315 left a tag page "Conversati" in the Illness Test Graph (two backspaces cut
+the typed tag short before the bullet was deleted); recycled with `logseq remove page` (not deleted for good).
+
 ## 2026-10-22 · The proposals on the kit (0.4.315)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, third feature: "the ghost in Logseq's pill, the tag guess in mono

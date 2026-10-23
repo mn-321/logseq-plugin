@@ -10,11 +10,15 @@
      hidden debugPerfEvery setting;
    - copyWarnings         every warnOnce message of this session.
    A feature brings its own tools and screen rows (0.4.172): in its start() it calls
-   core.provided.addTroubleshooting({ tools: [{ key, label, run }], checks: [[what, selector, neededFor]] }),
+   core.provided.addTroubleshooting({ tools: [{ key, label, run, icon? }], checks: [[what, selector, neededFor]] }),
    and its tools show their report with showReport(text), whose first line is versionLine(). A feature that
-   is not running (Foundation only) adds nothing, so the box lists only what is running. */
+   is not running (Foundation only) adds nothing, so the list holds only what is running.
+   On the kit since 0.4.316 (docs/LAYERS.md; the views page): the tools are a list pop-up from the palette, each
+   with its icon from the kit's list, measuring ticked while it is on; a report opens the same pop-up with the
+   text to copy and one quiet word, Copy. No window, no box of this part's own. This part is layer 1 (diagnostics
+   belong to talking to Logseq), so its own Logseq calls stay. */
 const shared = window.refinementShared;
-const { host, notify, modal, modalHint } = shared;
+const { host, notify, el, quiet, note } = shared;
 // Warnings keep the plain "Refinements: " prefix these tools always had.
 const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements: ' });
 // From the model part, taken when the part starts.
@@ -80,22 +84,23 @@ function describeElement(el, depth, lines, blockIds) {
   if (el.tagName.toLowerCase() === 'svg') return;
   for (const child of el.children) describeElement(child, depth + 1, lines, blockIds);
 }
+// A report: the kit's pop-up with the text to copy and one quiet word, Copy (it is copied as it opens, too).
 function showDiagnostics(text) {
-  modal(null, (box, finish, doc) => {
-    const heading = doc.createElement('label');
-    heading.textContent = 'Report from the Refinements plugin. Copy and paste it into your chat.';
-    const area = doc.createElement('textarea');
-    area.readOnly = true;
-    area.value = text;
-    area.style.cssText = 'width:100%;height:50vh;box-sizing:border-box;font:12px ui-monospace,monospace;padding:6px;border:1px solid var(--rf-ui-field);border-radius:6px;background:transparent;color:inherit;';
-    const hint = modalHint(doc, '');
-    box.append(heading, area, hint);
-    area.focus();
-    area.select();
+  const doc = host();
+  const pop = shared.popup({ doc, cls: 'rf-report', width: 'min(720px, 92vw)', head: 'Report from the Refinements plugin. Copy and paste it into your chat.' });
+  const area = el(doc, 'textarea', { readonly: true, spellcheck: 'false', 'aria-label': 'The report' });
+  area.value = text;
+  const hint = note(doc, '');
+  const copy = () => {
+    area.focus(); area.select();
     let copied = false;
     try { copied = doc.execCommand('copy'); } catch (error) { /* fall through */ }
     hint.textContent = copied ? 'Copied to the clipboard · Esc to close' : 'Press Cmd+C (Ctrl+C) to copy · Esc to close';
-  }, 'min(720px, 92vw)');
+  };
+  pop.body.append(area, el(doc, 'div', { class: 'rf-btns' }, hint, quiet(doc, { icon: 'copy', label: 'Copy', run: copy })));
+  shared.keepKeys(area);
+  copy();
+  return pop;
 }
 async function copyDiagnostics(event) {
   try {
@@ -404,46 +409,37 @@ onUnload(() => { if (tour.doc) tourEnd('ended by a reload'); });
    (registered without a palette entry), so a shortcut bound to one still works. The features' own tools
    (addTroubleshooting) follow these. */
 TOOLS.push(...[
-  ['check-what-is-found', 'Check what the plugin finds on this page', () => checkWhatIsFound()],
-  ['toggle-perf', 'Turn measuring on or off', () => togglePerf()],
-  ['copy-perf-report', 'Copy performance report', () => copyPerfReport()],
-  ['copy-styling-details', 'Copy styling details of this block', event => copyDiagnostics(event)],
-  ['copy-warnings', 'Copy warnings', () => copyWarnings()],
-  ['take-the-tour', 'Take the tour (F8 for the next stop)', () => tourBegin()],
-].map(([key, label, run]) => ({ key, label, run })));
+  ['check-what-is-found', 'Check what the plugin finds on this page', () => checkWhatIsFound(), 'show'],
+  ['toggle-perf', 'Measuring', () => togglePerf(), 'settings', () => perf.on],
+  ['copy-perf-report', 'Copy performance report', () => copyPerfReport(), 'copy'],
+  ['copy-styling-details', 'Copy styling details of this block', event => copyDiagnostics(event), 'page'],
+  ['copy-warnings', 'Copy warnings', () => copyWarnings(), 'warning'],
+  ['take-the-tour', 'Take the tour (F8 for the next stop)', () => tourBegin(), 'to'],
+].map(([key, label, run, icon, on]) => ({ key, label, run, icon, on })));
+// The tools as the kit's list pop-up: each with its icon, measuring ticked while it is on; the features' own tools
+// after a line. No window (the views page).
 function openTroubleshooting() {
-  return modal(null, (box, finish, doc) => {
-    const heading = doc.createElement('label');
-    heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
-    const list = doc.createElement('div');
-    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:10px 0;';
-    for (const tool of TOOLS) {
-      const button = doc.createElement('button');
-      button.textContent = tool.label;
-      button.style.cssText = 'text-align:left;padding:6px 12px;border:1px solid var(--rf-ui-field);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;';
-      button.addEventListener('click', event => { event.preventDefault(); finish(tool); tool.run(); });
-      list.append(button);
-    }
-    box.append(heading, list, modalHint(doc, 'Esc to close'));
-    list.firstElementChild?.focus();
-  }, 'min(460px, 92vw)');
+  const own = TOOLS.filter(tool => tool.icon), theirs = TOOLS.filter(tool => !tool.icon);
+  const item = tool => ({ icon: tool.icon || 'help', label: tool.label, chosen: tool.on ? !!tool.on() : false, title: `Troubleshooting: ${tool.label}`, run: () => tool.run() });
+  return shared.popup({ head: 'Troubleshooting · none of these changes your notes', width: 360, items: [...own.map(item), ...(theirs.length ? [{ sep: true }, ...theirs.map(item)] : [])] });
 }
 
 function provide(core) {
-  core.provide({ addTroubleshooting, showReport: showDiagnostics, versionLine });
+  core.provide({ addTroubleshooting, showReport: showDiagnostics, versionLine,
+    // For tools/boot-test.js (read-only): the tools themselves, through the core, not a name on the window (0.4.316).
+    diagnostics: { checkWhatIsFound, copyDiagnostics, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS } });
 }
 function start() {
   ({ CHECKED_WITH } = window.refinementCore.provided); // from the model part
   try { if (logseq.settings?.debugPerf === true) perf.start(); } catch (error) { warnOnce('measuring could not start', error); }
   onUnload(perf.stop);
 }
-window.refinementDiagnostics = { checkWhatIsFound, copyDiagnostics, togglePerf, copyPerfReport, copyWarnings, openTroubleshooting, tools: TOOLS };
 function ready() {
   for (const tool of TOOLS) registerTool(tool);
   toolsRegistered = true;
 }
 // One palette entry opens the box that lists the tools.
-const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting', run: () => openTroubleshooting() }];
+const commands = [{ key: 'troubleshooting', label: 'Refinements: troubleshooting', icon: 'settings', run: () => openTroubleshooting() }];
 /* Foundation only (0.4.167): the plugin runs just its foundation, the engine and the Logseq model (parts/model.js),
    with these tools and the settings window, so the foundation can be measured alone before the layers above it are
    built on it. The core reads the setting; the parts that stay mark themselves `foundation: true`. */

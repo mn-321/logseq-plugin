@@ -150,7 +150,7 @@ async function scenes(page) {
         for (const p of [pills[0], pills[2]]) p.closest('.bottom-property-pill').setAttribute('data-refinement-proposal', '');
       },
     },
-    // A dialog of the plugin's own (the troubleshooting box) over a page full of words, so a see-through box shows.
+    // The troubleshooting tools as the kit's list pop-up (0.4.316), over a page full of words, so a see-through box shows.
     'dialog': {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js')],
       draw: async () => {
@@ -164,11 +164,9 @@ async function scenes(page) {
         stage.append(line);
         shared.undo.offer({ key: 'p', at: () => line, text: 'Provider: Dr. Mei Chen', run: () => {} });
         shared.undo.offer({ key: 'd', at: () => null, text: 'Deleted 3 records', run: () => {} });
-        shared.modal(null, (box, finish, doc) => {
-          const heading = doc.createElement('label');
-          heading.textContent = 'Troubleshooting tools of the Refinements plugin. None of them changes your notes.';
-          box.append(heading, shared.modalButtons(doc, [['Check what the plugin finds', () => {}], ['Copy warnings', () => {}]]), shared.modalHint(doc, 'Esc to close'));
-        }, 'min(460px, 92vw)');
+        shared.popup({ head: 'Troubleshooting · none of these changes your notes', width: 360, items: [
+          { icon: 'show', label: 'Check what the plugin finds on this page' }, { icon: 'settings', label: 'Measuring', chosen: true }, { icon: 'copy', label: 'Copy performance report' },
+          { icon: 'warning', label: 'Copy warnings' }, { sep: true }, { icon: 'help', label: 'Two-way links: check the rows on this page' }] });
       },
     },
   };
