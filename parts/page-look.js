@@ -24,8 +24,8 @@ const settingsSchema = [
     description: 'A link to a page is the text colour with a faint line under it, firmer while you point at it, instead of blue: in a bullet’s words, in a property’s value, in Logseq’s tables and in the Linked references.' },
   { key: 'quietDates', type: 'boolean', title: 'Journal days as quiet grey words', default: true,
     description: 'A link to a journal day (“Oct 21st, 2026”) is grey words with no underline, the text colour while you point at it, instead of blue.' },
-  { key: 'quietNames', type: 'boolean', title: 'Property names lighter than their values', default: true,
-    description: 'A property’s name and its colon are light grey, so the value is what the eye lands on: in a bullet’s properties and in a page’s own list under its title.' },
+  { key: 'quietNames', type: 'boolean', title: 'Property names and values lighter than the words', default: true,
+    description: 'A property’s value is a lighter grey than the bullet’s words, and its name and colon lighter still, in a bullet’s properties and in a page’s own list under its title.' },
   { key: 'tagsAsClasses', type: 'boolean', title: 'Tags as class names', default: true,
     description: 'A tag at the right of a bullet reads as its name alone in a monospace face, grey, without the #. The × that removes it takes the #’s place under the pointer, so the name does not move.' },
   { key: 'noCapsules', type: 'boolean', title: 'Properties without capsules', default: true,
@@ -53,6 +53,12 @@ ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div
 ${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > div:first-child :is(.property-k, a),
 ${AREA} .ls-properties-area .property-pair .property-key-panel,
 ${AREA} .ls-properties-area .property-pair .property-key-panel :is(.property-k, a) { color: var(--rf-faint) !important; }
+/* The value lighter than the words too, the kit's quiet grey (the owner at 0.4.340: "it should be lighter, not full black"),
+   so a bullet's facts sit a step behind its words and two steps ahead of their names. */
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > .bottom-property-content,
+${AREA} .ls-block .positioned-properties.block-below .bottom-property-pill > .bottom-property-content a:not(.tag),
+${AREA} .ls-properties-area .property-pair .property-value-container,
+${AREA} .ls-properties-area .property-pair .property-value-container a:not(.tag) { color: var(--rf-quiet) !important; }
 `;
 const tagsCss = `
 /* Logseq draws a # link before the name and swaps it for an × (remove) link under the pointer. The # is made

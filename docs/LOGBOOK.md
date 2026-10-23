@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Property values lighter than the words (0.4.340)
+
+**Asked:** "you didn't change values. only properties", then "no it should be lighter, not full black". **Built:** `parts/page-look.js`: the value side of a bullet's pill (`.bottom-property-content`) and of a page's list (`.property-value-container`), links included, at `--rf-quiet`; names stay at `--rf-faint`; the switch renamed Property names and values lighter than the words. README. **Checks:** `sh tools/check.sh`. **Not seen:** the owner reloads and looks at a bullet with properties.
+
 ## 2026-10-23 · Property names faint, as the page draws them (0.4.339)
 
 **Asked:** a picture of the elements page's Proposed values sheet: "properties should be this light? isn't there spec for this somewhere?" **Found:** the spec is `docs/LAYERS.md` section 2 (names lighter than values, the kit's four greys) and the page itself, which draws the name at the kit's faint grey (`tools/pages/build-elements.js`, `.property-key-inner { color: var(--rf-faint) }`); 0.4.337 had used quiet, one step darker. **Built:** `parts/page-look.js`: the names rule at `--rf-faint`. **Checks:** `sh tools/check.sh`. **Not seen:** a one-grey change; the owner reloads and looks at any bullet with properties.
