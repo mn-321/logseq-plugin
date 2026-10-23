@@ -6,7 +6,8 @@
    page (Shift: in the sidebar). That end is where Logseq keeps a page's own tags and fades them in only under the
    pointer; the chain stays, and takes their place there, so nothing above or below it moves (a line of its own under
    the title would push the page down one line when it arrived). A long chain is cut at the far end, never wrapped.
-   A tag with no parent of yours shows nothing: its chain would be its own name. Drawn with the kit's tag (no #, mono).
+   A tag with no parent of yours reads its own name (0.4.330, the owner on Entity: "loses its tag and #tag just appears"),
+   so the chain ends where you came from and Logseq's faded #Tag never stands in for it. Drawn with the kit's tag (no #, mono).
    A page with tags of its own (0.4.329, the owner: "can this be applied to pages with the tag?") reads the same for
    each: Dr. Mei Chen, "Doctor / Person / Entity", where Logseq fades in #Doctor; two tags are kept apart by a dot.
    Logseq's kinds of page (Page, Journal) are not tags of yours and show nothing. */
@@ -22,7 +23,7 @@ const settingsSchema = [
     zone: '<div><b>Dr. Mei Chen</b> &nbsp; <span class="m">Doctor / Person / Entity</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'tagPathInTitle', type: 'boolean', title: 'A page’s tags and the tags above them, beside its title', default: true,
-    description: 'The right end of a page’s title row reads its tag and the tags that tag sits under, nearest first: “Doctor / Person / Entity” on Dr. Mei Chen; on a tag’s own page, the tag itself and those above it, “Consultation / Occurrence”. Each name opens its page; Shift-click opens it in the right sidebar. It stays where Logseq shows a page’s tags only under the pointer, so the page does not move. A tag page whose tag sits under none of yours shows nothing there.' },
+    description: 'The right end of a page’s title row reads its tag and the tags that tag sits under, nearest first: “Doctor / Person / Entity” on Dr. Mei Chen; on a tag’s own page, the tag itself and those above it, “Consultation / Occurrence”, or its name alone at the top, “Entity”. Each name opens its page; Shift-click opens it in the right sidebar. It stays where Logseq shows a page’s tags only under the pointer, so the page does not move.' },
 ];
 const setting = shared.settingReader(settingsSchema);
 
@@ -52,8 +53,8 @@ async function load(uuid) {
 }
 const later = (uuid, ms) => { clearTimeout(state.timer); state.timer = setTimeout(() => load(uuid), ms); };
 
-// What the corner reads: the tag page's own chain when it has a tag above it, then each of the page's own tags.
-const groupsOf = path => !path ? [] : [...(path.own && (path.own.chain.length > 1 || path.own.others.length) ? [path.own] : []), ...path.tags];
+// What the corner reads: a tag page's own chain (its name alone at the top), then each of the page's own tags.
+const groupsOf = path => !path ? [] : [...(path.own ? [path.own] : []), ...path.tags];
 function build(doc, groups) {
   const parts = [];
   groups.forEach((path, n) => { if (n) parts.push(shared.el(doc, 'span', { class: 'rf-sep', 'aria-hidden': 'true' }, '·')); parts.push(...buildOne(doc, path)); });

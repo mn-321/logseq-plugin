@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A top-level tag reads its own name (0.4.330)
+
+**Asked:** "the last page is entity which loses its tag and #tag just appears" (the owner, after following Doctor / Person / Entity to its end). **Built:** `parts/tag-path.js`: a tag page always shows its own chain, its name alone when it sits under none of yours; Logseq's faded #Tag hidden there as on the others; the setting's words say so. **Checks:** `sh tools/check.sh` in full. **Seen:** in Logseq after a reload, the Entity page reads "Entity" in the corner, under the pointer as well, no #Tag.
+
 ## 2026-10-22 · A page's own tags in its title corner (0.4.329)
 
 **Asked:** "can this be applied to pages with the tag?" (the owner, after 0.4.328 on the Consultation and Doctor tag pages). **Built:** `parts/model.js`: `tagChains(uuid)` (the tag index and a page's tags read together; `tagChain` now its own part), Logseq's kinds of page left out (Page, Journal, Tag, Property, Whiteboard); `parts/tag-path.js` draws the tag page's own chain when it has a parent, then each of the page's tags, apart by a dot; the setting's words and the settings section's picture say so. `tools/model-test.js`: a doctor's page, a tag page's own Tag left out. **Checks:** `sh tools/check.sh` in full. **Seen:** in Logseq after a reload: Dr. Mei Chen reads "Doctor / Person / Entity", nothing below it moved (rows at the same height as before); a click on Doctor opened its tag page with the same chain. While a page opens, Logseq's own faded #Tag shows a moment under the pointer before the chain takes its place: Logseq's, not a movement.
