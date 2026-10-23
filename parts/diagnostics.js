@@ -305,7 +305,8 @@ async function copyWarnings() {
    true it goes on to the next stop by itself. */
 // run changes when a tour starts or ends, so a stop still being measured knows it is no longer wanted.
 const tour = { stops: [], at: -1, lines: [], doc: null, keys: null, theme: '', console: null, busy: false, run: 0, stopVisit: null };
-const TOUR_STILL = 1000, TOUR_LONGEST = 8000;
+// A stop with two-way rows is watched for at least TOUR_ROWS ms: their held room is let go two seconds after a page change.
+const TOUR_STILL = 1000, TOUR_LONGEST = 8000, TOUR_ROWS = 3000;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const describeNode = node => !node ? '?' : node.nodeType !== 1 ? 'text' : node.tagName.toLowerCase() + (typeof node.className === 'string' && node.className.trim() ? '.' + node.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
 async function tourBegin() {
@@ -377,11 +378,17 @@ async function tourVisit(stop) {
   let stopped = false;
   const stopWatching = () => { stopped = true; changes.disconnect(); shiftWatch.disconnect(); };
   tour.stopVisit = stopWatching;
+  // Where the two-way rows sit, every 50 ms (0.4.333): a slide is a change of their top with nothing added above.
+  const trail = [];
+  // Only while they can be seen: on a first visit they wait unseen for Logseq's property list (data-rf-waiting).
+  const rowsTop = () => { const box = doc.querySelector('#main-content-container .refinement-two-way:not([data-rf-waiting]) .rf-tw-row'); return box ? Math.round(box.getBoundingClientRect().top) : null; };
   for (;;) {
     if (stopped || run !== tour.run) break;
-    await sleep(100);
-    const t = now();
-    if ((t - lastChange > TOUR_STILL && t - begun > 400) || t - begun > TOUR_LONGEST) break;
+    await sleep(50);
+    const t = now(), top = rowsTop();
+    if (top != null && (!trail.length || trail[trail.length - 1][1] !== top)) trail.push([Math.round(t - begun), top]);
+    const least = trail.length ? TOUR_ROWS : 400;
+    if ((t - lastChange > TOUR_STILL && t - begun > least) || t - begun > TOUR_LONGEST) break;
   }
   stopWatching();
   if (tour.stopVisit === stopWatching) tour.stopVisit = null;
@@ -396,6 +403,7 @@ async function tourVisit(stop) {
     moved.set(name, (moved.get(name) || 0) + 1);
   }
   for (const [name, n] of [...moved].sort((a, b) => b[1] - a[1]).slice(0, 6)) lines.push(`    moved ${n}×: ${name}`);
+  if (trail.length > 1) lines.push(`    two-way rows' top: ${trail.map(([t, top]) => `${top} at ${t}`).join(' → ')}`);
   const shown = [...pieces].filter(([, piece]) => piece.at || piece.added).map(([name, piece]) => `${name} ${ms(piece.at)}${piece.added > 1 ? ` (added ${piece.added}×)` : ''}`);
   if (shown.length) lines.push(`    pieces: ${shown.join(' · ')}`);
   for (const line of [...new Set(seen)].slice(0, 6)) lines.push(`    ${line}`);
