@@ -30,6 +30,7 @@
    - screen                       THE screen door (core.screen): waitFor, press, typeInto, key, floating, item, sidebarItems,
                                   popupOpen, escapeMenus: the one way to work Logseq's own boxes.
    - openEntity(uuid, inSidebar)  opens a page or block by uuid, in the right sidebar when asked.
+   - openPageNamed(name, inSidebar)   opens a page by its name the same way.
    - settingReader(schema)        returns setting(key): the saved value, or the schema's default when
                                   the saved value is missing or of another type.
    - graphNamedIn(list)           true when the open graph is named in the comma-separated list (an "Only in
@@ -75,7 +76,8 @@
    - dialog({ build, cls, width })   THE window: the browser's <dialog>, shown modal, dressed; for settings only.
    - bar(doc, { count, total, actions, clear, all })   the picking bar: the count with its tick box, the actions as
                                   quiet words with icons, a hairline under it; .update({ count, total }).
-   - card({ at, title, tag, day, fields, lines, open })   the hover card: a node's preview, every piece clickable.
+   - card({ at, title, tag, day, fields, lines, empty, open })   the hover card: a node's preview, every piece clickable
+                                  (open(what, value, event): 'node', 'tag', 'day', 'prop', 'value', 'line').
    - undo                         THE Undo (0.4.258): undo.offer({ key, at, text, run, onFail, cls, data }) puts a
                                   faded arrow at the end of at()'s element(s), or at the bottom right when there is
                                   none; forget, clear, draw, size, has, stop.
@@ -209,6 +211,12 @@ function openEntity(uuid, inSidebar = false) {
   if (!uuid) return;
   if (inSidebar) logseq.Editor.openInRightSidebar(uuid);
   else logseq.App.pushState('page', { name: uuid });
+}
+// Opens a page by its name (0.4.318); in the right sidebar when asked, where Logseq has to find it first.
+async function openPageNamed(name, inSidebar = false) {
+  if (!name) return;
+  if (inSidebar) { const found = await Promise.resolve(logseq.Editor.getPage(name)).catch(() => null); if (found?.uuid) return logseq.Editor.openInRightSidebar(found.uuid); }
+  logseq.App.pushState('page', { name });
 }
 
 /* Measuring, for the troubleshooting tools (parts/diagnostics.js). The core calls perf.* on its hot
@@ -558,18 +566,27 @@ function bar(doc, { count = 0, total = 0, actions = [], clear, all, cls } = {}) 
 }
 /* The hover card: a node's preview, every piece clickable (open(what, value): 'node', 'tag', 'day', 'prop' with the
    name, 'line' with the text). A browser popover of the hint kind, placed under what the pointer rests on. */
-function card({ at, title, tag: tagTitle, day, fields = [], lines = [], open, width = 300, cls = '', doc } = {}) {
+function card({ at, title, tag: tagTitle, day, fields = [], lines = [], empty = '', open, width = 300, cls = '', doc } = {}) {
   doc = doc || host();
   const p = popup({ at, doc, hint: true, cls: `rf-card${cls ? ' ' + cls : ''}`, width });
   const act = (what, value) => event => { event.preventDefault(); event.stopPropagation(); open?.(what, value, event); };
   const meta = [];
   if (tagTitle) meta.push(tag(doc, tagTitle, { href: '#', click: act('tag', tagTitle) }));
   if (day) { if (meta.length) meta.push(' · '); meta.push(el(doc, 'a', { href: '#', class: 'rf-card-day', click: act('day', day) }, day)); }
+  // A field is [name, value] or { name, uuid, values: [{ text, uuid }] }; a line a string or { uuid, text | html }.
+  const fieldRow = f => {
+    const name = Array.isArray(f) ? f[0] : f.name, values = Array.isArray(f) ? [{ text: f[1] }] : f.values || [];
+    const cell = el(doc, 'span');
+    values.forEach((v, i) => { if (i) cell.append(', '); cell.append(el(doc, 'a', { href: '#', click: act('value', { name, ...v }) }, v.text)); });
+    return [el(doc, 'a', { href: '#', class: 'rf-card-name', click: act('prop', Array.isArray(f) ? { name } : f) }, name), cell];
+  };
+  const lineRow = line => el(doc, 'a', { href: '#', class: 'rf-card-line', html: typeof line === 'object' && line.html ? line.html : null, click: act('line', line) }, typeof line === 'string' ? line : line.html ? null : line.text);
   p.body.append(
     el(doc, 'a', { href: '#', class: 'rf-card-title', click: act('node') }, title),
     meta.length ? el(doc, 'div', { class: 'rf-note' }, ...meta) : null,
-    fields.length ? el(doc, 'div', { class: 'rf-card-fields' }, ...fields.flatMap(([name, value]) => [el(doc, 'span', { class: 'rf-card-name' }, name), el(doc, 'a', { href: '#', click: act('prop', name) }, value)])) : null,
-    lines.length ? el(doc, 'div', { class: 'rf-card-lines' }, ...lines.map(line => el(doc, 'a', { href: '#', class: 'rf-card-line', click: act('line', line) }, line))) : null);
+    fields.length ? el(doc, 'div', { class: 'rf-card-fields' }, ...fields.flatMap(fieldRow)) : null,
+    lines.length ? el(doc, 'div', { class: 'rf-card-lines' }, ...lines.map(lineRow)) : null,
+    empty && !fields.length && !lines.length ? el(doc, 'div', { class: 'rf-note' }, empty) : null);
   return p;
 }
 
@@ -776,7 +793,9 @@ a.rf-tag:hover { border-bottom-color: currentColor; opacity: .9; }
 .rf-card-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 12px; row-gap: 4px; margin-top: 8px; }
 .rf-card-name { color: var(--rf-faint); }
 .rf-card-lines { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rf-hair); color: var(--rf-quiet); }
-.rf-card-line { display: block; }
+.rf-card-line { display: block; border-radius: 4px; margin: 0 -4px; padding: 0 4px; }
+.rf-card-line:hover { background: var(--rf-wash); text-decoration: none; }
+.rf-card-line::before { content: '• '; color: var(--rf-faint); }
 /* The quiet line and the help paragraph. */
 .rf-note { font-size: 12px; line-height: 1.45; color: var(--rf-faint); padding: 2px 0; }
 .rf-pop .rf-note { padding: 4px 8px; }
@@ -886,7 +905,7 @@ function modalHint(doc, text) {
 leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock, .refinement-prompt-backdrop' });
 
 window.refinementShared = {
-  host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, settingReader, graphNamedIn, perf, warnings,
+  host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, openPageNamed, settingReader, graphNamedIn, perf, warnings,
   kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
   modal, modalButtons, modalHint, placeBelow,
 };

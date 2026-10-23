@@ -29,7 +29,8 @@
    - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag,
      valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written
    - propTextValues, propNamed                                     turning a property into links (0.4.241)
-   - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles
+   - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles,
+     getPage, createPage, deletePage, appendBlock, removeBlock
                                                                     THE writes (0.4.315, docs/LAYERS.md layer 1): the one door a
                                                                     part writes the graph through; Logseq's own calls live here only */
 const shared = window.refinementShared;
@@ -610,12 +611,17 @@ const editBlock = (uuid, opts) => logseq.Editor.editBlock(uuid, opts);
 const exitEditing = () => logseq.Editor.exitEditingMode();
 const insertBlock = (uuid, text, opts) => logseq.Editor.insertBlock(uuid, text, opts);
 const currentPage = () => logseq.Editor.getCurrentPage();
+const getPage = key => logseq.Editor.getPage(key);
+const createPage = (name, props, opts) => logseq.Editor.createPage(name, props, opts);
+const deletePage = name => logseq.Editor.deletePage(name);
+const appendBlock = (pageUuid, text) => logseq.Editor.appendBlockInPage(pageUuid, text);
+const removeBlock = uuid => logseq.Editor.removeBlock(uuid);
 const currentGraph = () => Promise.resolve(logseq.App.getCurrentGraph?.()).catch(() => null);
 // Every tag's title, for a list to offer (the settings window).
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
 function provide(core) {
-  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles,
+  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,

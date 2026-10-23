@@ -108,7 +108,7 @@ async function scenes(page) {
       scripts: [`window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`, read('parts/shared.js'),
         exposeAtEnd(read('parts/two-way.js'), ['rowHtml', 'twoWayCss', 'state'], 'parts/two-way.js')],
       draw: async groups => {
-        const style = document.createElement('style'); style.textContent = window.__twoWayCss; document.head.append(style);
+        const style = document.createElement('style'); style.textContent = window.refinementShared.kitCss + window.__twoWayCss; document.head.append(style);
         window.__state.pageUuid = 'page-mei-chen';
         const box = document.createElement('div');
         box.className = 'refinement-two-way';

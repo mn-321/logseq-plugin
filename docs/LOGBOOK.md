@@ -2,6 +2,29 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The two-way rows on the kit (0.4.318)
+
+**Asked:** step 2 of `docs/LAYERS.md` section 4, sixth feature: "the two-way rows (rows on one set of columns, tags
+in mono, the bar as a line, the card with room)". **Done looks like:** Dr. Mei Chen's rows as on the views page;
+`parts/two-way.js` draws only its layout and calls Logseq nowhere. **Built:** the kit: `openPageNamed` (layer 1
+plumbing), the card takes fields as `{ name, uuid, values: [{ text, uuid }] }` and lines as `{ uuid, html }`, an
+`empty` note, and hands the event to `open(what, value, event)` so a link inside a line can be told apart; a line
+gets the wash under the pointer and a bullet. `parts/model.js`: `getPage`, `createPage`, `deletePage`,
+`appendBlock`, `removeBlock`. `parts/two-way.js` rewritten on the kit: `rf-tag` for tags (no #), `input.rf-check`
+for the pick boxes (the click is still the part's: preventDefault and redraw), `rf-bar` + `rf-count` + `rf-quiet`
+for the bar in the flow above the rows, `rf-chip[aria-pressed]` for the kinds, `iconHtml('fold' | 'to' | 'sidebar'
+| 'delete' | …)`, `rf-quiet rf-faint` for the + and "show all", `rf-field rf-field-inline` round the draft's input,
+`shared.popup` for the right-click menu (chosen marks), the where list (`manual`, Up/Down through `pop.lit`, Enter
+takes `item.act`) and the tag list; `ask` rebuilt on `shared.popup` with a field and `rows` (the options that fit,
+Enter takes the lit row or the words typed); `sure` is `shared.ask`; the card through `shared.card` with
+`hidePeek`/`hidePeekSoon` on its element; `saveSettings`, `model.*` doors, `onPageChange`/`onDatabaseChange`/
+`onSettingsChange` from the core; the stylesheet trimmed to the rows' layout in the kit's tokens (`--rf-faint`,
+`--rf-line`, `--rf-hair`, `--rf-wash`), the pick box, bar, chip, peek and chevron drawings gone. `tools/pictures.js`:
+the two-way scene with the kit's stylesheet (re-approved after looking: tags in mono at the right, the words for
+kinds, the font's chevron and arrow). README: a Two-way links line. The leaning baseline: two-way 0 and 0, names 2.
+**Checks:** boot, leaning, two-way-check on the real graph (109 links as the answer key), pictures, then
+`sh tools/check.sh` in full. **Seen:** in Logseq after a reload, as the CHANGELOG line says.
+
 ## 2026-10-22 · The settings window on the kit (0.4.317)
 
 **Asked:** step 2 of `docs/LAYERS.md` section 4, fifth feature: "the settings window (the browser's dialog, the

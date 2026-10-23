@@ -13,10 +13,17 @@
    should by default be unfolded"). Only your own Node properties count; tags, aliases and mentions in
    sentences stay in Linked references. Drawn for the page in the main view only (sidebar and records inside
    a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
-   (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings. */
+   (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings.
+   On the kit since 0.4.318 (docs/LAYERS.md; the pages): the rows keep their own layout (one set of columns: the
+   day where Logseq's values start, the name, the tag at the right edge, the tick box in the margin) and draw
+   everything else with the kit: a tag as a class (mono, no #), the tick box, the picking bar as a line of quiet
+   words above the rows, filters as words, the fold chevron and the arrow after a name from Logseq's font, the +
+   and the sidebar icon as quiet buttons, the draft line's field, the menus and the lists as the kit's pop-up
+   placed by the browser, a question beside what it asked, the hover card; the graph is read and written only
+   through the model's doors, the page and settings changes come from the core; no logseq.* call here. */
 const shared = window.refinementShared;
-const { host, openEntity, notify, modal, modalButtons, modalHint } = shared;
-const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way, .refinement-two-way-peek, .refinement-two-way-add, .refinement-two-way-ask' } });
+const { host, openEntity, openPageNamed, notify, esc, iconHtml } = shared;
+const { warnOnce, onUnload, runUnloadTasks } = shared.lifecycle({ prefix: 'Refinements (two-way): ', leaves: { elements: '.refinement-two-way' } });
 
 const settingsSchema = [
   { key: 'twoWayHeading', type: 'heading', group: 'reading', rank: 3, title: 'Two-way links', default: null,
@@ -24,7 +31,7 @@ const settingsSchema = [
     zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the ⇥ at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field; right-click it to change how it reads here. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo in the bar that follows). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the sidebar icon at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field; right-click it to change how it reads here. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo is the faded arrow after the row’s name). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”; a field ending in “by” or “of” loses it (“prescribed by” reads “prescribed”, “report of” reads “report”), and one ending in another joining word such as “to” or “with” reads the same both ways (“related to”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -33,16 +40,15 @@ const settingsSchema = [
     description: 'Below a page’s own text, Logseq lists the records that link to the page under a heading named after their tag (“Appointment”, “Project”), for tags with two-way links turned on. The rows above already show those records, with the field that links them, so on a page that has the rows the list is left out. Off: Logseq’s list shows as well.' },
 ];
 const setting = shared.settingReader(settingsSchema);
-let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn;
+let UUID, isEntityId, watchDomEarly, addsElements, sendStyle, provided, uuidsIn, saveSettings, onPageChange, onDatabaseChange, onSettingsChange, model;
 const take = (core, names) => shared.take(core, names, warnOnce);
-const esc = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
 // What is known about the page on screen: its uuid and one group per field that points at it.
 // byPage: each page's rows as last read this session, drawn at once when you come back to it (0.4.150).
 // indexed (0.4.182): every page's rows were read in one look-up, so a page not in byPage has none, and a page
 // opened for the first time gets its rows in the same frame as its title instead of half a second later.
 // open, all and only (0.4.184): per row, whether its list is open, shows every record, or only one kind ("Infusion").
-const state = window.refinementTwoWay = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '', picked: new Set(), lastPick: '' };
+const state = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '', picked: new Set(), lastPick: '' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 const dayText = day => {
@@ -91,12 +97,12 @@ function setBackwards(name, words) {
   // Back to how it reads anyway: no pair needed (a built-in name keeps a pair so the plain reading wins over it).
   if (words && (words.toLowerCase() !== plain.toLowerCase() || builtIn)) pairs.push([name, words]);
   if (!words && builtIn) pairs.push([name, plain]);
-  logseq.updateSettings({ twoWayNames: pairs.map(([field, said]) => `${field} = ${said}`).join('; ') });
+  saveSettings({ twoWayNames: pairs.map(([field, said]) => `${field} = ${said}`).join('; ') });
 }
 function setShownAtOtherEnd(name, shown) {
   const names = String(setting('twoWayOneEnd') || '').split(/[;\n]/).map(n => n.trim()).filter(n => n && n.toLowerCase() !== name.toLowerCase());
   if (!shown) names.push(name);
-  logseq.updateSettings({ twoWayOneEnd: names.join('; ') });
+  saveSettings({ twoWayOneEnd: names.join('; ') });
 }
 
 async function load() {
@@ -104,7 +110,7 @@ async function load() {
   let pageUuid = '', groups = [];
   try {
     if (setting('twoWayRows')) {
-      const page = await logseq.Editor.getCurrentPage();
+      const page = await model.currentPage();
       // A zoomed-in block comes back with a page of its own; only a page gets the rows.
       if (page && !page.page && isEntityId(page.id) && !page['journal?'] && !page.journalDay) {
         pageUuid = String(page.uuid || '');
@@ -198,7 +204,7 @@ function summary(items) {
 }
 const INLINE = 3, LISTED = 5;
 /* Moving around the rows (0.4.184, the + and the hovers 0.4.185, the owner asked for the rows to be more interactive). A record's line is
-   lit under the pointer and opens on a click anywhere along it; the ⇥ at its end opens it in the sidebar (as
+   lit under the pointer and opens on a click anywhere along it; the sidebar icon at its end opens it in the sidebar (as
    Shift-click does). Resting on a record shows a card with its fields and first lines (peek, below). The field's
    name opens the field's own page. In an open list, a row of kinds ("All 13 · Infusion 8 · Scan 1") shows only
    that kind, as does a kind at the end of a line; a line marked "earlier" parts what is coming up from what is
@@ -217,25 +223,26 @@ const recordLink = item => { const short = shortName(item.title); return `<a cla
 /* The + (as it was until 0.4.296, at the owner's word, 0.4.303: "return that code before we moved around the plus"): at the
    end of the last node of a short row, after the summary of a list, faint until the pointer is on the row. A click opens
    the line to type the new node in. Since 0.4.297 a short row's nodes span the row so their tags line up, so the + sits
-   just after the last node's date (or name). */
-const addLink = group => group.ident && state.draft?.field !== group.name ? `<a class="rf-tw-add" data-field="${esc(group.name)}" href="#" title="Add a${/^[aeiou]/i.test(kindsOf(group)[0] || '') ? 'n' : ''} ${esc(kindsOf(group)[0] || 'node')} with “${esc(group.name)}” set to this page">+</a>` : '';
-const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<span class="rf-tw-pick" data-pick="${esc(key)}" role="checkbox" aria-checked="${on}"${on ? ' data-on=""' : ''} title="Pick (Shift-click: every one from the last picked)"></span>`; };
+   just after the last node's date (or name). The kit's quiet faint button. */
+const addLink = group => group.ident && state.draft?.field !== group.name ? `<button type="button" class="rf-quiet rf-faint rf-tw-add" data-field="${esc(group.name)}" title="Add a${/^[aeiou]/i.test(kindsOf(group)[0] || '') ? 'n' : ''} ${esc(kindsOf(group)[0] || 'node')} with “${esc(group.name)}” set to this page">+</button>` : '';
+// The kit's tick box, in the margin left of the record (0.4.228; the kit's since 0.4.318).
+const pickBox = (group, item) => { const key = `${item.uuid}|${group.name}`, on = state.picked.has(key); return `<input type="checkbox" class="rf-check rf-tw-pick" data-pick="${esc(key)}"${on ? ' checked' : ''} aria-label="Pick" title="Pick (Shift-click: every one from the last picked)">`; };
 // A record's tag at the right opens the tag's page, Shift-click in the sidebar (0.4.297, the owner: "should be able to
-// click on tag in two-way area on right side"); the kind chips above an open list are what filter it.
-const tagLink = item => item.tag && item.tag !== 'note' ? `<a class="rf-tw-tag tag" data-tag-page="${esc(item.tag)}" href="#" title="Open #${esc(item.tag)} (Shift-click: in the sidebar)">#${esc(item.tag)}</a>` : `<span class="rf-tw-tag">${esc(item.tag)}</span>`;
-const sideLink = item => `<a class="rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)">⇥</a>`;
+// click on tag in two-way area on right side"); a tag reads as a class, mono with no # (the kit's tag, 0.4.318).
+const tagLink = item => item.tag && item.tag !== 'note' ? `<a class="rf-tag rf-tw-tag" data-tag-page="${esc(item.tag)}" href="#" title="Open ${esc(item.tag)} (Shift-click: in the sidebar)">${esc(item.tag)}</a>` : `<span class="rf-tag rf-tw-tag">${esc(item.tag)}</span>`;
+const sideLink = item => `<a class="rf-quiet rf-tw-side" data-uuid="${esc(item.uuid)}" href="#" title="Open in the sidebar (or Shift-click the name)" aria-label="Open in the sidebar">${iconHtml('sidebar')}</a>`;
 function rowHtml(group) {
   const key = `${state.pageUuid}|${group.name}`;
   const tip = `“${esc(group.name)}” on the records listed here points to this page. Change it on the record.`;
-  const label = `${esc(group.label)}<span class="rf-tw-arrow">→</span>`;
+  const label = `${esc(group.label)}<span class="rf-tw-arrow">${iconHtml('to')}</span>`;
   // A row that folds has its chevron just before its list, in the room left of the values (0.4.195, the owner's ask).
-  const fold = group.items.length > INLINE ? `<a class="rf-tw-fold" data-key="${esc(key)}" href="#" title="${isOpen(key) ? 'Fold the list' : 'Open the list'}" aria-label="${isOpen(key) ? 'Fold' : 'Open'} ${esc(group.label)}"><span class="rf-tw-chevron"></span></a>` : '';
+  const fold = group.items.length > INLINE ? `<a class="rf-quiet rf-tw-fold" data-key="${esc(key)}" href="#" title="${isOpen(key) ? 'Fold the list' : 'Open the list'}" aria-label="${isOpen(key) ? 'Fold' : 'Open'} ${esc(group.label)}">${iconHtml('fold')}</a>` : '';
   const name = group.fieldUuid
     ? `<div class="rf-tw-name"><a class="rf-tw-field" data-uuid="${esc(group.fieldUuid)}" href="#" title="${tip} Click to open the “${esc(group.name)}” field.">${label}</a></div>`
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
     const dateFirst = orderOf(group) === 'date';
-    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day rf-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -246,16 +253,17 @@ function rowHtml(group) {
   const shown = all ? items : items.slice(0, LISTED);
   let list = '';
   if (open) {
-    const chip = (tag, text) => `<a class="rf-tw-chip" data-key="${esc(key)}" data-tag="${esc(tag)}" href="#"${tag === only ? ' data-on=""' : ''}>${esc(text)}</a>`;
+    // The kinds as the kit's filter words: the one in force in the text colour.
+    const chip = (tag, text) => `<button type="button" class="rf-chip rf-tw-chip" data-key="${esc(key)}" data-tag="${esc(tag)}" aria-pressed="${tag === only}">${esc(text)}</button>`;
     const chips = counts.size > 1 ? `<div class="rf-tw-chips">${chip('', `All ${group.items.length}`)}${[...counts].sort((a, b) => b[1] - a[1]).map(([tag, n]) => chip(tag, `${tag} ${n}`)).join('')}</div>` : '';
     const today = todayNumber();
     const lines = shown.map((item, i) => {
-      const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier">earlier</div>' : '';
+      const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier rf-note">earlier</div>' : '';
       const tag = tagLink(item);
-      if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>`;
-      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
+      if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>`;
+      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
     }).join('');
-    const more = items.length > LISTED ? `<a class="rf-tw-more" data-key="${esc(key)}" href="#">${all ? 'show fewer' : `show all ${items.length}`}</a>` : '';
+    const more = items.length > LISTED ? `<button type="button" class="rf-quiet rf-faint rf-tw-more" data-key="${esc(key)}">${all ? 'show fewer' : `show all ${items.length}`}</button>` : '';
     list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
   }
   return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}${addLineHtml(group)}</div>`;
@@ -283,9 +291,9 @@ function setOpen(key, open) {
 
 /* Peek (0.4.184): resting the pointer on a record for a moment shows a card beside it, with the record's tag and
    day, its fields (the one that points here left out) and its first lines, read when asked and kept until the
-   graph changes. It goes when the pointer leaves the record and the card. */
+   graph changes. It goes when the pointer leaves the record and the card. The card is the kit's (0.4.318). */
 const PEEK_MS = 450;
-const peek = { timer: 0, hide: 0, el: null, uuid: '', anchor: null, cache: new Map() };
+const peek = { timer: 0, hide: 0, card: null, uuid: '', anchor: null, cache: new Map() };
 /* Every piece of the card opens what it names (0.4.262, the owner: "make the different links and elements of the hover
    clickable"): the title the node itself, its tag the tag's page, a property's name the property's page, a value the
    page it points to, a line the bullet it is, a link in a line its page; Shift-click opens it in the right sidebar.
@@ -308,26 +316,15 @@ async function peekData(uuid, field) {
   peek.cache.set(key, data);
   return data;
 }
-// A piece that opens a node by uuid, or a page by its name.
-const opens = (html, uuid, page) => uuid ? `<span class="rf-tw-peek-open" data-open-uuid="${esc(uuid)}">${html}</span>` : page ? `<span class="rf-tw-peek-open" data-open-page="${esc(page)}">${html}</span>` : html;
 // A line's words with its links open: [[Page]] as Page, [words]([[Page]]) as words, each opening the page.
 function lineHtml(text) {
   const short = text.length > 140 ? text.slice(0, 139) + '…' : text;
   let html = '', at = 0;
   for (const m of short.matchAll(/\[([^\[\]]+)\]\(\[\[([^\]]+)\]\]\)|\[\[([^\]]+)\]\]/g)) {
-    html += esc(short.slice(at, m.index)) + opens(esc(m[1] ?? m[3]), '', m[2] ?? m[3]);
+    html += esc(short.slice(at, m.index)) + `<span class="rf-tw-peek-open" data-open-page="${esc(m[2] ?? m[3])}">${esc(m[1] ?? m[3])}</span>`;
     at = m.index + m[0].length;
   }
   return html + esc(short.slice(at));
-}
-function peekHtml(item, field, data) {
-  const meta = [item.tag && item.tag !== 'note' ? opens(esc('#' + item.tag), '', item.tag) : '', item.day ? esc(dayText(item.day)) : ''].filter(Boolean).join(' · ');
-  const head = `<div class="rf-tw-peek-title">${opens(esc(item.title), item.uuid)}</div><div class="rf-tw-peek-meta">${meta}</div>`;
-  // The record's own day is in the line above already.
-  const fields = data.rows.filter(row => !item.day || row.values.map(v => v.text).join(', ') !== dayText(item.day));
-  const rows = fields.length ? `<div class="rf-tw-peek-fields">${fields.map(row => `<span class="rf-tw-peek-name">${opens(esc(row.name), row.uuid)}</span><span>${row.values.map(v => opens(esc(v.text), v.uuid)).join(', ')}</span>`).join('')}</div>` : '';
-  const lines = data.lines.length ? `<div class="rf-tw-peek-lines">${data.lines.map(line => `<div class="rf-tw-peek-line" data-open-uuid="${esc(line.uuid)}">${lineHtml(line.text)}</div>`).join('')}</div>` : '';
-  return head + rows + lines + (rows || lines ? '' : '<div class="rf-tw-peek-meta">Nothing else written on it yet.</div>');
 }
 function findItem(uuid, rowEl) {
   const group = state.groups.find(g => g.name === rowEl?.dataset.field);
@@ -337,7 +334,7 @@ function onOver(event) {
   const link = event.target.closest?.('a.rf-tw-record');
   if (!link) return;
   clearTimeout(peek.hide);
-  if (peek.anchor === link && peek.el?.isConnected) return;
+  if (peek.anchor === link && peek.card && !peek.card.isClosed) return;
   clearTimeout(peek.timer);
   peek.timer = setTimeout(() => showPeek(link).catch(error => warnOnce('could not show the record card', error)), PEEK_MS);
 }
@@ -346,15 +343,14 @@ function onOut(event) {
   clearTimeout(peek.timer);
   hidePeekSoon();
 }
-// A page by its name: its uuid from the page list, else Logseq finds it by name.
+// A page by its name: its uuid from the page list, else Logseq finds it by name (openPageNamed, parts/shared.js).
 async function openPage(name, inSidebar) {
   const page = (await provided.propPages().catch(() => [])).find(p => p.lower === name.toLowerCase());
   if (page?.uuid) return openEntity(page.uuid, inSidebar);
-  if (inSidebar) { const found = await logseq.Editor.getPage(name).catch(() => null); if (found?.uuid) return logseq.Editor.openInRightSidebar(found.uuid); }
-  logseq.App.pushState('page', { name });
+  return openPageNamed(name, inSidebar);
 }
 const hidePeekSoon = () => { clearTimeout(peek.hide); peek.hide = setTimeout(hidePeek, 200); };
-function hidePeek() { clearTimeout(peek.timer); clearTimeout(peek.hide); peek.el?.remove(); peek.el = null; peek.anchor = null; }
+function hidePeek() { clearTimeout(peek.timer); clearTimeout(peek.hide); peek.card?.close(); peek.card = null; peek.anchor = null; }
 async function showPeek(link) {
   const { group, item } = findItem(link.dataset.uuid, link.closest('.rf-tw-row'));
   if (!item) return;
@@ -362,27 +358,26 @@ async function showPeek(link) {
   if (!link.isConnected || !link.matches(':hover')) return;
   const doc = link.ownerDocument;
   hidePeek();
-  const el = peek.el = doc.createElement('div');
-  el.className = 'refinement-two-way-peek rf-pop';
-  el.innerHTML = peekHtml(item, group.name, data);
-  el.addEventListener('mouseenter', () => clearTimeout(peek.hide));
-  el.addEventListener('mouseleave', hidePeekSoon);
-  el.addEventListener('mousedown', event => event.stopPropagation());
-  el.addEventListener('click', event => {
-    event.preventDefault(); event.stopPropagation();
-    // The innermost piece that names something: a link in a line before the line it is in.
-    const piece = event.target.closest?.('[data-open-page], [data-open-uuid]');
-    const page = piece?.dataset.openPage, uuid = piece?.dataset.openUuid || item.uuid;
-    hidePeek();
-    if (page) openPage(page, event.shiftKey); else openEntity(uuid, event.shiftKey);
-  });
-  doc.body.appendChild(el);
+  // The record's own day is in the line above already.
+  const fields = data.rows.filter(row => !item.day || row.values.map(v => v.text).join(', ') !== dayText(item.day));
+  const card = peek.card = shared.card({ doc, at: link, title: item.title, tag: item.tag && item.tag !== 'note' ? item.tag : '', day: item.day ? dayText(item.day) : '',
+    fields: fields.map(row => ({ name: row.name, uuid: row.uuid, values: row.values })),
+    lines: data.lines.map(line => ({ uuid: line.uuid, html: lineHtml(line.text) })),
+    empty: fields.length || data.lines.length ? '' : 'Nothing else written on it yet.',
+    open: (what, value, event) => {
+      // The innermost piece that names something: a link in a line before the line it is in.
+      const page = event?.target?.closest?.('[data-open-page]')?.dataset.openPage;
+      hidePeek();
+      if (page) return openPage(page, event.shiftKey);
+      if (what === 'tag') return openPage(value, event.shiftKey);
+      if (what === 'prop') return value?.uuid ? openEntity(value.uuid, event.shiftKey) : openEntity(item.uuid, event.shiftKey);
+      if (what === 'value' || what === 'line') return openEntity(value?.uuid || item.uuid, event.shiftKey);
+      return openEntity(item.uuid, event.shiftKey);
+    } });
+  card.el.classList.add('refinement-two-way-peek');
+  card.el.addEventListener('mouseenter', () => clearTimeout(peek.hide));
+  card.el.addEventListener('mouseleave', hidePeekSoon);
   peek.anchor = link;
-  const at = link.getBoundingClientRect(), size = el.getBoundingClientRect(), win = doc.defaultView;
-  const left = Math.max(8, Math.min(at.left, win.innerWidth - size.width - 8));
-  const below = at.bottom + 6 + size.height < win.innerHeight - 8;
-  el.style.left = `${Math.round(left)}px`;
-  el.style.top = `${Math.round(below ? at.bottom + 6 : Math.max(8, at.top - 6 - size.height))}px`;
 }
 
 // The page's own property list in the main view (not one inside a record, a reference or the sidebar).
@@ -498,19 +493,19 @@ function draw(doc) {
 // when elements came or went, or while a page settles.
 const drawEarly = (doc, records) => { if (performance.now() - settle.since < SETTLE_MS || addsElements(records)) draw(doc); };
 function onClick(event) {
-  const pickEl = event.target.closest?.('.rf-tw-bar button') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
+  const pickEl = event.target.closest?.('.rf-tw-bar [data-act]') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
   if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act, pickEl) : togglePick(pickEl, event.shiftKey); }
   // A click that just misses the box, anywhere in the room left of the record, ticks it too (0.4.297, the owner: "make
   // checkbox tap area bigger"): before, it opened the record and took you off the page.
-  const rowEl = !event.target.closest?.('a') && event.target.closest?.('.rf-tw-line, .rf-tw-item');
+  const rowEl = !event.target.closest?.('a, button') && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   const first = rowEl && rowEl.querySelector(':scope > :not(.rf-tw-pick)');
   const box = rowEl && rowEl.querySelector(':scope > .rf-tw-pick');
   if (box && first && event.clientX < first.getBoundingClientRect().left) { event.preventDefault(); event.stopPropagation(); hidePeek(); return togglePick(box, event.shiftKey); }
   const plus = event.target.closest?.('.rf-tw-add');
   if (plus) { event.preventDefault(); event.stopPropagation(); hidePeek(); const group = state.groups.find(g => g.name === plus.dataset.field); if (group) { closeAdd(); draftFor(group); draw(host()); focusDraft(); } return; }
   const lineEl = event.target.closest?.('.rf-tw-draft');
-  if (lineEl && !event.target.closest('a, input')) { lineEl.querySelector('.rf-tw-draft-field')?.focus(); return; }
-  const target = event.target.closest?.('a');
+  if (lineEl && !event.target.closest('a, input, button')) { lineEl.querySelector('.rf-tw-draft-field')?.focus(); return; }
+  const target = event.target.closest?.('a, button');
   const line = !target && event.target.closest?.('.rf-tw-line, .rf-tw-item');
   if (!target && !line) return;
   event.preventDefault(); event.stopPropagation();
@@ -518,7 +513,7 @@ function onClick(event) {
   if (line) return openEntity(line.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-record, .rf-tw-field')) return openEntity(target.dataset.uuid, event.shiftKey);
   if (target.matches('.rf-tw-side')) return openEntity(target.dataset.uuid, true);
-  if (target.matches('a.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
+  if (target.matches('.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
   if (target.matches('[data-draft="tag"]')) return tagList(target);
   const key = target.dataset.key;
   if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
@@ -540,41 +535,28 @@ const offerUndo = (text, run, field) => shared.undo.offer({ key: `two-way:${++un
 /* Right-click a row's name to change how it reads here (0.4.237, the owner: "I should be able to right click
    “report of of” and edit display name"). Saved in "Fields read backwards", as the tag map's box does; empty goes
    back to how the name reads by itself. Undo is the arrow after the row's name. */
-/* Since 0.4.304 the right-click opens a short menu under the name, the plugin's one pop-up: Date first, Name first (the one
-   in use lit), then Rename how it reads…, which opens the box as before. */
+/* Since 0.4.304 the right-click opens a short menu under the name, the kit's pop-up: Date first, Name first (the one
+   in use ticked), then Rename how it reads…, which opens the question under the name. */
 function onRename(event) {
   const nameEl = event.target.closest?.('.rf-tw-name');
   const group = nameEl && state.groups.find(g => g.name === nameEl.closest('.rf-tw-row')?.dataset.field);
   if (!group) return;
   event.preventDefault(); event.stopPropagation(); hidePeek(); closeAdd();
-  const doc = nameEl.ownerDocument, el = adding.el = doc.createElement('div');
-  el.className = 'rf-pop refinement-two-way-add';
   const now = orderOf(group);
-  const row = (act, text, on) => `<div class="rf-pop-row${on ? ' rf-on' : ''}" data-act="${act}"><span>${text}</span>${on ? '<span class="rf-pop-kind">✓</span>' : ''}</div>`;
-  el.innerHTML = `<div class="rf-pop-head">${esc(group.label)}</div>${row('date', 'Date first', now === 'date')}${row('name', 'Name first', now === 'name')}<hr>${row('rename', 'Rename how it reads…', false)}`;
-  el.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
-  el.addEventListener('click', ev => {
-    const pick = ev.target.closest('[data-act]');
-    if (!pick) return;
-    ev.preventDefault(); ev.stopPropagation();
-    closeAdd();
-    if (pick.dataset.act === 'rename') return renameRow(group, nameEl).catch(error => warnOnce('could not rename the row', error));
-    setOrder(group.name, pick.dataset.act);
-    state.html = null; draw(host());
-  });
-  doc.body.appendChild(el);
-  // Under the name's words: the name's own box stretches to the row's height.
-  const words = nameEl.querySelector('.rf-tw-arrow') || nameEl, box = nameEl.getBoundingClientRect(), line = words.getBoundingClientRect();
-  shared.placeBelow(el, { getBoundingClientRect: () => ({ left: box.left + 15, right: line.right, top: line.top, bottom: line.bottom }) });
-  const away = ev => { if (!adding.el) return doc.removeEventListener('mousedown', away, true); if (!adding.el.contains(ev.target)) { closeAdd(); doc.removeEventListener('mousedown', away, true); } };
-  doc.addEventListener('mousedown', away, true);
+  const pick = order => { setOrder(group.name, order); state.html = null; draw(host()); };
+  adding.pop = shared.popup({ at: nameEl.querySelector('.rf-tw-field') || nameEl, head: group.label, width: 220, onClose: () => { adding.pop = null; }, items: [
+    { label: 'Date first', chosen: now === 'date', run: () => pick('date') },
+    { label: 'Name first', chosen: now === 'name', run: () => pick('name') },
+    { sep: true },
+    { icon: 'rename', label: 'Rename how it reads…', run: () => { renameRow(group, nameEl).catch(error => warnOnce('could not rename the row', error)); } },
+  ] });
 }
 async function renameRow(group, nameEl) {
   const before = backwardsLabel(group.name);
-  const typed = await ask(`How “${group.name}” reads on the page it points to`, `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, [], 'Save', before, true, nameEl);
-  if (typed == null || typed === before) return;
-  setBackwards(group.name, typed);
-  offerUndo(typed ? `“${group.name}” now reads “${typed}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before), group.name);
+  const typed = await shared.ask({ at: nameEl, question: `How “${group.name}” reads on the page it points to`, note: `Empty: back to “${plainBackwards(group.name).toLowerCase()}”. Changes it on every page.`, go: 'Save', field: { value: before, placeholder: 'How it reads here' } });
+  if (typed == null || typed.trim() === before) return;
+  setBackwards(group.name, typed.trim());
+  offerUndo(typed.trim() ? `“${group.name}” now reads “${typed.trim()}” here` : `“${group.name}” reads as it does by itself again`, () => setBackwards(group.name, before), group.name);
 }
 
 /* Adding from the far end (0.4.185, the owner's pick of "Add only"): the + at the end of a row opens a small box,
@@ -588,11 +570,11 @@ async function renameRow(group, nameEl) {
    page"). Under each row a quiet line; with the pointer on the row a + shows at its left and the words "Add a …".
    Typing there is the new node's name. Enter: where most of the linked nodes are pages, the page is made at once;
    otherwise a second field takes its place on the line, asking where it goes, with today's journal, this page and the
-   pages matching what is typed as rows under it (the plugin's one pop-up); Enter takes the lit one. The tag it gets
-   sits at the line's right in the tags' column, a click lists the others. Escape steps back, then drops it. The faded
+   pages matching what is typed as rows under it (the kit's pop-up); Enter takes the lit one. The tag it gets sits
+   at the line's right in the tags' column, a click lists the others. Escape steps back, then drops it. The faded
    arrow by the row's name takes a made node away. */
-const adding = { el: null };
-function closeAdd() { adding.el?.remove(); adding.el = null; }
+const adding = { pop: null };
+function closeAdd() { adding.pop?.close(); adding.pop = null; }
 const pageTitleNow = () => named.uuid === state.pageUuid && named.title ? named.title : 'this page';
 function kindsOf(group) {
   const counts = new Map();
@@ -614,11 +596,11 @@ function addLineHtml(group) {
   // shown with the pointer on the row, it takes no room; the line comes only once it is clicked.
   if (!d) return '';
   const kind = d ? d.kind : kindsOf(group)[0] || '';
-  const tag = `<a class="rf-tw-tag tag rf-tw-draft-tag" href="#" data-draft="tag" title="The tag it gets (click for the others)">${kind ? '#' + esc(kind) : 'no tag'}</a>`;
+  const tag = `<a class="rf-tag rf-tw-tag rf-tw-draft-tag" href="#" data-draft="tag" title="The tag it gets (click for the others)">${kind ? esc(kind) : 'no tag'}</a>`;
   const field = d?.step === 'where'
-    ? `<span class="rf-tw-draft-typed">${esc(d.name)}</span><input type="text" class="rf-tw-draft-field rf-tw-draft-where" placeholder="Where? Enter: today’s journal" spellcheck="false" aria-label="Where the new node goes">`
-    : `<input type="text" class="rf-tw-draft-field rf-tw-draft-name" placeholder="Add a${/^[aeiou]/i.test(kind) ? 'n' : ''} ${esc(kind || 'node')}" spellcheck="false" aria-label="Name of a new node">`;
-  return `<div class="rf-tw-draft rf-tw-drafting" data-field="${esc(group.name)}"><span class="rf-tw-draft-plus" aria-hidden="true">+</span><span class="rf-tw-draft-main">${field}</span>${tag}</div>`;
+    ? `<span class="rf-tw-draft-typed">${esc(d.name)}</span><span class="rf-field rf-field-inline"><input type="text" class="rf-tw-draft-field rf-tw-draft-where" placeholder="Where? Enter: today’s journal" spellcheck="false" aria-label="Where the new node goes"></span>`
+    : `<span class="rf-field rf-field-inline"><input type="text" class="rf-tw-draft-field rf-tw-draft-name" placeholder="Add a${/^[aeiou]/i.test(kind) ? 'n' : ''} ${esc(kind || 'node')}" spellcheck="false" aria-label="Name of a new node"></span>`;
+  return `<div class="rf-tw-draft rf-tw-drafting" data-field="${esc(group.name)}"><span class="rf-tw-draft-plus rf-faint" aria-hidden="true">+</span><span class="rf-tw-draft-main">${field}</span>${tag}</div>`;
 }
 // The line is drawn again with the rows; what was typed and the caret come back with it.
 function keepDraft(box) {
@@ -652,12 +634,12 @@ function onDraftKey(event) {
     else { dropDraft(); event.target.blur?.(); }
   } else if (onWhere && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
     event.preventDefault();
-    const rows = adding.el?.querySelectorAll('[data-act]').length || 0;
-    if (rows) { d.lit = (d.lit + (event.key === 'ArrowDown' ? 1 : rows - 1)) % rows; whereList(event.target); }
+    const rows = adding.pop?.body.querySelectorAll('.rf-item').length || 0;
+    if (rows) { d.lit = (d.lit + (event.key === 'ArrowDown' ? 1 : rows - 1)) % rows; adding.pop.lit(d.lit); }
   } else if (event.key === 'Enter') {
     event.preventDefault();
     if (!d?.name.trim()) return;
-    if (onWhere) { const lit = adding.el?.querySelectorAll('[data-act]')[d.lit]; return makeDraft(lit?.dataset.act || 'journal', event.metaKey || event.ctrlKey); }
+    if (onWhere) { const lit = adding.pop?.body.querySelectorAll('.rf-item')[d.lit]; return makeDraft(lit?.item?.act || 'journal', event.metaKey || event.ctrlKey); }
     if (d.asPage) return makeDraft('page-itself', event.metaKey || event.ctrlKey);
     d.step = 'where'; d.lit = 0;
     draw(host()); focusDraft();
@@ -668,29 +650,23 @@ let pagesRead = null;
 async function whereList(field) {
   const d = state.draft;
   if (!d || d.step !== 'where' || !field.isConnected) return;
-  const doc = field.ownerDocument;
-  if (!adding.el) {
-    const el = adding.el = doc.createElement('div');
-    el.className = 'rf-pop refinement-two-way-add';
-    el.addEventListener('mousedown', event => { event.preventDefault(); event.stopPropagation(); });
-    el.addEventListener('click', event => { const pick = event.target.closest('[data-act]'); if (pick) { event.preventDefault(); event.stopPropagation(); makeDraft(pick.dataset.act, event.metaKey); } });
-    doc.body.appendChild(el);
-  }
   pagesRead ||= await provided.propPages().catch(() => []);
-  if (!adding.el || state.draft !== d) return;
+  if (state.draft !== d || !field.isConnected) return;
   const q = d.where.trim().toLowerCase();
-  const rows = [['journal', 'Today’s journal'], ['here', pageTitleNow()]].filter(([, text]) => !q || text.toLowerCase().includes(q));
-  if (q) for (const p of pagesRead.filter(p => p.lower.includes(q) && p.uuid !== state.pageUuid).sort((a, b) => (b.lower.startsWith(q) - a.lower.startsWith(q)) || a.lower.length - b.lower.length).slice(0, 6)) rows.push(['page:' + p.title, p.title]);
+  const rows = [['journal', 'Today’s journal', 'date'], ['here', pageTitleNow(), 'page']].filter(([, text]) => !q || text.toLowerCase().includes(q));
+  if (q) for (const p of pagesRead.filter(p => p.lower.includes(q) && p.uuid !== state.pageUuid).sort((a, b) => (b.lower.startsWith(q) - a.lower.startsWith(q)) || a.lower.length - b.lower.length).slice(0, 6)) rows.push(['page:' + p.title, p.title, 'page']);
   d.lit = Math.min(d.lit, Math.max(0, rows.length - 1));
-  adding.el.innerHTML = rows.length ? rows.map(([act, text], i) => `<div class="rf-pop-row${i === d.lit ? ' rf-on' : ''}" data-act="${esc(act)}"><span>${esc(text)}</span></div>`).join('') : '<div class="rf-pop-note">No page by that name</div>';
-  shared.placeBelow(adding.el, field);
+  const items = rows.length ? rows.map(([act, text, name]) => ({ icon: name, label: text, act, run: item => makeDraft(item.act, false) })) : [{ note: 'No page by that name' }];
+  if (!adding.pop || adding.pop.isClosed) adding.pop = shared.popup({ at: field.closest('.rf-field') || field, manual: true, cls: 'refinement-two-way-add', width: 260, items, onClose: () => { adding.pop = null; } });
+  else adding.pop.items(items);
+  if (rows.length) adding.pop.lit(d.lit);
 }
 async function makeDraft(target, open) {
   const d = state.draft, group = d && state.groups.find(g => g.name === d.field);
   if (!group) return dropDraft();
   const name = d.name.trim();
   if (!name) return focusDraft();
-  const page = await logseq.Editor.getPage(state.pageUuid).catch(() => null);
+  const page = await model.getPage(state.pageUuid).catch(() => null);
   if (!page?.id) return notify('This page could not be read, so nothing was added', 'warning');
   const asPage = target === 'page-itself';
   const where = asPage || target === 'journal' ? 'journal' : target === 'here' ? 'here' : 'page';
@@ -699,7 +675,7 @@ async function makeDraft(target, open) {
   try { await addRecord({ group, page, name, kind: d.kind, open, asPage, where, other }); }
   catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
 }
-// The other tags, under the tag at the line's right.
+// The other tags, under the tag at the line's right: the kit's pop-up, the one in force ticked.
 function tagList(anchor) {
   const line = anchor.closest('.rf-tw-draft'), group = state.groups.find(g => g.name === line?.dataset.field);
   if (!group) return;
@@ -707,17 +683,11 @@ function tagList(anchor) {
   const d = draftFor(group);
   draw(host());
   const at = state.box?.querySelector(`.rf-tw-draft[data-field="${CSS.escape(d.field)}"] .rf-tw-draft-tag`) || anchor;
-  const doc = at.ownerDocument, el = adding.el = doc.createElement('div');
-  el.className = 'rf-pop refinement-two-way-add';
-  el.innerHTML = [...d.kinds, ''].map(k => `<div class="rf-pop-row${k === d.kind ? ' rf-on' : ''}" data-kind="${esc(k)}"><span>${k ? '#' + esc(k) : 'no tag'}</span></div>`).join('');
-  el.addEventListener('mousedown', event => { event.preventDefault(); event.stopPropagation(); });
-  el.addEventListener('click', event => { const pick = event.target.closest('[data-kind]'); if (!pick) return; event.preventDefault(); event.stopPropagation(); d.kind = pick.dataset.kind; closeAdd(); draw(host()); focusDraft(); });
-  doc.body.appendChild(el);
-  shared.placeBelow(el, at);
-  el.style.left = `${Math.round(Math.max(8, at.getBoundingClientRect().right - el.getBoundingClientRect().width))}px`;
+  adding.pop = shared.popup({ at, cls: 'refinement-two-way-add', width: 200, onClose: () => { adding.pop = null; },
+    items: [...d.kinds, ''].map(k => ({ icon: k ? 'tag' : null, label: k || 'no tag', faint: !k, chosen: k === d.kind, run: () => { d.kind = k; draw(host()); focusDraft(); } })) });
 }
 async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '', edit = false }) {
-  if (asPage && await logseq.Editor.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
+  if (asPage && await model.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
   const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
   let tagUuid = '';
   if (kind) {
@@ -725,10 +695,10 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
   }
   let block, undo;
   if (asPage) {
-    block = await logseq.Editor.createPage(name, {}, { redirect: false, createFirstBlock: false });
+    block = await model.createPage(name, {}, { redirect: false, createFirstBlock: false });
     if (!block?.uuid) throw new Error('the page was not made');
     // By name, as Properties in the line does: Logseq 2.0.2 left the page in place when asked by its uuid here.
-    undo = async () => { await logseq.Editor.deletePage(name); later(300); };
+    undo = async () => { await model.deletePage(name); later(300); };
     // A page made now is not in the look-up of every page: it has no rows of its own yet.
     state.byPage.set(String(block.uuid), []);
   } else {
@@ -736,7 +706,7 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
     let target = '';
     if (where === 'here') target = String(page.uuid);
     else if (where === 'page') {
-      const found = (await provided.propPages()).find(p => p.lower === other.toLowerCase()) || await logseq.Editor.getPage(other).catch(() => null);
+      const found = (await provided.propPages()).find(p => p.lower === other.toLowerCase()) || await model.getPage(other).catch(() => null);
       if (!found?.uuid) return notify(`There is no page named “${other}”, so nothing was added`, 'warning');
       target = String(found.uuid);
     } else {
@@ -745,37 +715,37 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
       target = journalId ? String(await provided.uuidById(journalId)) : '';
       if (!target) throw new Error('no journal page for today');
     }
-    block = await logseq.Editor.appendBlockInPage(target, name);
+    block = await model.appendBlock(target, name);
     if (!block?.uuid) throw new Error('the block was not made');
-    undo = async () => { await logseq.Editor.removeBlock(block.uuid); later(300); };
+    undo = async () => { await model.removeBlock(block.uuid); later(300); };
   }
   try {
-    if (tagUuid) await logseq.Editor.addBlockTag(block.uuid, tagUuid);
-    if (prop?.many) await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, [page.id], { entityId: true, reset: true });
-    else await logseq.Editor.upsertBlockProperty(block.uuid, group.ident, page.id, { entityId: true });
+    if (tagUuid) await model.addTag(block.uuid, tagUuid);
+    if (prop?.many) await model.setValue(block.uuid, group.ident, [page.id], { entityId: true, reset: true });
+    else await model.setValue(block.uuid, group.ident, page.id, { entityId: true });
   } catch (error) { await undo().catch(() => {}); throw error; }
   later(300);
   offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : where === 'here' ? ' to this page' : where === 'page' ? ` to ${other}` : ' to today’s journal'}`, undo, group.name);
   if (open) openEntity(block.uuid, true);
   // Into its words at once (0.4.302): the sidebar draws it a moment after it opens.
-  if (edit && !asPage) { const uuid = block.uuid; window.refinementCore.screen.waitFor(() => host().querySelector(`#right-sidebar .ls-block[blockid="${uuid}"]`), 3000).then(found => found && logseq.Editor.editBlock(uuid, { pos: 0 })).catch(error => warnOnce('the new record could not be put in edit', error)); }
+  if (edit && !asPage) { const uuid = block.uuid; window.refinementCore.screen.waitFor(() => host().querySelector(`#right-sidebar .ls-block[blockid="${uuid}"]`), 3000).then(found => found && model.editBlock(uuid, { pos: 0 })).catch(error => warnOnce('the new record could not be put in edit', error)); }
 }
 
 /* Picking records and acting on them together (0.4.228, the owner's ask: "selected in groups and be acted on", like
    Logseq's own tables). A tick box before each record, shown under the pointer and on every record while any is
    ticked; Shift-click ticks every record from the last one ticked. A pick is a record under one field ("uuid|field"),
-   since a record can point here through two fields. The bar above the rows, as Logseq's table has: how many are
-   picked, then open in the sidebar, point to another page, take the link off (these two through the picked record's
-   own field), add a tag, copy, set a property, clear a property, delete. Every change but delete has Undo in the bar
-   at the bottom; delete asks first. Escape or the bar's box clears the picks; going to another page does too. */
-const TRASH = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+   since a record can point here through two fields. The bar above the rows, the kit's: how many are picked with its
+   tick box, then open in the sidebar, point to another page, take the link off (these two through the picked
+   record's own field), add a tag, copy, set a property, clear a property, delete, as quiet words with their icons,
+   and Clear. Every change but delete has Undo (the faded arrow); delete asks first. Escape or the bar's box clears
+   the picks; going to another page does too. */
 function barHtml() {
   if (!state.picked.size) return '';
-  const b = (act, text, title) => `<button type="button" data-act="${act}" title="${esc(title)}">${text}</button>`;
-  return `<div class="rf-tw-bar"><button type="button" data-act="clear" class="rf-tw-bar-count" title="Clear the picks (Escape)"><span class="rf-tw-pick" data-on=""></span>Picked: ${state.picked.size}</button>${
-    b('sidebar', 'Sidebar', 'Open them in the sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one')}${
-    b('unlink', `Remove “${esc(pageTitle())}”`, 'Take this page out of their field')}${b('tag', '#', 'Add a tag')}${b('copy', 'Copy', 'Copy them as references')}${
-    b('set', 'Set property', 'Give them all one value')}${b('unset', 'Unset property', 'Clear a property on them all')}${b('delete', TRASH, 'Delete them')}</div>`;
+  const b = (act, text, title, name) => `<button type="button" class="rf-quiet" data-act="${act}" title="${esc(title)}">${name ? iconHtml(name) : ''}${text}</button>`;
+  return `<div class="rf-bar rf-tw-bar"><label class="rf-count"><input type="checkbox" class="rf-check" checked data-act="clear" title="Clear the picks (Escape)" aria-label="Clear the picks">${state.picked.size} picked</label>${
+    b('sidebar', 'Sidebar', 'Open them in the sidebar', 'sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one', '')}${
+    b('unlink', `Remove “${esc(pageTitle())}”`, 'Take this page out of their field', '')}${b('tag', 'Tag', 'Add a tag', 'tag')}${b('copy', 'Copy', 'Copy them as references', 'copy')}${
+    b('set', 'Set property', 'Give them all one value', 'property')}${b('unset', 'Unset property', 'Clear a property on them all', '')}${b('delete', '', 'Delete them', 'delete')}<button type="button" class="rf-quiet rf-faint" data-act="clear" title="Clear the picks (Escape)">Clear</button></div>`;
 }
 // The page's own name, for the bar's "Change “Dr. Mei Chen” to…" (0.4.233, the owner: "make it clear"), read once per page.
 const named = { uuid: '', title: '' };
@@ -801,32 +771,27 @@ const picks = () => [...state.picked].map(key => { const at = key.indexOf('|'); 
 const nodesPicked = () => [...new Set(picks().map(p => p.uuid))];
 const titleFor = uuid => { for (const g of state.groups) for (const item of g.items) if (item.uuid === uuid) return item.title; return 'a record'; };
 const counted = n => `${n} ${n === 1 ? 'record' : 'records'}`;
-// A small box asking for one thing, with a list to choose from; resolves with what was typed, or null. It opens right
-// under the button or name that asked (0.4.287, the audit: no box in the middle of the window over a darkened page).
-const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = false, at = null) => modal(null, (box, finish, doc) => {
-  box.classList.add('refinement-two-way-ask');
-  const label = doc.createElement('label'); label.textContent = heading;
-  const input = doc.createElement('input'); input.type = 'text'; input.spellcheck = false; input.value = value;
-  const done = () => finish(allowEmpty ? input.value.trim() : input.value.trim() || null);
-  const list = doc.createElement('datalist'); list.id = `rf-tw-ask-${Date.now()}`;
-  for (const option of options) { const o = doc.createElement('option'); o.value = option; list.append(o); }
-  input.setAttribute('list', list.id);
-  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); done(); } });
-  box.append(label, input, list);
-  if (hint) box.append(modalHint(doc, hint));
-  const row = modalButtons(doc, [['Cancel', () => finish(null)], [button, done, 'go']]);
-  box.append(row);
-  input.focus(); input.select();
-}, null, {}, at);
-const sure = (heading, button, at = null) => modal(false, (box, finish, doc) => {
-  const label = doc.createElement('label'); label.textContent = heading;
-  const row = modalButtons(doc, [['Cancel', () => finish(false)], [button, () => finish(true), 'go']]);
-  box.append(label, row); row.lastChild.focus();
-}, null, {}, at);
+/* A question with a list to choose from (the kit's list pop-up in place of the browser's drop-down, 0.4.318): the
+   options that fit what is typed, Enter takes the lit one, or what was typed when nothing fits (or allowEmpty).
+   Resolves with the words, or null. It opens right under the word or name that asked (0.4.287, the audit). */
+const ask = (heading, hint, options, button = 'OK', value = '', allowEmpty = false, at = null) => new Promise(resolve => {
+  let answer = null;
+  const doc = host();
+  const fits = q => { const lower = q.trim().toLowerCase(); return (lower ? options.filter(o => o.toLowerCase().includes(lower)).sort((a, b) => (b.toLowerCase().startsWith(lower) - a.toLowerCase().startsWith(lower)) || a.length - b.length) : options).slice(0, 8); };
+  const pop = shared.popup({ doc, at, head: heading, width: 300, field: { value, placeholder: button, keys: event => {
+    if (event.key !== 'Enter' || event.isComposing) return false;
+    const lit = pop.body.querySelectorAll('.rf-item')[pop.litAt];
+    if (lit?.item?.label != null && lit.item.pick) { answer = lit.item.label; pop.close(); return true; }
+    const typed = pop.query.trim();
+    if (typed || allowEmpty) { answer = typed; pop.close(); }
+    return true;
+  } }, rows: q => [...(hint ? [{ note: hint }] : []), ...fits(q).map(o => ({ label: o, pick: true, run: () => { answer = o; pop.close(); } }))], onClose: () => resolve(answer) });
+});
+const sure = (heading, button, at = null) => shared.ask({ at, question: heading, go: button });
 // What a node holds under a property, as ids, so it can be put back exactly (the tag tree's way, parts/tags.js).
 async function setValues(uuid, prop, values) {
-  if (!values.length) return logseq.Editor.removeBlockProperty(uuid, prop.ident);
-  return logseq.Editor.upsertBlockProperty(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
+  if (!values.length) return model.unsetValue(uuid, prop.ident);
+  return model.setValue(uuid, prop.ident, prop.many ? values : values[0], { entityId: true, reset: true });
 }
 // Runs one change on every picked node; a node that fails is left as it was and the rest go on. Undo puts back the rest.
 async function writeAll(text, steps) {
@@ -857,7 +822,7 @@ async function act(what, at = null) {
   if (what === 'sidebar') { for (const uuid of nodes) openEntity(uuid, true); state.picked.clear(); return draw(host()); }
   try {
     if (what === 'copy') {
-      const lines = await Promise.all(nodes.map(async uuid => { const page = await logseq.Editor.getPage(uuid).catch(() => null); return page?.name ? `[[${page.title || page.originalName || page.name}]]` : `((${uuid}))`; }));
+      const lines = await Promise.all(nodes.map(async uuid => { const page = await model.getPage(uuid).catch(() => null); return page?.name ? `[[${page.title || page.originalName || page.name}]]` : `((${uuid}))`; }));
       await host().defaultView.navigator.clipboard.writeText(lines.join('\n'));
       notify(`Copied ${counted(nodes.length)}`);
       state.picked.clear(); return draw(host());
@@ -890,10 +855,10 @@ async function act(what, at = null) {
       if (!name) return;
       const tagUuid = await provided.tagUuidNamed(tags.find(t => t.lower === name.replace(/^#/, '').toLowerCase())?.title || name.replace(/^#/, ''));
       if (!tagUuid) return notify(`There is no tag named “${name}”, so nothing was changed`, 'warning');
-      return writeAll(`Tagged ${counted(nodes.length)} #${name.replace(/^#/, '')}`, nodes.map(uuid => async () => {
+      return writeAll(`Tagged ${counted(nodes.length)} ${name.replace(/^#/, '')}`, nodes.map(uuid => async () => {
         if (await provided.hasTag(uuid, tagUuid)) return null;
-        await logseq.Editor.addBlockTag(uuid, tagUuid);
-        return () => logseq.Editor.removeBlockTag(uuid, tagUuid);
+        await model.addTag(uuid, tagUuid);
+        return () => model.removeTag(uuid, tagUuid);
       }));
     }
     if (what === 'set' || what === 'unset') {
@@ -928,9 +893,9 @@ async function act(what, at = null) {
       const entity = what === 'set' && (prop.choices.length || ['node', 'page', 'date'].includes(prop.type));
       return writeAll(what === 'set' ? `Set “${prop.title}” on ${counted(nodes.length)}` : `Cleared “${prop.title}” on ${counted(nodes.length)}`, nodes.map(uuid => async () => {
         const had = await provided.valuesOf(uuid, prop.ident);
-        if (what === 'unset') { if (!had.length) return null; await logseq.Editor.removeBlockProperty(uuid, prop.ident); }
+        if (what === 'unset') { if (!had.length) return null; await model.unsetValue(uuid, prop.ident); }
         else if (entity) await setValues(uuid, prop, prop.many ? [...new Set([...had, value])] : [value]);
-        else await logseq.Editor.upsertBlockProperty(uuid, prop.ident, value);
+        else await model.setValue(uuid, prop.ident, value);
         return () => setValues(uuid, prop, had);
       }));
     }
@@ -938,8 +903,8 @@ async function act(what, at = null) {
       const one = nodes.length === 1 ? `“${titleFor(nodes[0])}”` : counted(nodes.length);
       if (!await sure(`Delete ${one}? This cannot be undone from here.`, 'Delete', at)) return;
       return writeAll('', nodes.map(uuid => async () => {
-        const page = await logseq.Editor.getPage(uuid).catch(() => null);
-        if (page?.name) await logseq.Editor.deletePage(page.name); else await logseq.Editor.removeBlock(uuid);
+        const page = await model.getPage(uuid).catch(() => null);
+        if (page?.name) await model.deletePage(page.name); else await model.removeBlock(uuid);
         return null;
       }));
     }
@@ -953,9 +918,10 @@ const twoWayCss = `
    the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box).
    Sizes and columns are Logseq's own property rows above, as measured in 2.0.2 (0.4.144): the text at the page's
    size (the names .94 of it, as theirs), a 150px name column, a 12px gap, the values 22px in where theirs start
-   after their bullet, 28px rows; the name starts where theirs does, after the room of their property icon (15px and a 4px gap), and the → follows it. */
+   after their bullet, 28px rows; the name starts where theirs does, after the room of their property icon (15px and a 4px gap), and the → follows it.
+   Only the rows' own layout is here (0.4.318): the tag, the tick box, the bar, the filter words, the icons, the
+   buttons, the field, the card and the pop-ups are the kit's. */
 .refinement-two-way {
-  --rf-tw-accent: var(--ls-secondary-text-color, currentColor);
   margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .5rem; padding: 0;
   line-height: 1.5; user-select: text;
 }
@@ -964,138 +930,88 @@ const twoWayCss = `
 /* The room held while the page settled eases away (0.4.283), only then: while the page settles the held room shrinks in the same frame Logseq's list grows, and must not lag. */
 .refinement-two-way[data-rf-settling] { transition: margin-top .25s ease; }
 .refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
-.refinement-two-way .rf-tw-name { color: var(--rf-tw-accent); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; }
-.refinement-two-way .rf-tw-name { padding-left: 19px; }
-.refinement-two-way .rf-tw-arrow { display: inline-block; margin-left: .35em; opacity: .85; }
-.refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; }
-.refinement-two-way a:not(.tag) { color: inherit; }
-.refinement-two-way a { text-decoration: none; cursor: pointer; }
+.refinement-two-way .rf-tw-name { color: var(--rf-faint); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; padding-left: 19px; position: relative; }
+.refinement-two-way .rf-tw-arrow { display: inline-flex; margin-left: .35em; vertical-align: -2px; }
+.refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; row-gap: 4px; position: relative; }
+.refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
-.refinement-two-way a.rf-tw-record { border-bottom: 1px solid color-mix(in srgb, currentColor var(--rf-line-pct, 26%), transparent); }
+.refinement-two-way a.rf-tw-record { border-bottom: 1px solid var(--rf-line); }
 .refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
 /* A little more room between records (0.4.230, the owner: "just increase line spacing of items", in place of taking the line away). */
 .refinement-two-way .rf-tw-line { padding-top: 2px; padding-bottom: 2px; }
-.refinement-two-way .rf-tw-value { row-gap: 4px; }
-.refinement-two-way .rf-tw-day { margin-left: .45em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); font-variant-numeric: tabular-nums; }
-/* A tag is drawn as Logseq draws a tag, "#Consultation" with its own a.tag look (0.4.301, the owner: "make the tags look like
-   normal tags"); only its size is the rows' small one. */
-.refinement-two-way a.rf-tw-tag.tag { margin-left: .5em; font-size: var(--rf-small, .82em); }
-.refinement-two-way span.rf-tw-tag { margin-left: .5em; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.refinement-two-way .rf-tw-toggle:hover { color: var(--ls-primary-text-color, currentColor); }
-.refinement-two-way .rf-tw-value { position: relative; }
-.refinement-two-way .rf-tw-fold { position: absolute; left: 3px; top: .75em; width: 16px; height: 16px; margin-top: -8px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--ls-secondary-text-color); }
-.refinement-two-way .rf-tw-fold:hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
-.refinement-two-way .rf-tw-chevron { display: inline-block; width: 7px; height: 8px; background: currentColor; opacity: var(--rf-faint, .5);
-  clip-path: polygon(0 0, 100% 50%, 0 100%); transition: transform .16s ease; }
-.refinement-two-way .rf-tw-fold:hover .rf-tw-chevron { opacity: 1; }
-.refinement-two-way .rf-tw-row[data-open] .rf-tw-chevron { transform: rotate(90deg); }
+.refinement-two-way .rf-tw-day { margin-left: .45em; }
+.refinement-two-way .rf-tw-tag { margin-left: .5em; }
+.refinement-two-way .rf-tw-toggle:hover { color: inherit; }
+.refinement-two-way .rf-tw-fold { position: absolute; left: 3px; top: .75em; width: 16px; height: 16px; margin-top: -8px; padding: 0; justify-content: center; }
+.refinement-two-way .rf-tw-fold .ti { transition: transform .16s ease; }
+.refinement-two-way .rf-tw-row[data-open] .rf-tw-fold .ti { transform: rotate(90deg); }
 /* The list a count opens into: date, record, tag, one per line, under the value. */
 /* The line drops from under the fold arrow (centred 11px in, 0.4.196), as Logseq's own guide lines drop from theirs; the words stay where they were. */
-.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); padding-left: calc(.6rem + 11.5px); }
-.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-list { grid-column: 2; margin: .1rem 0 .25rem 10.5px; border-left: 1px solid var(--rf-line); padding-left: calc(.6rem + 11.5px); }
+.refinement-two-way .rf-tw-line { display: grid; grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem; }
 .refinement-two-way .rf-tw-line .rf-tw-day { margin-left: 0; }
-.refinement-two-way .rf-tw-more { display: inline-block; margin-top: .1rem; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); }
-.refinement-two-way .rf-tw-more:hover { color: var(--ls-primary-text-color, currentColor); }
-/* Moving around (0.4.184): a record's line lit under the pointer, the ⇥ to the sidebar shown there, the field's
-   name and the kinds as quiet links, the kinds row above an open list, "earlier" before what is past. */
-.refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { cursor: pointer; border-radius: 4px; }
-.refinement-two-way .rf-tw-line { margin: 0 -.35rem; padding: 0 .35rem; grid-template-columns: 3.6em minmax(0, 1fr) auto 1.2em; }
+.refinement-two-way .rf-tw-more { display: inline-flex; margin-top: .1rem; height: 22px; padding: 0 4px; }
+/* Moving around (0.4.184): a record's line lit under the pointer, the sidebar icon shown there, the field's name
+   and the kinds as quiet words, the kinds row above an open list, "earlier" before what is past. */
+.refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { cursor: pointer; border-radius: 4px; position: relative; }
 .refinement-two-way .rf-tw-item { margin: 0 -.3rem; padding: 0 .3rem; }
-.refinement-two-way .rf-tw-line:hover, .refinement-two-way .rf-tw-item:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 7%, transparent); }
-.refinement-two-way .rf-tw-side { visibility: hidden; margin-left: .4em; color: var(--ls-secondary-text-color); font-size: var(--rf-small, .82em); text-align: center; }
+.refinement-two-way .rf-tw-line:hover, .refinement-two-way .rf-tw-item:hover { background: var(--rf-wash); }
+.refinement-two-way .rf-tw-side { visibility: hidden; height: 20px; padding: 0 3px; }
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-side { visibility: visible; }
-/* Every other thing that answers a click gets the same soft patch under the pointer (0.4.185, the owner's ask: the
-   field's name, the count that opens a list, the kinds, show all, the ⇥ and the +), drawn in the padding a negative
-   margin gives back, so nothing moves. */
-.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add) { border-radius: 4px; padding: 0 .25em; margin-left: -.25em; margin-right: -.25em; transition: background-color .1s ease, color .1s ease; }
-.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle, a.rf-tw-tag, .rf-tw-more, .rf-tw-side, .rf-tw-add):not(.tag):hover { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 11%, transparent); }
-.refinement-two-way .rf-tw-line:hover a.rf-tw-tag:hover, .refinement-two-way .rf-tw-line:hover .rf-tw-side:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); }
+/* The field's name and the count that opens a list get the same soft patch under the pointer (0.4.185), drawn in the
+   padding a negative margin gives back, so nothing moves. */
+.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle) { border-radius: 4px; padding: 0 .25em; margin-left: -.25em; margin-right: -.25em; transition: background-color .1s ease, color .1s ease; }
+.refinement-two-way :is(.rf-tw-field, .rf-tw-toggle):hover { color: inherit; background: var(--rf-wash); }
 .refinement-two-way a.rf-tw-field { color: inherit; }
-.refinement-two-way .rf-tw-side { margin-left: .15em; }
-/* The + (0.4.297, the owner: "plus should be placed to the left of the property name but on hover"): in the room left
-   of the name kept for Logseq's property icon, shown while the pointer is on the row. */
-.refinement-two-way .rf-tw-name { position: relative; }
-.refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; font-size: var(--rf-small, .82em); }
-.refinement-two-way .rf-tw-chip { padding: 0 .45rem; border-radius: 999px; color: var(--ls-secondary-text-color); border: 1px solid color-mix(in srgb, var(--rf-tw-accent) 30%, transparent); }
-.refinement-two-way .rf-tw-chip { transition: background-color .1s ease, color .1s ease, border-color .1s ease; }
-.refinement-two-way .rf-tw-chip:hover { color: var(--ls-primary-text-color, currentColor); border-color: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 6%, transparent); }
-.refinement-two-way .rf-tw-chip[data-on] { color: var(--ls-primary-text-color, currentColor); background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 9%, transparent); }
-.refinement-two-way .rf-tw-earlier { margin: .2rem 0 .1rem; color: var(--ls-secondary-text-color); opacity: var(--rf-quiet, .7); font-size: var(--rf-small, .82em); display: flex; align-items: center; gap: .5em; }
-.refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--rf-tw-accent) 35%, transparent); }
-/* The card a record shows when the pointer rests on it: the plugin's one pop-up look (.rf-pop, parts/shared.js). */
-.refinement-two-way-peek { z-index: 999; width: max-content; max-width: 360px; padding: 6px 8px; cursor: pointer; }
-.refinement-two-way-peek .rf-tw-peek-title { font-weight: 600; }
-/* Every piece that opens something is underlined under the pointer, as a link is (0.4.262). */
-.refinement-two-way-peek .rf-tw-peek-open { text-decoration: underline transparent; text-underline-offset: 2px; transition: text-decoration-color .1s ease; }
-.refinement-two-way-peek .rf-tw-peek-open:hover { text-decoration-color: currentColor; }
-.refinement-two-way-peek .rf-tw-peek-line { border-radius: 4px; margin: 0 -4px; padding: 0 4px; }
-.refinement-two-way-peek .rf-tw-peek-line:hover { background: var(--rf-ui-hover); }
-.refinement-two-way-peek .rf-tw-peek-meta { color: var(--ls-secondary-text-color); font-size: .9em; }
-.refinement-two-way-peek .rf-tw-peek-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; margin-top: 4px; }
-.refinement-two-way-peek .rf-tw-peek-name { color: var(--ls-secondary-text-color); }
-.refinement-two-way-peek .rf-tw-peek-lines { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
-.refinement-two-way-peek .rf-tw-peek-lines > div::before { content: '• '; color: var(--ls-secondary-text-color); }
-/* The line for adding a node (0.4.303): under the row's values, in the value column; quiet until the pointer is on the
-   row or it is in use: a + at its left, the field borderless like the words around it, the tag at the right in the
-   tags' column. It always keeps its height, so nothing moves when it shows. */
-.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 1.2em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
+.refinement-two-way .rf-tw-chips { display: flex; flex-wrap: wrap; gap: .3rem .9rem; margin: .1rem 0 .3rem; }
+.refinement-two-way .rf-tw-earlier { display: flex; align-items: center; gap: .5em; margin: .2rem 0 .1rem; padding: 0; }
+.refinement-two-way .rf-tw-earlier::after { content: ''; flex: 1; border-top: 1px solid var(--rf-hair); }
+/* The line for adding a node (0.4.303): under the row's values, in the value column; a + at its left, the kit's
+   field inline, the tag at the right in the tags' column. */
+.refinement-two-way .rf-tw-draft { grid-column: 2; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; margin: 0 -.35rem; padding: 0 .35rem 0 calc(22px + .35rem); cursor: text; }
 .refinement-two-way .rf-tw-row { position: relative; }
-.refinement-two-way .rf-tw-add { margin-left: .6em; color: var(--ls-secondary-text-color); opacity: var(--rf-faint, .5); }
-.refinement-two-way .rf-tw-row:hover .rf-tw-add { opacity: 1; }
+.refinement-two-way .rf-tw-add { margin-left: .6em; height: 20px; padding: 0 5px; }
+.refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
 .refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, 1fr) auto 1.2em; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, 1fr) auto 1.4em; }
 .refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
 .refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
 .refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
-.refinement-two-way .rf-tw-namecell > a.rf-tw-add { flex: none; margin-left: .6em; }
-.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.2em; }
-/* After a date it keeps the room it had after the values (the shared hover patch above pulls a margin in). */
-.refinement-two-way .rf-tw-day > a.rf-tw-add { margin-left: .6em; font-size: calc(1em / .82); }
-.refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; color: var(--ls-secondary-text-color); }
+.refinement-two-way .rf-tw-namecell > .rf-tw-add { flex: none; margin-left: .6em; }
+.refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; }
+.refinement-two-way .rf-tw-day > .rf-tw-add { margin-left: .6em; }
+.refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
+.refinement-two-way .rf-tw-draft-main .rf-field { flex: 1; min-width: 0; }
 .refinement-two-way .rf-tw-draft-typed { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.refinement-two-way .rf-tw-draft-field { flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; outline: none; box-shadow: none; }
-.refinement-two-way .rf-tw-draft-field::placeholder { color: var(--ls-secondary-text-color); opacity: .75; }
 .refinement-two-way .rf-tw-draft .rf-tw-draft-tag { margin-left: 0; white-space: nowrap; }
-.refinement-two-way-add { z-index: 999; min-width: 200px; max-width: 320px; }
-/* Picking (0.4.228): a small box before each record, in the room left of it, as Logseq's table rows have; filled
-   with the text colour and a tick when picked. The bar is Logseq's own: a hairline strip of buttons, floating just above the rows so nothing moves when it comes. */
-.refinement-two-way .rf-tw-line, .refinement-two-way .rf-tw-item { position: relative; }
-.refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .38em; visibility: hidden; }
+/* Picking (0.4.228): the kit's tick box before each record, in the room left of it; shown under the pointer and on
+   every record while any is picked. The bar is the kit's, above the rows. */
+.refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .45em; visibility: hidden; }
 /* The box answers 6px round it as well (0.4.297); the room left of the record ticks it too (onClick). */
-.refinement-two-way .rf-tw-row .rf-tw-pick::before { content: ''; position: absolute; inset: -6px; }
+.refinement-two-way .rf-tw-row .rf-tw-pick::after { content: ''; position: absolute; inset: -6px; }
 /* In an open list the box sits left of the outline's line (0.4.229, the owner: "to the left of the outline, not within it"). */
-.refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.38em + 2px); }
+.refinement-two-way .rf-tw-line .rf-tw-pick { left: -34px; top: calc(.45em + 2px); }
 /* Records not in a list too, one to a line so their boxes share that column (0.4.230, the owner: "even those not in a outline"). */
 .refinement-two-way .rf-tw-item .rf-tw-pick { left: -24px; }
 /* Each record on a line of its own, its tag at the right edge as in an open list (0.4.297, the owner: "the tags under
-   decided should be right aligned"); the ⇥ keeps the list's last column. */
+   decided should be right aligned"); the sidebar icon keeps the list's last column. */
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
 .refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
-.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.2em; column-gap: .5em; align-items: baseline; }
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto 1.4em; column-gap: .5em; align-items: baseline; }
 .refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
-/* A record with no day still has its tag and ⇥ in the last two columns. */
+/* A record with no day still has its tag and the sidebar icon in the last two columns. */
 .refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
 .refinement-two-way .rf-tw-item .rf-tw-side { grid-column: 4; }
 .refinement-two-way .rf-tw-item a.rf-tw-record { justify-self: start; min-width: 0; } /* a long name wraps, never cut (0.4.263) */
 /* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
 .refinement-two-way .rf-tw-item::before { left: -26px; width: 26px; }
-.refinement-two-way .rf-tw-pick { display: inline-block; box-sizing: border-box; width: 12px; height: 12px; border-radius: 3px; cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 45%, transparent); background: hsl(var(--popover)); }
-.refinement-two-way .rf-tw-pick[data-on] { background: hsl(var(--popover-foreground)); border-color: hsl(var(--popover-foreground)); }
-.refinement-two-way .rf-tw-pick[data-on]::after { content: ''; display: block; width: 3px; height: 6px; margin: 1px 0 0 3.5px; border: solid var(--ls-primary-background-color, Canvas); border-width: 0 1.5px 1.5px 0; border-color: hsl(var(--popover)); transform: rotate(45deg); }
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-pick, .refinement-two-way[data-picking] .rf-tw-row .rf-tw-pick { visibility: visible; }
 .refinement-two-way { position: relative; }
-.refinement-two-way .rf-tw-bar { position: absolute; z-index: 5; bottom: calc(100% - 4px); left: 19px; display: flex; flex-wrap: wrap; align-items: stretch; width: max-content; max-width: calc(100% - 19px); box-shadow: var(--rf-popup-shadow, 0 2px 6px rgba(0, 0, 0, .12)); border-radius: 7px; overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); font-size: var(--rf-row, .875rem); }
-.refinement-two-way .rf-tw-bar button { display: flex; align-items: center; gap: 7px; padding: 3px 10px; border: 0; border-left: 1px solid color-mix(in srgb, var(--ls-primary-text-color, currentColor) 14%, transparent); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.refinement-two-way .rf-tw-bar button:first-child { border-left: 0; }
-.refinement-two-way .rf-tw-bar button:hover { background: color-mix(in srgb, var(--ls-primary-text-color, currentColor) 8%, transparent); }
-.refinement-two-way-ask input { margin-top: 2px; }
-/* Undo after adding or changing: the plugin's one arrow (shared.undo, parts/shared.js, 0.4.258), after the row's name. */
+.refinement-two-way .rf-tw-bar { margin: 0 0 6px 19px; }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the
@@ -1129,8 +1045,11 @@ let indexTries = 0;
 const indexLater = ms => { clearTimeout(indexTimer); indexTimer = setTimeout(() => loadIndex().then(() => { indexTries = 0; }, error => {
   if (++indexTries < 5) indexLater(2000 * indexTries); else { indexTries = 0; warnOnce('could not read the rows of every page', error); }
 }), ms); };
+let stopped = false;
 function start() {
-  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, titleOf, provided, uuidsIn } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'titleOf', 'provided', 'uuidsIn']));
+  ({ UUID, isEntityId, watchDomEarly, addsElements, sendStyle, provided, uuidsIn, saveSettings, onPageChange, onDatabaseChange, onSettingsChange } = take(window.refinementCore, ['UUID', 'isEntityId', 'watchDomEarly', 'addsElements', 'sendStyle', 'provided', 'uuidsIn', 'saveSettings', 'onPageChange', 'onDatabaseChange', 'onSettingsChange', 'currentPage', 'getPage', 'createPage', 'deletePage', 'appendBlock', 'removeBlock', 'addTag', 'removeTag', 'setValue', 'unsetValue', 'editBlock']));
+  model = window.refinementCore.provided; // the graph is read and written through the model's doors (0.4.318)
+  stopped = false;
   applyStyles();
   readHeights();
   readOpen();
@@ -1138,12 +1057,13 @@ function start() {
   watchDomEarly(drawEarly);
   draw(host());
   // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway. The box stays until the next
-  // page is drawn (0.4.182): draw() moves it, or takes it away, in the same frame.
-  onUnload(logseq.App.onRouteChanged(() => { onRoute(); later(0); }));
-  onUnload(logseq.DB.onChanged(() => { later(900); if (indexSize < BIG_INDEX) indexLater(10000); }));
-  onUnload(logseq.onSettingsChanged((now, before) => {
+  // page is drawn (0.4.182): draw() moves it, or takes it away, in the same frame. The hooks are the core's.
+  onPageChange(() => { if (stopped) return; onRoute(); later(0); });
+  onDatabaseChange(() => { if (stopped) return; later(900); if (indexSize < BIG_INDEX) indexLater(10000); });
+  onSettingsChange((now, before) => {
+    if (stopped) return;
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
-  }));
+  });
   // A click away from an empty draft line drops it; one with words keeps them.
   const away = event => { if (state.draft && !state.draft.name.trim() && !event.target.closest?.('.rf-tw-draft, .refinement-two-way-add, .rf-tw-add')) { state.draft = null; closeAdd(); draw(host()); } };
   host().addEventListener('mousedown', away, true);
@@ -1151,7 +1071,7 @@ function start() {
   const escape = event => { if (event.key === 'Escape' && state.picked.size && !event.target.closest?.('input, textarea, [contenteditable="true"]')) { state.picked.clear(); draw(host()); } };
   host().addEventListener('keydown', escape);
   onUnload(() => host().removeEventListener('keydown', escape));
-  onUnload(() => { clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); clearTimeout(settle.ease); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
+  onUnload(() => { stopped = true; clearTimeout(timer); clearTimeout(indexTimer); clearTimeout(settle.timer); clearTimeout(settle.ease); hidePeek(); closeAdd(); state.box?.remove(); state.box = null; });
   later(0);
   indexLater(1500);
 }
