@@ -2,6 +2,23 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The tag map opens still (0.4.347)
+
+**Found** by the frame tests of 0.4.346 on the real app's tag map page (pictures looked at first): the top row was drawn
+without its "Hide inherited" word, so "Tags", "Properties", "Fold" and "Unfold" slid 105 px left when it came; a "Reading
+your tags …" note showed for 55 ms and went; an open property's "· on 13 nodes · show nodes" arrived 45 ms after the map
+and pushed "Change …" 183 px right; in the pretend page each redraw repeated the push. **Done looks like:** open the tag
+map (toolbar tree icon) with a property open, Provider under Consultation: the map comes whole, the top row and the
+Holds line ("a link · one at a time · on 13 nodes · show nodes  Change …") never move, no note flickers. **Built:**
+`parts/tags.js`: the "Hide inherited" word and both Tags / Properties marks set when the map is made; the reading note
+only after half a second; the counts of open properties read before the first drawing. `parts/tags-props.js`: a
+count already read is kept across redraws and drawn at once; one not yet read holds the count and "Change …" back
+until it comes, so they arrive together in their place (`rtg-ptail`, laid out as before). `tools/frames.js`: the map
+scene as the app opens it (the database answering after 40 ms, a property open, the opening not counted as input):
+red on 0.4.346's map (26 problems), green now. **Checks:** frames, tags-test, tag-drag-test, tags-speed, pictures,
+boot, then `sh tools/check.sh` in full; `node tools/app-frames.js` on the map page, Consultation and Tingling fingers,
+light and dark: all clean. **Seen:** the map page in the app's recorded pictures, as it was, settled.
+
 ## 2026-10-23 · The eyes: frame tests in Chromium and in the real app (0.4.346)
 
 **Asked:** `docs/FINISHING-PROMPT.md` (the owner: "read FINISHING-PROMPT.md and run"), Phase 0: the frame tests before

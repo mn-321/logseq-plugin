@@ -176,6 +176,8 @@ const css = `
 .refinement-tags .rtg-pinfo > div { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); column-gap: 10px; align-items: baseline; }
 .refinement-tags .rtg-pinfo > div > .rtg-plbl { color: var(--rf-faint); }
 .refinement-tags .rtg-pinfo .rtg-pline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+/* The count and Change … come together (rtg-ptail): its pieces stay items of the line, spaced as before. */
+.refinement-tags .rtg-pinfo .rtg-ptail:not([hidden]) { display: contents; }
 .refinement-tags .rtg-pinfo .rtg-note { color: var(--rf-faint); }
 .refinement-tags .rtg-pinfo .rtg-val { font-weight: 500; }
 /* The Nodes line (0.4.307): the nodes that hold the property, one a row with its value, a click opens it. */
@@ -252,7 +254,7 @@ function createView(doc, mode) {
   const tool = (label, title, run, extra = {}) => shared.quiet(view.doc, { label, title, faint: true, cls: 'rtg-tool', run, ...extra });
   view.foldAll = tool('Fold', 'Fold every tag that has tags or properties inside', () => { for (const tag of view.data.tags.values()) if (tag.kids.length || view.hasRows(tag)) folded.add(tag.uuid); for (const top of view.topTags()) folded.delete(top.uuid); saveFolded(); view.draw(); });
   view.openAll = tool('Unfold', 'Unfold every tag', () => { folded.clear(); saveFolded(); view.draw(); });
-  view.inherited = tool('', 'List the properties each tag gets from the tags above it, faded', () => { shown.inherited = !shown.inherited; saveInherited(); view.draw(); });
+  view.inherited = tool(shown.inherited ? 'Hide inherited' : 'Show inherited', 'List the properties each tag gets from the tags above it, faded', () => { shown.inherited = !shown.inherited; saveInherited(); view.draw(); });
   view.moveButton = view.compact
     ? shared.quiet(view.doc, { icon: 'page', title: 'Show the tag tree as a full view in the main area', run: () => openPage() })
     : shared.quiet(view.doc, { icon: 'sidebar', title: 'Show the tag tree in the right sidebar', run: () => openSidebar() });
@@ -268,6 +270,8 @@ function createView(doc, mode) {
     run: () => { if (byProp === on) return; byProp = on; saveBy(); view.cursorKey = null; view.cursorTag = null; view.cursorSub = null; view.closeMenu(); for (const draw of openViews) draw(); } });
   view.byTags = byButton(false, 'Tags', 'Every tag as a tree, with its properties');
   view.byProps = byButton(true, 'Properties', 'Every property once, with the tags that have it');
+  // Both marked from the start, as draw() marks them: a word marked only later took 4 px of the line (frames, 2026-10-23).
+  view.byTags.setAttribute('aria-pressed', String(!byProp)); view.byProps.setAttribute('aria-pressed', String(byProp));
   view.toggle2 = el(view.doc, 'div', { class: 'rf-seg rtg-switch', role: 'group', 'aria-label': 'Arrange by' }, view.byTags, view.byProps);
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
   if (view.compact) view.box.append(el(view.doc, 'header', {}, view.findField, view.moveButton, el(view.doc, 'div', { class: 'rtg-tools' }, view.toggle2, view.inherited, view.foldAll, view.openAll)), view.pickBar, view.body);
@@ -706,7 +710,12 @@ function highlight(view, node, title, q) {
 const matches = (tag, q) => tag.title.toLowerCase().includes(q) || tag.propList.some(p => String(p.title || '').toLowerCase().includes(q));
 function draw(view) {
   if (!view.box.isConnected && view.shown.length) return;
-  if (!view.loaded) { view.body.replaceChildren(el(view.doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); return; }
+  // While the tags are read: nothing, and the note only when reading takes over half a second (a note shown for the
+  // usual 50 ms and gone was a flash in the app's frames, 2026-10-23).
+  if (!view.loaded) {
+    view.readingNote ||= setTimeout(() => { if (!view.loaded && !view.gone) view.body.replaceChildren(el(view.doc, 'div', { class: 'rtg-empty' }, 'Reading your tags …')); }, 500);
+    return;
+  }
   const q = view.find.value.trim().toLowerCase();
   // With a search, only matching tags and the tags above them are shown, unfolded. A tag matches by its name or by
   // the name of a property of its own (0.4.235, the owner: "search properties in the tag and properties page").
@@ -1211,8 +1220,18 @@ function onKey(view, event) {
 
 async function refresh(view) {
   const t0 = performance.now();
-  try { view.data = await loadTags(); view.loaded = true; }
-  catch (error) { warnOnce('the tags could not be read', error); }
+  try {
+    const data = await loadTags();
+    // The counts of the properties already open are read before the first drawing, so their lines come whole.
+    if (!view.loaded) {
+      const open = new Set([...propsOpen].map(key => String(key).split('|').pop().replace(/^P/, '')));
+      const wanted = new Map();
+      for (const tag of data.tags.values()) for (const p of tag.propList || []) if (open.has(String(p.id))) wanted.set(p.ident, p);
+      view.data = data;
+      await Promise.all([...wanted.values()].map(p => view.useOf(p)));
+    }
+    view.data = data; view.loaded = true;
+  } catch (error) { warnOnce('the tags could not be read', error); }
   const t1 = performance.now();
   view.draw();
   stopwatch(view, t0, t1, performance.now());
@@ -1238,6 +1257,7 @@ function destroy(view) {
   view.gone = true;
   view.closeMenu();
   clearTimeout(view.timer);
+  clearTimeout(view.readingNote);
   view.doc.removeEventListener('mousemove', view.endDrag, true);
   openViews.delete(view.draw);
   shared.undo.forget(entry => entry.key.startsWith('tags:') && entry.data?.view === view);

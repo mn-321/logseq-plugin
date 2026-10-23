@@ -9,7 +9,7 @@ at which it became true and one line of proof. Updated with every commit that mo
       ticked at the end, when it holds for the last version)*
 - [ ] The frame tests exist, run inside check.sh and are green on every tour stop, light and dark, in Chromium and in the
       real Logseq. *(0.4.346: `tools/frames.js` in check.sh, `tools/app-frames.js` in the loop; two plugin problems found
-      on the tag map page, fixed at 0.4.347)*
+      on the tag map page, fixed at 0.4.347: every stop clean in the app, light and dark)*
 - [ ] The stress tests exist, run from `sh tools/stress.sh`, and are green.
 - [ ] `tools/leaning-test.js` reports 0 for every count, with every loaded part, including those brought back.
 - [ ] `tools/parts-apart-test.js` passes with every loaded part, including those brought back.

@@ -130,7 +130,11 @@ async function record(browser, theme, name, scene, withPlugin) {
   // The plugin's scripts are on the page in both runs (A draws nothing with them): the same page, the same fonts.
   const base = `window.parent = window; window.logseq = { settings: {}, DB: {}, UI: {}, App: {}, Editor: {} };`;
   if (scene.kind === 'two-way' || scene.kind === 'long-list') for (const content of [base, read('parts/shared.js'), twoWaySource(), `window.__twoWaySetUp = ${twoWaySetUp};`]) await page.addScriptTag({ content });
-  if (scene.kind === 'tag-map') for (const content of [`(${pretendLogseq})();`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), read('parts/tags-graph.js'), read('parts/tags-props.js'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')]) await page.addScriptTag({ content });
+  // The tag map as the app opens it (0.4.347): Logseq's database answers after a moment (40 ms, as measured), and
+  // one property, Doctor's speciality, is open from an earlier visit, so its count arrives after the first drawing.
+  if (scene.kind === 'tag-map') for (const content of [`(() => { const kept = { 'refinement-tags-props-open': JSON.stringify(['t-Doctor|13']) };
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: k => kept[k] ?? null, setItem: (k, v) => { kept[k] = String(v); }, removeItem: k => { delete kept[k]; } } }); })();`,
+    `(${pretendLogseq})(); { const ask = window.logseq.DB.datascriptQuery; window.logseq.DB.datascriptQuery = q => new Promise(r => setTimeout(r, 40)).then(() => ask(q)); }`, read('parts/shared.js'), read('parts/model.js'), require('./pretend-model'), read('parts/tags-graph.js'), read('parts/tags-props.js'), exposeAtEnd(read('parts/tags.js'), ['createView', 'css'], 'parts/tags.js')]) await page.addScriptTag({ content });
   if (scene.kind === 'proposals') for (const content of [base, read('parts/shared.js'), read('parts/shadow-rules.js'), read('parts/shadow.js'), read('parts/shadow-steps.js'), read('parts/shadow-page.js')]) await page.addScriptTag({ content });
   if (scene.kind === 'pop-up') for (const content of [base, read('parts/shared.js')]) await page.addScriptTag({ content });
   const vp = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, timeOrigin: performance.timeOrigin }));
@@ -178,7 +182,8 @@ async function record(browser, theme, name, scene, withPlugin) {
       await page.evaluate(async () => {
         const style = document.createElement('style'); style.textContent = window.refinementShared.kitCss + window.__css; document.head.append(style);
       });
-      await input('open the map');
+      // The map opening is the page opening: no input allowance (as a route change in tools/app-frames.js).
+      await input('open the map', false);
       await page.evaluate(async mode => { const view = window.__view = window.__createView(document, mode); document.getElementById('main-content-container').append(view.node); await view.refresh(); }, scene.mode);
       await sleep(700);
       for (let k = 0; k < 2; k++) { await page.evaluate(async () => { await window.__view.refresh(); }); await sleep(400); }

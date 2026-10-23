@@ -131,9 +131,15 @@ function propDetails(view, tag, prop, from, alone) {
   view.nodesShown ||= new Map();
   const state = view.nodesShown.get(prop.id) || '';
   const toggle = el(doc, 'a', { class: 'rtg-pmore rf-faint', href: '#', hidden: true, click: event => { event.preventDefault(); event.stopPropagation(); view.nodesShown.set(prop.id, state ? '' : 'some'); view.draw(); } }, state ? 'hide nodes' : 'show nodes');
-  view.useOf(prop).then(n => { used.textContent = n ? `· on ${plural(n, 'node')} ·` : ''; toggle.hidden = !n; }).catch(() => {});
-  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holdsWords(prop)), note(prop.many ? '· several at once' : '· one at a time'), used, toggle,
-    button('Change …', 'Turn it into links to pages, or open what Logseq lets only itself change', at => view.kindMenu(prop, at, giver)));
+  // The count and Change … sit after the words: a count read later would push Change … along the line (seen in the
+  // app's frames, 2026-10-23: 183 px, 45 ms after the map), so a count not yet known holds both back until it is, and
+  // they come together in their place; a count already read is drawn at once.
+  const fill = n => { used.textContent = n ? `· on ${plural(n, 'node')} ·` : ''; toggle.hidden = !n; };
+  const tail = el(doc, 'span', { class: 'rtg-ptail' }, used, toggle, button('Change …', 'Turn it into links to pages, or open what Logseq lets only itself change', at => view.kindMenu(prop, at, giver)));
+  const known = view.useKnown?.has(prop.ident);
+  if (known) fill(view.useKnown.get(prop.ident)); else tail.hidden = true;
+  view.useOf(prop).then(n => { fill(n); tail.hidden = false; }).catch(() => { tail.hidden = false; });
+  line('Holds', el(doc, 'span', { class: 'rtg-val' }, holdsWords(prop)), note(prop.many ? '· several at once' : '· one at a time'), tail);
   if (state) {
     const nodesBox = el(doc, 'div', { class: 'rtg-pnodes' }, note('…'));
     line('Nodes', nodesBox);
@@ -187,10 +193,12 @@ function propDetails(view, tag, prop, from, alone) {
   }
   return box;
 }
-// How many nodes hold a property, and which (read only when they are shown), each once per reading of the tags.
+// How many nodes hold a property, read again once per reading of the tags. useKnown keeps the last count read for
+// each property across readings, so a redraw draws it at once and a fresh count only changes the number in place.
 function useOf(view, prop) {
+  view.useKnown ||= new Map();
   if (view.useData !== view.data) { view.useData = view.data; view.useCounts = new Map(); }
-  if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propUse(prop.ident).catch(() => null));
+  if (!view.useCounts.has(prop.ident)) view.useCounts.set(prop.ident, model().propUse(prop.ident).catch(() => null).then(n => { view.useKnown.set(prop.ident, n); return n; }));
   return view.useCounts.get(prop.ident);
 }
 function holdersOf(view, prop) {
