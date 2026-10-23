@@ -1,6 +1,9 @@
 /* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
 (() => {
-/* Links part of DB Refinements (moved out of main.js in the October 2026 cleanup): what the plugin
+/* RESTING, judged 2026-10-23 (docs/DECISIONS-AUTONOMOUS.md 19): everything here goes but the PDF citations and the
+   child asset cues, which rest because the Illness Test Graph has no PDF or file to show them on. It takes from the
+   deleted properties part and the old kit, so bringing a piece back means rebuilding it on the kit and the model.
+   Links part of DB Refinements (moved out of main.js in the October 2026 cleanup): what the plugin
    draws on links and rows from what the database says. The cue marks (block links, labelled links,
    tag pages, "via …" labels), date links and date headings, page labels without trailing tags,
    reference rows and counts, the parent-path links, the PDF citations, the child asset cues, the

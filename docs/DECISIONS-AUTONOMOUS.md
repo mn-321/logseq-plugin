@@ -172,3 +172,23 @@ property), Delete this block (`Esc` then `Backspace`), and the old link box (reb
 (nothing in Logseq does it; palette only, no keys by default, `outermostBlockShortcut` empty) and year-first dates in
 `[[ ]]` (on, `dateLinkFormats`, the owner's earlier default; typed as if by hand). `parts/editor.js` deleted. **Flip:**
 the keys and the switch under Writing helpers; the gone commands are in git history at 0.4.356's `parts/editor.js`.
+
+## 19. The old properties and links parts judged (2026-10-23)
+
+**Question:** Phase 2 pieces 5 and 6. **Looked at in the app** (Care overview, its three queries): a query in Logseq
+2.0.2 is a table with its own sort, filter, search, list-or-table switch and a menu with the columns shown; Logseq's
+bundle has its own Collapse all / Expand all and the `t o` key that opens or folds every bullet. **Properties part,
+deleted:** fold all / unfold all in a query (Logseq's own collapse and expand, and `t o`), Choose properties shown in
+this list and the one-line layout (Logseq's own columns and list view), the hidden-properties arrow and the "via …"
+crumbs (the two-way rows and the proposals' faint empty properties say what they said; the plan expected both to go).
+**Links part, every piece goes but two:** the cue marks, "via …", reference counts and "points here" (the owner's drop
+list, the rows), the date links and headings (page-look's quiet dates do the look), page labels without trailing tags
+(a DB page's title holds no #tag), the link box settings (the old link box went at 0.4.357), the picker marks
+(`picker.js` owns Logseq's lists), Escape taking [[ and # out and links inside a reference (Logseq's own behaviour),
+the Hyper tap (decision 16), the empty [[ menu (in `chrome.js` since 0.4.355), quiet links (`page-look.js`). **Resting,
+written down:** PDF citations and child asset cues, since the Illness Test Graph has no PDF or file to judge them on;
+`parts/links.js` stays resting for them, its header says so. **Flip:** the deleted part is in git history at 0.4.357.
+**Also resting, as the plan says:** `parts/pages.js` (the tag summary box, the owner's "no" of 2026-10-23; the page-kind
+line above the title, dropped 2026-10-21; its title tags are `tag-path.js` now) and `parts/inline-props.js` (the `p::`
+typing, the owner's "no" of 2026-10-23). With this, layer 4 is complete: the title words, `chrome.js`, search step 1 and
+the two writing helpers back on the kit; everything else gone or resting with its reason here (decisions 16 to 19).

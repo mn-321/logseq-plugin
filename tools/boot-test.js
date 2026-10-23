@@ -29,7 +29,7 @@ const PART_FILES = (() => {
 
 // Which parts main.js loads now (0.4.175: the resting parts are left out); checks of a feature run only when it is loaded.
 const has = name => PART_FILES.includes('parts/' + name + '.js');
-const ALL_PARTS = ['pages', 'properties', 'links', 'chrome', 'styles', 'search', 'inline-props', 'rich-copy', 'todos'].every(has);
+const ALL_PARTS = ['pages', 'links', 'chrome', 'styles', 'search', 'inline-props', 'rich-copy', 'todos'].every(has);
 const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -162,7 +162,7 @@ async function main() {
   const palette = logseq.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0]);
   const menu = logseq.calls.filter(call => call.name === 'Editor.registerBlockContextMenuItem').map(call => call.args[0]);
   console.log(`${palette.length} palette commands, ${palette.filter(c => c.keybinding).length} with a shortcut, ${menu.length} bullet-menu items`);
-  const wanted = [['new-outermost-block', 'block-commands'], ['show-settings'], ['troubleshooting'], ['fold-query-results', 'properties'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
+  const wanted = [['new-outermost-block', 'block-commands'], ['show-settings'], ['troubleshooting'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
   // The tag map starts only with its three pieces (0.4.295).
   const tagMap = () => has('tags') && has('tags-graph') && has('tags-props');
   for (const [key, part] of wanted) if ((!part || (part === 'tags' ? tagMap() : has(part))) && !palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
@@ -184,7 +184,7 @@ async function main() {
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.
   const toolKeys = logseq.calls.filter(call => call.name === 'App.registerCommand').map(call => call.args[1]?.key).sort();
   const wantTools = ['check-what-is-found', 'copy-perf-report', 'copy-styling-details', 'copy-warnings', 'take-the-tour', 'toggle-perf',
-    ...(has('links') ? ['check-link-labels'] : []), ...(has('properties') ? ['copy-fold-log'] : []), ...(has('pages') ? ['copy-header-details'] : [])].sort();
+    ...(has('links') ? ['check-link-labels'] : []), ...(has('pages') ? ['copy-header-details'] : [])].sort();
   if (toolKeys.join() !== wantTools.join())
     problem('troubleshooting tools: ' + toolKeys.join(', '));
   // The settings window (0.4.173): every picture comes from the setting or section that owns it.

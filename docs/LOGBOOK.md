@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The properties and links parts judged (0.4.358)
+
+**Asked:** Phase 2, pieces 5 and 6. **Done looks like:** nothing changes on screen (neither part was loaded); the
+resting list is shorter and each piece's fate is written down. **Found first** (in the app, Care overview): Logseq's
+query tables carry sort, filter, search, a table-or-list switch and the columns menu. **Built:** `parts/properties.js`
+deleted; `parts/links.js` kept resting with a header saying only its PDF citations and file cues rest; the boot test,
+GUIDE and README no longer name the deleted commands; `docs/DECISIONS-AUTONOMOUS.md` 19. **Checks:** `sh tools/check.sh`.
+
 ## 2026-10-23 · The editor commands judged (0.4.357)
 
 **Asked:** Phase 2, piece 4: `editor.js`'s commands one by one, through the register; the old link box goes. **Done
