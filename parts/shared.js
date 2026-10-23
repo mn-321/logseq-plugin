@@ -542,8 +542,9 @@ function ask({ at, question, note: hint, go: goWord = 'OK', cancel = 'Cancel', f
     const p = popup({ at, doc, cls: `rf-ask${cls ? ' ' + cls : ''}`, width, onClose: () => resolve(answer) });
     const done = () => { answer = fieldOptions ? f.input.value : true; p.close(); };
     const f = fieldOptions ? field(doc, { ...fieldOptions, keys: event => { if (event.key === 'Enter' && !event.isComposing && !(fieldOptions.multiline && event.shiftKey)) { done(); return true; } return fieldOptions.keys?.(event) === true; } }) : null;
-    p.body.append(el(doc, 'div', { class: 'rf-ask-words' }, question), hint ? note(doc, hint) : null, f,
-      el(doc, 'div', { class: 'rf-btns' }, quiet(doc, { label: cancel, run: () => p.close() }), go(doc, { label: goWord, run: done })));
+    // Only what is there: the browser writes an empty piece out as the word "null" (0.4.326).
+    p.body.append(...[el(doc, 'div', { class: 'rf-ask-words' }, question), hint ? note(doc, hint) : null, f,
+      el(doc, 'div', { class: 'rf-btns' }, quiet(doc, { label: cancel, run: () => p.close() }), go(doc, { label: goWord, run: done }))].filter(Boolean));
     if (f) { f.input.focus({ preventScroll: true }); if (fieldOptions.select && f.input.value) f.input.select(); }
     p.el.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing && event.target !== f?.input) { event.preventDefault(); done(); } });
   });
@@ -597,12 +598,13 @@ function card({ at, title, tag: tagTitle, day, fields = [], lines = [], empty = 
     return [el(doc, 'a', { href: '#', class: 'rf-card-name', click: act('prop', Array.isArray(f) ? { name } : f) }, name), cell];
   };
   const lineRow = line => el(doc, 'a', { href: '#', class: 'rf-card-line', html: typeof line === 'object' && line.html ? line.html : null, click: act('line', line) }, typeof line === 'string' ? line : line.html ? null : line.text);
-  p.body.append(
+  // Only what is there (0.4.326): a node with no properties and no lines showed "nullnull" in its card.
+  p.body.append(...[
     el(doc, 'a', { href: '#', class: 'rf-card-title', click: act('node') }, title),
     meta.length ? el(doc, 'div', { class: 'rf-note' }, ...meta) : null,
     fields.length ? el(doc, 'div', { class: 'rf-card-fields' }, ...fields.flatMap(fieldRow)) : null,
     lines.length ? el(doc, 'div', { class: 'rf-card-lines' }, ...lines.map(lineRow)) : null,
-    empty && !fields.length && !lines.length ? el(doc, 'div', { class: 'rf-note' }, empty) : null);
+    empty && !fields.length && !lines.length ? el(doc, 'div', { class: 'rf-note' }, empty) : null].filter(Boolean));
   return p;
 }
 

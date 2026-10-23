@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · No "null" in the card or a question (0.4.326)
+
+**Found** while checking 0.4.325: a card showed "nullnull". **Built:** `parts/shared.js`: `card` and `ask` append only the pieces that are there (`Element.append` writes `null` as text; `el()` already left them out). **Checks:** boot, undo-test, two-way-check, tags-test, then `sh tools/check.sh` in full. **Seen:** in Logseq.
+
 ## 2026-10-22 · The picking bar's room kept (0.4.325)
 
 **Asked:** the owner chose keeping the room over a floating bar: "that space is fine. allows breathing room". **Built:** `parts/two-way.js`, `barHtml`: the bar is always drawn above the rows, `data-idle` with `visibility: hidden` and `aria-hidden` while nothing is picked. **Checks:** boot, two-way-check, pictures, then `sh tools/check.sh` in full. **Seen:** in Logseq, ticked and cleared.
