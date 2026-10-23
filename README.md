@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.353.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.354.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -101,6 +101,7 @@ Grouped as in the settings window's sections (the window gathers them under the 
 | --- | --- | --- | --- |
 | Foundation only | `foundationOnly` | off | Troubleshooting |
 | A page’s tags and the tags above them, beside its title | `tagPathInTitle` | on | Tags beside the title |
+| Leave out “Add icon” and “Set property” by a title (their room kept, so nothing moves) | `hideTitleWords` | on | By the title |
 | Each property’s kind as an icon before its name | `propertyKindIcons` | on | Property kinds |
 | A cut property name whole on hover (Logseq cuts a long name in its narrow column; the pointer on it shows the whole name) | `propertyNameTips` | on | Property kinds |
 | Links read the same from both ends | `twoWayRows` | on | Two-way links |

@@ -1,4 +1,4 @@
-/* Loaded by main.js after parts/tag-path.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* Loaded by main.js after parts/title-row.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
 /* A property's kind, left of its name in a page's or a bullet's list of property rows (0.4.334, the owner, with a picture
    of Jay Varughese's page: "why don't the properties of pages not have the icons of the tag map page?"). Logseq draws

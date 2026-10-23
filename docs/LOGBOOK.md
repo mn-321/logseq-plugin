@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The words by the title left out, their room kept (0.4.354)
+
+**Asked:** Phase 2, piece 1 of `docs/FINISHING-PROMPT.md` section 5; the owner on 2026-10-21 and 2026-10-23: "hide text but
+keep space". **Done looks like:** on Dr. Mei Chen, with the pointer on the title, "Add icon" and "Set property" no
+longer appear above it; the title, its tags and its properties stay exactly where they were. **Found first** (in the
+app): Logseq 2.0.2 draws the two words in a row of their own just above the title (`.ls-page-title-actions`, 24 px) at
+no opacity until the pointer is on the title, so their room is there either way. **Built:** `parts/title-row.js`, a
+layer 4 part of one stylesheet: the row hidden (`visibility`, which keeps its room) in the main view and the right
+sidebar; the setting `hideTitleWords` (on), its own heading, By the title, under Reading a page. Logseq's own "+ Add
+property" under a page's properties stays. Boot, leaning and parts-apart tests know the part; README. **Checks:** boot,
+leaning, parts-apart, then `sh tools/check.sh` in full; `node tools/app-frames.js` on Dr. Mei Chen, Consultation, Nausea,
+Oct 22nd, 2026 and the tag map, plugin off and on, light and dark: nothing moves or flashes. **Seen in the app:** the
+pointer on Dr. Mei Chen's title: no words above it, the title at 80 px as without the part, Logseq's fold arrow as
+always. **Three tests (section 5.9):** frames clean; leaning 0 and parts-apart with it left out; it does what Logseq does
+not (keeps the title area still under the pointer).
+
 ## 2026-10-23 · Old branches settled (no version)
 
 **Asked:** `docs/FINISHING-PROMPT.md` 1C. **Found:** `claude/tag-tree-editable-22bf91` had no commit `main` lacks (0.4.310 did
