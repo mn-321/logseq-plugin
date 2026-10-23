@@ -739,10 +739,12 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
    record's own field), add a tag, copy, set a property, clear a property, delete, as quiet words with their icons,
    and Clear. Every change but delete has Undo (the faded arrow); delete asks first. Escape or the bar's box clears
    the picks; going to another page does too. */
+/* The bar's room is always kept above the rows, the bar shown in it only while something is picked (0.4.325, the owner:
+   "the toolbar jumps in and causes the link table to jump down … that space is fine. allows breathing room"). */
 function barHtml() {
-  if (!state.picked.size) return '';
+  const idle = !state.picked.size;
   const b = (act, text, title, name) => `<button type="button" class="rf-quiet" data-act="${act}" title="${esc(title)}">${name ? iconHtml(name) : ''}${text}</button>`;
-  return `<div class="rf-bar rf-tw-bar"><label class="rf-count"><input type="checkbox" class="rf-check" checked data-act="clear" title="Clear the picks (Escape)" aria-label="Clear the picks">${state.picked.size} picked</label>${
+  return `<div class="rf-bar rf-tw-bar"${idle ? ' data-idle="" aria-hidden="true"' : ''}><label class="rf-count"><input type="checkbox" class="rf-check" checked data-act="clear" title="Clear the picks (Escape)" aria-label="Clear the picks">${state.picked.size} picked</label>${
     b('sidebar', 'Sidebar', 'Open them in the sidebar', 'sidebar')}${b('point', `Change “${esc(pageTitle())}” to…`, 'Name another page in their field instead of this one', '')}${
     b('unlink', `Remove “${esc(pageTitle())}”`, 'Take this page out of their field', '')}${b('tag', 'Tag', 'Add a tag', 'tag')}${b('copy', 'Copy', 'Copy them as references', 'copy')}${
     b('set', 'Set property', 'Give them all one value', 'property')}${b('unset', 'Unset property', 'Clear a property on them all', '')}${b('delete', '', 'Delete them', 'delete')}<button type="button" class="rf-quiet rf-faint" data-act="clear" title="Clear the picks (Escape)">Clear</button></div>`;
@@ -1014,6 +1016,7 @@ const twoWayCss = `
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-pick, .refinement-two-way[data-picking] .rf-tw-row .rf-tw-pick { visibility: visible; }
 .refinement-two-way { position: relative; }
 .refinement-two-way .rf-tw-bar { margin: 0 0 6px 19px; }
+.refinement-two-way .rf-tw-bar[data-idle] { visibility: hidden; }
 `;
 /* Logseq draws the properties under a record as one strip (.bottom-properties-pills-strip, flex-nowrap and
    overflow-x hidden), so a record with several fields is cut off at the right edge, behind an Expand button the

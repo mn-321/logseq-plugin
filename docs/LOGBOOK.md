@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The picking bar's room kept (0.4.325)
+
+**Asked:** the owner chose keeping the room over a floating bar: "that space is fine. allows breathing room". **Built:** `parts/two-way.js`, `barHtml`: the bar is always drawn above the rows, `data-idle` with `visibility: hidden` and `aria-hidden` while nothing is picked. **Checks:** boot, two-way-check, pictures, then `sh tools/check.sh` in full. **Seen:** in Logseq, ticked and cleared.
+
 ## 2026-10-22 · Only the map's menu on a right-click (0.4.324)
 
 **Found** while checking 0.4.323 in the app: a right-click on a tag in the tag map also opened Logseq's own page menu behind the map's. **Built:** `parts/tags.js` and `parts/tags-props.js`: the three right-click handlers stop the event as well as preventing the browser's menu. **Checks:** tags-test, tag-drag-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq.
