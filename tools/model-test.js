@@ -105,6 +105,9 @@ function fakeDb(graph, log) {
     [/:where \[\?v :block\/closed-value-property \?p\]/, () => all().filter(x => x.closedFor).map(x => [x.closedFor, { id: x.id, title: x.title, order: x.order }])],
     [/:find \?c \?p :where \[\?c :logseq\.property\.class\/properties \?p\]/, () => all().flatMap(x => (x.fields || []).map(p => [x.id, p]))],
     [/:find \?child \?parent :where \[\?child :logseq\.property\.class\/extends \?parent\]/, () => all().flatMap(x => (x.extends || []).map(p => [x.id, p]))],
+    // Where a tag sits (0.4.328, tagChain): every tag with its uuid, title and ident, and every Extends.
+    [/:find \?t \?u \?title \?ident :where \[\?t :block\/tags :logseq\.class\/Tag\]/, () => all().filter(x => (x.tags || []).includes(2)).map(x => [x.id, x.uuid, x.title, ':' + (x.ident || 'user.class/' + x.title)])],
+    [/:find \?c \?p :where \[\?c :logseq\.property\.class\/extends \?p\]/, () => all().flatMap(x => (x.extends || []).map(p => [x.id, p]))],
     // The tags and their idents (0.4.220: which are Logseq's own).
     [/:find \?t \?i :where \[\?t :block\/tags :logseq\.class\/Tag\] \[\?t :db\/ident \?i\]/, () => all().filter(x => (x.tags || []).includes(2) && x.ident).map(x => [x.id, ':' + x.ident])],
     [/:where \[\?p :block\/name _\] \(not \[\?p :block\/tags :logseq\.class\/Property\]\) \(not \[\?p :block\/journal-day _\]\)/,
@@ -263,6 +266,10 @@ async function main() {
   same(await model.fieldsOf(U(50), schema), [], 'fieldsOf of a block with no tags');
 
   // What kind of page a page is.
+  same(await model.tagChain(U(11)), { chain: [{ uuid: U(11), title: 'Doctor' }, { uuid: U(10), title: 'Person' }], others: [] }, 'tagChain: Doctor sits under Person');
+  same((await model.tagChain(U(10)))?.chain.length, 1, 'tagChain: a top-level tag is its own chain');
+  same(await model.tagChain(U(46)), null, 'tagChain: a page that is not a tag has none');
+  same((await model.tagChain(U(60)))?.chain.map(t => t.title), ['A', 'B'], 'tagChain: a loop of two tags stops');
   same(await model.kindOfPage(11), { isTag: true, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of a tag page');
   same(await model.kindOfPage(22), { isTag: false, isProperty: true, plain: false, aliasOf: [] }, 'kindOfPage of a property page');
   same(await model.kindOfPage(46), { isTag: false, isProperty: false, plain: true, aliasOf: [] }, 'kindOfPage of a plain page');

@@ -12,6 +12,7 @@
    - titleOf(block), trailingTags, storedRef                       the words of a block, where its tags sit, how a link is stored
    - readableTitle(text, { pagesOnly, depth, asShown })             stored [[uuid]] and ((uuid)) as the titles people see
    - kindOfPage(pageId)                                              a tag page, a property page, a plain page, aliases
+   - tagChain(uuid)                                                  a tag and the tags above it, for the title's corner
    - propSchema(), propPages(), fieldsOf(uuid, schema)              your properties with their types, every page with its
                                                                     tags, the fields a record's tags give it (remembered
                                                                     for the session; read again when the graph changes)
@@ -599,6 +600,37 @@ async function kindOfPage(pageId) {
   };
 }
 
+/* Where a tag sits (0.4.328): the tag with this uuid and the tags above it, nearest first, following at each step the
+   first parent by title, and the tag's other direct parents; null when the page is not a tag. Logseq's Root, which every
+   tag without a parent of yours sits under, is left out, so a top-level tag's chain is the tag alone. */
+async function tagChain(uuid) {
+  if (!UUID.test(String(uuid || ''))) return null;
+  const [rows, links] = await Promise.all([
+    dsQuery(`[:find ?t ?u ?title ?ident :where [?t :block/tags :logseq.class/Tag] [?t :block/uuid ?u] [?t :block/title ?title] [?t :db/ident ?ident]]`),
+    dsQuery(`[:find ?c ?p :where [?c :${EXTENDS} ?p]]`),
+  ]);
+  const byId = new Map(rows.map(([id, u, title, ident]) => [id, { uuid: String(u), title: String(title), ident: bare(ident) }]));
+  const me = [...byId].find(([, tag]) => tag.uuid === String(uuid));
+  if (!me) return null;
+  const parents = new Map();
+  for (const [child, parent] of links) {
+    if (byId.get(parent)?.ident === 'logseq.class/Root' || !byId.has(parent)) continue;
+    if (!parents.has(child)) parents.set(child, []);
+    parents.get(child).push(parent);
+  }
+  for (const list of parents.values()) list.sort((a, b) => byId.get(a).title.localeCompare(byId.get(b).title));
+  const shown = ({ uuid: u, title }) => ({ uuid: u, title });
+  const chain = [shown(me[1])], seen = new Set([me[0]]);
+  for (let at = me[0]; ;) {
+    const next = (parents.get(at) || []).find(id => !seen.has(id));
+    if (next == null) break;
+    seen.add(next);
+    chain.push(shown(byId.get(next)));
+    at = next;
+  }
+  return { chain, others: (parents.get(me[0]) || []).slice(1).map(id => shown(byId.get(id))) };
+}
+
 /* THE writes (0.4.315): every write a part makes to the graph goes through here, so Logseq's own calls live in one
    place. A property's value (an entity id with { entityId: true }, several with { reset: true }), a value taken off,
    a tag given or taken from a node, a block's words, a block put in edit or left, a block made after or inside
@@ -638,7 +670,7 @@ function provide(core) {
   core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
-    propSchema, propPages, fieldsOf, kindOfPage, parseDay, dayNumber, sameDay, dayAfter, DAYS,
+    propSchema, propPages, fieldsOf, kindOfPage, tagChain, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
