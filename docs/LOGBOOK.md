@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · The link box's cursor against the letters (0.4.321)
+
+**Asked:** "fix" (the owner had seen the cursor "a couple spaces ahead of text" in the link box). **Built:** `parts/shared.js`: `.rf-field-drawn` has no gap; its `kbd` keeps 6 px of its own. **Checks:** link-text-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq, with a test bullet on Oct 22nd, taken off again.
+
 ## 2026-10-22 · Two-way tags beside their node (0.4.320)
 
 **Asked:** "move tags for two-way link next to item, not right aligned" (the owner, with a picture of KEYNOTE-966 in their own graph: Cisplatin, Gemcitabine, Pembrolizumab with Cancer Drug at the far right). **Done looks like:** each node's tag right after its name. **Built:** `parts/two-way.js`, the rows' grid only: the name's column `minmax(0, max-content)` (a long name still wraps), then the tag, the sidebar icon, and a last `1fr` column taking the rest, in short rows, open lists, date first and name first; the draft line's field `minmax(8em, 22em)` with its tag after it. `tools/pictures.js` re-approved after looking. **Checks:** pictures, boot, leaning, then `sh tools/check.sh` in full. **Seen:** Dr. Mei Chen after a reload.

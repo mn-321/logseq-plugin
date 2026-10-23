@@ -756,13 +756,15 @@ const kitCss = `/* The kit (parts/shared.js, 0.4.311; docs/LAYERS.md section 3):
 .rf-field > .ti { font-size: 15px; }
 .rf-field-inline { display: inline-flex; min-height: 22px; vertical-align: baseline; }
 /* The drawn field: the same look, the text and the caret drawn, so nothing takes the keyboard from the bullet. */
-.rf-field-drawn { align-items: baseline; }
+/* The drawn caret sits right against the letters (0.4.321, the owner: "the cursor is a couple spaces ahead of text"): no gap
+   between the pieces of the drawn field, the key hint kept apart by its own room. */
+.rf-field-drawn { align-items: baseline; gap: 0; }
 .rf-field-drawn > .rf-typed { flex: 0 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .rf-field-drawn > .rf-typed-fresh { background: var(--rf-wash); border-radius: 2px; }
 .rf-field-drawn > .rf-placeholder { flex: 1; min-width: 0; color: var(--rf-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rf-field-drawn > .rf-caret { display: inline-block; flex: none; width: 1.5px; height: 1.1em; margin-left: 1px; transform: translateY(.2em); background: currentColor; animation: rf-blink 1s steps(1) infinite; }
 .rf-field-drawn > .rf-placeholder + .rf-caret { order: -1; margin: 0 1px 0 0; }
-.rf-field-drawn > kbd { margin-left: auto; }
+.rf-field-drawn > kbd { margin-left: auto; padding-left: 6px; }
 @keyframes rf-blink { 50% { opacity: 0; } }
 .rf-item.rf-new > .rf-item-words { font-style: italic; }
 /* The tick box: the browser's checkbox as a small rounded square, a check mark inside when on. */
