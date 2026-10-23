@@ -5,7 +5,13 @@
    Reads the graph through Logseq's command line (~/.local/bin/logseq), which works while the app has it open.
    The fingerprint is every fact about every page and block, with links written as the uuid of what they point to
    (an undo can give a block a new number but keeps its uuid), leaving out the times Logseq stamps on a save.
-   The fingerprint is kept in check.log/ (ignored by git). Exits non-zero when the graph differs. */
+   The fingerprint is kept in check.log/ (ignored by git). Exits non-zero when the graph differs.
+   One kind of difference is Logseq's own and named apart, not failed (2026-10-23, docs/PROCESS.md's lessons): the first
+   time a page is opened Logseq saves view blocks on it ("Linked references", "Unlinked references", "All"), each
+   marked with logseq.property.view/feature-type and view-for. Only such a block newly added counts so; one changed or
+   gone, or any other block, fails as before. Likewise Logseq's Recycle bookkeeping: a page in the Recycle before and
+   after whose only changes are when it went there and its place (logseq.property/deleted-at, block/order), as when
+   it is brought back and put back again (Turn into links and its Undo). */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -53,16 +59,21 @@ if (mode === 'save') {
 } else if (mode === 'compare') {
   if (!fs.existsSync(file)) { console.log('PROBLEM: no saved fingerprint; run "node tools/graph-check.js save" before the round'); process.exit(1); }
   const before = JSON.parse(fs.readFileSync(file, 'utf8')).nodes, after = fingerprint();
-  const lines = [];
+  const lines = [], views = [], kept = [];
   for (const id of new Set([...Object.keys(before), ...Object.keys(after)])) {
     const a = before[id], b = after[id];
+    if (!a && b.some(f => f.startsWith('logseq.property.view/feature-type ')) && b.some(f => f.startsWith('logseq.property/view-for '))) { views.push(label(b)); continue; }
     if (!a) { lines.push(`added: "${label(b)}" (${id})`); continue; }
     if (!b) { lines.push(`gone: "${label(a)}" (${id})`); continue; }
     const was = new Set(a), now = new Set(b);
     const lost = a.filter(f => !now.has(f)), got = b.filter(f => !was.has(f));
+    const recycled = facts => facts.some(f => f.startsWith('logseq.property/deleted-at '));
+    if (recycled(a) && recycled(b) && [...lost, ...got].every(f => /^(logseq\.property\/deleted-at|block\/order) /.test(f))) { kept.push(label(b)); continue; }
     if (lost.length || got.length) lines.push(`changed: "${label(b)}" (${id})\n    was: ${lost.join('; ') || '-'}\n    now: ${got.join('; ') || '-'}`);
   }
-  if (!lines.length) { console.log(`graph check: OK, "${GRAPH}" is as it was (${Object.keys(after).length} pages and blocks)`); process.exit(0); }
+  const keptNote = kept.length ? ` (and ${kept.length} page${kept.length > 1 ? 's' : ''} in Logseq's Recycle put back there again: ${kept.join(', ')})` : '';
+  const viewNote = (keptNote ? keptNote : '') + (views.length ? ` (and ${views.length} view block${views.length > 1 ? 's' : ''} Logseq saved on first opening a page: ${[...new Set(views)].join(', ')})` : '');
+  if (!lines.length) { console.log(`graph check: OK, "${GRAPH}" is as it was (${Object.keys(after).length - views.length} pages and blocks)${viewNote}`); process.exit(0); }
   for (const line of lines) console.log('PROBLEM: ' + line);
   console.log(`graph check: FAILED, ${lines.length} differ`);
   process.exit(1);

@@ -38,6 +38,8 @@
    - perf                         measuring hooks (add, time, seen, style, frameState, pass, passDone,
                                   ownSettingsOnly): no-ops until the diagnostics part measures.
    - warnings                     every distinct warnOnce message of this session (message, first time, count).
+   - lifeCounts()                 every part's clean-up steps waiting, by part: the stress tests' count of what a part has
+                                  set going (listeners, hooks, timers given to onUnload); one that grows with use leaks.
    - MARK_CLASS, MARK_ATTR, isOwnMark(node), ownMarks(doc)   THE finder of the plugin's marks on Logseq's screen: every
                                   class and attribute prefix a part uses; the troubleshooting box, the boot test and the
                                   frame tests all count with it.
@@ -161,10 +163,16 @@ function sweepLeftovers(doc) {
     } catch (error) { console.warn(prefix + 'leftovers could not be cleared', error); }
   }
 }
+// Every part's clean-up list, by its prefix, so the stress tests can see one that grows with use (lifeCounts).
+const lives = [];
+// Several parts share a prefix (the proposals' four, the tag map's three, the core and the troubleshooting tools): their
+// steps are added up under it, so none hides another's (the second reading of 2026-10-23).
+const lifeCounts = () => lives.reduce((out, { prefix, unloadTasks }) => { const key = prefix.replace(/^Refinements ?\(?|\)?: $/g, '') || 'core'; out[key] = (out[key] || 0) + unloadTasks.length; return out; }, {});
 function lifecycle({ prefix, stopKey, before, sweep, leaves }) {
   const warnOnce = warner(prefix);
   if (leaves) leftovers.push({ prefix, ...leaves });
   const unloadTasks = [];
+  lives.push({ prefix, unloadTasks });
   // Also takes the "off" function every logseq.*.onXxx hook returns.
   const onUnload = task => { if (typeof task === 'function') unloadTasks.push(task); };
   // Every step starts at once, in reverse order of set-up, so the screen is clean by the time this
@@ -899,6 +907,6 @@ function ownMarks(doc) {
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, openPageNamed, settingReader, graphNamedIn, perf, warnings,
   kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, tagLinkHtml, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
-  MARK_CLASS, MARK_ATTR, isOwnMark, ownMarks,
+  MARK_CLASS, MARK_ATTR, isOwnMark, ownMarks, lifeCounts,
 };
 })();

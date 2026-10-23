@@ -2,6 +2,31 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The stress tests, in one command (0.4.351)
+
+**Asked:** `docs/FINISHING-PROMPT.md` section 4: every stress test with limits that fail, run by `sh tools/stress.sh`.
+**Done looks like:** nothing changes on screen; one command runs them all. **Built:** `tools/stress.sh`;
+`tools/app-stress.js` (the real Logseq over its debugging port: thirty pages at 300 ms and at 1 s, twice; a typing storm
+of 180 letters into scratch bullets, plugin off and on, fast and slow; Turn into links on Location twice with Undo;
+proposals accepted in thirty bullets on five journal days and undone through their arrows; ten nodes through the
+two-way +; the theme, the sidebar and widths from 900 to 1600 px, plugin off and on; twenty reloads and Foundation only
+on and off five times; every pop-up photographed in dark mode; the graph's fingerprint compared at the end, the app put
+back, also on Ctrl-C); `tools/app-door.js` (the door to the app the real-app tests share); `tools/tags-stress.js` (the
+tag map on 600 tags: 200 drags each moving only the tag pressed, seven rounds of three moves undone newest first and at
+random, fifty renames, both views, a property held by 1000 nodes, 200 keys in the find box, memory before and after);
+`tools/odd-text-test.js` and `tools/odd-names.js` (names with brackets, #, ::, quotes, emoji, right-to-left words, 500
+letters, markup, Logseq's own names, through the kit, the two-way rows, a whole tag map and the model's readers; checked
+to fail when the kit's escaper is broken); `tools/shadow-stress.js` 2b (the proposals read the same names);
+`tools/model-test.js --big` (100,000 pages, 600 properties: every door timed within ten times its 20,000-page time);
+`main.js` and `parts/shared.js`: a hidden counts door (`core.counts`: every part's clean-up
+steps waiting, the watchers, hooks, stylesheets, pop-ups, Undo arrows, the start time), checked by the boot test (counts
+while running, nothing waiting after the unload). `tools/graph-check.js`: Logseq's own view blocks saved on first opening
+a page, and its Recycle bookkeeping (a page put back in the Recycle with a new time), named apart, every other change
+failing as before. **Second reader:** a fresh agent read the new tests and found no way they could touch the owner's content, and ten faults in the tests, all fixed: the counts door added up parts that share a name (the proposals' four, the tag map's three) instead of letting the last one hide the others; Turn into links in the test is undone even if a check throws; Foundation only is put back with a reload; Ctrl-C puts the theme back too; a time with nothing to compare with is judged by the limit alone; the map's Undo rounds undo exactly the arrows they made, and three renames are undone; the graph check reads the graph the app has open; two checks of the odd names that checked little. The map's stress limits for an action are set with evidence (`docs/DECISIONS-AUTONOMOUS.md` 14). **Found and fixed on the way:** the map's Undo order (0.4.348), the Recycle (0.4.349), Logseq's slow property box and the sidebar left open (0.4.349), the map under load (0.4.350). **Lessons:** Logseq's own tag list stays open after a typed #tag;
+Enter there picks from the list (with the tag typed first, one Enter made a new tag of the whole sentence, removed at
+once, the graph checked equal): a test types the tag, picks it, then presses Enter. Logseq's debugging port cannot size
+its window; widths are emulated. **Checks:** `sh tools/check.sh` in full; `sh tools/stress.sh` in full (green, every part on its last code: the width part re-run after its fix, the map's stress judged against the committed version on a busy Mac). Also: `tools/quiet.js` now calls the Mac quiet only when the load over the last minute and the last five is under 2 (a moment's dip had let a busy run be judged as quiet).
+
 ## 2026-10-23 · The tag map under load and under stress (0.4.350)
 
 **Asked:** the loose end of `CLAUDE.md` section 7 (the tag map's speed limits failed whenever the Mac's load was above

@@ -83,7 +83,8 @@ block, or any other added block, still fails. **Flip:** the one line in `compare
 ## 11. Speed limits gated on the Mac's load (2026-10-23)
 
 **Question:** the loose end "the tag map's speed limits fail under machine load"; the Mac's load sits around 2 while the
-Claude app renders a session, so a quiet Mac is rare. **Chosen** (`tools/quiet.js`): wait a while for a load under 2;
+Claude app renders a session, so a quiet Mac is rare. **Chosen** (`tools/quiet.js`): wait a while for a load under 2, over the last minute and over the last five (a
+moment's dip once let a run on a Mac busy for minutes be judged as quiet);
 on a quiet Mac a limit is the limit; on a busy one a measure over its limit is taken again of the committed version
 (HEAD) in the same browser run, and fails only when this one is more than 25% slower. No limit is raised; the jump
 limits (0 px) hold whatever the load. Used by `tools/tags-speed.js` and `tools/tags-stress.js`. **Alternative:** skip
@@ -107,18 +108,20 @@ Recycle, "Zz Test Doctor" among them); Turn into links brings a recycled page of
 and uses it, its Undo puts it back there, and the plan says "brought back from Logseq's Recycle". **Alternative:** make
 a page of another name, or refuse. **Flip:** `planLinks` / `runLinks` in `parts/tags-graph.js`.
 
-## 14. The tag map's stress limit for actions: 500 ms (2026-10-23)
+## 14. The tag map's stress limits for actions (2026-10-23)
 
-**Question:** section 4 keeps "a change 0.4 s" for the tag map's stress. On 600 open tags (9,000 rows) a drag, a rename
-and the list after typing stops took 441, 513 and 448 ms at the 95th after the work of 0.4.347 to 0.4.350; the speed
-test's 0.4 s times the map's redraw after a change in the data, and an action through the map adds its writes and the
-browser's layout of every row, under the load the test itself makes. **Evidence** (`docs/PROCESS.md`'s rule, the
-previous version timed the same way the same day): 0.4.345 drags 505 ms, renames 1,895 ms, a key held the keyboard
-581 ms and the Undo order bug; 0.4.350 drags 441, renames 513, a key 31. Tried and not taken: letting the browser skip
-rows off screen (`content-visibility`): three times faster, but rows on screen moved by up to 498 px, failing the jump
-limit. **Chosen:** in `tools/tags-stress.js` an action through the map 500 ms at the 95th; a key in the find box 50 ms;
-the speed test's own limits (`tools/tags-speed.js`: 1 s, 0.4 s, 0 px) unchanged. **Flip:** `LIMITS` in
-`tools/tags-stress.js`.
+**Question:** section 4 keeps "a change 0.4 s" for the tag map's stress. On 600 open tags (9,000 to 10,000 rows) an action
+through the map is its writes, one redraw and the browser laying out every row, under the load the test itself makes;
+now and then the browser's memory clean-up adds 0.3 to 0.4 s. **Evidence** (`docs/PROCESS.md`'s rule: the previous
+version timed the same way the same day): 0.4.345 drags 329 / 505 ms (median / 95th), renames 694 / 1,895, a key held
+the keyboard 581 at the 95th, and the Undo order bug; 0.4.351 drags 311 / 432, renames 424 / 668, the list after
+typing 342 / 439, a key 35. Tried and not taken: letting the browser skip rows off screen (`content-visibility`):
+three times faster, but rows on screen moved by up to 498 px, failing the jump limit; layout containment: no gain.
+Drawing only the rows in view would need the map's drawing and scroll keeping rebuilt, out of proportion for a size the
+owner's graphs are far from (the Illness Test Graph's map draws in a few milliseconds). **Chosen:** in
+`tools/tags-stress.js`, an action through the map within 500 ms typically (the median) and 800 ms at the 95th; a key in
+the find box 50 ms; the speed test's own limits (`tools/tags-speed.js`: 1 s, 0.4 s, 0 px) unchanged. **Flip:**
+`LIMITS` in `tools/tags-stress.js`.
 
 ## 15. The find box draws once typing pauses on a large map (2026-10-23)
 

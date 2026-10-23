@@ -243,6 +243,11 @@ function publishCore() {
     onDbRound: (name, fn, { scope = 'page', before } = {}) => { dbJobs.push({ name, fn, scope, before }); },
     onPageChange: fn => hooks.page.push(fn), onDatabaseChange: fn => hooks.database.push(fn), onSettingsChange: fn => hooks.settings.push(fn),
     onGraphChange: fn => hooks.graph.push(fn), // another graph opened (0.4.315)
+    // A hidden door for the stress tests (2026-10-23, tools/app-stress.js): what this copy has set going, and when it
+    // started, so twenty reloads or sixty pages can be checked to leave one of everything and nothing growing.
+    counts: () => ({ startedAt, cleanUps: window.refinementShared.lifeCounts(), watchers: domWatch.updaters.size + domWatch.early.length,
+      hooks: Object.fromEntries(Object.entries(hooks).map(([k, list]) => [k, list.length])), dbJobs: dbJobs.length, styles: sentStyles.size,
+      popups: window.refinementShared.popups.size, undos: window.refinementShared.undo.size }),
   };
 }
 // A saved setting whose old default clashed with something (a part declares it in `moved`) is moved to the new
@@ -376,7 +381,9 @@ function keepFrameInPlace() {
   win.addEventListener('scroll', onScroll, true);
   onUnload(() => win.removeEventListener('scroll', onScroll, true));
 }
+let startedAt = 0; // when this copy started (the counts' door: a reload that took effect has a new one)
 function main() {
+  startedAt = Date.now();
   // Installed from GitHub without the "effect" box ticked, Logseq keeps the plugin in a sealed frame on another
   // address (lsp://logseq.io), where Logseq's own page cannot be reached and nothing of the plugin can draw (seen
   // 0.4.282 on the owner's other computer: no rows, no map, no settings item). Say so once, instead of failing part by part.

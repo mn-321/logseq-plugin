@@ -33,7 +33,7 @@ const ms = t => Number(process.hrtime.bigint() - t) / 1e6;
 const spread = list => { const a = [...list].sort((x, y) => x - y), at = q => a[Math.min(a.length - 1, Math.floor(q * a.length))]; return `median ${at(.5).toFixed(2)} ms, 95th ${at(.95).toFixed(2)} ms, slowest ${a[a.length - 1].toFixed(2)} ms`; };
 
 /* A pretend graph shaped like the Illness Test Graph. */
-function graph({ pages: nPages = 0, lines = 0 } = {}) {
+function graph({ pages: nPages = 0, lines = 0, odd = [] } = {}) {
   const T = { occurrence: 1, consultation: 2, log: 3, treatment: 4, expectation: 5, person: 6, doctor: 7, symptom: 8, agent: 9 };
   const prop = (id, title, type, classes = [], many = false) => ({ id, ident: 'user.property/' + title.replace(/\W/g, '-').toLowerCase(), title, lower: title.toLowerCase(), type, many, classes: classes.map(c => ({ id: c, uuid: 'tag-' + c, title: 'Tag ' + c })) });
   const props = [prop(20, 'Date', 'date'), prop(21, 'Provider', 'node', [T.doctor]), prop(22, 'Symptom type', 'node', [T.symptom]), prop(23, 'Severity', 'number'),
@@ -48,6 +48,8 @@ function graph({ pages: nPages = 0, lines = 0 } = {}) {
     page(100, 'Dr. Mei Chen', T.doctor), page(101, 'Dr. Raj Patel', T.doctor), page(102, 'Fatigue', T.symptom), page(103, 'Nausea', T.symptom), page(104, 'Oxaliplatin', T.agent),
     page(105, 'May Fair', null), page(106, 'Dr. Ana Chen', T.doctor)];
   const FIRST = ['Anna', 'Ben', 'Chloe', 'David', 'Ella', 'Farid', 'Grace', 'Hugo', 'Ines', 'Jamal'], LAST = ['Adams', 'Baker', 'Chen', 'Diaz', 'Evans', 'Fischer', 'Garcia', 'Hughes', 'Ito', 'Jones'];
+  // Odd names (tools/odd-names.js): every third a doctor, the rest symptoms.
+  odd.forEach((title, i) => pages.push(page(5000 + i, title, i % 3 ? T.symptom : T.doctor)));
   for (let i = 0; i < nPages; i++) pages.push(page(1000 + i, i % 3 ? `Page ${i} ${LAST[i % 10]}` : `Dr. ${FIRST[i % 10]} ${LAST[(i / 10 | 0) % 10]} ${i}`, i % 3 ? null : T.doctor));
   const byKey = new Map(), byId = new Map();
   for (const p of pages) { byKey.set(p.lower, p); byKey.set(p.uuid, p); byId.set(p.id, p); }
@@ -156,6 +158,27 @@ let tLong = process.hrtime.bigint(); piecesFor(bullet([T.log]), long, small.ctx)
 console.log(`  20,000 random bullets: ${stopped} stopped the plugin; ${spread(fuzzTimes)}`);
 console.log(`  a bullet of 10,000 letters: ${tLong.toFixed(2)} ms`);
 if (tLong > 50) problem(`a bullet of 10,000 letters took ${tLong.toFixed(0)} ms (limit 50)`);
+
+/* 2b. Odd names (2026-10-23, docs/FINISHING-PROMPT.md section 4): pages named with brackets, #, ::, quotes, back
+   slashes, emoji, right-to-left words, 500 letters, Logseq's own names, an empty name, a name of spaces, linked and named
+   in plain words, typed a letter at a time. Nothing may stop, and whatever is proposed must be a page's own title (or, for
+   [[Name]]#Tag, the title and the tag it is to get, as the app shows it: “Hannah Reyes #Doctor”). */
+console.log('2b. odd names');
+const ODD = require('./odd-names');
+const oddGraph = graph({ odd: ODD });
+addHistory(oddGraph.ctx, oddGraph.entries);
+const titles = new Set(oddGraph.ctx.pages.map(p => p.title));
+let oddStopped = 0, oddWrong = 0, oddCount = 0;
+for (const name of ODD) for (const text of [`Saw [[${name}]] today`, `Saw ${name} today`, `[[${name}]]#Doctor`, `${name}`]) for (const tags of [[T.consultation], [T.log], []]) {
+  for (let i = 1; i <= text.length; i += Math.max(1, text.length >> 3)) {
+    oddCount++;
+    let out;
+    try { out = piecesFor(bullet(tags), text.slice(0, i), oddGraph.ctx); } catch (error) { if (oddStopped++ < 5) problem(`an odd name stopped the plugin: ${JSON.stringify(text.slice(0, i))}: ${error.message}`); continue; }
+    for (const p of out.pieces) if (p.prop.type === 'node' && p.prop.title !== 'Tags' && !String(p.shown).split(', ').every(v => titles.has(v) || titles.has(v.replace(/ #[^#]+$/, ''))) && oddWrong++ < 5)
+      problem(`an odd name made a proposal that is no page: “${text.slice(0, i)}” proposed ${p.prop.title} = ${JSON.stringify(p.shown)}`);
+  }
+}
+console.log(`  ${ODD.length} odd names, ${oddCount} readings: ${oddStopped} stopped the plugin, ${oddWrong} proposed something that is no page`);
 
 /* 3. A large pretend graph. */
 console.log('3. a large pretend graph (20,000 pages, 50,000 earlier lines)');

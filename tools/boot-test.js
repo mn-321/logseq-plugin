@@ -225,12 +225,18 @@ async function main() {
   logseq.fire('App.onCurrentGraphChanged');
   await sleep(1300); // the database round after a pause (800 ms) and the first self-check (4 s is too long to wait; it is harmless)
 
+  // The counts' door (2026-10-23, for tools/app-stress.js): what this copy set going, and when it started.
+  const counts = pluginWindow.refinementCore.counts?.();
+  const totalSteps = c => Object.values(c?.cleanUps || {}).reduce((a, b) => a + b, 0);
+  if (!counts || !counts.startedAt || !totalSteps(counts) || !counts.watchers) problem('the counts door gave nothing: ' + JSON.stringify(counts));
   // 3. Unload, as Logseq does before a reload.
   const stopKey = Object.keys(host.window).find(key => /Stop$/.test(key) && typeof host.window[key] === 'function');
   if (!stopKey) problem('no clean-up was left on the host window for the next copy');
   try { await logseq._unload(); } catch (error) { problem('unload threw: ' + (error && error.stack || error)); }
   await sleep(100);
   for (const key of Object.keys(host.window)) if (/Stop$/.test(key) && typeof host.window[key] === 'function') problem(`clean-up ${key} still on the host window after unload`);
+  const after = pluginWindow.refinementCore.counts?.();
+  if (totalSteps(after)) problem('clean-up steps still waiting after unload: ' + JSON.stringify(after.cleanUps));
   const left = leftovers(doc);
   if (left.length) problem('left on screen after unload: ' + [...new Set(left)].join(', '));
   const hooksLeft = Object.entries(logseq.hooks).filter(([, list]) => list.length).map(([name, list]) => `${name} × ${list.length}`);
