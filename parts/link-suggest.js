@@ -70,41 +70,37 @@ function suggestFor(text, caret, pages) {
     if (k === 1 && letters(q) < 4 && !/^\p{Lu}/u.test(span)) continue;        // "the" never shows a page
     const starts = [], inner = [];
     for (const page of pages) {
-      if (page.lower === q || page.lower.length <= q.length) continue;
+      if (page.lower.length < q.length) continue;
       if (page.lower.startsWith(q)) { starts.push({ page, at: 0 }); continue; }
-      const at = wordStarts(page.lower).find(i => page.lower.startsWith(q, i) && page.lower.length > i + q.length);
+      const at = wordStarts(page.lower).find(i => page.lower.startsWith(q, i));
       if (at !== undefined) inner.push({ page, at });
     }
     const hit = (starts.length ? starts : inner).sort(better)[0];
-    if (hit) return { start, end: caret, span, title: hit.page.title, ghost: hit.page.title.slice(hit.at + q.length) };
+    // ghost: the rest of the name after the words; name: the whole name, shown as the cue when the words sit inside it
+    // ("general hospital" → Riverside General Hospital) or finish it, so what the tap writes is never a surprise.
+    if (hit) { const ghost = hit.page.title.slice(hit.at + q.length); return { start, end: caret, span, title: hit.page.title, ghost, name: hit.at > 0 || !ghost ? hit.page.title : '' }; }
   }
   return null;
 }
 
-/* Where the cursor sits on screen: a hidden copy of the text box, laid out the same, measured up to it (the way the link
-   box finds its words, parts/link-text.js). */
-function caretRect(box, pos) {
-  const doc = box?.ownerDocument;
-  if (!doc || !box.isConnected) return null;
-  const outer = box.getBoundingClientRect();
-  const style = doc.defaultView.getComputedStyle(box), copy = doc.createElement('div');
-  for (const p of ['boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth',
-    'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight',
-    'textTransform', 'wordSpacing', 'textIndent', 'tabSize']) copy.style[p] = style[p];
-  Object.assign(copy.style, { position: 'fixed', left: '0', top: '0', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', pointerEvents: 'none' });
-  copy.textContent = box.value.slice(0, pos);
-  const mark = doc.createElement('span');
-  mark.textContent = '​';
-  copy.append(mark, doc.createTextNode(box.value.slice(pos)));
-  doc.body.append(copy);
-  const base = copy.getBoundingClientRect(), at = mark.getBoundingClientRect();
-  copy.remove();
-  const dx = outer.left - base.left - box.scrollLeft, dy = outer.top - base.top - box.scrollTop;
-  return { left: at.left + dx, top: at.top + dy, height: at.height, right: outer.right, style };
+/* The grey words sit where the box itself would put them: a copy of the box is laid over it, the same size, padding and
+   font, with the typed words in it transparent and the rest of the name after them in grey. The browser lays both out the
+   same, so the grey words start exactly at the cursor, on the same line, wrapping as the words would (0.4.363; measuring
+   a point and placing a span there, 0.4.361, was a few pixels off and sat lower than the words). */
+const COPIED = ['boxSizing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth',
+  'borderLeftWidth', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'textTransform', 'wordSpacing', 'textIndent', 'tabSize', 'textAlign'];
+function layOver(box, over, hit) {
+  const doc = box.ownerDocument, outer = box.getBoundingClientRect(), style = doc.defaultView.getComputedStyle(box);
+  for (const p of COPIED) over.style[p] = style[p];
+  Object.assign(over.style, { left: outer.left + 'px', top: (outer.top - box.scrollTop) + 'px', width: outer.width + 'px', minHeight: outer.height + 'px', borderStyle: 'solid', borderColor: 'transparent', color: style.color });
+  const [typed, grey] = over.children;
+  typed.textContent = box.value.slice(0, hit.end);
+  grey.textContent = hit.ghost;
+  if (hit.name) grey.setAttribute('data-name', hit.name); else grey.removeAttribute('data-name');
+  grey.title = `Hyper: [[${hit.title}]]`;
 }
-
-// What shows: the box, the suggestion and the grey words.
-let showing = null, quiet = null, version = 0;
+// What shows: the box, the suggestion and the grey words; the pages last read, for a tap on words the screen is behind on.
+let showing = null, quiet = null, version = 0, lastPages = [];
 const isBlockBox = node => node?.tagName === 'TEXTAREA' && !!node.closest('.ls-block');
 function clear() {
   if (!showing) return;
@@ -113,16 +109,10 @@ function clear() {
 }
 function draw(box, hit) {
   const doc = box.ownerDocument;
-  const ghost = showing?.box === box ? showing.ghost : el(doc, 'span', { class: 'refinement-link-suggest', 'aria-hidden': 'true' });
+  const ghost = showing?.box === box ? showing.ghost : el(doc, 'div', { class: 'refinement-link-suggest', 'aria-hidden': 'true' }, el(doc, 'span', { class: 'rf-typed' }), el(doc, 'span', { class: 'rf-ghost' }));
   if (showing && showing.box !== box) clear();
   showing = { box, hit, ghost };
-  ghost.textContent = hit.ghost;
-  ghost.title = `Hyper: [[${hit.title}]]`;
-  const at = caretRect(box, hit.end);
-  if (at) {
-    for (const p of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight']) ghost.style[p] = at.style[p];
-    Object.assign(ghost.style, { left: at.left + 'px', top: at.top + 'px', height: at.height + 'px', maxWidth: Math.max(0, at.right - at.left) + 'px', color: at.style.color });
-  }
+  layOver(box, ghost, hit);
   if (!ghost.isConnected) doc.body.append(ghost);
 }
 async function look(box) {
@@ -131,7 +121,7 @@ async function look(box) {
   if (quiet && quiet.box === box && quiet.text === text) return;   // Escape: quiet until something else is typed
   quiet = null;
   const mine = ++version;
-  const pages = await propPages().catch(error => { warnOnce('the pages could not be read', error); return []; });
+  const pages = lastPages = await propPages().catch(error => { warnOnce('the pages could not be read', error); return []; });
   if (mine !== version || !box.isConnected || box.value !== text || box.selectionStart !== caret || box.ownerDocument.activeElement !== box) return;
   if (screen.popupOpen()) return clear();                             // Logseq's own list ([[, /, a picker) has the keys
   const hit = suggestFor(text, caret, pages);
@@ -143,12 +133,21 @@ function onInput(event) {
   if (!isBlockBox(box)) return;
   look(box).catch(error => warnOnce('the suggestion could not be made', error));
 }
+// Logseq takes Backspace and Delete itself in places (pairs of brackets, the start of a bullet) and sets the words without
+// the usual typing signal, so the grey words stayed as they were (the owner, 2026-10-23: "if I press back the text just
+// stays there"); the key's release looks again.
+function onKeyUp(event) {
+  if (event.key === 'Backspace' || event.key === 'Delete') onInput(event);
+}
 // The Hyper tap, or the keys set (the command in the register): the words become the link, typed as if by hand.
 function acceptSuggestion(event) {
   if (!showing || event?.target !== showing.box) return false;
-  const { box, hit } = showing;
+  const { box } = showing;
+  let { hit } = showing;
   clear();
-  if (box.value.slice(hit.start, hit.end) !== hit.span || box.selectionStart !== hit.end) return false; // the words changed meanwhile
+  // The screen may be behind the words (a Backspace Logseq took itself): what is suggested for the words as they are now.
+  if (box.value.slice(hit.start, hit.end) !== hit.span || box.selectionStart !== hit.end) hit = box.selectionStart === box.selectionEnd ? suggestFor(box.value, box.selectionStart, lastPages) : null;
+  if (!hit) return false;
   const link = `[[${hit.title}]]`;
   box.focus();
   box.setSelectionRange(hit.start, hit.end);
@@ -187,8 +186,11 @@ function onHyperUp(event) {
 }
 
 const css = `
-.refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre; overflow: hidden; opacity: .45; }
-.refinement-link-suggest::after { content: " ⇪"; font-family: var(--rf-mono); font-size: .8em; opacity: .7; }
+.refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; background: none; }
+.refinement-link-suggest .rf-typed { color: transparent; }
+.refinement-link-suggest .rf-ghost { opacity: .45; }
+.refinement-link-suggest .rf-ghost::after { content: " ⇪"; font-family: var(--rf-mono); font-size: .8em; opacity: .7; }
+.refinement-link-suggest .rf-ghost[data-name]::after { content: " ⇪ " attr(data-name); }
 `;
 
 function start() {
@@ -197,6 +199,7 @@ function start() {
   const win = host().defaultView;
   listen(win, ['input'], onInput);
   listen(win, ['keydown'], onKey);
+  listen(win, ['keyup'], onKeyUp);
   listen(win, ['keydown'], onHyperDown);
   listen(win, ['keyup'], onHyperUp);
   listen(win, ['blur'], () => { hyperTap.armedAt = 0; });

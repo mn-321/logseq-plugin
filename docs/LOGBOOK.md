@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Suggested links: alignment, Backspace, the tap, words inside a name (0.4.363)
+
+**Asked** (with three pictures): "general hospital" should find Riverside General Hospital; the grey words sat off the
+line; after Backspace they stayed; the Hyper tap then did nothing. **Found:** Logseq takes Backspace itself in places and
+sets the words with no input event, so the grey words were never looked at again, and the stale words failed the tap's
+match. **Built** (`parts/link-suggest.js`): the grey words in an overlay copy of the box (typed words transparent), no
+more measuring a point; keyup of Backspace/Delete looks again; a tap on stale words suggests afresh from the pages last
+read; the rule takes a name the words sit inside or finish (`hit.name`, shown after the ⇪ in mono); nine more checks (57).
+**Checks:** link-suggest, boot, leaning. **Seen in the app:** "cancer center" → "⇪ Northgate Cancer Center"; Backspace
+twice → "er" after "cent"; the tap linked; "Mei" → " Chen ⇪ Dr. Mei Chen" on the line; the scratch bullet removed, no
+warning. The owner's own "general hospital" bullet on today's journal was left as it was.
+
 ## 2026-10-23 · The Hyper tap takes the suggested link, branch inline-links (0.4.362)
 
 **Asked:** "Wait tab moves a bullet though", and that the old code (0.4.148) saw a lone Hyper tap. **Done looks

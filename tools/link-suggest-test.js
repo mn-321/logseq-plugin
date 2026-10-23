@@ -19,7 +19,7 @@ window.parent = window;
 const doc = window.document;
 const page = (title, kind) => ({ title, lower: title.toLowerCase(), isTag: false, tags: [{ title: kind }] });
 const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), page('Chemo cycle 4', 'Treatment'), page('Northgate Cancer Center', 'Hospital'),
-  page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
+  page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('Riverside General Hospital', 'Hospital'), { title: 'Hospitalization', lower: 'hospitalization', isTag: true, tags: [{ title: 'Tag' }] }, page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
 window.logseq = { settings: { linkSuggest: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
@@ -39,11 +39,17 @@ const inner = window.refinementCore.provided.linkSuggestInner;
 
 // The rule.
 const at = (text, caret = text.length) => { const hit = inner.suggestFor(text, caret, pages); return hit ? `${hit.title}|${hit.ghost}|${text.slice(hit.start, hit.end)}` : null; };
+const cue = text => inner.suggestFor(text, text.length, pages)?.name ?? null;
 check(at('Spoke with Dr. Mei') === 'Dr. Mei Chen| Chen|Dr. Mei', 'the start of a name completes it: ' + at('Spoke with Dr. Mei'));
 check(at('Spoke with Mei') === 'Dr. Mei Chen| Chen|Mei', 'a word inside a name completes it from there: ' + at('Spoke with Mei'));
 check(at('spoke with mei') === null && at('spoke with dr. mei') === 'Dr. Mei Chen| Chen|dr. mei', 'case does not matter once the words are long enough: ' + at('spoke with dr. mei'));
 check(at('Felt Naus') === 'Nausea|ea|Naus', 'the shortest name first: ' + at('Felt Naus'));
-check(at('Felt Nausea') === 'Nausea diary| diary|Nausea', 'a name typed whole offers the longer one, not itself: ' + at('Felt Nausea'));
+check(at('Felt Nausea') === 'Nausea||Nausea' && cue('Felt Nausea') === 'Nausea', 'a name typed whole offers the link to it, the name as the cue: ' + at('Felt Nausea'));
+check(at('Felt Nausea d') === 'Nausea diary|iary|Nausea d', 'typing on reaches the longer name: ' + at('Felt Nausea d'));
+check(at('at the general hospital') === 'Riverside General Hospital||general hospital' && cue('at the general hospital') === 'Riverside General Hospital', 'words inside a name finish it, the whole name as the cue: ' + at('at the general hospital'));
+check(at('at the general hospi') === 'Riverside General Hospital|tal|general hospi', 'two words inside a name before one word of another: ' + at('at the general hospi'));
+check(at('the hospi') === 'Hospitalization|talization|hospi' && cue('the hospi') === '', 'one word, the shortest name that starts with it, no cue: ' + at('the hospi'));
+check(cue('Spoke with Mei') === 'Dr. Mei Chen' && cue('Spoke with Dr. Mei') === '', 'the cue only when the words sit inside the name');
 check(at('the') === null && at('with the') === null, 'a short lower-case word shows nothing: ' + at('the') + ' ' + at('with the'));
 check(at('The') === 'Theodore Finch|odore Finch|The', 'a capital letter is enough for three: ' + at('The'));
 check(at('theo') === 'Theodore Finch|dore Finch|theo', 'four letters are enough in lower case: ' + at('theo'));
@@ -51,7 +57,7 @@ check(at('(Mei') === 'Dr. Mei Chen| Chen|Mei', 'a bracket before the word is lef
 check(at('Saw [[Dr. Mei') === null, 'nothing inside [[ ]]');
 check(at('Saw [[Dr. Mei Chen]] and Raj') === 'Dr. Raj Patel| Patel|Raj', 'after a closed link it goes on: ' + at('Saw [[Dr. Mei Chen]] and Raj'));
 check(at('Saw #Doc') === null, 'nothing after #');
-check(at('Dr. Mei Chen') === null, 'the whole name typed shows nothing');
+check(at('Dr. Mei Chen') === 'Dr. Mei Chen||Dr. Mei Chen', 'the whole name typed offers its link: ' + at('Dr. Mei Chen'));
 check(at('Mei ') === null, 'nothing after a space');
 check(at('Mei Chen was', 3) === null, 'nothing with words after the cursor: it is for writing on, not editing inside (Mei| Chen was)');
 check(at('Meixx', 3) === null, 'nothing with the cursor inside a word (Mei|xx)');
@@ -63,12 +69,15 @@ check(at('Doc') === 'Doctor|tor|Doc', 'a tag page counts: ' + at('Doc'));
 // The keys, as Logseq would get them.
 const box = doc.querySelector('textarea');
 const key = (k, extra = {}) => { const e = new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }); box.dispatchEvent(e); return e; };
+const up = (k, extra = {}) => { const e = new window.KeyboardEvent('keyup', { key: k, bubbles: true, cancelable: true, ...extra }); box.dispatchEvent(e); return e; };
+const hyper = { metaKey: true, ctrlKey: true, altKey: true, shiftKey: true };
 async function type(text) { box.focus(); box.value = text; box.setSelectionRange(text.length, text.length); box.dispatchEvent(new window.Event('input', { bubbles: true })); await wait(20); }
 (async () => {
   await type('Spoke with Mei');
   check(inner.showing?.hit.title === 'Dr. Mei Chen', 'typing shows the suggestion');
   const ghost = doc.querySelector('.refinement-link-suggest');
-  check(ghost && ghost.textContent === ' Chen', 'the rest of the name is drawn in grey after the cursor: ' + ghost?.textContent);
+  check(ghost && ghost.querySelector('.rf-typed').textContent === 'Spoke with Mei' && ghost.querySelector('.rf-ghost').textContent === ' Chen', 'the words typed, transparent, then the rest of the name in grey: ' + ghost?.textContent);
+  check(ghost.querySelector('.rf-ghost').getAttribute('data-name') === 'Dr. Mei Chen', 'the whole name as the cue, since Mei sits inside it');
   const tab = key('Tab');
   check(tab.defaultPrevented, 'Tab is taken');
   check(box.value === 'Spoke with [[Dr. Mei Chen]]', 'Tab turns the words into the link: ' + box.value);
@@ -89,6 +98,17 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   check(inner.showing?.hit.ghost === 'hen', 'typing on brings it back, shorter: ' + inner.showing?.hit.ghost);
   await type('Spoke with Mei Chen was');
   check(!inner.showing, 'words past the name show nothing');
+  // Backspace taken by Logseq itself: the words change with no typing signal; the key's release looks again.
+  await type('Spoke with Mei C');
+  box.value = 'Spoke with Mei'; box.setSelectionRange(14, 14); up('Backspace'); await wait(20);
+  check(inner.showing?.hit.ghost === ' Chen', 'after a Backspace with no typing signal the grey words follow: ' + inner.showing?.hit.ghost);
+  box.value = 'Spoke with Me'; box.setSelectionRange(13, 13); up('Backspace'); await wait(20);
+  check(!inner.showing, 'and go when the words are too short');
+  // The screen behind the words at the tap: the tap takes what fits the words as they are now.
+  await type('Spoke with Mei');
+  box.value = 'Spoke with Mei C'; box.setSelectionRange(16, 16);
+  key('Meta', hyper); up('Meta');
+  check(box.value === 'Spoke with [[Dr. Mei Chen]]', 'a tap on stale grey words still links what the words are now: ' + box.value);
   await type('Spoke with Mei');
   check(!key('Tab', { shiftKey: true }).defaultPrevented || true, 'Shift-Tab is not the key'); // the register matches the keys exactly; the stand-in here does not
   popup = true; await type('Spoke with Mei C');
@@ -100,8 +120,6 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   check(!inner.showing, 'off in the settings, nothing shows');
   window.logseq.settings.linkSuggest = true;
   // The Hyper tap: the modifiers down together, one up with nothing between.
-  const hyper = { metaKey: true, ctrlKey: true, altKey: true, shiftKey: true };
-  const up = (k, extra = {}) => { const e = new window.KeyboardEvent('keyup', { key: k, bubbles: true, cancelable: true, ...extra }); box.dispatchEvent(e); return e; };
   await type('Spoke with Mei');
   key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);
   up('Shift', { metaKey: true, ctrlKey: true, altKey: true }); up('Alt', { metaKey: true, ctrlKey: true }); up('Control', { metaKey: true }); up('Meta');
