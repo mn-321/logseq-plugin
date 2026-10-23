@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The underline back in a value, focus by colour (0.4.342)
+
+**Asked:** "the link should have an underline"; "The pills that show focus don't fit" (two pictures of Logseq's ring round a pill without its padding); "blood transfusion is lighter because it was in recycle". **Built:** `parts/page-look.js`: the pill's link keeps the link rule's underline; the ring on `::after` gone for good, the pill at `:focus-within` in the full text colour (rules after the names rule, higher specificity). **Corrected:** the 0.4.341 entry's diagnosis: the lighter value was Logseq's mark on a recycled page; whether 0.4.341's one grey now hides that mark is for the owner to look at. **Checks:** `sh tools/check.sh`. **Not seen.**
+
 ## 2026-10-23 · One grey for every value (0.4.341)
 
 **Asked:** a picture, “Treatment used: Blood transfusion · Ordered by: Jay Varughese”, the first grey and the second full colour: "why are there two different colors for values?" **Found:** 0.4.340 coloured the value side through `.bottom-property-content`, a class from `tools/pages/build-elements.js`'s pretend pill, not Logseq's markup; a link in a value took `color: inherit` from the pill and stayed full colour. **Built:** `parts/page-look.js`: the pill and the page list's `.property-value-container` coloured whole (every descendant but a tag or a `.rfs-ghost`) at `--rf-quiet`, the name side (`> div:first-child`, `.property-key-panel`, the selectors the old styles.js proved) at `--rf-faint`. **Checks:** `sh tools/check.sh`. **Not seen:** the background check stopped reaching the Logseq window this evening; the owner reloads and looks at the same bullet.
