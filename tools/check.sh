@@ -46,6 +46,7 @@ if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/undo-test.js || problem "the plugin's one Undo failed its checks (see above)"
   node tools/picker-test.js || problem "the pickers failed their checks (see above)"
   node tools/link-text-test.js || problem "linking selected text failed its checks (see above)"
+  node tools/link-suggest-test.js || problem "the suggested links failed their checks (see above)"
   node tools/parts-apart-test.js || problem "a part could not be left out without the others failing (see above)"
   node tools/leaning-test.js || problem "a part leans where it must not: a direct Logseq call, a name on the window (see above; docs/LAYERS.md)"
   node tools/shadow-stress.js || problem "the proposals' stress test failed: tricky words, random text or the large pretend graph (see above)"

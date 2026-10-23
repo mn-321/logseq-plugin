@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Suggested links while typing, branch inline-links (0.4.360)
+
+**Asked:** "a separate tree or branch to build on proposals to now suggesting wikilinks in line almost like
+autosuggestion like on an iphone … complete with a space or tab or maybe a hyperkey". **Decided:** Tab takes it (space
+would take it by accident, and a Hyper key alone sends nothing a page can see); the key is a setting, so a Hyper chord
+can replace Tab. **Done looks like:** typing "Spoke with Mei" in a bullet shows " Chen ⇥" in grey after the cursor; Tab
+makes it "Spoke with [[Dr. Mei Chen]]"; writing on changes or removes the grey words. **Built:** `parts/link-suggest.js`
+(the rule `suggestFor`, pure; the grey words a fixed span measured from a hidden copy of the box, as the link box does;
+the command `accept-suggested-link` in the register, places: keys); `tools/link-suggest-test.js` (39 checks) in
+`tools/check.sh`; the leaning baseline and parts-apart list. **Checks:** link-suggest, boot, leaning, parts-apart.
+**Seen in the app** (today's journal, a scratch bullet since removed): the grey " Chen ⇥" after "Spoke with Mei", the
+link after Tab, " and Nor" → "thgate Cancer Center", "way" → nothing, "Tingling fi" → "ngers"; no warning.
+
 ## 2026-10-23 · Layer 6 decided: the export and Todos rest
 
 **Asked:** Phase 4. **Found** (in the app): 21 tasks in the Illness Test Graph, every one already in Logseq's own Task

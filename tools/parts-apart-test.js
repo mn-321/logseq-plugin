@@ -19,7 +19,7 @@ const run = (script, env) => spawnSync(process.execPath, [path.join(root, 'tools
 
 // [left out, the warning that should say so (none: nothing to say), parts that then stay out by themselves]
 const CASES = [
-  ['two-way'], ['tag-path'], ['title-row'], ['property-kinds'], ['sidebar'], ['chrome'], ['search-look'], ['page-look'], ['tags'], ['link-text'], ['block-commands'], ['picker'],
+  ['two-way'], ['tag-path'], ['title-row'], ['property-kinds'], ['sidebar'], ['chrome'], ['search-look'], ['page-look'], ['tags'], ['link-text'], ['link-suggest'], ['block-commands'], ['picker'],
   // The tag map's pieces (0.4.295): without the graph's or the property map's piece the tree stays off and says so;
   // without the tree the other two do nothing.
   ['tags-graph', 'parts/tags-graph.js is not loaded'], ['tags-props', 'parts/tags-props.js is not loaded'],
