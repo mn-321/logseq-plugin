@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-22 · A steady line under the bullet being written (0.4.322)
+
+**Asked:** "ok" to the recommendation: while a tagged bullet is written, keep its property line showing, empty properties faint. **Found first:** with a test bullet on Oct 22nd, the line appeared with the tag and vanished on Escape (proposals cleared, empty properties hidden since 0.4.242), everything below moving a line each time. **Built:** `parts/shadow.js`: the rule hiding empty properties leaves out the bullet being written (`.block-main-container:has(textarea)`), and shows its empty ones at .45 opacity; the setting's words and the README say so. **Checks:** shadow-test, shadow-write-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq, with a test bullet, taken off again.
+
 ## 2026-10-22 · The link box's cursor against the letters (0.4.321)
 
 **Asked:** "fix" (the owner had seen the cursor "a couple spaces ahead of text" in the link box). **Built:** `parts/shared.js`: `.rf-field-drawn` has no gap; its `kbd` keeps 6 px of its own. **Checks:** link-text-test, boot, then `sh tools/check.sh` in full. **Seen:** in Logseq, with a test bullet on Oct 22nd, taken off again.
