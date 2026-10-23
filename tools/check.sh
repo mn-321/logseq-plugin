@@ -63,7 +63,12 @@ fi
 if command -v node >/dev/null 2>&1; then
   node tools/tags-speed.js || problem "the tag map timings failed (see above)"
 fi
-# 9. Pictures of what the plugin draws (tools/pictures.js), light and dark, compared with the approved ones in test/pictures/.
+# 9. Frames of what the plugin draws, recorded moving (tools/frames.js, 2026-10-23): plugin off and on, no jump, no flash.
+#     The real app is recorded by tools/app-frames.js, in the loop of docs/FINISHING-PROMPT.md section 7 (it drives Logseq).
+if command -v node >/dev/null 2>&1; then
+  node tools/frames.js || problem "a frame test failed: something the plugin draws jumped, flashed or changed (see check.log/frames/; approve a meant change with node tools/frames.js --approve after looking)"
+fi
+# 9b. Pictures of what the plugin draws (tools/pictures.js), light and dark, compared with the approved ones in test/pictures/.
 if command -v node >/dev/null 2>&1; then
   node tools/pictures.js || problem "a picture changed (see above); look at check.log/pictures/, and approve it with node tools/pictures.js --approve only if the change was meant"
 fi

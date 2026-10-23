@@ -109,11 +109,14 @@ function loadPlugin(host, logseq) {
   return pluginWindow;
 }
 
+// The kit's one finder of the plugin's marks (parts/shared.js, MARK_CLASS and MARK_ATTR), read from its source so this
+// test, the troubleshooting box and the frame tests count the same prefixes.
+const { MARK_CLASS, MARK_ATTR } = require('./marks');
 function leftovers(doc) {
   const found = [];
   for (const el of doc.querySelectorAll('*')) {
-    for (const name of el.getAttributeNames()) if (/^data-(refinement|rf)-/.test(name)) found.push(`[${name}] on <${el.tagName.toLowerCase()}>`);
-    for (const cls of el.classList) if (/^(refinement-|rf-|rfp-)/.test(cls)) found.push(`.${cls}`);
+    for (const name of el.getAttributeNames()) if (MARK_ATTR.test(name)) found.push(`[${name}] on <${el.tagName.toLowerCase()}>`);
+    for (const cls of el.classList) if (MARK_CLASS.test(cls)) found.push(`.${cls}`);
   }
   return found;
 }

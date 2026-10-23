@@ -2,6 +2,27 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The eyes: frame tests in Chromium and in the real app (0.4.346)
+
+**Asked:** `docs/FINISHING-PROMPT.md` (the owner: "read FINISHING-PROMPT.md and run"), Phase 0: the frame tests before
+any feature work. **Done looks like:** nothing changes on screen; two new tests record pages settling and say whether
+anything of the plugin's jumped or flashed. **Built:** `tools/frame-kit.js` (the ledger, the shift log and the
+screencast's pictures on one clock; jumps, flashes, settle, appearance, the noise mask, and whose a move is),
+`tools/frames.js` (eight scenes of what the plugin draws on a pretend page, light and dark, plugin off and on; in
+`tools/check.sh`), `tools/app-frames.js` (every tour stop of the real Logseq, plugin off three times and on twice,
+through Logseq's debugging port), `tools/pretend-page.js` (the pretend Logseq shared with `tools/pictures.js`),
+`tools/marks.js`. The kit's one finder of the plugin's marks (`shared.ownMarks`, `MARK_CLASS`, `MARK_ATTR`): the
+troubleshooting box counts with it, the boot test looks for leftovers with it (it looked for fewer prefixes before),
+the frame tests track with it. `docs/FINISH-LINE.md` and `docs/DECISIONS-AUTONOMOUS.md` begun. **App:** Logseq quit and
+reopened once at 05:00 with `--remote-debugging-port=9222` (the owner: "you can take over screen anytime"). **Found
+by the real-app run** (pictures looked at first): every stop clean, light and dark (Dr. Mei Chen, Consultation, Nausea,
+Northgate Cancer Center, Oxaliplatin, Tingling fingers), the rows with the title on a revisit and 30 to 60 ms after it,
+into their waiting place, on a true first visit; on Tingling fingers Logseq's own bullets drop 243 px as its property
+area and tag list arrive, 80 px with the plugin (the rows replace the list), so the plugin makes Logseq's move smaller.
+On the tag map page two plugin problems: a "Reading your tags …" note shown for 55 ms and gone, and the top row's words
+sliding 105 px left then a property's "Change …" 183 px right as a count arrived; fixed in 0.4.347. **Checks:**
+`sh tools/check.sh` in full with the frames test; `node tools/app-frames.js` on every stop. **Second reader:** a fresh agent read the five new test files and found six faults, all fixed: the screencast's clock tied to the page's afresh for every recording (a page open for days drifts), a first visit tried again made a first visit again, a piece a stop always shows now fails when it does not show (`test/frames/app-pieces.json`), no picture at all fails as blind, Ctrl-C puts the app back (seen: a run stopped while recording with the plugin off left the plugin on, the theme, page and no stylesheet or ledger behind), the ledger tracks up to 20,000 marks and says when it cannot; also the rooms the owner's visits remembered are put back, the theme's "follow the system" kept, the graph read again before every visit. **Not seen:** nothing to see.
+
 ## 2026-10-23 · The name lighter (0.4.345)
 
 **Asked:** two pictures of “Ordered by: Jay Varughese”, the name lighter in the first: "why don't you just make it like this. you keep making ordered by darker. do the lighter version". **Built:** `parts/page-look.js`: the pill's name side at 57% of the pill's quiet grey (40% of the text colour), the page list's name panel at 40% directly. **Checks:** `sh tools/check.sh`. **Not seen.**

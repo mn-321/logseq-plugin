@@ -59,12 +59,8 @@ async function checkWhatIsFound() {
       'LOGSEQ\'S OWN PARTS  found · what · needed for'];
     for (const [what, { selector, neededFor }] of checks) lines.push(`  ${String(count(selector)).padStart(4)} · ${what} · ${neededFor.join(', ')}`);
     lines.push('', 'THE PLUGIN\'S OWN MARKS  found · mark');
-    const marks = new Map();
-    for (const el of doc.querySelectorAll('*')) {
-      // Every prefix the parts use (0.4.277: the proposals' rfs-, the undo's rf-, the tag map's rtg- were not counted).
-      for (const attr of el.attributes) if (/^data-(refinement|rf|rfs)-/.test(attr.name)) marks.set(attr.name, (marks.get(attr.name) || 0) + 1);
-      if (typeof el.className === 'string') for (const cls of el.classList) if (/^(refinement-|rf-|rfs-|rfp-|rtg-|rs-)/.test(cls)) marks.set('.' + cls, (marks.get('.' + cls) || 0) + 1);
-    }
+    // Every prefix the parts use, from the kit's one finder (shared.ownMarks), which the frame tests track with too.
+    const marks = shared.ownMarks(doc);
     for (const [name, n] of [...marks].sort()) lines.push(`  ${String(n).padStart(4)} · ${name}`);
     if (!marks.size) lines.push('  none');
     showDiagnostics(lines.join('\n'));

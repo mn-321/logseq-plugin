@@ -38,6 +38,9 @@
    - perf                         measuring hooks (add, time, seen, style, frameState, pass, passDone,
                                   ownSettingsOnly): no-ops until the diagnostics part measures.
    - warnings                     every distinct warnOnce message of this session (message, first time, count).
+   - MARK_CLASS, MARK_ATTR, isOwnMark(node), ownMarks(doc)   THE finder of the plugin's marks on Logseq's screen: every
+                                  class and attribute prefix a part uses; the troubleshooting box, the boot test and the
+                                  frame tests all count with it.
 
    Layer 2, the kit (0.4.311; the picture is docs/ELEMENTS.html and docs/VIEWS.html, the words docs/LAYERS.md). A part
    draws nothing of its own: it uses these and adds only its own layout. A new kind of thing goes in here first.
@@ -866,8 +869,26 @@ a.rf-tag:hover { opacity: 1; }
 // This file's own boxes: the kit's pop-ups, anchors and dialog, and the Undo dock.
 leftovers.push({ prefix: 'Refinements: ', elements: '.rf-pop, .rf-anchor, dialog.rf-dialog, .rf-undo-dock' });
 
+// THE finder of the plugin's marks on Logseq's screen (2026-10-23): every class and attribute prefix any part uses.
+// The troubleshooting box counts with it, the boot test looks for leftovers with it and the frame tests
+// (tools/frames.js, tools/app-frames.js) track with it, so a new prefix is never counted by one and missed by another.
+// A new prefix goes here and nowhere else.
+const MARK_CLASS = /^(refinement-|rf-|rfs-|rfp-|rtg-|rs-)/, MARK_ATTR = /^data-(refinement|rf|rfs)-/;
+const isOwnMark = node => node?.nodeType === 1 && ([...node.attributes].some(attr => MARK_ATTR.test(attr.name))
+  || (typeof node.className === 'string' && [...node.classList].some(cls => MARK_CLASS.test(cls))));
+// Every mark in doc, counted: 'data-rf-x' → n, '.rf-y' → n.
+function ownMarks(doc) {
+  const marks = new Map();
+  for (const node of doc.querySelectorAll('*')) {
+    for (const attr of node.attributes) if (MARK_ATTR.test(attr.name)) marks.set(attr.name, (marks.get(attr.name) || 0) + 1);
+    if (typeof node.className === 'string') for (const cls of node.classList) if (MARK_CLASS.test(cls)) marks.set('.' + cls, (marks.get('.' + cls) || 0) + 1);
+  }
+  return marks;
+}
+
 window.refinementShared = {
   host, notify, lifecycle, sweepLeftovers, take, feature, screen, openEntity, openPageNamed, settingReader, graphNamedIn, perf, warnings,
   kitCss, el, esc, ICONS, icon, iconHtml, KINDS, kindIcon, tag, tagLinkHtml, quiet, go, keepKeys, field, drawnField, tick, chip, note, guide, choices, popup, popups, ask, dialog, bar, card, undo,
+  MARK_CLASS, MARK_ATTR, isOwnMark, ownMarks,
 };
 })();
