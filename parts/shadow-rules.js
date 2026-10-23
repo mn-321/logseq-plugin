@@ -505,6 +505,13 @@ function guessesFor({ b, text, record, fields, recordTags, links, free, used, qu
       const days = daysInWords(text, journalDay || dayNumber(new Date()));
       if (days.length === 1) { const id = dayIdFor(ctx, days[0]); said.push({ ids: [id ?? -days[0]], day: days[0], how: 'words-day' }); }
     }
+    // Nothing else said a day: on a journal page, the journal day, as a guess to check (0.4.360, the owner a second time,
+    // after 0.4.211: "the date is not filled with a proposal on a journal entry for something like #Appointment"). A new
+    // tag, or one often dated ahead, used to get nothing; a date named in the words still comes first.
+    // Only the bullet's own Date (not a record above it from a note), not when the words name two days or more, and not
+    // when they point ahead without naming a day ("Scan next week", "tomorrow": today would be wrong), nor for a tag whose
+    // earlier nodes are mostly dated another day (at least 5 of them: the test graph's Expectations, written weeks ahead).
+    if (isDate && own && !said.length && prop.lower === 'date' && journalDay && daysInWords(text, journalDay).length < 2 && !AHEAD.test(text) && !mostlyAhead(recordTags, ctx)) said.push({ ids: [idOf(pick(b, 'block/page'))], how: 'guess-day' });
     if (!said.length || !said.every(s => sameIds(s.ids, said[0].ids))) continue;
     const ids = said[0].ids;
     if (!prop.many && ids.length !== 1) continue;
@@ -655,6 +662,8 @@ async function loadDays(schema) {
 }
 // Sure only with evidence: at least 5 such nodes under the record's own tags, and 19 in 20 dated the day written.
 const DATED_LEAST = 5, DATED_SHARE = .95;
+const AHEAD = /\b(?:next|tomorrow|later|soon|upcoming|coming up|in (?:a|an|\d+|a few|two|three) (?:days?|weeks?|months?|fortnight))\b/i;
+function mostlyAhead(tagIds, ctx) { const { same, other } = datedCounts(tagIds, ctx); return other >= DATED_LEAST && other > same; }
 function datedWhenWritten(tagIds, ctx) {
   let same = 0, other = 0;
   for (const id of tagIds) { const n = ctx.dated?.get(id); if (n) { same += n.same; other += n.other; } }

@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Three faults from the owner's main computer (0.4.360)
+
+**Asked:** the owner: a right-click on a property in the tag map flashes; a #Appointment bullet on a journal gets no date;
+"did you really assess the most basic things". They did not: nothing had been tried as a fresh install, from GitHub,
+with default settings. **Found:** (1) the kit's pop-up waited for the button's release by reading the window's current
+event, which an installed copy (its own frame) never sees, so the menu opened under the pressed button and the release
+closed it; reproduced here by hiding that event, with the real mouse. (2) `shadowGraphs` starts empty, so a fresh install
+proposes nothing anywhere. (3) the journal day needed history. **Built:** the kit follows the buttons itself (started by
+the core); `shadowSkipGraphs` in place of `shadowGraphs`; the `guess-day` rule; the rule and write tests brought to the
+new behaviour (23 and 3 expectations). **Checks:** `sh tools/check.sh`; in the app with fresh-install settings (this
+Mac's own saved and put back): the menu stays, dates proposed and saved. **Lesson:** test as a fresh install: default
+settings, and the installed copy's frame.
+
 ## 2026-10-23 · Layer 6 decided: the export and Todos rest
 
 **Asked:** Phase 4. **Found** (in the app): 21 tasks in the Illness Test Graph, every one already in Logseq's own Task

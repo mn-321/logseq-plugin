@@ -474,7 +474,22 @@ function choices(doc, { items, picked, pick, cls } = {}) {
 let anchorCount = 0;
 // Every pop-up open now, so an unload closes them all (main.js calls popups.closeAll; the boot test looks for leftovers).
 const openPops = new Set();
-const popups = { closeAll() { for (const pop of [...openPops]) pop.close(); }, get size() { return openPops.size; } };
+/* Which mouse buttons are down on Logseq's window, followed by the kit itself (0.4.360). The pop-up used to read the
+   window's current event, which an installed copy cannot see: it runs in a frame of its own, so a right-click menu there
+   opened while the button was still down and the release closed it at once (the owner's tag map, on their main computer).
+   Started by the core with the plugin, so the press that opens the first menu is already counted. */
+const pressed = { win: null, buttons: 0, stop: null };
+function followButtons(win) {
+  if (!win || pressed.win === win) return;
+  pressed.stop?.();
+  const down = event => { pressed.buttons = event.buttons || (1 << (event.button || 0)); };
+  const up = event => { pressed.buttons = event.buttons || 0; };
+  const types = { pointerdown: down, mousedown: down, pointerup: up, mouseup: up, pointercancel: () => { pressed.buttons = 0; } };
+  for (const [type, fn] of Object.entries(types)) win.addEventListener(type, fn, true);
+  pressed.win = win; pressed.buttons = 0;
+  pressed.stop = () => { for (const [type, fn] of Object.entries(types)) win.removeEventListener(type, fn, true); pressed.win = null; pressed.buttons = 0; pressed.stop = null; };
+}
+const popups = { closeAll() { for (const pop of [...openPops]) pop.close(); }, get size() { return openPops.size; }, followButtons, stopFollowing: () => pressed.stop?.() };
 function anchorFor(doc, at) {
   if (!at) return null;
   const isElement = typeof at.getBoundingClientRect === 'function' && at.nodeType === 1;
@@ -564,7 +579,7 @@ function popup({ at, kind = 'menu', head, items, field: fieldOptions, rows, manu
      hold down click"). The browser closes an open pop-up when a press ends outside it, and the press that opened it had
      begun outside, so the release closed the menu it had just opened. */
   const win = doc.defaultView;
-  if (!hint && (win?.event?.buttons || 0) > 0) {
+  if (!hint && ((pressed.win === win ? pressed.buttons : 0) || win?.event?.buttons || 0) > 0) {
     const up = () => { waitUp(); win.setTimeout(show, 0); };
     waitUp = () => { waitUp = null; win.removeEventListener('pointerup', up, true); win.removeEventListener('pointercancel', up, true); };
     win.addEventListener('pointerup', up, true);
