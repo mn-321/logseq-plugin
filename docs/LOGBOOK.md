@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The editor commands judged (0.4.357)
+
+**Asked:** Phase 2, piece 4: `editor.js`'s commands one by one, through the register; the old link box goes. **Done
+looks like:** in a bullet, typing [[2026 10 14 shows [[Oct 14th, 2026; the palette's "New bullet at the outermost
+level" adds a spacer and a new outermost bullet with the cursor in it; the four commands Logseq already does are gone
+from the palette. **Built:** `parts/block-commands.js` (the two kept, through three new model doors, `currentBlock`,
+`pickedBlocks`, `getBlock`, and the register); `parts/editor.js` deleted; the date switch moved out of the resting links
+part, same key so a saved choice carries over; boot, leaning and parts-apart know the part; README, GUIDE. Why each went
+or stayed: `docs/DECISIONS-AUTONOMOUS.md` 18, after reading Logseq's own key table. **Checks:** boot, leaning,
+parts-apart, `sh tools/check.sh`, `node tools/app-frames.js`. **Seen in the app** (today's journal page): the date as
+above; the command as above; selected "Nausea" typed over with [[ became [[Nausea]] (Logseq's own). Every test bullet
+removed; the graph checked equal. **Lesson:** Cmd+Z after the date swap undid Logseq's whole unsaved edit, the test
+bullet with it, not just the swap: a test that types reads back before pressing Undo.
+
 ## 2026-10-23 · Search easier to read (0.4.356)
 
 **Asked:** Phase 2, piece 3 (`parts/search.js` in five steps; "the plugin only quiets and orders, adding nothing to its

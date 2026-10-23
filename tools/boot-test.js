@@ -29,7 +29,7 @@ const PART_FILES = (() => {
 
 // Which parts main.js loads now (0.4.175: the resting parts are left out); checks of a feature run only when it is loaded.
 const has = name => PART_FILES.includes('parts/' + name + '.js');
-const ALL_PARTS = ['editor', 'pages', 'properties', 'links', 'chrome', 'styles', 'search', 'inline-props', 'rich-copy', 'todos'].every(has);
+const ALL_PARTS = ['pages', 'properties', 'links', 'chrome', 'styles', 'search', 'inline-props', 'rich-copy', 'todos'].every(has);
 const problems = [];
 const problem = text => { problems.push(text); console.log('PROBLEM: ' + text); };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -162,11 +162,10 @@ async function main() {
   const palette = logseq.calls.filter(call => call.name === 'App.registerCommandPalette').map(call => call.args[0]);
   const menu = logseq.calls.filter(call => call.name === 'Editor.registerBlockContextMenuItem').map(call => call.args[0]);
   console.log(`${palette.length} palette commands, ${palette.filter(c => c.keybinding).length} with a shortcut, ${menu.length} bullet-menu items`);
-  const wanted = [['labeled-page-link', 'editor'], ['show-settings'], ['troubleshooting'], ['fold-query-results', 'properties'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
+  const wanted = [['new-outermost-block', 'block-commands'], ['show-settings'], ['troubleshooting'], ['fold-query-results', 'properties'], ['search-in-sidebar', 'search'], ['show-tag-tree', 'tags']];
   // The tag map starts only with its three pieces (0.4.295).
   const tagMap = () => has('tags') && has('tags-graph') && has('tags-props');
   for (const [key, part] of wanted) if ((!part || (part === 'tags' ? tagMap() : has(part))) && !palette.some(c => c.key === key)) problem(`palette command ${key} was not registered`);
-  if (has('editor') && menu.filter(label => label === 'Make a page from this block').length !== 1) problem(`the bullet menu should hold Make a page from this block once; it holds: ${menu.join(', ')}`);
   const keys = palette.map(c => c.key);
   if (new Set(keys).size !== keys.length) problem('a palette command was registered twice');
   // Each feature does something of its own at start (0.4.279, the audit): its stylesheet goes to Logseq and the tag
@@ -179,6 +178,7 @@ async function main() {
   // Link selected text (on the kit, 0.4.314) sends no stylesheet of its own: its sign is its command in the one register.
   const registered = (pluginWindow.refinementCore?.commands?.() || []).map(c => c.key);
   if (has('link-text') !== registered.includes('link-selected-text')) problem(`${has('link-text') ? 'with' : 'without'} link-text, its command was ${registered.includes('link-selected-text') ? 'still' : 'not'} in the register`);
+  if (has('block-commands') !== registered.includes('new-outermost-block')) problem(`${has('block-commands') ? 'with' : 'without'} block-commands, its command was ${registered.includes('new-outermost-block') ? 'still' : 'not'} in the register`);
   if (tagMap() !== keys.includes('show-tag-tree')) problem(`${tagMap() ? 'with' : 'without'} the tag map, its command was ${keys.includes('show-tag-tree') ? 'still' : 'not'} registered`);
   if (has('two-way') !== logseq.calls.some(call => call.name === 'provideStyle' && call.args[0]?.key === 'refinement-two-way' && /rf-tw-row/.test(call.args[0]?.style || ''))) problem('the two-way rows did not send their look');
   // The troubleshooting tools (0.4.172): the generic ones from the troubleshooting part, each feature's own from that feature.

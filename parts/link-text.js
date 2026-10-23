@@ -1,6 +1,6 @@
 /* Loaded by main.js before main.js starts it. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Link selected text (0.4.252, layer 2, rebuilt on the model in place of the old link box in parts/editor.js): select
+/* Link selected text (0.4.252, layer 2, rebuilt on the model in place of the old link box of the editor part, deleted at 0.4.357): select
    words in a bullet you are writing and press Cmd+Option+L (Ctrl+Alt+L outside a Mac). A small box opens under the
    words; type a page's name and the pages that fit are listed (Dr. Mei Chen for "chen"), the closest first, each with its tag at the
    right. With nothing selected (0.4.254, at the owner's word: "I press cmd-option l without any selected text, then i

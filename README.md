@@ -1,6 +1,6 @@
 # Logseq DB Refinements
 
-A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.356.
+A personal plugin for Logseq DB graphs. Most of it changes how things look, so pages, blocks, links, tags, properties and dates are easier to tell apart, and changes nothing in your notes. The shortcuts, the search preview, a date typed inside `[[ ]]` and **Properties in the line** write only when you use them. Three parts write on their own, each within a limit you set: **Proposals** fills what it is sure of when you leave a bullet you wrote, and a guess only when you click it, only in the graphs named in its settings, with Undo; **Todos** changes a task's status, priority, due date or first line only when you change it in its list; the **Tag tree** moves, renames, makes and merges tags, and changes properties, choices and descriptions, only when you do that in the tree. **Copy as rich text** only reads. Version 0.4.357.
 
 **For now (0.4.294) only the foundation and the second layer run: the two-way links, the tag and property map, the proposals, linking selected text and the pickers.** Everything else below is resting: its code is kept in `parts/` unchanged, but `main.js` does not load it, so it shows nothing and its settings are not listed. The parts come back one layer at a time; the comment above `PART_FILES` in `main.js` says where each one goes back.
 
@@ -52,7 +52,6 @@ The files in `parts/`:
 | `shadow-steps.js` | Proposals: Option-Enter, stepping through a bullet's own properties. |
 | `shadow-page.js` | Proposals on a page's own properties. |
 | `diagnostics.js` | The troubleshooting tools (Check what the plugin finds, Copy warnings and the rest). |
-| `editor.js` | The shortcuts and commands that write to a block, and the link box. |
 | `pages.js` | What is drawn around a page's title: the page's kind, Alias of, and the shape box (what a tag or property holds, and where a tag sits). |
 | `properties.js` | List properties, fold all, hidden properties, one column for a page's property values. |
 | `links.js` | The marks on links and rows, dates, references, PDF citations, and the marks in Logseq's pickers. |
@@ -69,6 +68,7 @@ The files in `parts/`:
 | `rich-copy.js` | Copy as rich text. |
 | `todos.js` | Todos and Expectations (paused: off unless switched on in the settings). |
 | `link-text.js` | Link selected text: the list under the selected words after `Cmd+Option+L`. |
+| `block-commands.js` | New bullet at the outermost level, and dates typed year first in `[[ ]]` (loaded since 0.4.357; the rest of the old editor part went). |
 | `picker.js` | The pickers: what fits the bullet first in Logseq's list for a property. |
 | `tags-graph.js` | The tag map, piece 1 of 3 (0.4.295): its state kept on this computer, reading the tags, and every change it makes to the graph (parents, tag properties, choices, merging, a choice made a child tag, turned into links). |
 | `tags-props.js` | The tag map, piece 2 of 3: the property map, a tag's properties as rows with their menus and boxes, and the Properties view with its groups. |
@@ -145,15 +145,11 @@ All can be changed or cleared in the settings window under **Shortcuts** (they a
 | Shortcut | Action |
 | --- | --- |
 | `Cmd+Option+L` | Link selected text to a page |
-| `Cmd+Option+P` | Open selected text as page |
-| `Cmd+T` | Add tags to this page |
-| `Cmd+Delete` | Delete this block (with the blocks nested under it) |
-| `Option+Return` | New block at the outermost level |
 | `Cmd+Option+F` | Search in the right sidebar |
 | `Cmd+Option+T` | Todos, while it is switched on (changed under **Todos** in the settings window) |
 | `Cmd+Option+E` | Expectations, while Todos is switched on (changed under **Expectations** in the settings window) |
 | `Cmd+Option+G` | Tag tree, while it is switched on (changed under **Tag tree** in the settings window) |
-| none | Make a page from this block (also in a bullet's right-click menu) |
+| none | New bullet at the outermost level (give it keys under **Writing helpers**) |
 
 ## Appearance
 
@@ -412,28 +408,11 @@ The older **Link selected text to a page** below belongs to a resting part and i
 The link is written by the page's or block's id, the form Logseq stores every link in, so it is a real reference: the words show in the target's Linked references and count wherever a `[[page]]` link would. An italic **Make page “…”** row is offered only when no title matches the letters exactly, and never above a match, so a typo cannot make a page; `Enter` on it makes the page and links to it. Cancel (`Esc`, or a press anywhere else) leaves the block unchanged. The command accepts a single-line label; it checks the saved block again before replacing text. With **The link box lists your pages** off, the field is bare and `Enter` links what you typed; with **The link box lists blocks too** off, only pages, tags and days are listed; with **The link box opens beside the words** off, the box opens in the middle of the window as before.
 
 
-**Make a page from this block**
+**New bullet at the outermost level** (part `block-commands.js`, 0.4.357)
 
-1. Put the cursor in a block or select it. Run **Make a page from this block** from the command palette, or right-click its bullet and choose the same name. 
-2. The block's text becomes the page title. The new page contains a reference back to the original block, with copies of the child blocks nested beneath that reference.
-3. The original block and children remain where they are. An existing page with the same title is left alone. Text is copied; block properties, tag associations, and asset metadata are not copied.
+Run it from the command palette while typing in a bullet (no keys by default; set some under **Writing helpers**). After the top bullet you are in, and everything under it, an empty bullet is added as a spacer and then a new empty bullet at the outermost level with the cursor in it.
 
-**Open selected text as page**
-
-1. Select text while editing a block. Within 30 seconds, run **Open selected text as page** from the command palette or press `Cmd+Option+P` (`Ctrl+Alt+P` outside a Mac).
-2. The selected words become a `[[link]]` in their block, then the plugin opens the page with that name (creating it if needed). Trailing tags are left out of the page name. If the block changed in the meantime, or the selection contains brackets or line breaks, the page still opens and the text is left as it was.
-
-**Add tags to this page**
-
-Press `Cmd+T` (changeable in the settings window), run **Add tags to this page**, or click the `#Page` above the title of an untagged page. All three open the same Tags list just under the title of the page you are on. On the Journals list the command says so and does nothing.
-
-**Delete this block**
-
-Press `Cmd+Delete` while typing in a block. The block and the blocks nested under it are deleted, and the cursor goes to the end of the block just above. If some of the block's text is selected, only that text is deleted, as the Mac's own Cmd+Delete would do. With no block being edited, the selected blocks are deleted (a block inside another selected block goes with it).
-
-**New block at the outermost level**
-
-Press `Option+Return` while typing in a block. After the top-level block you are in (and everything nested under it), the plugin adds an empty block as a spacer and then a new empty top-level block with the cursor in it.
+The old commands Make a page from this block, Open selected text as page, Add tags to this page and Delete this block went at 0.4.357: Logseq does each itself (a bullet tagged #Page becomes a page; selected words typed over with `[[` become a link; a page's tags are its Tags property; `Esc` then `Backspace` deletes a bullet), `docs/DECISIONS-AUTONOMOUS.md` 18.
 
 **Fold all results / Unfold all results**
 

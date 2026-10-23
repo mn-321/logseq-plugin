@@ -157,3 +157,18 @@ result a row is), grouping (it reorders Logseq's ranking from that second search
 the preview panel and typed filters (each adds a panel or list of its own beside Logseq's), and the sidebar search
 button (Logseq's own Cmd-Enter already keeps search in the sidebar, and its tip says so). **Flip:** the two switches
 under Search; the extras stay in `parts/search.js`, resting, for the owner to call back.
+
+## 18. The old editor part's commands, one by one (2026-10-23)
+
+**Question:** Phase 2 piece 4: `editor.js`'s commands, each judged; a command that collides with a Logseq shortcut gets
+no keys by default. **Looked up:** Logseq 2.0.2's own key table (in its app bundle) binds none of the old keys
+(`mod+t`, `mod+backspace`, `alt+enter`, `mod+alt+p`); but `alt+enter`, Option-Enter, is now the proposals' own key, and
+Cmd-Delete is the Mac's own "delete to the start of the line". **Gone,** since Logseq does each itself (rule 3): Make a
+page from this block (Logseq turns a bullet into a page when it is tagged #Page, its own validator says so), Open
+selected text as page (selected words typed over with `[[` become a link, seen in the app; a click opens it), Add tags to
+this page (it needed the resting pages part's picker; a page's tags are its Tags property, through Logseq's own + Add
+property), Delete this block (`Esc` then `Backspace`), and the old link box (rebuilt as `link-text.js`, 0.4.252).
+**Kept,** in `parts/block-commands.js` through the model's doors and the register: New bullet at the outermost level
+(nothing in Logseq does it; palette only, no keys by default, `outermostBlockShortcut` empty) and year-first dates in
+`[[ ]]` (on, `dateLinkFormats`, the owner's earlier default; typed as if by hand). `parts/editor.js` deleted. **Flip:**
+the keys and the switch under Writing helpers; the gone commands are in git history at 0.4.356's `parts/editor.js`.

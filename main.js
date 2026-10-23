@@ -215,7 +215,7 @@ function runDbWork() {
 }
 /* The core, as the other files see it: window.refinementCore, published by main() before any part
    starts. It holds the core's own tools (the screen watcher, the database round, stylesheets, settings,
-   the query helpers) and a registry for the area parts (parts/editor.js, pages.js, … in step 7 of the
+   the query helpers) and a registry for the area parts (pages.js, properties.js, … in step 7 of the
    cleanup): each part gives its functions and state to the core by name (core.provide, in its provide()
    step) and takes what it needs from core.provided in its start() step, after every part has provided,
    so the order of the parts does not matter. Database look-ups register with
@@ -463,8 +463,8 @@ function main() {
 // map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
 // check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
 // PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
-const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/title-row.js', 'parts/property-kinds.js', 'parts/sidebar.js', 'parts/chrome.js', 'parts/search-look.js', 'parts/page-look.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
-const RESTING_FILES = ['parts/editor.js', 'parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
+const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/title-row.js', 'parts/property-kinds.js', 'parts/sidebar.js', 'parts/chrome.js', 'parts/search-look.js', 'parts/page-look.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/block-commands.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
+const RESTING_FILES = ['parts/pages.js', 'parts/properties.js', 'parts/links.js', 'parts/styles.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
 void RESTING_FILES;
 const partsBase = document.currentScript?.src || location.href;
 let plugInParts = [];

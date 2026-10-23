@@ -4,7 +4,7 @@
    link are in a DB graph, so that the parts above read the graph through it instead of each working it out.
    Gathered from main.js (the title helpers, the stored-link form, the version and screen checks), from
    parts/inline-props.js (the property schema, the pages, the fields of a record, the day reader, the journal
-   page of a day) and from parts/editor.js (the journal title format, stored ids as the titles people see).
+   page of a day) and from the old parts/editor.js (the journal title format, stored ids as the titles people see).
    It knows nothing of how anything is drawn; it writes nothing except a journal page a day needs (journalIdFor,
    through Logseq's own Editor.createPage, on behalf of a part that is writing).
 
@@ -668,6 +668,10 @@ const editBlock = (uuid, opts) => logseq.Editor.editBlock(uuid, opts);
 const exitEditing = () => logseq.Editor.exitEditingMode();
 const insertBlock = (uuid, text, opts) => logseq.Editor.insertBlock(uuid, text, opts);
 const currentPage = () => logseq.Editor.getCurrentPage();
+// The block being written in, the blocks picked, and a block by its id (with its parent and page), for a command (0.4.357).
+const currentBlock = () => Promise.resolve(logseq.Editor.getCurrentBlock()).catch(() => null);
+const pickedBlocks = () => Promise.resolve(logseq.Editor.getSelectedBlocks()).then(list => list || []).catch(() => []);
+const getBlock = (uuid, opts) => logseq.Editor.getBlock(uuid, opts);
 const getPage = key => logseq.Editor.getPage(key);
 // A page in Logseq's Recycle (deleted, kept for a while): Logseq still finds it by its name, and "making" a page of that
 // name hands it back still in the Recycle (seen in the app, 2026-10-23), so a part that makes pages by name asks this
@@ -696,7 +700,7 @@ const showSidebar = (on = true) => Promise.resolve(logseq.App.setRightSidebarVis
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
 function provide(core) {
-  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
+  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentBlock, pickedBlocks, getBlock, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, tagChain, tagChains, tagChainIndex, parseDay, dayNumber, sameDay, dayAfter, DAYS,
