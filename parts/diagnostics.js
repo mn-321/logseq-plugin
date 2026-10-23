@@ -298,7 +298,11 @@ async function copyWarnings() {
    the page's title and the plugin's own rows took to appear, what moved without input (with its score), and what
    Logseq wrote to its console as errors or warnings meanwhile. The report so far is saved as tourReport in the
    settings file after every stop; after the last one the theme is put back and the F8 key let go. Running "Take the
-   tour" again while it runs ends it. It reads the screen only: nothing in your notes is changed. */
+   tour" again while it runs ends it. It reads the screen only: nothing in your notes is changed.
+   Since 0.4.331 it also records when each of the plugin's pieces first showed (the tag chain in the title corner, the
+   two-way rows' box and its first row, the page's own property box) and how many times each was put on and taken
+   off the screen while the stop settled (a piece that comes and goes is a flicker); with the hidden setting tourAuto
+   true it goes on to the next stop by itself. */
 // run changes when a tour starts or ends, so a stop still being measured knows it is no longer wanted.
 const tour = { stops: [], at: -1, lines: [], doc: null, keys: null, theme: '', console: null, busy: false, run: 0, stopVisit: null };
 const TOUR_STILL = 1000, TOUR_LONGEST = 8000;
@@ -313,7 +317,8 @@ async function tourBegin() {
   const win = tour.doc.defaultView;
   tour.theme = tour.doc.documentElement.getAttribute('data-theme') || '';
   tour.lines = [await versionLine(), `Tour of ${tour.stops.length} stops, started ${new Date().toTimeString().slice(0, 8)}. Times are from opening the stop, in ms.`, '',
-    'STOP  title shown · plugin rows shown · still · moved without input (score) · console errors and warnings'];
+    'STOP  title shown · plugin rows shown · still · moved without input (score) · console errors and warnings',
+    '    pieces: when each first showed, and how many times it was put on the screen (more than once is a flicker)'];
   tour.console = { error: win.console.error, warn: win.console.warn, seen: [] };
   for (const kind of ['error', 'warn']) {
     win.console[kind] = (...args) => {
@@ -343,6 +348,7 @@ async function tourNext() {
   tour.lines.push(...lines);
   tour.busy = false;
   logseq.updateSettings({ tourReport: tour.lines.join('\n'), tourAt: `${tour.at + 1} of ${tour.stops.length}: ${stop}` });
+  if (logseq.settings?.tourAuto === true) setTimeout(() => { if (tour.doc && tour.run === run) tourNext(); }, 300);
 }
 async function tourVisit(stop) {
   const doc = tour.doc, win = doc.defaultView, now = () => win.performance.now(), run = tour.run;
@@ -353,11 +359,18 @@ async function tourVisit(stop) {
   shiftWatch.observe({ type: 'layout-shift' });
   const begun = now();
   let lastChange = begun, titleAt = 0, rowsAt = 0;
-  const changes = new win.MutationObserver(() => {
+  // The plugin's pieces: when each first showed after the title, and how often it was added (0.4.331).
+  const PIECES = [['tag chain', '.rf-tag-path'], ['two-way box', '.refinement-two-way'], ['two-way row', '.refinement-two-way .rf-tw-row'], ['page properties', '.ls-page-properties'], ["Logseq's tag corner", '.ls-page-title .ls-block-right > .block-tags']];
+  const pieces = new Map(PIECES.map(([name, selector]) => [name, { selector, at: 0, added: 0 }]));
+  const changes = new win.MutationObserver(records => {
     lastChange = now();
     const title = doc.querySelector(titleSelector);
     if (!titleAt && title && (title !== oldTitle || stop.startsWith('#'))) titleAt = lastChange;
-    if (titleAt && !rowsAt && doc.querySelector('#main-content-container [class*="refinement-"]')) rowsAt = lastChange;
+    if (titleAt && !rowsAt && doc.querySelector('#main-content-container :is([class*="refinement-"], [class*="rf-"])')) rowsAt = lastChange;
+    for (const piece of pieces.values()) {
+      if (!piece.at && titleAt && doc.querySelector('#main-content-container ' + piece.selector)) piece.at = lastChange;
+      for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1 && (node.matches?.(piece.selector) || node.querySelector?.(piece.selector))) piece.added++;
+    }
   });
   changes.observe(doc.body, { childList: true, subtree: true, characterData: true });
   if (stop.startsWith('#')) win.location.hash = stop; else logseq.App.pushState('page', { name: stop });
@@ -378,11 +391,13 @@ async function tourVisit(stop) {
   const lines = [`${stop}  ${ms(titleAt)} · ${ms(rowsAt)} · ${ms(lastChange)}${lastChange - begun >= TOUR_LONGEST - TOUR_STILL ? ' (still moving at 8 s)' : ''} · ${shifts.length} (${score.toFixed(4)}) · ${seen.length}`];
   const moved = new Map();
   for (const entry of shifts) for (const source of entry.sources || []) {
-    const node = source.node, own = node?.nodeType === 1 && node.closest('[class*="refinement-"]') ? ' (the plugin\'s)' : '';
+    const node = source.node, own = node?.nodeType === 1 && node.closest('[class*="refinement-"], [class*="rf-"]') ? ' (the plugin\'s)' : '';
     const name = describeNode(node) + own;
     moved.set(name, (moved.get(name) || 0) + 1);
   }
   for (const [name, n] of [...moved].sort((a, b) => b[1] - a[1]).slice(0, 6)) lines.push(`    moved ${n}×: ${name}`);
+  const shown = [...pieces].filter(([, piece]) => piece.at || piece.added).map(([name, piece]) => `${name} ${ms(piece.at)}${piece.added > 1 ? ` (added ${piece.added}×)` : ''}`);
+  if (shown.length) lines.push(`    pieces: ${shown.join(' · ')}`);
   for (const line of [...new Set(seen)].slice(0, 6)) lines.push(`    ${line}`);
   return lines;
 }

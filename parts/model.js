@@ -12,8 +12,8 @@
    - titleOf(block), trailingTags, storedRef                       the words of a block, where its tags sit, how a link is stored
    - readableTitle(text, { pagesOnly, depth, asShown })             stored [[uuid]] and ((uuid)) as the titles people see
    - kindOfPage(pageId)                                              a tag page, a property page, a plain page, aliases
-   - tagChain(uuid), tagChains(uuid)                                 a tag and the tags above it, for the title's corner;
-                                                                    the same for each tag a page has
+   - tagChain(uuid), tagChains(uuid), tagChainIndex()                a tag and the tags above it, for the title's corner;
+                                                                    the same for each tag a page has; every chain at once
    - propSchema(), propPages(), fieldsOf(uuid, schema)              your properties with their types, every page with its
                                                                     tags, the fields a record's tags give it (remembered
                                                                     for the session; read again when the graph changes)
@@ -634,6 +634,16 @@ function chainOf({ byId, parents }, id) {
   }
   return { chain, others: (parents.get(id) || []).slice(1).map(p => shown(byId.get(p))) };
 }
+// The index as a thing a part keeps (0.4.331): the chain of any tag by its uuid, with no wait, so the title's corner can be
+// drawn in the same frame as the title. Read again when the graph changes.
+async function tagChainIndex() {
+  const index = await tagIndex();
+  const idByUuid = new Map([...index.byId].map(([id, tag]) => [tag.uuid, id]));
+  return {
+    byUuid: uuid => { const id = idByUuid.get(String(uuid || '')); return id == null ? null : chainOf(index, id); },
+    isPageKind: uuid => { const id = idByUuid.get(String(uuid || '')); return id != null && PAGE_KINDS.has(index.byId.get(id).ident); },
+  };
+}
 async function tagChains(uuid) {
   if (!UUID.test(String(uuid || ''))) return null;
   const [index, own] = await Promise.all([tagIndex(), dsQuery(`[:find ?t :where [?b :block/uuid #uuid "${uuid}"] [?b :block/tags ?t]]`)]);
@@ -683,7 +693,7 @@ function provide(core) {
   core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
-    propSchema, propPages, fieldsOf, kindOfPage, tagChain, tagChains, parseDay, dayNumber, sameDay, dayAfter, DAYS,
+    propSchema, propPages, fieldsOf, kindOfPage, tagChain, tagChains, tagChainIndex, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,

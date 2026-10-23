@@ -35,7 +35,7 @@ function smallGraph() {
   // Logseq's own classes.
   add(1, { title: 'Property', ident: 'logseq.class/Property', name: 'property' });
   add(2, { title: 'Tag', ident: 'logseq.class/Tag', name: 'tag' });
-  add(3, { title: 'Page', ident: 'logseq.class/Page' });
+  add(3, { title: 'Page', ident: 'logseq.class/Page', tags: [2] });
   // Tags (classes) of the owner: Person, Doctor extends Person, Meeting, Project.
   add(10, { title: 'Person', name: 'person', tags: [2], ident: 'user.class/Person' });
   add(11, { title: 'Doctor', name: 'doctor', tags: [2], ident: 'user.class/Doctor', extends: [10] });
@@ -272,6 +272,9 @@ async function main() {
   same((await model.tagChain(U(60)))?.chain.map(t => t.title), ['A', 'B'], 'tagChain: a loop of two tags stops');
   same((await model.tagChains(U(41)))?.tags.map(t => t.chain.map(x => x.title)), [['Doctor', 'Person']], 'tagChains: a doctor\'s page reads Doctor / Person');
   same((await model.tagChains(U(11)))?.tags, [], 'tagChains: a tag page\'s own Tag is left out');
+  const chains = await model.tagChainIndex();
+  same(chains.byUuid(U(11))?.chain.map(t => t.title), ['Doctor', 'Person'], 'tagChainIndex: Doctor by uuid, no wait');
+  same([chains.byUuid(U(46)), chains.isPageKind(U(3)), chains.isPageKind(U(11))], [null, true, false], 'tagChainIndex: a page is no tag; Page is a kind of page, Doctor is not');
   same(await model.kindOfPage(11), { isTag: true, isProperty: false, plain: false, aliasOf: [] }, 'kindOfPage of a tag page');
   same(await model.kindOfPage(22), { isTag: false, isProperty: true, plain: false, aliasOf: [] }, 'kindOfPage of a property page');
   same(await model.kindOfPage(46), { isTag: false, isProperty: false, plain: true, aliasOf: [] }, 'kindOfPage of a plain page');
