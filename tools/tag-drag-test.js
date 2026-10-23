@@ -148,6 +148,24 @@ const until = async test => { for (let i = 0; i < 100; i++) { const found = test
   await new Promise(r => setTimeout(r, 60));
   expect('Cmd+Shift+Up on Person', outline(), 'Occurrence /   Visit / Concept /   Entity /     Doctor /     Person /     Place');
   if (!/Occurrence.*Concept/.test(settings.tagTreeRoots)) problem(`the order was not saved in the setting (it reads “${settings.tagTreeRoots}”)`);
+  // 8. An older move undone first (2026-10-23, the tag map's stress test): it puts back only its own tag; a newer move
+  // stays as made. Before, each Undo put back the whole order as it was before its move, so the older Undo took the
+  // newer move's place away too.
+  const start = outline();
+  await drag('Concept', 'Occurrence', 'before'); // Concept to the top
+  const afterFirst = outline();
+  await drag('Place', 'Doctor', 'before'); // Place before Doctor, inside Entity
+  const afterBoth = outline();
+  const arrows = window.refinementShared.undo.keys().filter(k => k.startsWith('tags:'));
+  const older = doc.querySelector(`[data-rf-undo="${arrows.at(-2)}"]`);
+  if (!older || arrows.length < 2) problem('two moves did not leave two Undo arrows');
+  else {
+    older.click();
+    await until(() => outline() !== afterBoth);
+    await new Promise(r => setTimeout(r, 30));
+    expect('the older move undone first: Concept back, Place still before Doctor', outline(), start.replace('Doctor /     Person /     Place', 'Place /     Doctor /     Person'));
+  }
+  void afterFirst;
 
   view.destroy();
   if (problems.length) { console.log(`tag drag checks: FAILED (${problems.length})`); process.exit(1); }

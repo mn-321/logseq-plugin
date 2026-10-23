@@ -498,10 +498,16 @@ async function rename(view, tag, name) {
   if (name.includes('/')) { notify('A tag name cannot have a / in it', 'warning'); view.draw(); return; }
   const old = tag.title;
   view.cursorTag = tag.id;
-  await view.act(() => model().renamePage(tag.uuid, name), `${old} could not be renamed`);
-  // Its place among the tags beside it goes with the new name.
+  // Its place among the tags beside it goes with the new name, written before the map is read again so the rename
+  // is one redraw, not two (the stress test, 2026-10-23: two redraws of 600 open tags took 0.7 s); put back if
+  // Logseq refuses the name or keeps another (a name it changes on the way in is put right after).
+  const wasOrder = topOrder().join(', ');
+  const named = topOrder().some(n => view.sameTag(n, old));
+  if (named) view.saveOrder(topOrder().map(n => view.sameTag(n, old) ? name : n).join(', '));
+  const done = await view.act(() => model().renamePage(tag.uuid, name), `${old} could not be renamed`);
   const renamed = view.fresh(tag).title;
-  if (renamed !== old && topOrder().some(n => view.sameTag(n, old))) { view.saveOrder(topOrder().map(n => view.sameTag(n, old) ? renamed : n).join(', ')); view.draw(); }
+  if (named && (!done || renamed === old)) { view.saveOrder(wasOrder); view.draw(); }
+  else if (named && renamed !== name) { view.saveOrder(topOrder().map(n => view.sameTag(n, name) ? renamed : n).join(', ')); view.draw(); }
   view.mark(true); // the renamed tag moves to its new place in the order; keep it on screen
   // Undo puts the old name back in the order too (the audit, 0.4.274: it stayed under the new name).
   if (renamed !== old) view.showToast(`${old} is now ${renamed}`, async () => {
@@ -662,10 +668,24 @@ async function place(view, tag, from, parent, before, keep = false) {
   view.mark(true);
   const said = !moving ? `${tag.title} moved` : keep ? `${tag.title} is now also under ${parent.title}` : `${tag.title} is now ${view.parentsTitle(view.fresh(tag).parents)}`;
   view.showToast(said, async () => {
-    view.saveOrder(wasOrder);
+    view.saveOrder(orderBack(wasOrder, tag.title, view.fresh(tag).title));
     view.cursorTag = tag.id;
     if (moving) await setParents(view.fresh(tag), wasParents);
   });
+}
+/* The order with one tag put back where it was in an earlier order (its Undo), every other name as it is now: an older
+   move undone after a newer one leaves the newer one's place alone (2026-10-23; before, each Undo put back the whole
+   order as it was before its own move). Back after the nearest name before it that is still listed; first if none;
+   out of the list if it was not in it. */
+function orderBack(was, title, now = title) {
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const old = String(was).split(',').map(n => n.trim()).filter(Boolean);
+  const list = topOrder().filter(n => !same(n, title) && !same(n, now));
+  const at = old.findIndex(n => same(n, title));
+  if (at < 0) return list.join(', ');
+  for (let k = at - 1; k >= 0; k--) { const j = list.findIndex(n => same(n, old[k])); if (j >= 0) { list.splice(j + 1, 0, now); return list.join(', '); } }
+  list.unshift(now);
+  return list.join(', ');
 }
 
 // Move up / Move down among its siblings (Cmd+Shift+Up / Down, as for a bullet).

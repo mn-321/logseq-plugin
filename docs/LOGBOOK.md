@@ -2,6 +2,20 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The tag map's Undo puts back one move; a rename is one redraw (0.4.348)
+
+**Found** by the tag map's stress test (`tools/tags-stress.js`, 600 tags): after three moves, undoing an older move first
+put back the whole order as it was before that move, so the newer moves lost their places among their siblings (the
+parents stayed right); and a rename redrew the whole map twice (0.7 s on 600 open tags). **Done looks like:** in the tag
+map, drag Doctor above Person, then Hospital above Place; press the faded arrow of the first move: Doctor goes back, and
+Hospital stays above Place. Rename a tag (double-click): the new name shows in one step. **Built:** `parts/tags.js`:
+each move's Undo puts back only its own tag's place in the order (`orderBack`: after the nearest name before it that is
+still listed, the rest as they are now); a rename writes the new name into the order before the map is read again,
+put back if Logseq refuses it. `tools/tag-drag-test.js`: the older move undone first (red before, green now).
+**Checks:** tag-drag-test, tags-test, tags-stress (seven rounds of three moves undone newest first and in a random
+order: the tags and their order as before each round), then `sh tools/check.sh` in full. **Not seen in the app:** the
+map's Undo in a random order (pretend graph only).
+
 ## 2026-10-23 · The tag map opens still (0.4.347)
 
 **Found** by the frame tests of 0.4.346 on the real app's tag map page (pictures looked at first): the top row was drawn
