@@ -35,7 +35,9 @@ at which it became true and one line of proof. Updated with every commit that mo
       *(0.4.351: on and off five times through Logseq's own reload, 10 of 10 took effect, the two-way rows gone and back
       each time; the earlier failures were with the Plugins panel's button by hand, not reproduced)*
 - [ ] A long property name cut short by Logseq's narrow column ("Therapy regimen") handled, moving nothing.
-- [ ] The ring: the plugin draws no ring of its own anywhere; Logseq's stays.
+- [x] The ring: the plugin draws no ring of its own anywhere; Logseq's stays. *(0.4.352: the proposals' three rules taken
+      out; seen in the app, Option-Enter and Tab showing Logseq's own list and calendar; the kit keeps a keyboard-focus
+      outline on the plugin's own buttons, which is no ring on Logseq's)*
 - [x] The tag map's speed limits gate on the Mac's load. *(0.4.350: `tools/quiet.js`; on a busy Mac a time over its limit
       fails only when 25% slower than the committed version timed in the same run; seen passing at load 2.3 and failing
       the old version's renames)*

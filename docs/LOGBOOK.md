@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · No ring of the plugin's own (0.4.352)
+
+**Asked:** `docs/FINISHING-PROMPT.md` section 1C, the ring question of `CLAUDE.md` section 7: "the plugin draws no ring of
+its own anywhere; Logseq's stays". **Found:** the proposals still drew one, on the property Option-Enter rests on and on
+a capsule with the keyboard (0.4.207, 0.4.270, 0.4.291), beside Logseq's own ring kept since 0.4.343. **Done looks
+like:** write "Saw [[Dr. Mei Chen]] about [[Nausea]] #Consultation" in a bullet, pick the tag, press Option-Enter:
+Logseq's list opens beside Topic with the guess Nausea ready; Tab: Logseq's calendar beside Date; no outline of the
+plugin's anywhere. **Built:** `parts/shadow.js`: the three ring rules taken out; the mark the stepping uses stays.
+**Checks:** shadow-test, shadow-write-test, then `sh tools/check.sh` in full. **Seen in the app** (driven over the
+debugging port, pictures looked at): as above; the scratch bullet removed, the graph as it was.
+
 ## 2026-10-23 · The stress tests, in one command (0.4.351)
 
 **Asked:** `docs/FINISHING-PROMPT.md` section 4: every stress test with limits that fail, run by `sh tools/stress.sh`.

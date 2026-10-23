@@ -606,19 +606,9 @@ const css = `
 .rfs-ghost { color: var(--rf-faint); font-style: italic; white-space: nowrap; opacity: 1; transition: opacity .15s ease, color .15s ease; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 @starting-style { .rfs-ghost { opacity: 0; } }
 .rfs-ghost .rfs-ghost-tag { opacity: 1; border-bottom: 0; color: inherit; }
-/* The property Option-Enter is on (0.4.207): a ring in the text colour, as Logseq marks a focused value. */
-[data-rfs-at] { outline: 1.5px solid var(--rf-line); outline-offset: 2px; border-radius: 4px; }
-/* No ring on a property shown as a row of its own (0.4.291, the owner's picture: a box round "Therapy regimen" inside
-   Logseq's own grey highlight of the row, with the caret already in its value): Logseq marks the row itself when the
-   keyboard is on it, so the ring said the same thing twice. Nor while a capsule's own text box has the keyboard: the
-   caret says where you are. The ring stays where Logseq shows nothing: a filled capsule the keys rest on, or a
-   capsule with Logseq's list open beside it. */
-.property-key-inner[data-rfs-at], .bottom-property-pill[data-rfs-at]:has(:is(textarea, input):focus) { outline: none !important; }
-/* On a capsule too (0.4.270): Logseq's row of capsules is one capsule tall and cuts off what is outside (the owner saw
-   the ring's top and bottom cut). The capsule keeps its own round ends. Logseq's own Down, Left and Right put the
-   keyboard on a capsule and show nothing; the same ring shows where it is. Logseq takes the outline off a capsule that
-   has the keyboard (seen in the app: the ring went as soon as Logseq's window was in front), hence !important. */
-.bottom-property-pill[data-rfs-at], .ls-block .bottom-property-pill-focusable:focus-visible { outline: 1.5px solid var(--rf-line) !important; outline-offset: -1.5px !important; border-radius: 9999px; }
+/* No ring of the plugin's own (2026-10-23, docs/FINISHING-PROMPT.md section 1C): the property Option-Enter or Logseq's
+   own Down, Left and Right rest on is shown by Logseq's ring round a focused capsule (kept since 0.4.343, the owner: "I use
+   keyboard") and by its own grey on a property row; the plugin's ring (0.4.207, 0.4.270, 0.4.291) said the same again. */
 /* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */
 .positioned-properties.rfs-made .bottom-properties-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1rem; row-gap: .25rem; }
 .rfs-made-pill { display: inline-flex; align-items: baseline; gap: .3em; }
