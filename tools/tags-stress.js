@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* The tag map under stress (2026-10-23, docs/FINISHING-PROMPT.md section 4, "Tag map"), in Chromium on the large pretend
+/* The tag map under stress (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 4, "Tag map"), in Chromium on the large pretend
    graph of tools/tags-speed.js (600 tags four levels deep, 300 properties), made to change as the app changes it:
    - 200 drags, each to a random place (before, after or inside a random other tag): every drag must move the tag
      pressed and no other (the loose end of 2026-10-22: once a drag moved the tag below the one pressed), and show

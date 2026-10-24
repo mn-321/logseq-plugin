@@ -36,7 +36,7 @@ The first group is the plugin itself and is all the release zip holds. The rest 
 | `README.md` | This guide. |
 | `CHANGELOG.md` | What changed in each version, and what was seen on screen before it was kept. |
 | `GUIDE.md` | How to work on the plugin: the rules the code keeps, the reload loop, the command line. Not in the zip. |
-| `HANDOFF.md` | Where things stand: the owner's decisions, what each round built, what is left open. Not in the zip. |
+| `docs/history/HANDOFF-2026-10-19.md` | Where things stand: the owner's decisions, what each round built, what is left open. Not in the zip. |
 | `docs/` | Work notes: `NEXT.md` (what to do next, ranked, and the standing rules), `VISUAL-GUIDE.html` (the drawn guide to every part), `GRAMMAR.md` (every cue and how the plugin writes, asks and refuses), `MODELLING.md` (how to shape tags and fields, the principle behind the tag tree), and `history/` (the audit, the reviews, earlier session diaries, the prompts of finished rounds). Not in the zip. |
 | `tools/` | `check.sh` (with `check.js`) checks every file, `boot-test.js` starts the plugin in a pretend Logseq window to check that it loads, starts, cleans up and reloads without a warning (needs node and jsdom), `parts-apart-test.js` boots it with each part left out in turn, `bump.sh` sets the version, `release.sh` runs the checks and builds the zip. Not in the zip. |
 | `test/` | `plugin-test-graph.edn`, the seed of the Plugin Test Graph, and `illness-test-graph.edn` and the same seed in three parts, `illness-test-graph-1.edn` to `-3.edn` (all written by `illness-test-graph.py`), the seed of the Illness Test Graph. Not in the zip. |
@@ -193,7 +193,7 @@ Only what runs now (0.4.359). Every look is drawn in greys mixed from Logseq's o
 | Sidebars and toolbar | Flashcards and Graph view quieter; the right sidebar without Page graph and the (Dev) tabs; no generic page icon in Favorites and Recent; sidebar titles open their page, a line between sidebar items | **Sidebars and toolbar**, **Right sidebar** |
 | Search | Quiet headings, the searched words bold instead of yellow, `[[ ]]` and `**` faded, a roomier window | **Search** |
 
-The old looks of the resting parts (block-link dots, file icons, date boxes, a date's tense, folded-block cues, empty-block dots, embed lines, tag chips, the Linked references rework, the parent-path tidying, picker marks, page labels, tag-page tabs, the Journals list) went with the old `styles.js` at 0.4.359; why each went is in `docs/STYLES-AUDIT.md`.
+The old looks of the resting parts (block-link dots, file icons, date boxes, a date's tense, folded-block cues, empty-block dots, embed lines, tag chips, the Linked references rework, the parent-path tidying, picker marks, page labels, tag-page tabs, the Journals list) went with the old `styles.js` at 0.4.359; why each went is in `docs/history/STYLES-AUDIT-2026-10-23.md`.
 
 ## Todos
 

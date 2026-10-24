@@ -1,3 +1,5 @@
+> **Record, not a plan.** The prompt for the cleanup of 2026-10-16 (carried out as 0.4.38 to 0.4.61, splitting `main.js` into parts). A record of what was asked, not standing orders; the paths are of their day; the current state is `docs/STATE.md`.
+
 # Cleanup of the Logseq DB Refinements plugin
 
 You are working in `/Users/claude-agent/logseq-plugin`, a personal Logseq plugin (DB graphs only, Logseq 2.0.2) for one owner. The job is a **cleanup**: make the code and the folder easier to work on without changing anything the owner sees or anything the plugin does. Every step ends in a git commit. When the job is done, the plugin looks and behaves exactly as it does now, and the repository is tidy, documented and checkable.

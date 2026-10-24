@@ -159,7 +159,7 @@ console.log(`  20,000 random bullets: ${stopped} stopped the plugin; ${spread(fu
 console.log(`  a bullet of 10,000 letters: ${tLong.toFixed(2)} ms`);
 if (tLong > 50) problem(`a bullet of 10,000 letters took ${tLong.toFixed(0)} ms (limit 50)`);
 
-/* 2b. Odd names (2026-10-23, docs/FINISHING-PROMPT.md section 4): pages named with brackets, #, ::, quotes, back
+/* 2b. Odd names (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 4): pages named with brackets, #, ::, quotes, back
    slashes, emoji, right-to-left words, 500 letters, Logseq's own names, an empty name, a name of spaces, linked and named
    in plain words, typed a letter at a time. Nothing may stop, and whatever is proposed must be a page's own title (or, for
    [[Name]]#Tag, the title and the tag it is to get, as the app shows it: “Hannah Reyes #Doctor”). */

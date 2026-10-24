@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-22 at 0.4.272 as `docs/LAYERS-1-2-AUDIT.md`, the brief for the audit of layers 1 and 2 (in the numbering of that morning: the foundation, and links and properties); moved here 2026-10-24. The audit was carried out the same day: its fixes are 0.4.273 to 0.4.279, its report the page `LAYERS-1-2-AUDIT-REPORT-2026-10-22.html` (published at https://claude.ai/artifact/UE8XQ3WfRg1DDT911Tt2c3); the current state is `docs/STATE.md`.
+
 # Closing layers 1 and 2: a full audit
 
 A brief for an agent working in a fresh Claude Code session in `/Users/admin/logseq-plugin`. Written 2026-10-22,

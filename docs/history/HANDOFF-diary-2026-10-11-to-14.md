@@ -1,3 +1,5 @@
+> **Record, not a plan.** The session notes of the HANDOFF file from 2026-10-11 to 14 (versions 0.2.x), set apart at the cleanup of 2026-10-16. The paths in it are of their day; the current state is `docs/STATE.md`.
+
 # Handoff diary, 2026-10-11 to 2026-10-14 (from HANDOFF.md as it was before the cleanup)
 
 The sections below are the state-after-each-session notes of the HANDOFF file, kept as they were written; the standing parts of that file (where things are, the visual vocabulary, tried and rejected, open requests) live on in HANDOFF.md and GUIDE.md.

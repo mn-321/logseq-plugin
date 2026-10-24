@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Frames of the real Logseq (2026-10-23, docs/FINISHING-PROMPT.md section 3.5): every tour stop recorded with the
+/* Frames of the real Logseq (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 3.5): every tour stop recorded with the
    plugin off (A) and on (B), with the three witnesses of tools/frame-kit.js (the ledger, the shift log and the
    screencast's pictures), and judged by the budgets of section 3.3. Needs Logseq started with its debugging port
    (open -a Logseq --args --remote-debugging-port=9222) and Playwright; without them it says so and stops (exit 2).

@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-23 as `docs/FINISH-LINE.md`, the checklist of the finishing push (`FINISHING-PROMPT-2026-10-23.md` section 1), last ticked at 0.4.359; moved here 2026-10-24. The lines left unticked were not carried on as a list after that push; the current state is `docs/STATE.md`.
+
 # The finish line
 
 From `docs/FINISHING-PROMPT.md` section 1. The plugin is finished when every line is ticked. Each tick names the version

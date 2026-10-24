@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Frames of what the plugin draws, in Chromium (2026-10-23, docs/FINISHING-PROMPT.md section 3.5): the pretend pages of
+/* Frames of what the plugin draws, in Chromium (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 3.5): the pretend pages of
    tools/pictures.js (tools/pretend-page.js) made to move, recorded with the three witnesses of tools/frame-kit.js (the
    ledger, the shift log, the screencast's pictures). Each scene runs twice in each theme: A, the pretend Logseq page
    alone, doing what Logseq does (a page opening in steps, a list filling); B, the same with the plugin's piece drawing

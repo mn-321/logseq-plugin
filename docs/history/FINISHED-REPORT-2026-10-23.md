@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-23 at 0.4.359 as `docs/FINISHED-REPORT.md`, the plain report to the owner at the end of the finishing push; moved here 2026-10-24. The plugin went on changing at the owner's word from 0.4.360; the current state is `docs/STATE.md`.
+
 # The plugin is finished: what I did
 
 The plugin is now at version 0.4.359. Reload it once in Logseq to see everything below. All of it was tried in the

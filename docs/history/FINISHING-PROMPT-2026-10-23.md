@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-23 at 0.4.345 as `docs/FINISHING-PROMPT.md`, the prompt for a session finishing the plugin without the owner; moved here 2026-10-24. It was carried out from 0.4.346 to 0.4.359 (the frame and stress tests, the loose ends, layers 4 to 6); what came of it is in `FINISH-LINE-2026-10-23.md`, `FINISHED-REPORT-2026-10-23.md` and `docs/DECISIONS-AUTONOMOUS.md`. Its instructions are a record of what was asked, not standing orders; the current state is `docs/STATE.md`. The tools it led to (`tools/frames.js`, `tools/app-frames.js`, `tools/stress.sh` …) still cite its sections.
+
 # Prompt: finish DB Refinements on your own
 
 Written 2026-10-23 for a Claude Code session in `/Users/admin/logseq-plugin`. Paste the whole of this file as the first

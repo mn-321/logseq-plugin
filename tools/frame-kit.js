@@ -1,4 +1,4 @@
-/* The frame kit (2026-10-23, docs/FINISHING-PROMPT.md section 3): what tools/frames.js (Chromium, a pretend page) and
+/* The frame kit (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 3): what tools/frames.js (Chromium, a pretend page) and
    tools/app-frames.js (the real Logseq, over its debugging port) both use to record a page settling and to say whether
    anything jumped or flashed, and whose it was. Not a test by itself.
 

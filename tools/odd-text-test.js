@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Odd names, drawn (2026-10-23, docs/FINISHING-PROMPT.md section 4, "Odd text"): page, tag and property names with
+/* Odd names, drawn (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 4, "Odd text"): page, tag and property names with
    [[, ]], #, ::, quotes, back slashes, emoji, right-to-left words, 500 letters, Logseq's own names, markup, an empty name
    and a name of spaces (tools/odd-names.js), put through what draws a name, in Chromium:
    - the kit's pieces (the tag word, the tag as words in a paragraph, the pop-up's items and head, a question, a chip,

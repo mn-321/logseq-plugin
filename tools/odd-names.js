@@ -1,4 +1,4 @@
-/* Odd names for the odd-text stress (docs/FINISHING-PROMPT.md section 4): page, tag and property names a reader or a
+/* Odd names for the odd-text stress (docs/history/FINISHING-PROMPT-2026-10-23.md section 4): page, tag and property names a reader or a
    drawing could get wrong. Used by tools/odd-text-test.js and tools/shadow-stress.js. */
 module.exports = [
   'Dr. [[Bracket]] Smith', 'Close ]] early', 'Hash #tag inside', '#Leading hash', 'Key:: value', 'Double::colon',

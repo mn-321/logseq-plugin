@@ -1,6 +1,6 @@
 # Decisions made without the owner
 
-From 2026-10-23, while finishing the plugin alone (`docs/FINISHING-PROMPT.md` section 2). One entry each: the question,
+From 2026-10-23, while finishing the plugin alone (`docs/history/FINISHING-PROMPT-2026-10-23.md` section 2). One entry each: the question,
 what was chosen, the alternative, and how to flip it. Newest last.
 
 ## 1. Logseq restarted with its debugging port (2026-10-23, 05:00)

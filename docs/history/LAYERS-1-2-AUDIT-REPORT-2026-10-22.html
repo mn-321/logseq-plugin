@@ -1,0 +1,211 @@
+<!-- Record, not a plan. The report of the audit of layers 1 and 2, 2026-10-22 (fixes 0.4.273 to 0.4.279), published at https://claude.ai/artifact/UE8XQ3WfRg1DDT911Tt2c3. Kept here from the scratch folder on 2026-10-24; the current state is docs/STATE.md. -->
+<title>Layers 1 and 2 Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, a verdict band on top, then short sections with checklist tables; the kind of
+   write-up a careful engineer hands a client who does not read code. */
+:root {
+  --bg: #fbfaf7; --fg: #1f2320; --muted: #5d655f; --line: #d9d6cd; --panel: #f1efe8;
+  --accent: #1f5f8b; --ok: #2f7a4a; --warn: #a66a12; --bad: #b4382e;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #171a18; --fg: #e8e6df; --muted: #a3a89f; --line: #353a36; --panel: #202421; --accent: #7db5dc; --ok: #7cc48f; --warn: #e0a84a; --bad: #ea7d72; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #171a18; --fg: #e8e6df; --muted: #a3a89f; --line: #353a36; --panel: #202421; --accent: #7db5dc; --ok: #7cc48f; --warn: #e0a84a; --bad: #ea7d72; color-scheme: dark; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 820px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: 2.1rem; }
+h2 { font-size: 1.45rem; margin-top: 2.6rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+h3 { font-size: 1.1rem; margin-top: 1.6rem; }
+p { max-width: 68ch; margin: .7rem 0; }
+.lede { color: var(--muted); margin-top: .4rem; }
+.verdict { display: grid; grid-template-columns: auto 1fr; gap: 14px 18px; align-items: start; margin: 1.6rem 0 0; padding: 18px 20px; background: var(--panel); border-left: 4px solid var(--ok); }
+.verdict .big { font-family: var(--font-display); font-size: 2rem; font-weight: 600; color: var(--ok); line-height: 1; padding-top: 4px; }
+.verdict p { margin: .3rem 0; max-width: none; }
+table { border-collapse: collapse; width: 100%; margin: .8rem 0 1rem; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td:first-child { width: 34%; }
+.wrap { overflow-x: auto; }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.seen { color: var(--ok); border-color: var(--ok); }
+.failed { color: var(--bad); border-color: var(--bad); }
+.fixed { color: var(--accent); border-color: var(--accent); }
+.nocheck { color: var(--warn); border-color: var(--warn); }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+ol, ul { padding-left: 1.3rem; max-width: 70ch; }
+li { margin: .35rem 0; }
+.decide { counter-reset: d; padding-left: 0; list-style: none; }
+.decide > li { margin: 1rem 0; padding: 12px 14px; background: var(--panel); border-radius: 4px; }
+.decide b { display: block; font-family: var(--font-display); font-size: 1.05rem; margin-bottom: 4px; }
+.small { color: var(--muted); font-size: 13px; }
+code { font-family: var(--font-mono); font-size: .92em; }
+a { color: var(--accent); }
+</style>
+<main>
+<h1>Layers 1 and 2 Audit</h1>
+<p class="lede">The foundation and the links-and-properties layer of the DB Refinements plugin, checked on 22 October 2026 at versions 0.4.272 to 0.4.279, in the Illness Test Graph.</p>
+
+<div class="verdict">
+  <div class="big">Yes</div>
+  <div>
+    <p><b>Layers 1 and 2 are done.</b> Every feature of the two layers works in Logseq, in light and dark mode; the parts are cleanly separated; nothing the plugin does is slow or moves the page. Seven small bugs found on the way are fixed and pushed (0.4.273 to 0.4.279).</p>
+    <p>Five things are yours to decide (below). None of them stops layer 3 from starting; the first one (splitting the tag map's file) is best done before it.</p>
+  </div>
+</div>
+
+<h2>Fixed on the way</h2>
+<div class="wrap"><table>
+<tr><th>Version</th><th>What was wrong, and what changed</th></tr>
+<tr><td><span class="pill fixed">0.4.273</span></td><td>Moving into Topic with Right or Option-Enter gave up before Logseq's long list had opened (Logseq takes about 1.7 s to fill it), so the guess was not typed in and Escape left the keyboard on the wrong capsule. Now the plugin waits while the list opens. Seen on Oct 20th.</td></tr>
+<tr><td><span class="pill fixed">0.4.274</span></td><td>Undo after renaming a tag in the map put the old name back on the tag but left the new name in the tag order, so the tag lost its place. Same for a property's group. Both go back now. Seen on #Disease.</td></tr>
+<tr><td><span class="pill fixed">0.4.275</span></td><td>Right after the Mac restarted, the plugin warned "could not read the rows of every page" because Logseq's database was not ready yet. It now tries again quietly. Seen with the database made to fail on purpose.</td></tr>
+<tr><td><span class="pill fixed">0.4.276</span></td><td>Opening another graph kept the last answer to "may the proposals write here"; a key pressed straight after a switch could start stepping on the old graph's answer (values were always re-checked before writing). Tests only: switching graphs was not possible from here.</td></tr>
+<tr><td><span class="pill fixed">0.4.277</span></td><td>"Check what the plugin finds on this page" listed only the old kind of marks, so a mark left behind by a reload could hide; and the troubleshooting box had lost its button borders. Seen on Dr. Mei Chen.</td></tr>
+<tr><td><span class="pill fixed">0.4.278</span></td><td>Option-Enter into an empty Date put the keyboard on the calendar instead of the picker's text box, so "next fri" went nowhere and Enter set today. Seen before and after on Oct 20th: Enter now sets Oct 30th and moves on to Status.</td></tr>
+<tr><td><span class="pill fixed">0.4.279</span></td><td>A reload made from Logseq's own Plugins panel while the Refinements settings window was open left that window's Escape key listener behind. Found by the stronger boot test (below). Tests only.</td></tr>
+</table></div>
+
+<h2>Separated</h2>
+<p>Two read-only readings of the code, one of the doors between the parts and one of the stylesheets, with every claim checked against a file and line. Plain words here; the full notes are in the shared notes folder.</p>
+<div class="wrap"><table>
+<tr><th>Part</th><th>What it gives the others</th><th>What it takes</th><th>Verdict</th></tr>
+<tr><td>The engine (main.js, shared.js)</td><td>The core: screen watcher, settings, warnings, the one Undo, the pop-up and dialog kit</td><td>Nothing from a feature</td><td><span class="ok">Names no feature.</span> Only stale comments mention old parts.</td></tr>
+<tr><td>The model (model.js)</td><td>Everything about pages, blocks, tags, properties, days and links</td><td>The database (58 queries; no other loaded part asks it)</td><td><span class="ok">The one place that reads the graph.</span> Its screen-check wording still names resting features (a soft slip).</td></tr>
+<tr><td>Troubleshooting and the settings window</td><td>The tools; the window's shell</td><td>The core and, through the parts' own schemas, their words and pictures</td><td><span class="ok">Clean.</span></td></tr>
+<tr><td>Tag and property map (tags.js)</td><td>Opens the map; nothing another part uses</td><td>17 model names, the two-way wording helpers</td><td><span class="ok">Clean doors.</span> Asks Logseq's Editor for pages 6 times instead of the model (soft). 2,339 lines, about 20 jobs: wants a split (decision 1).</td></tr>
+<tr><td>Two-way rows (two-way.js)</td><td>How a property reads backwards, and the one-end switch, for the map</td><td>20 model names</td><td><span class="ok">Clean doors.</span> Asks Logseq's Editor for pages 5 times and decides "page or block" itself twice (soft). 964 lines, one job: no split needed.</td></tr>
+<tr><td>Proposals (alike.js and the four shadow files)</td><td>The "looks like" engine; the pickers' order</td><td>The model; the four shadow files share one object, by design</td><td><span class="ok">Every write is behind "Only in these graphs".</span> The engine needs nothing and only provides.</td></tr>
+<tr><td>Link selected text, the pickers</td><td>Nothing</td><td>The page list; the pickers' order, optional</td><td><span class="ok">Clean.</span> Link text types into the bullet in any graph, on purpose; the pickers write nothing.</td></tr>
+</table></div>
+<p><b>Stylesheets.</b> No loaded rule changes Logseq's own page outside the five allowed ways (the hidden tag lists, hidden empty properties, the grey proposals, the ring, the pickers' order). One rule is borderline: the ring also shows on any capsule Logseq's own keys put the keyboard on, in every graph (decision 3). The boxy capsules and blue links on your screen do not come from this plugin's loaded stylesheets: no rule touches capsule backgrounds or link colours, and no <code>--ls-*</code> variable is set. They are Logseq's own look or a theme.</p>
+<p><b>Tests added.</b> The boot test now checks, after an unload, that no timer of the plugin keeps running and no key or mouse listener of its own stays on Logseq's window or document (this caught the 0.4.279 leak), and that each loaded feature sends its own look while a feature left out sends nothing. So "each part can be left out" (14 ways) now proves the others still start, not only that nothing warns.</p>
+<p><b>Dead weight, not removed</b> (nothing the README promises): six unused imports in main.js; an empty <code>hideToast()</code> and a few leftovers in the tag map; the "Undo, for a minute" wording (the one Undo has no time limit); <code>take()</code> copied into eight loaded files with no shared one. Decision 2.</p>
+
+<h2>Working</h2>
+<p>Every item from the brief, in Logseq on the Illness Test Graph. <span class="pill seen">seen</span> means seen on screen; <span class="pill nocheck">could not check</span> says why. Every test edit was taken back and the graph compared with its starting fingerprint by query: nothing of mine is left in it.</p>
+
+<h3>B1 Foundation</h3>
+<div class="wrap"><table>
+<tr><td>Starts with no warning; Copy warnings empty</td><td><span class="pill seen">seen</span> After 0.4.275 a cold start warns nothing.</td></tr>
+<tr><td>Troubleshooting box: measuring, performance report, what the plugin finds, warnings, the tour</td><td><span class="pill seen">seen</span> Each opens and reports; the tour was not run (it visits pages and writes a report into the settings file).</td></tr>
+<tr><td>Settings window: every loaded setting with its picture zone</td><td><span class="pill seen">seen</span> Three groups, light and dark.</td></tr>
+<tr><td>Settings take effect as their words say</td><td><span class="pill seen">seen</span> Rows, hidden tag lists, hidden empty properties, one-end fields switch live; the toolbar button after a reload, as its text says.</td></tr>
+<tr><td>Foundation only</td><td><span class="pill seen">seen</span> Only the settings window and the troubleshooting box; no marks, no toolbar button. Four reloads in a row went through in about 100 ms each; the old "stuck reload" did not come back.</td></tr>
+<tr><td>Three reloads leave nothing doubled</td><td><span class="pill seen">seen</span> Same marks and nine stylesheets before and after; 160 ms a reload.</td></tr>
+<tr><td>Changing graphs leaves nothing behind</td><td><span class="pill nocheck">could not check</span> The Mac's safety check refused the click that switches graphs. Page changes clear every Undo arrow (seen).</td></tr>
+</table></div>
+
+<h3>B2 Tag and property map</h3>
+<div class="wrap"><table>
+<tr><td>Opens from the toolbar and Cmd+Option+G; page and sidebar show the same</td><td><span class="pill seen">seen</span> Light and dark. The palette entry was not run from here.</td></tr>
+<tr><td>Tags view: top level, "from #Parent", kind boxes, "Shows up here as", i buttons</td><td><span class="pill seen">seen</span></td></tr>
+<tr><td>Properties view and groups: add, fill, rename, remove</td><td><span class="pill seen">seen</span> Kept in the setting; nothing written to the graph.</td></tr>
+<tr><td>Find box finds properties</td><td><span class="pill seen">seen</span> "prov" found Provider.</td></tr>
+<tr><td>Rename a tag, a property; change what a link accepts; choices; description; wording; turn off a row</td><td><span class="pill seen">seen</span> Each with its Undo arrow. Removing a used choice is refused with a message. The property rename was read, not tried.</td></tr>
+<tr><td>Turn into links to pages; merge; choice into a child tag</td><td><span class="pill nocheck">not tried</span> Each makes pages, a property or a tag in the graph; left for a scratch property of your own.</td></tr>
+<tr><td>Kind of value, one vs several open Logseq's own settings</td><td><span class="pill seen">seen</span> In the right sidebar.</td></tr>
+<tr><td>Moving tags: Tab, Shift+Tab, Cmd+Shift+Up, drag inside; order kept; Undo; the frame does not scroll</td><td><span class="pill seen">seen</span> Once, a drag that started on #Disease moved #Treatment instead; Undo put it back and it did not happen again in 20 more tries. Logseq logs an error of its own on every rename made through a plugin (harmless).</td></tr>
+</table></div>
+
+<h3>B3 Two-way rows</h3>
+<div class="wrap"><table>
+<tr><td>Dr. Mei Chen: "provider of → 4 Consultations · next Oct 29", "decided →"</td><td><span class="pill seen">seen</span> Rows arrive 50 to 100 ms after the title, in the page's first frame.</td></tr>
+<tr><td>Reopening moves nothing; Logseq's own Consultation list hidden</td><td><span class="pill seen">seen</span> Shift score 0 on second and third visits of Oxaliplatin, Nausea, Northgate; what still moves on Dr. Mei Chen and Consultation is Logseq's own references list and table.</td></tr>
+<tr><td>Nausea: rows under the title; wordings "agent used in", "works here", "symptom type of"</td><td><span class="pill seen">seen</span></td></tr>
+<tr><td>Hover card, every piece clickable</td><td><span class="pill seen">seen</span> "#Symptom Log" in the card opened the tag's page.</td></tr>
+<tr><td>Filters by kind, "earlier" divider, folded counts, ⇥</td><td><span class="pill seen">seen</span> All 5 / Consultation 3 / Conversation 2 on Colon cancer.</td></tr>
+<tr><td>+ adds a linked node; Undo takes it back</td><td><span class="pill seen">seen</span> "Audit test drug" made and undone; Undo sends the page to Logseq's Recycle, as the README says.</td></tr>
+<tr><td>Ticks: sidebar, point to, unlink, tag, copy, set/unset a property, delete</td><td><span class="pill seen">seen</span> Tag and unlink done and undone; sidebar opened both; the other dialogs opened and were cancelled (delete asks first and has no Undo; copy touches the clipboard, which I was told not to use).</td></tr>
+<tr><td>Right-click a row's name to rename how it reads</td><td><span class="pill seen">seen</span> "decided on" and back; two Undo arrows for the two changes.</td></tr>
+<tr><td>Answer key</td><td><span class="pill seen">seen</span> <code>tools/two-way-check.js</code> matches the graph in every check run.</td></tr>
+</table></div>
+
+<h3>B4 Proposals while writing</h3>
+<div class="wrap"><table>
+<tr><td>"Saw [[Dr. Raj Patel]] about the scan #Consultation"</td><td><span class="pill seen">seen</span> Grey Provider, dotted Topic (Colon cancer), Date Oct 20.</td></tr>
+<tr><td>Enter fills all and makes the next bullet; a click away fills the sure ones; a click on a proposal accepts it</td><td><span class="pill seen">seen</span></td></tr>
+<tr><td>Escape clears</td><td><span class="pill seen">seen</span> They come back once the bullet is left and entered again; typing alone does not bring them back. The README says "until you next edit the bullet" (decision 4).</td></tr>
+<tr><td>Cmd+Option+Enter</td><td><span class="pill nocheck">could not judge</span> Pressed while Escape's clearing was on, so nothing was shown to take. Checked in the write test.</td></tr>
+<tr><td>Undo arrow at the end of the line</td><td><span class="pill seen">seen</span> Its tip says what it takes off; took all three values back.</td></tr>
+<tr><td>Pointing at a proposal says why</td><td><span class="pill seen">seen</span> "Earlier bullets like this one had Colon cancer: …"</td></tr>
+<tr><td>An untagged bullet gets a dotted Tags pill</td><td><span class="pill seen">seen</span> for a symptom log. "Spoke with Dr. Mei Chen about fatigue" gets nothing, and here is why: the one line it matches almost exactly is a #Consultation, but the next nearest lines are a Consultation that is also an Expectation, and Dr. Mei Chen's own page (a #Doctor). The tag rule asks the nearest lines to agree on one tag; they do not, so it stays quiet. That is the rule working as designed (a wrong tag costs more than a missing one), not a fault.</td></tr>
+<tr><td>A date in the words</td><td><span class="pill seen">seen</span> "due on Friday" on an expectation: dotted Date Oct 23.</td></tr>
+<tr><td>A number in the words; choices; [[Dr. New]]#Doctor; a page's own properties; learning at once; writes only in named graphs; empty properties hidden until proposed</td><td><span class="pill seen">partly</span> Hidden-until-proposed seen throughout (Status stayed hidden until the ring reached it); the rest rests on the automatic checks (the rules test, the write test and the scorer on the real graph, all passing). See the end of this page for what was added after the checks finished.</td></tr>
+</table></div>
+
+<h3>B5 Moving through a bullet's properties</h3>
+<div class="wrap"><table>
+<tr><td>Option-Enter opens the first empty or guessed property</td><td><span class="pill seen">seen</span> On a bullet whose tag was typed a moment ago it opens nothing until the bullet is left and re-entered, as documented.</td></tr>
+<tr><td>Enter sets and moves on; Escape back to the words</td><td><span class="pill seen">seen</span> Date, then Set Status; Escape back to the end of the words with the proposals kept.</td></tr>
+<tr><td>Tab, Shift-Tab, Down, Left, Right (0.4.272 never seen before)</td><td><span class="pill seen">seen</span> Your case: Provider (filled), Topic (empty), Date (filled): Right from Provider reaches Topic (after 0.4.273), Left stops at the first, Right from Date reaches the hidden Status, Tab past the last returns to the words.</td></tr>
+<tr><td>The ring: inside the capsule, light and dark</td><td><span class="pill seen">seen</span> Whole and round-ended on the Provider capsule, in both themes; Right from it opened Topic with the guess typed in and selected.</td></tr>
+<tr><td>A date in the picker ("next fri")</td><td><span class="pill failed">failed, then fixed</span> 0.4.278.</td></tr>
+<tr><td>A choice, a text value, a number, a property holding several; rows of their own (Notes)</td><td><span class="pill seen">partly</span> The choice list (Set Status) seen; the rest on the pretend checks.</td></tr>
+<tr><td>Keys feel instant</td><td><span class="pill seen">seen</span> Each key showed the next property within a frame or two; only Topic's list takes about 1.7 s, which is Logseq filling it.</td></tr>
+</table></div>
+
+<h3>B6 Link selected text and the pickers</h3>
+<div class="wrap"><table>
+<tr><td>Cmd+Option+L on selected words: empty page field, typing lists the pages, Enter links, Cmd+Z undoes</td><td><span class="pill seen">seen</span> "the tingling" linked to a page and undone with Cmd+Z. (A page named "tingl" already exists in the test graph from an earlier day; it rightly came first for "tingl".)</td></tr>
+<tr><td>Pickers: what fits first, a faint line, then Logseq's list; the top row is the one Enter takes</td><td><span class="pill seen">seen</span> Set Topic led with Blood in stool (linked in the words), then Fatigue, Peripheral neuropathy, Colon cancer, a line, then Logseq's list.</td></tr>
+<tr><td>Up and Down follow the order shown</td><td><span class="pill nocheck">not pressed</span> Checked in the picker test.</td></tr>
+<tr><td>A property limited to a parent tag offers nodes of its child tags</td><td><span class="pill seen">seen</span> Spoke with takes #Person and Logseq's own list offers the doctors; nothing for the plugin to add.</td></tr>
+<tr><td>One Undo: two changes keep two arrows</td><td><span class="pill seen">seen</span> On the "decided" row.</td></tr>
+</table></div>
+
+<h2>Fast</h2>
+<p>Numbers against their limits. The Mac matters: with the Claude app itself rendering this long session, the load stayed between 2 and 4 all afternoon, and the tag map's limits failed on every run after the first; the previous version, timed in a worktree straight after, failed them the same way. The quiet run at the start of the day is the fair one.</p>
+<div class="wrap"><table>
+<tr><th>Check (pretend graphs)</th><th>Limit</th><th>Quiet Mac (load 1.6)</th><th>Busy Mac (load 2 to 4)</th></tr>
+<tr><td>Model: the property schema, 20,000 pages</td><td class="num">—</td><td class="num ok">6.5 ms</td><td class="num">13 ms</td></tr>
+<tr><td>Looks-like engine: building the index</td><td class="num">—</td><td class="num ok">30 ms</td><td class="num">50 ms</td></tr>
+<tr><td>Proposals: 20,000 random bullets, per key (median / 95th)</td><td class="num">—</td><td class="num ok">0.01 / 0.02 ms</td><td class="num">0.02 / 0.07 ms</td></tr>
+<tr><td>Proposals: the index of 50,000 earlier lines</td><td class="num">500 ms</td><td class="num ok">150 ms</td><td class="num warn">382 to 525 ms</td></tr>
+<tr><td>Tag map: first drawing, 600 tags</td><td class="num">1,000 ms</td><td class="num ok">376 ms</td><td class="num warn">824 to 1,016 ms</td></tr>
+<tr><td>Tag map: a change shown (moved / added / renamed)</td><td class="num">400 ms</td><td class="num ok">164 / 149 / 121 ms</td><td class="num warn">366 to 556 ms</td></tr>
+<tr><td>Tag map: rows moved on a change</td><td class="num">0 px</td><td class="num ok">0 px</td><td class="num ok">0 px</td></tr>
+</table></div>
+<div class="wrap"><table>
+<tr><th>In Logseq, Illness Test Graph (measuring on, 76 s, 18 page visits)</th><th>Result</th></tr>
+<tr><td>The plugin's own work on each screen change (drawEarly)</td><td class="num ok">3 ms average, 19 ms worst, over 624 calls</td></tr>
+<tr><td>Plugin's code inside long frames</td><td class="num ok">0 ms (Logseq's own drawing is the rest)</td></tr>
+<tr><td>Two-way rows after the title</td><td class="num ok">51 to 100 ms, in the first frame with the first mark</td></tr>
+<tr><td>Page moves on reopening a page with rows</td><td class="num ok">0 on Oxaliplatin, Nausea, Northgate; 0.0045 on Dr. Mei Chen (Logseq's references list), 0.04 on Consultation (Logseq's own table)</td></tr>
+<tr><td>First-ever visit</td><td class="num">0.02 to 0.05, all Logseq's own blocks and property list landing (the baseline for the foundation alone was 0.077)</td></tr>
+</table></div>
+<div class="wrap"><table>
+<tr><th>Stress Check (31,000 bullets)</th><th>Morning of 22 Oct</th><th>This audit (Mac busy)</th></tr>
+<tr><td>Per key, tagged bullet (median / 95th)</td><td class="num">0.01 / 8.7 ms</td><td class="num warn">0.07 / 27.9 ms</td></tr>
+<tr><td>Per key, untagged (median / 95th)</td><td class="num">0.36 / 22.6 ms</td><td class="num warn">0.94 / 77.5 ms</td></tr>
+<tr><td>The index of earlier lines, built in the plugin</td><td class="num">—</td><td class="num ok">143 ms</td></tr>
+<tr><td>Scores, 42,734 properties hidden in turn</td><td class="num">—</td><td class="num"><span class="ok">sure right 20,866, wrong 0</span>; guesses right 8,976, wrong 351 (255 of them choices such as Status: decision 5); tags right 8,506, wrong 0</td></tr>
+</table></div>
+<p>So "done for speed" holds where it can be judged: nothing of the plugin's takes over 50 ms on a key in the test graph, reopening a page with rows moves nothing, and every limit passes on a quiet Mac.</p>
+
+<h2>For you to decide</h2>
+<ol class="decide">
+<li><b>1. Split the tag map's file before layer 3.</b> <code>tags.js</code> is 2,339 lines with about twenty jobs, the same problem the proposals had before their split. Recommendation: three files, the way the proposals were split: the graph-changing actions (merge, choice into child tag, turn into links, with their undos), the property map and its edit boxes, and the tree itself. Example: today a change to how #Disease is dragged and a change to how Confirmation Status's choices are edited live in the same file.</li>
+<li><b>2. A tidy-up pass on the README and the code.</b> Line 5 still says only the map and the rows run; 75 of the 87 rows in "Every setting" are resting settings with nothing marking them, and four live ones (Proposals while you write, Hide empty properties, Only in these graphs, Foundation only) are missing. With it, one housekeeping commit that changes nothing on screen: <code>take()</code> moved into <code>shared.js</code> (eight identical copies), six unused imports in <code>main.js</code>, the empty <code>hideToast()</code>, the one-off "tagTreeReinstated" switch and the "for a minute" wording dropped. Recommendation: a "What runs now" part with the six live parts and their 16 settings, a "Resting" part for the rest, and the commit.</li>
+<li><b>3. The ring on any capsule, in every graph.</b> Since 0.4.270 the ring also shows on a capsule Logseq's own Left/Right put the keyboard on, in every graph, not only the graphs the proposals may write in. Recommendation: keep it (it only shows where the keyboard is, and Logseq shows nothing there itself), but say so in the README.</li>
+<li><b>4. What Escape's clearing means.</b> After Escape, the proposals come back only when you leave the bullet and enter it again; typing on does not bring them back. The README says "until you next edit the bullet". Recommendation: keep the behaviour and change the words, since bringing them back on the next letter would undo the Escape you just pressed.</li>
+<li><b>5. Guessing choices such as Status.</b> On the Illness Test Graph the vote gets Status right 7 times and wrong 2 (both expectations that changed since). On the 31,000-bullet scratch graph, whose statuses are random, it is wrong 255 times, and that scorer now fails its limit. Recommendation: keep the choice guesses (a guess is dotted and only Enter takes it), and raise the scratch graph's limit, since random statuses cannot be predicted by anything; if you would rather not see Status guessed at all, say so and it goes back to 0.4.264's behaviour.</li>
+</ol>
+
+<h2>What I could not check, in one place</h2>
+<ul>
+<li>Switching graphs (the safety check refused the click), so the graph-change fix (0.4.276) is tested but not seen.</li>
+<li>Turn into links to pages, merge, choice into child tag: not tried on the test graph.</li>
+<li>Copy from the tick bar (clipboard); the tour; Up/Down inside a picker; Cmd+Option+Enter with proposals showing.</li>
+<li>The tag map's speed limits on this Mac this afternoon: the Mac, not the plugin (see Fast).</li>
+</ul>
+
+<h2>Left as found</h2>
+<p>Every test bullet and page was removed and the graph compared with its starting fingerprint by query. Only Logseq's own view blocks differ ("All" and "Unlinked references" views Logseq makes when a page is first opened), which Logseq adds on any visit. The plugin's settings are as they were, except the performance report, which the troubleshooting box overwrites by design. The scratch graphs' servers are stopped. Logseq is back on the light theme.</p>
+<p class="small">Notes with every finding: the shared session notes folder, <code>audit-progress.md</code>, <code>audit-partA-doors.md</code>, <code>audit-partA-css-dead-size.md</code>. The logbook has one entry per fix.</p>
+</main>

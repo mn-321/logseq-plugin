@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-22 at 0.4.285; moved here from `docs/` 2026-10-24. Its trims were built at 0.4.285 to 0.4.290, and the kit of `docs/LAYERS.md` (0.4.311 to 0.4.319) replaced most of the pieces it measured; the current state is `docs/STATE.md`.
+
 # Design audit of what the plugin draws over the page (2026-10-22)
 
 The owner's ask: "remove excess design and padding and make things inline instead of this big central popovers. This

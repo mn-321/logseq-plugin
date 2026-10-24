@@ -6,7 +6,7 @@
 
    What it cannot test is the query text itself: the stand-in recognises each query by its shape and answers from
    the pretend graph, so whether Logseq answers that query the same way is checked in the app (the measuring
-   round in docs/NEXT.md). A query the stand-in does not recognise fails the test, so a new query is noticed.
+   round in docs/history/NEXT-2026-10-19.md). A query the stand-in does not recognise fails the test, so a new query is noticed.
 
    It also times the model's own work on a large pretend graph (20,000 pages, 300 properties), Logseq's own
    query time left out, and prints it; it fails only when that is far beyond any reasonable figure.
@@ -80,7 +80,7 @@ function smallGraph() {
   return e;
 }
 // A large graph for the timing: 300 properties with choices and fields, 20,000 pages with tags (with --big, also
-// 600 properties and 100,000 pages: the stress run of docs/FINISHING-PROMPT.md section 4).
+// 600 properties and 100,000 pages: the stress run of docs/history/FINISHING-PROMPT-2026-10-23.md section 4).
 function largeGraph(pages = 20000, propCount = 300) {
   const e = smallGraph();
   let id = 1000;

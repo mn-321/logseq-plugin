@@ -1,5 +1,5 @@
 #!/bin/sh
-# Every stress test in one command (docs/FINISHING-PROMPT.md section 4), green before any version is tagged.
+# Every stress test in one command (docs/history/FINISHING-PROMPT-2026-10-23.md section 4), green before any version is tagged.
 # Run from the repo root: sh tools/stress.sh            everything
 #                         sh tools/stress.sh --no-app   only what needs no running Logseq
 # Each is also runnable alone; each says in its header what it does, what fails it and why.

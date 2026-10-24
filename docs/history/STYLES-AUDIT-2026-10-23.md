@@ -1,3 +1,5 @@
+> **Record, not a plan.** Written 2026-10-23 as `docs/STYLES-AUDIT.md`, the rule-by-rule judgement of the old `parts/styles.js`; done at 0.4.359, when the four kept rules went into `parts/page-look.js` and `styles.js` was deleted; moved here 2026-10-24. Kept for the reason each dropped rule was dropped; the current state is `docs/STATE.md`.
+
 # `parts/styles.js`, rule by rule
 
 **Done at 0.4.359:** the four kept rules are in `parts/page-look.js` (`quietAddProperty`, `quietEmptyProps`, `hideDatePencil`,
