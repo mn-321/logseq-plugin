@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The number of tags inside each tag (0.4.374)
+
+**Asked:** "put number of tags for each tag". **Built:** `rowLabels` in `parts/tags.js` adds a faint number after a tag's name, `below(tag).size`, with a tooltip; none for a tag with nothing inside. **Seen in the app:** see the CHANGELOG line. **Checks:** pictures (tag map re-approved).
+
 ## 2026-10-24 · The tag map: Tags | Properties on top, Select with tick boxes, a property's own page (0.4.373)
 
 **Asked:** "allow multiple items to be selected in both tags and properties … a select button and selector buttons
