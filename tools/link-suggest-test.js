@@ -26,7 +26,7 @@ window.logseq = { settings: { linkSuggest: true, linkSuggestUnderline: true, lin
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
-window.refinementCore = { provided: {}, propPages: async () => pages, onPageChange: () => {}, sendStyle: () => {}, screen: { popupOpen: () => popup } };
+window.refinementCore = { provided: {}, propPages: async () => pages, onPageChange: () => {}, sendStyle: () => {}, screen: { ...window.refinementShared.screen, popupOpen: () => popup } };
 window.refinementCore.provide = things => Object.assign(window.refinementCore.provided, things);
 const part = window.refinementParts.find(p => p.name === 'link suggest');
 part.provide(window.refinementCore);

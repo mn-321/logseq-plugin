@@ -297,8 +297,11 @@ const css = `
 function start() {
   ({ propPages, onPageChange, sendStyle, screen } = take(window.refinementCore, ['propPages', 'onPageChange', 'sendStyle', 'screen']));
   sendStyle('refinement-link-suggest', css);
-  // The bracket font read now, not on the first link taken: a font still loading hides the letters drawn with it.
-  try { host().fonts?.load('16px RfZeroBrackets', '[]').catch(() => {}); } catch (error) { /* an old window without the fonts list */ }
+  // The bracket font read now, not on the first link taken: a font still loading hides the letters drawn with it. The
+  // stylesheet reaches Logseq's window a moment after it is sent (seen 2026-10-24: asked for at once, the font was never
+  // loaded), so the font is loaded once Logseq knows it.
+  const named = face => String(face.family).replace(/["']/g, '') === 'RfZeroBrackets';
+  screen.waitFor(() => [...(host().fonts || [])].find(named), 5000).then(face => face?.load()).catch(error => warnOnce('the bracket font could not be loaded', error));
   const win = host().defaultView;
   listen(win, ['input'], onInput);
   listen(win, ['keydown'], onKey);

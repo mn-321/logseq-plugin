@@ -2,6 +2,15 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · Making sure nothing broke after 0.4.369; the bracket font loaded at start (0.4.370)
+
+**Asked:** "can you make sure nothing broke". **Checked:** `sh tools/check.sh` on main at 0.4.369, every part OK; in the
+app, read only (another session was driving it): no warning, nothing of the suggestions left on screen, but the bracket
+font "unloaded". **Found:** `sendStyle` goes through `logseq.provideStyle`, which reaches Logseq's window a moment later,
+so `fonts.load` at start found no such font. **Built:** wait (`screen.waitFor`) for the font to be declared, then load it;
+the test's pretend screen given the real `waitFor`. **Checks:** link-suggest, boot, leaning, parts-apart. **Seen in the
+app:** not yet.
+
 ## 2026-10-24 · A link just taken shows underlined, without [[ ]] (0.4.369)
 
 **Asked:** "is there a way to underline the work that will become a link while I type instead of [[ ]] … just for the
