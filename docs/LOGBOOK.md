@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · Suggested links less often: five letters and a pause (0.4.372)
+
+**Asked:** "suggestions are popping too often just with a couple letters. it is somewhat distracting". **Built**
+(`parts/link-suggest.js`): `suggestFor` takes `min` (the setting `linkSuggestMinLetters`, 5), counted over the words
+matched together; a new suggestion is looked for only after `linkSuggestPause` ms (350) without typing, while one already
+showing follows each letter as before (`keepUp`). **Checks:** link-suggest (77), boot, leaning. **Seen in the app:** not
+yet; the owner can try it after a reload.
+
 ## 2026-10-24 · Making sure nothing broke after 0.4.369; the bracket font loaded at start (0.4.370)
 
 **Asked:** "can you make sure nothing broke". **Checked:** `sh tools/check.sh` on main at 0.4.369, every part OK; in the

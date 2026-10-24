@@ -16,7 +16,8 @@
    the next time the bullet is opened they show as always.
    No mark follows the grey words (0.4.366: the owner did not like the ⇪); when the words sit inside a name, the whole
    name follows them, faint and small, so what is taken is no surprise. It shows nothing inside [[ ]], after #, while one of Logseq's own lists is open, or
-   for a short lower-case word (three letters capitalised, or four, before it looks: "the" never shows a page).
+   for a short lower-case word (three letters capitalised, or four, before it looks: "the" never shows a page). Since
+   0.4.371 it waits for five letters (the words of a name together) and for a pause in the typing, both settings.
    Which page: the name that starts with the words first (then the shortest), else the shortest whose word starts with
    them; a page with one of your tags before an untagged one. The pages come from the model (propPages); nothing is
    written until Tab, and only the link, so it needs no list of graphs.
@@ -43,6 +44,10 @@ const settingsSchema = [
     description: 'While grey words show after the cursor, Right arrow makes the link, as on a phone. Without grey words, Right arrow does what it always does. Changes here apply right away.' },
   { key: 'linkSuggestHyperTap', type: 'boolean', title: 'A tap of the Hyper key takes the suggested link', default: true,
     description: 'If Caps Lock is your Hyper key (⌘⌃⌥⇧, set up with Karabiner or the Hyperkey app), tapping it on its own while grey words show makes the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored. Changes here apply right away.' },
+  { key: 'linkSuggestMinLetters', type: 'number', title: 'Letters typed before a suggestion shows', default: 5,
+    description: 'How many letters the words before the cursor need before grey words show; the words of a name count together (“Dr. Mei” is 5). Fewer shows suggestions sooner and more often. Changes here apply right away.' },
+  { key: 'linkSuggestPause', type: 'number', title: 'Pause before a suggestion shows (milliseconds)', default: 350,
+    description: 'Grey words appear only once you stop typing for this long, so nothing pops up while you type quickly. Once they show, they follow each letter at once. 0 shows them as you type. Changes here apply right away.' },
   { key: 'linkSuggestUnderline', type: 'boolean', title: 'A link just taken shows underlined, without [[ ]]', default: true,
     description: 'While you go on writing the bullet, a link taken from a suggestion shows as its words with a line under them, the brackets hidden. Typing [, deleting a bracket, moving the cursor back into the words or leaving the bullet shows them again; the next time you open the bullet it reads [[ ]] as always. Changes here apply right away.' },
   { key: 'linkSuggestKeys', type: 'string', title: 'Keys for Suggested links', default: '',
@@ -63,7 +68,7 @@ function wordStarts(lower) {
 }
 /* The suggestion for the words before the cursor, or null: { start, end, span, title, ghost }. start..end is the span the
    link replaces (span its words), ghost the rest of the name to show. Pure, so tools/link-suggest-test.js can try it. */
-function suggestFor(text, caret, pages) {
+function suggestFor(text, caret, pages, { min = 0 } = {}) {
   const head = text.slice(0, caret), next = text[caret] || '';
   if (!WORD.test(head.slice(-1)) || WORD.test(next)) return null;           // not at the end of a word
   if (text.slice(caret).trim()) return null;                                 // only while writing on, not editing inside the words
@@ -79,7 +84,7 @@ function suggestFor(text, caret, pages) {
     const lead = span.match(/^[^\p{L}\p{N}]*/u)[0]; span = span.slice(lead.length); start += lead.length; // "(Mei" → "Mei"
     if (!span || /^#/.test(span)) continue;
     const q = span.toLowerCase().replace(/\s+/g, ' ');
-    if (letters(q) < 3) continue;
+    if (letters(q) < 3 || letters(q) < min) continue;     // the setting's letters, the words of a name together (0.4.371)
     if (k === 1 && letters(q) < 4 && !/^\p{Lu}/u.test(span)) continue;        // "the" never shows a page
     const starts = [], inner = [];
     for (const page of pages) {
@@ -113,7 +118,8 @@ function layOver(box, over, hit) {
   grey.title = `Hyper: [[${hit.title}]]`;
 }
 // What shows: the box, the suggestion and the grey words; the pages last read, for a tap on words the screen is behind on.
-let showing = null, quiet = null, version = 0, lastPages = [];
+let showing = null, quiet = null, version = 0, lastPages = [], pauseTimer = 0;
+const minLetters = () => Math.max(0, Number(setting('linkSuggestMinLetters')) || 0);
 const isBlockBox = node => node?.tagName === 'TEXTAREA' && !!node.closest('.ls-block');
 function clear() {
   if (!showing) return;
@@ -137,7 +143,7 @@ async function look(box) {
   const pages = lastPages = await propPages().catch(error => { warnOnce('the pages could not be read', error); return []; });
   if (mine !== version || !box.isConnected || box.value !== text || box.selectionStart !== caret || box.ownerDocument.activeElement !== box) return;
   if (screen.popupOpen()) return clear();                             // Logseq's own list ([[, /, a picker) has the keys
-  const hit = suggestFor(text, caret, pages);
+  const hit = suggestFor(text, caret, pages, { min: minLetters() });
   if (!hit) return clear();
   draw(box, hit);
 }
@@ -203,7 +209,12 @@ function onInput(event) {
   // A paste or a drop may bring brackets of its own: they show. Typing (the link taken, too) only moves the lines.
   if (bare?.box === box) { if (/^insertFrom(Paste|Drop)/.test(event.inputType || '')) showBrackets(); else drawMarks(); }
   keepUp(box);
-  look(box).catch(error => warnOnce('the suggestion could not be made', error));
+  // Nothing new shows while letters keep coming (0.4.371, the owner: "suggestions are popping too often … somewhat
+  // distracting"): the pages are looked at once typing pauses. Grey words already showing follow at once.
+  clearTimeout(pauseTimer);
+  const wait = Math.max(0, Number(setting('linkSuggestPause')) || 0);
+  const lookNow = () => look(box).catch(error => warnOnce('the suggestion could not be made', error));
+  if (showing?.box === box || !wait) lookNow(); else pauseTimer = setTimeout(lookNow, wait);
   // Logseq makes the box taller after this (a new line): both drawings are placed again before the screen is painted.
   const win = box.ownerDocument.defaultView;
   win.cancelAnimationFrame(keepUp.frame);
@@ -235,7 +246,7 @@ function acceptSuggestion(event) {
   let { hit } = showing;
   clear();
   // The screen may be behind the words (a Backspace Logseq took itself): what is suggested for the words as they are now.
-  if (box.value.slice(hit.start, hit.end) !== hit.span || box.selectionStart !== hit.end) hit = box.selectionStart === box.selectionEnd ? suggestFor(box.value, box.selectionStart, lastPages) : null;
+  if (box.value.slice(hit.start, hit.end) !== hit.span || box.selectionStart !== hit.end) hit = box.selectionStart === box.selectionEnd ? suggestFor(box.value, box.selectionStart, lastPages, { min: minLetters() }) : null;
   if (!hit) return false;
   const link = `[[${hit.title}]]`;
   box.focus();
@@ -313,7 +324,7 @@ function start() {
   listen(win, ['focusout', 'pointerdown', 'mousedown'], () => { clear(); showBrackets(); });
   listen(win, ['scroll', 'resize'], () => { clear(); drawMarks(); });
   onPageChange(() => { clear(); showBrackets(); });
-  onUnload(() => { clear(); showBrackets(); version++; });
+  onUnload(() => { clear(); showBrackets(); clearTimeout(pauseTimer); version++; });
 }
 // For tools/link-suggest-test.js (read-only): the rule and what shows, through the core.
 const provide = core => core.provide({ linkSuggestInner: { suggestFor, get showing() { return showing; }, get bare() { return bare; } } });

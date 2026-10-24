@@ -22,7 +22,7 @@ const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), 
   page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('Riverside General Hospital', 'Hospital'), { title: 'Hospitalization', lower: 'hospitalization', isTag: true, tags: [{ title: 'Tag' }] }, page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
-window.logseq = { settings: { linkSuggest: true, linkSuggestUnderline: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
+window.logseq = { settings: { linkSuggest: true, linkSuggestMinLetters: 0, linkSuggestPause: 0, linkSuggestUnderline: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
@@ -65,6 +65,10 @@ check(at('Spoke with Dr. Mei Chen and Nor') === 'Northgate Cancer Center|thgate 
 check(at('Tingling fing') === 'Tingling fingers|ers|Tingling fing', 'two words of a name: ' + at('Tingling fing'));
 check(at('see https://exa') === null, 'nothing in a web address');
 check(at('Doc') === 'Doctor|tor|Doc', 'a tag page counts: ' + at('Doc'));
+// The letters the setting asks for (5 as it comes): the words of a name count together.
+const at5 = text => { const hit = inner.suggestFor(text, text.length, pages, { min: 5 }); return hit ? hit.title : null; };
+check(at5('Spoke with Mei') === null && at5('Spoke with Mei Ch') === 'Dr. Mei Chen' && at5('Spoke with Dr. Mei') === 'Dr. Mei Chen', 'five letters: Mei alone waits, “Mei Ch” and “Dr. Mei” show');
+check(at5('Felt naus') === null && at5('Felt nause') === 'Nausea', 'five letters of one word: naus waits, nause shows');
 
 // The keys, as Logseq would get them.
 const box = doc.querySelector('textarea');
@@ -139,6 +143,13 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   typeNow('x');
   check(!inner.showing, 'a letter that does not match hides the grey words at once');
   await wait(20);
+  // The pause: nothing new shows while letters keep coming; once they stop, it shows.
+  window.logseq.settings.linkSuggestPause = 120;
+  await type('Saw Mei'); await wait(40);
+  check(!inner.showing, 'no grey words while the typing has not paused');
+  await wait(140);
+  check(inner.showing?.hit.title === 'Dr. Mei Chen', 'they show once the typing pauses');
+  window.logseq.settings.linkSuggestPause = 0;
   // A link taken shows underlined with its brackets hidden, until a [ is typed, a bracket deleted or the cursor moved back.
   await type('Spoke with Mei');
   key('ArrowRight');
