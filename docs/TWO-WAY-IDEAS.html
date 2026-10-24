@@ -1,0 +1,248 @@
+<title>Two-way Rows Ideas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: one plain reading column; each idea is where you are, three steps, and one drawing of the page. */
+:root {
+  --bench: #eef0f2; --ink: #1d2329; --ink2: #49515a; --rule: #d3d8dd;
+  --sheet: #ffffff; --sfg: #262a30; --squiet: #4d535b; --sfaint: #5f6670; --sline: #c3c8ce; --shair: #e4e7ea; --swash: #f1f3f5;
+  --link: #2d6cc0; --newbg: rgba(234, 88, 12, .11); --newline: rgba(194, 65, 12, .55); --newdot: #c2410c; --pop: #ffffff; --shadow: rgba(16, 24, 32, .14);
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-ls: Inter, system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bench: #14171a; --ink: #e3e6ea; --ink2: #a9b0b8; --rule: #2c3238;
+  --sheet: #1f2328; --sfg: #d8dce1; --squiet: #b6bdc5; --sfaint: #9ba3ad; --sline: #4b525b; --shair: #343a42; --swash: #2a2f36;
+  --link: #8ab4f8; --newbg: rgba(251, 146, 60, .15); --newline: rgba(251, 146, 60, .6); --newdot: #fb923c; --pop: #262b31; --shadow: rgba(0, 0, 0, .5); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bench: #14171a; --ink: #e3e6ea; --ink2: #a9b0b8; --rule: #2c3238;
+  --sheet: #1f2328; --sfg: #d8dce1; --squiet: #b6bdc5; --sfaint: #9ba3ad; --sline: #4b525b; --shair: #343a42; --swash: #2a2f36;
+  --link: #8ab4f8; --newbg: rgba(251, 146, 60, .15); --newline: rgba(251, 146, 60, .6); --newdot: #fb923c; --pop: #262b31; --shadow: rgba(0, 0, 0, .5); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bench); color: var(--ink); font: 18px/1.6 var(--f-body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 44px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 48px; }
+h1, h2 { font-family: var(--f-body); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); line-height: 1.15; }
+h2 { font-size: 1.3rem; line-height: 1.3; }
+p { margin: 0; max-width: 64ch; }
+.intro, .idea { display: flex; flex-direction: column; gap: 12px; }
+.idea { padding-top: 28px; border-top: 1px solid var(--rule); }
+.part { font-size: .85rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); padding-top: 28px; border-top: 2px solid var(--ink2); }
+.note { color: var(--ink2); font-size: 1rem; }
+.where { max-width: 64ch; }
+.where b { font-weight: 700; }
+.steps { margin: 0; padding-left: 1.4em; max-width: 64ch; display: grid; gap: 4px; }
+.steps li::marker { font-weight: 700; color: var(--ink2); }
+.result { display: flex; gap: 10px; align-items: baseline; max-width: 64ch; color: var(--ink2); font-size: 1rem; }
+.result b { color: var(--ink); font-weight: 700; white-space: nowrap; }
+a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* ===== The drawings: Logseq's page with the plugin's rows ===== */
+.shot { overflow-x: auto; margin-top: 4px; }
+.sheet { min-width: 560px; background: var(--sheet); color: var(--sfg); border: 1px solid var(--shair); border-radius: 10px; padding: 18px 22px; font: 15px/1.5 var(--f-ls); }
+.sheet a { color: inherit; text-decoration: none; }
+.ttlrow { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.ttl { font: 700 22px/1.2 var(--f-ls); margin: 0; }
+.tag { font: 12.5px var(--f-mono); color: var(--squiet); }
+.row, .prop { display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 14px; align-items: baseline; padding: 2px 0; }
+.rname, .pname { color: var(--sfaint); font-size: 14px; white-space: nowrap; }
+.sheet a.plink { color: var(--link); }
+.line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5em; padding: 2px 0; }
+.day { width: 3.4em; flex: none; color: var(--sfaint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sheet a.rec { border-bottom: 1px solid var(--sline); }
+.qw { color: var(--squiet); font-size: 13px; }
+.fold { color: var(--sfaint); font-size: 12px; width: 1em; display: inline-block; }
+.grp { display: flex; align-items: baseline; gap: .4em; margin: 8px 0 1px; font-size: 13px; font-weight: 600; color: var(--squiet); }
+.grp:first-child { margin-top: 0; }
+.grp .n { font-weight: 400; color: var(--sfaint); }
+.inner { border-left: 1px solid var(--sline); margin-left: 5px; padding-left: 12px; }
+.new { background: var(--newbg); border-radius: 4px; box-shadow: 0 0 0 3px var(--newbg); }
+.slot { border: 1.5px dashed var(--newline); border-radius: 5px; height: 26px; margin: 3px 0; }
+.dragging { display: inline-flex; gap: .5em; align-items: baseline; padding: 3px 10px; background: var(--sheet); border: 1px solid var(--shair); border-radius: 5px; box-shadow: 0 6px 16px var(--shadow); transform: rotate(-1.5deg); font-size: 14px; }
+.faded { opacity: .45; }
+.chip { color: var(--sfaint); font-size: 12.5px; border: 1px dashed var(--sline); border-radius: 4px; padding: 0 6px; }
+.field { flex: 1; min-width: 10em; border-bottom: 1px solid var(--sline); padding: 0 2px; }
+.caret { display: inline-block; width: 1px; height: 1em; background: currentColor; vertical-align: -2px; margin-left: 1px; }
+.pick { display: inline-flex; align-items: baseline; gap: 3px; color: var(--squiet); font-size: 13px; border-bottom: 1px dashed var(--sline); }
+.pop { background: var(--pop); color: var(--sfg); border: 1px solid var(--shair); border-radius: 6px; box-shadow: 0 6px 18px var(--shadow); padding: 4px; font: 14px/1.4 var(--f-ls); width: 260px; margin: 6px 0 4px 146px; }
+.pophead { padding: 3px 8px; font-size: 12px; color: var(--squiet); }
+.item { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px; border-radius: 4px; }
+.item.on { background: var(--swash); }
+.pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--shair); }
+.bul { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 6px; align-items: start; font-size: 14px; padding: 1px 0; }
+.bdot { width: 5px; height: 5px; border-radius: 50%; background: var(--sfaint); margin: 9px 0 0 4px; }
+.sub { display: grid; gap: 1px; }
+.sub .prop, .sub .row { grid-template-columns: 96px minmax(0, 1fr); font-size: 14px; }
+.sub .rname, .sub .pname { font-size: 13px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-width: 680px; }
+.split .sheet { min-width: 0; }
+.side { background: var(--swash); color: var(--sfg); border-radius: 8px; padding: 12px 14px; font: 14px/1.5 var(--f-ls); }
+.side .ttl { font-size: 15px; margin-bottom: 6px; }
+.side .row { grid-template-columns: 96px minmax(0, 1fr); }
+.droptext { font-size: 12.5px; color: var(--squiet); margin: 2px 0 6px; }
+.nmark { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--newdot); margin-right: 4px; vertical-align: 1px; }
+.via { color: var(--sfaint); font-size: 12.5px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="intro">
+  <h1>Two-way rows: working from the page you're on</h1>
+  <p>Today the rows show what points at a page. To change one of those nodes, add a new one, or follow a link onward, you leave the page.</p>
+  <p>These five ideas let you do it right where you are. The example is a page about one concept you are studying, Spaced repetition. Claims, sources, observations, questions, projects and other concepts all point at it. Every idea works the same for any page, tag or property.</p>
+  <p class="note">In each drawing, what is new has a soft orange background. Every change gets the faded Undo arrow, as today.</p>
+</header>
+
+<section class="idea">
+  <h2>The page today</h2>
+  <p class="where"><b>Where you are:</b> the Spaced repetition page. Six rows, one per property that points here. Nine claims, three questions, observations, two projects, and the concepts related to it.</p>
+  <div class="shot"><div class="sheet">
+    <div class="ttlrow"><h3 class="ttl">Spaced repetition</h3><a class="tag" href="#">Concept</a></div>
+    <div class="prop"><span class="pname">Part of</span><span><a class="plink" href="#">Memory techniques</a></span></div>
+    <div class="row"><div class="rname">claims about →</div><div class="line"><span class="fold">›</span><a class="rec" href="#">9 Claims</a></div></div>
+    <div class="row"><div class="rname">questions about →</div><div>
+      <div class="line"><a class="rec" href="#">Does spacing help with skills, or only with facts?</a><a class="tag" href="#">Question</a></div>
+      <div class="line"><a class="rec" href="#">What is the best first gap?</a><a class="tag" href="#">Question</a></div>
+      <div class="line"><a class="rec" href="#">Does it still work when the material is confusing?</a><a class="tag" href="#">Question</a></div>
+    </div></div>
+    <div class="row"><div class="rname">observed in →</div><div class="line"><span class="fold">›</span><a class="rec" href="#">7 Observations</a></div></div>
+    <div class="row"><div class="rname">used in →</div><div class="line"><a class="rec" href="#">Spanish vocabulary</a><a class="tag" href="#">Project</a><a class="rec" href="#">Anatomy course</a><a class="tag" href="#">Project</a></div></div>
+    <div class="row"><div class="rname">related to →</div><div class="line"><a class="rec" href="#">Testing effect</a><a class="tag" href="#">Concept</a><a class="rec" href="#">Forgetting curve</a><a class="tag" href="#">Concept</a></div></div>
+  </div></div>
+</section>
+
+<div class="part">Kept, to build later (owner, 2026-10-24)</div>
+
+<section class="idea">
+  <h2>1. Group a row by anything</h2>
+  <p class="where"><b>Where you are:</b> the Spaced repetition page. Nine claims point at it, and you want to see at once which hold up and which are disputed.</p>
+  <ol class="steps">
+    <li>Click the small words after the count, "grouped by".</li>
+    <li>Pick Confidence. You can also pick the tag, the source, the month, or any property the claims have.</li>
+    <li>The claims show in groups. Click a group's name to fold it. The row remembers your choice.</li>
+  </ol>
+  <p class="result"><b>In your notes:</b> nothing changes. Only how the row is shown.</p>
+  <div class="shot"><div class="sheet">
+    <div class="row"><div class="rname">claims about →</div><div>
+      <div class="line"><a class="rec" href="#">9 Claims</a><span class="pick new">grouped by Confidence ⌄</span></div>
+      <div class="inner">
+        <div class="grp new"><span class="fold">⌄</span>Strong <span class="n">4</span></div>
+        <div class="line"><a class="rec" href="#">Spacing beats cramming for recall a week later</a><span class="qw">Cepeda 2006</span></div>
+        <div class="line"><a class="rec" href="#">The gap should grow with each review</a><span class="qw">Pimsleur 1967</span></div>
+        <div class="line"><a class="rec" href="#">A test between reviews helps more than a reread</a><span class="qw">Roediger 2011</span></div>
+        <div class="line"><a class="rec" href="#">One review a day after is already worth it</a><span class="qw">Cepeda 2006</span></div>
+        <div class="grp new"><span class="fold">⌄</span>Disputed <span class="n">2</span></div>
+        <div class="line"><a class="rec" href="#">Spacing does not help understanding, only recall</a><span class="qw">Rohrer 2015</span></div>
+        <div class="line"><a class="rec" href="#">The best gap is a tenth of the time until the test</a><span class="qw">Cepeda 2008</span></div>
+        <div class="grp new"><span class="fold">›</span>Open <span class="n">3</span></div>
+      </div>
+    </div></div>
+    <div class="pop">
+      <div class="pophead">Group by</div>
+      <div class="item">Nothing</div><div class="item">Tag</div><div class="item">Source</div><div class="item">Month</div><div class="item on">Confidence</div>
+    </div>
+  </div></div>
+</section>
+
+<section class="idea">
+  <h2>2. Add a node inside a group, already filled in</h2>
+  <p class="where"><b>Where you are:</b> the same page, claims grouped by Confidence. You have just read something that cuts against the method and want to note it as a disputed claim.</p>
+  <ol class="steps">
+    <li>Point at the Disputed group. A + appears at its end.</li>
+    <li>Click it. A line opens under the group.</li>
+    <li>Type the claim and press Enter.</li>
+  </ol>
+  <p class="result"><b>In your notes:</b> a new claim about Spaced repetition, with its Confidence already set to Disputed. You typed only its words. Its Source you fill in when you have it.</p>
+  <div class="shot"><div class="sheet">
+    <div class="row"><div class="rname">claims about →</div><div>
+      <div class="line"><a class="rec" href="#">9 Claims</a><span class="pick">grouped by Confidence ⌄</span></div>
+      <div class="inner">
+        <div class="grp"><span class="fold">›</span>Strong <span class="n">4</span></div>
+        <div class="grp"><span class="fold">⌄</span>Disputed <span class="n">2</span></div>
+        <div class="line"><a class="rec" href="#">Spacing does not help understanding, only recall</a><span class="qw">Rohrer 2015</span></div>
+        <div class="line"><a class="rec" href="#">The best gap is a tenth of the time until the test</a><span class="qw">Cepeda 2008</span></div>
+        <div class="line new"><span class="field">Spacing fails when the items look alike<span class="caret"></span></span><span class="chip">About: Spaced repetition</span><span class="chip">Confidence: Disputed</span></div>
+        <div class="grp"><span class="fold">›</span>Open <span class="n">3</span></div>
+      </div>
+    </div></div>
+  </div></div>
+</section>
+
+<section class="idea">
+  <h2>3. Write into a node without leaving</h2>
+  <p class="where"><b>Where you are:</b> the same page. A claim catches your eye and you want to add a thought to it, not to the concept page.</p>
+  <ol class="steps">
+    <li>Click the small arrow before the claim. Its own bullets open under its line.</li>
+    <li>Click after the last bullet and type.</li>
+    <li>Click the arrow again to close it. The concept page is as it was.</li>
+  </ol>
+  <p class="result"><b>In your notes:</b> the new bullet is inside the claim, exactly as if you had typed it on the claim's own page.</p>
+  <div class="shot"><div class="sheet">
+    <div class="row"><div class="rname">claims about →</div><div>
+      <div class="line"><span class="fold new">⌄</span><a class="rec" href="#">Spacing does not help understanding, only recall</a><a class="tag" href="#">Claim</a></div>
+      <div class="inner new" style="margin:2px 0 4px 1.4em">
+        <div class="bul"><span class="bdot"></span><span>Rohrer tested maths problems, not facts.</span></div>
+        <div class="bul"><span class="bdot"></span><span>But the anatomy course is mostly facts, so this may not apply there<span class="caret"></span></span></div>
+      </div>
+      <div class="line"><span class="fold">›</span><a class="rec" href="#">The best gap is a tenth of the time until the test</a><a class="tag" href="#">Claim</a></div>
+    </div></div>
+  </div></div>
+</section>
+
+<section class="idea">
+  <h2>4. Follow a chain without leaving</h2>
+  <p class="where"><b>Where you are:</b> the Spaced repetition page. A claim says "Cepeda 2006". You want to know what that source is, who wrote it, and what else it claims, without opening three pages.</p>
+  <ol class="steps">
+    <li>Click the arrow before the claim. Under its line you see its properties, and its own rows: what points at the claim.</li>
+    <li>Click the arrow before its Source, Cepeda 2006. The source opens one step deeper: its authors, and every claim it backs.</li>
+    <li>Keep going as far as the links go. Each step sits under the one before, so you can see the whole path.</li>
+  </ol>
+  <p class="result"><b>In your notes:</b> nothing changes. You read what is already linked, several steps away, on one page.</p>
+  <div class="shot"><div class="sheet">
+    <div class="row"><div class="rname">claims about →</div><div>
+      <div class="line"><span class="fold">⌄</span><a class="rec" href="#">Spacing beats cramming for recall a week later</a><a class="tag" href="#">Claim</a></div>
+      <div class="inner sub" style="margin:2px 0 4px 1.4em">
+        <div class="prop"><span class="pname">Confidence</span><span>Strong</span></div>
+        <div class="prop new"><span class="pname">Source</span><span class="line"><span class="fold">⌄</span><a class="plink" href="#">Cepeda et al. 2006</a></span></div>
+        <div class="inner sub new" style="margin:2px 0 4px 1.4em">
+          <div class="prop"><span class="pname">Authors</span><span><a class="plink" href="#">Nicholas Cepeda</a>, <a class="plink" href="#">Harold Pashler</a></span></div>
+          <div class="prop"><span class="pname">Kind</span><span>Review of 254 studies</span></div>
+          <div class="row"><span class="rname">source of →</span><span class="line"><a class="rec" href="#">4 Claims</a><span class="via">2 about this page, 2 about Testing effect</span></span></div>
+        </div>
+        <div class="row"><span class="rname">challenged by →</span><span class="line"><a class="rec" href="#">Spacing fails when the items look alike</a><a class="tag" href="#">Claim</a></span></div>
+      </div>
+      <div class="line"><span class="fold">›</span><a class="rec" href="#">The gap should grow with each review</a><a class="tag" href="#">Claim</a></div>
+    </div></div>
+  </div></div>
+</section>
+
+<section class="idea">
+  <h2>5. A row for what sits two steps away</h2>
+  <p class="where"><b>Where you are:</b> the Spaced repetition page. No source points at the concept directly. Sources point at claims, and the claims point here. So the page cannot tell you what the evidence rests on.</p>
+  <ol class="steps">
+    <li>Right-click the "claims about" row and choose "Add a row through this".</li>
+    <li>Pick the claims' property to follow: Source.</li>
+    <li>A new row appears, "sources behind →", listing every source reached through the claims, each saying how many claims it carries. Click a source to see only its claims above.</li>
+  </ol>
+  <p class="result"><b>In your notes:</b> nothing changes. The row is built from links that already exist, and stays on the page.</p>
+  <div class="shot"><div class="sheet">
+    <div class="row"><div class="rname">claims about →</div><div class="line"><span class="fold">›</span><a class="rec" href="#">9 Claims</a></div></div>
+    <div class="row new"><div class="rname">sources behind →</div><div>
+      <div class="line"><a class="rec" href="#">5 Sources</a><span class="via">through the claims' Source</span></div>
+      <div class="inner">
+        <div class="line"><a class="rec" href="#">Cepeda et al. 2006</a><span class="via">3 claims</span></div>
+        <div class="line"><a class="rec" href="#">Roediger &amp; Karpicke 2011</a><span class="via">2 claims</span></div>
+        <div class="line"><a class="rec" href="#">Rohrer 2015</a><span class="via">2 claims</span></div>
+        <div class="line"><a class="rec" href="#">Cepeda et al. 2008</a><span class="via">1 claim</span></div>
+        <div class="line"><a class="rec" href="#">Pimsleur 1967</a><span class="via">1 claim</span></div>
+      </div>
+    </div></div>
+    <div class="row"><div class="rname">questions about →</div><div class="line"><span class="fold">›</span><a class="rec" href="#">3 Questions</a></div></div>
+  </div></div>
+</section>
+
+</div>
