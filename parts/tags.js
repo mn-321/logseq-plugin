@@ -1195,6 +1195,13 @@ function onKey(view, event) {
     return;
   }
   if (typing && !(event.key === 'Enter' && event.target === view.find)) return;
+  if (!item && byProp && event.key.toLowerCase() === 'i' && !event.metaKey && !event.ctrlKey && !event.altKey && view.propAim) {
+    event.preventDefault(); event.stopPropagation();
+    const prop = view.data.propInfo?.get(view.propAim.id) || view.propAim, row = view.box.querySelector(`[data-key="P${prop.id}"]`);
+    view.cursorKey = `P${prop.id}`;
+    view.askDescription(prop, row?.querySelector('.rtg-pname') || row || view.box);
+    return;
+  }
   if (!item) {
     if (event.key === '/') { event.preventDefault(); event.stopPropagation(); view.find.focus(); }
     else if (!(event.metaKey || event.ctrlKey || event.altKey)) event.stopPropagation();
@@ -1240,6 +1247,7 @@ function onKey(view, event) {
   if (key === 'a' && !tag.builtIn) { stop(); view.askAlso(tag, item.row.querySelector('.rtg-name') || item.row); return; }
   if (key === 'r' && !tag.builtIn) { stop(); view.renaming = item.key; view.draw(); return; }
   if (key === 'x' && !tag.builtIn) { stop(); if (view.picked.has(tag.id)) view.picked.delete(tag.id); else view.picked.add(tag.id); view.mark(false); return; }
+  if (key === 'i' && !tag.builtIn) { stop(); view.askDescription(tag, item.row.querySelector('.rtg-name') || item.row); return; }
   if (key === 'p' && !tag.builtIn) { stop(); view.askProperty(tag, item.row.querySelector('.rtg-name') || item.row); return; }
   if (key === 'j' && !tag.builtIn) { stop(); view.askMerge(tag, parent, item.row.querySelector('.rtg-name') || item.row); return; }
   if (event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f')) { stop(); view.find.focus(); view.find.select(); return; }

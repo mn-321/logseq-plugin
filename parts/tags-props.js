@@ -736,17 +736,16 @@ function propTopRow(view, pass, prop) {
     });
     line.append(on);
   }
-  // The i: say what the property is for (a description, kept on the property's own page; the tag's i does the same for a tag).
+  // i on the keyboard says what the property is for: a description, kept on the property's own page. It acts on the
+  // property the pointer is over or was last clicked (this view has no cursor row), see onKey in tags.js.
   const describe = at => { aim(); view.askDescription(prop, at); };
-  const i = shared.quiet(doc, { icon: 'help', title: prop.desc ? 'Change the description' : 'Add a description', pressed: !!prop.desc, cls: 'rtg-i', run: event => { event.stopPropagation(); describe(event.currentTarget); } });
-  i.setAttribute('aria-label', `Describe ${prop.title}`); i.tabIndex = -1;
-  line.append(i);
   const main = el(doc, 'div', { class: 'rtg-main' }, line);
   if (prop.desc) main.append(el(doc, 'div', { class: 'rtg-desc', title: 'Change the description', click: event => { event.stopPropagation(); describe(event.currentTarget); } }, prop.desc));
   const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key, draggable: 'true' }, fold, main);
   row.addEventListener('dragstart', event => { view.draggingProp = prop; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', prop.title); event.stopPropagation(); });
   row.addEventListener('dragend', () => { view.draggingProp = null; for (const h of doc.querySelectorAll('.rtg-gdrop')) h.classList.remove('rtg-gdrop'); });
-  row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag, .rf-kind')) fold.click(); });
+  row.addEventListener('click', event => { view.propAim = prop; if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag, .rf-kind')) fold.click(); });
+  row.addEventListener('mouseenter', () => { view.propAim = prop; });
   row.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); aim(); view.propMenu(tag, prop, null, rectAt(event), true); });
   const nodes = [row];
   if (open) nodes.push(view.propDetails(tag, prop, null, true));

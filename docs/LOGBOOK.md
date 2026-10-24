@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · The key i for a description, not a button (0.4.368)
+
+**Asked:** "no, I just wanted I as a shortcut on keyboard". **Built:** the i button of 0.4.367 removed from
+`parts/tags-props.js`; `onKey` in `parts/tags.js` takes `i` for a description: in the Properties view the property
+under the pointer (or last clicked, `view.propAim`), in the Tags view the tag on the cursor row. **Seen in the app:**
+not yet. **Checks:** check.sh.
+
 ## 2026-10-23 · An i on each property to add a description (0.4.367)
 
 **Asked:** "can you add i for the properties page to add a description?". **Built:** `propInfo` in `parts/model.js` reads a
