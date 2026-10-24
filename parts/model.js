@@ -116,7 +116,8 @@ const OWN_PROP = /^(?:user\.property\/|logseq\.property\/(?:deadline|scheduled|s
 // Every property as Logseq holds it, and every choice with the property it belongs to: the one reading of the
 // properties, which propSchema, propInfo and ownProps shape each their own way (0.4.224).
 const readProps = async () => (await dsQuery(`[:find (pull ?p [:db/id :db/ident :block/uuid :block/title :logseq.property/type :db/cardinality :logseq.property/icon
-      {:logseq.property/classes [:db/id :block/uuid :block/title]}])
+      {:logseq.property/classes [:db/id :block/uuid :block/title]}
+      {:logseq.property/description [:block/title]}])
     :where [?p :block/tags :logseq.class/Property] [?p :db/ident _]]`)).map(([p]) => p);
 const readChoices = () => dsQuery(`[:find ?p (pull ?v [:db/id :block/uuid :block/title :block/order :logseq.property/icon]) :where [?v :block/closed-value-property ?p]]`);
 const orderOf = v => String(pick(v, 'block/order') ?? '');
@@ -243,6 +244,7 @@ async function propInfo() {
     if (!TREE_PROP.test(ident)) continue;
     props.set(idOf(p), { id: idOf(p), ident, title: String(pick(p, 'block/title') ?? ''), uuid: String(pick(p, 'block/uuid') ?? ''),
       type: bare(pick(p, 'logseq.property/type')) || 'default', many: bare(pick(p, 'db/cardinality')) === 'db.cardinality/many',
+      desc: String(pick(pick(p, 'logseq.property/description'), 'block/title') ?? '').trim(),
       accepts: list(pick(p, 'logseq.property/classes')).map(idOf).filter(v => v != null), choices: [] });
   }
   for (const [id, v] of choices.sort((a, b) => orderOf(a[1]).localeCompare(orderOf(b[1])))) props.get(id)?.choices.push(String(pick(v, 'block/title') ?? ''));

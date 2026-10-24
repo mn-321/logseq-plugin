@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · An i on each property to add a description (0.4.367)
+
+**Asked:** "can you add i for the properties page to add a description?". **Built:** `propInfo` in `parts/model.js` reads a
+property's description; `propTopRow` in `parts/tags-props.js` ends each line with an i (the kit's quiet button) that opens
+the same question as a tag's description (`askDescription`, `setDescription` on the property's own page), the text shown
+in grey under the name and clickable to change. **Seen in the app:** not yet. **Checks:** check.sh.
+
 ## 2026-10-23 · Suggested links: no ⇪, Right arrow takes them (0.4.366)
 
 **Asked:** "I don't like the caps arrow you created. also add right arrow as well to be able to complete". **Built:** in
