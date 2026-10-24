@@ -2,6 +2,12 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The dotted line after a space seen (0.4.380)
+
+**Found** (in the app, from the picture of 0.4.379): no dotted line under Northgate. **Why:** `--rf-faint` mixes
+currentColor, which is transparent in the typed layer. **Built:** the line's colour from `--rf-ink`, the box's own
+colour set on the overlay. **Seen in the app:** the line, faint, under Northgate. **Checks:** link-suggest, boot.
+
 ## 2026-10-24 · The suggested links learn: link rates, empty properties, what is taken (0.4.379)
 
 **Asked:** "the replay score first, then offer links by how often the words are linked in my graph (and what I take

@@ -176,6 +176,7 @@ function layOver(box, over, hit) {
   const doc = box.ownerDocument, outer = box.getBoundingClientRect(), style = doc.defaultView.getComputedStyle(box);
   for (const p of COPIED) over.style[p] = style[p];
   Object.assign(over.style, { left: outer.left + 'px', top: (outer.top - box.scrollTop) + 'px', width: outer.width + 'px', minHeight: outer.height + 'px', borderStyle: 'solid', borderColor: 'transparent', color: style.color });
+  over.style.setProperty('--rf-ink', style.color);
   const [typed, grey] = over.children;
   // After the space that ends a name (hit.after): nothing grey, a dotted line under the words until the next letter.
   typed.replaceChildren(doc.createTextNode(box.value.slice(0, hit.after ? hit.start : hit.end)));
@@ -413,7 +414,8 @@ const css = `
 .refinement-link-marks u { text-decoration: underline; text-decoration-color: var(--rf-link-line); text-decoration-thickness: 1px; text-underline-offset: .22em; }
 .refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; background: none; }
 .refinement-link-suggest .rf-typed { color: transparent; }
-.refinement-link-suggest .rf-typed .rf-offer { text-decoration: underline dotted; text-decoration-color: var(--rf-faint); text-underline-offset: .22em; }
+/* The words are transparent there, so the line's colour is mixed from the box's own colour (--rf-ink), not from theirs. */
+.refinement-link-suggest .rf-typed .rf-offer { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, var(--rf-ink, currentColor) 55%, transparent); text-decoration-thickness: 1px; text-underline-offset: .22em; }
 .refinement-link-suggest .rf-ghost { opacity: .45; }
 .refinement-link-suggest .rf-ghost[data-name]::after { content: "  " attr(data-name); font-size: .8em; opacity: .75; }
 `;
