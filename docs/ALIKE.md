@@ -27,8 +27,8 @@ for an untagged bullet; both are listed in CLAUDE.md section 7.
 
 - `parts/alike.js`: the engine alone (`buildIndex(entries)`, `neighbours(index, query, options)`, `tokensOf`). No
   DOM, no Logseq; a part like the model, loaded before `parts/shadow.js`, which takes it from the core.
-- `parts/shadow.js`: builds the index from the history it already reads (`addHistory`), asks for neighbours in
-  `guessesFor` (how: `alike`).
+- `parts/shadow-rules.js` (since the split of 0.4.268; `parts/shadow.js` before): builds the index from the history it
+  already reads (`addHistory`), asks for neighbours in `guessesFor` (how: `alike`).
 - `tools/alike-test.js`: the engine on a small pretend set (what it must and must not find), and its speed on a
   pretend graph of 20,000 nodes. Run by `tools/check.sh`.
 - `tools/shadow-check.js`: the scorer on the real graph; the scoreboard below is its output.
