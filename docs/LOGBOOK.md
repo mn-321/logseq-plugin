@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · Stale comments in the code put right (0.4.382)
+
+**Asked:** the tidy of the record (the entry below), whose prompt asked for the code's wrong comments to be fixed in
+one versioned change saying nothing changes on screen. **Built:** comments only, in `main.js` and fourteen parts:
+paths to the documents moved into `docs/history/` (block-commands, chrome, search-look, shadow, page-look, two-way);
+the comment above `PART_FILES` (it described 0.4.294's foundation, map and rows only) and the scroll-bar line (dropped
+by the owner on 2026-10-23); the two-way rows' header ("Nothing is written to the graph"); the suggested links'
+("nothing is written until Tab"); the load order in sidebar.js and page-look.js; the first line of each resting part.
+Two comments sit inside stylesheets sent to Logseq; their words changed, no rule did. **Seen in the app:** nothing to
+see; no reload needed. **Checks:** the whole diff read again (comments only); `sh tools/check.sh`, the same three
+failing as at 0.4.381 and nothing else. Left as they were: the comments inside resting parts that name deleted files
+(they describe those parts as they last ran), and `package.json`'s description, which Logseq shows.
+
 ## 2026-10-24 · The record tidied: the plugin by layer, history as history (no version)
 
 **Asked:** "follow docs/TIDY-PROMPT-2026-10-24.md": take stock of the plugin from the code, describe it by layer,

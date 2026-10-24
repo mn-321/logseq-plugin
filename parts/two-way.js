@@ -11,8 +11,9 @@
    by" → "prescribed", or a name from the twoWayNames setting). Up to three records show inline; more become
    a count with the nearest date, which opens into the list (open to begin with, as asked: "the details …
    should by default be unfolded"). Only your own Node properties count; tags, aliases and mentions in
-   sentences stay in Linked references. Drawn for the page in the main view only (sidebar and records inside
-   a page are open questions, see the "Two-Way Links" sketch). Nothing is written to the graph. The tag tree
+   sentences stay in Linked references. Drawn for the page in the main view only. Reading the rows writes nothing; what
+   writes is what you press: the + that adds a node, the picking bar's actions and writing into a node, each through
+   the model with an Undo arrow (0.4.228, 0.4.303, 0.4.376). The tag tree
    (0.4.174) changes how a field reads backwards, and turns its row off, through this part's settings.
    On the kit since 0.4.318 (docs/LAYERS.md; the pages): the rows keep their own layout (one set of columns: the
    day where Logseq's values start, the name, its tag right after it (0.4.320), the tick box in the margin) and draw
@@ -1166,7 +1167,7 @@ async function act(what, at = null) {
 
 const twoWayCss = `
 /* Under the page's own properties, as more property rows (the light field around them went at the design audit,
-   0.4.286, docs/DESIGN-AUDIT-2026-10-22.md: a box around rows meant to read as rows): these rows are the far end of a field held by other
+   0.4.286, docs/history/DESIGN-AUDIT-2026-10-22.md: a box around rows meant to read as rows): these rows are the far end of a field held by other
    records, so they read like properties but are not this page's own; the → after the name, pointing at the records that hold the field, says so (a ← before the name until 0.4.186). The names are
    the grey of every property name and the days plain grey words (0.4.141, the owner's pick: no blue, no date box).
    Sizes and columns are Logseq's own property rows above, as measured in 2.0.2 (0.4.144): the text at the page's
@@ -1335,7 +1336,7 @@ const hideTagListsCss = `
 function applyStyles() {
   sendStyle('refinement-two-way', setting('twoWayRows') ? twoWayCss : '');
   sendStyle('refinement-two-way-hide-tag-lists', setting('twoWayRows') && setting('twoWayHideTagLists') ? hideTagListsCss : '');
-  // openRowsCss changes how Logseq lays out its own properties: page looks wait for layer 3 (0.4.251), so it is not sent.
+  // openRowsCss changes how Logseq lays out its own properties: switched off with the page looks at 0.4.251 and not sent since.
   sendStyle('refinement-open-property-rows', '');
 }
 

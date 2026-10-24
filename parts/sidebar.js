@@ -1,4 +1,4 @@
-/* Loaded by main.js after parts/property-kinds.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* Loaded by main.js after parts/pdf-quote.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
 /* The right sidebar (0.4.16; back on and on the kit at 0.4.336, docs/LAYERS.md layer 4, the first of the resting
    "getting around" pieces, at the owner's word). Two things, each with its own switch:

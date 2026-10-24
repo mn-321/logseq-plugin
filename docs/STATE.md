@@ -1,6 +1,6 @@
 # DB Refinements today
 
-Written 2026-10-24 at version 0.4.381 from the code on `main` (`main.js`'s `PART_FILES` and `RESTING_FILES`, each
+Written 2026-10-24 at version 0.4.381 (0.4.382 changed comments only) from the code on `main` (`main.js`'s `PART_FILES` and `RESTING_FILES`, each
 part's settings and commands as the plugin registers them, the tools and what `tools/check.sh` runs). It is a living
 document: when a part is added, rested or deleted, or its settings or keys change, this file changes with it. Version
 by version history is `CHANGELOG.md`; how it came to be this way is `docs/LOGBOOK.md` and `docs/history/`.
@@ -118,7 +118,7 @@ every task with sort, filter and views (`docs/DECISIONS-AUTONOMOUS.md` 20).
 
 Facts only, each with where it is recorded.
 
-- **Three checks fail at 0.4.381** (seen in `sh tools/check.sh` on 2026-10-24, before this document was written):
+- **Three checks fail at 0.4.381 and 0.4.382** (seen in `sh tools/check.sh` on 2026-10-24, before this document was written):
   `tools/tags-test.js` (renaming #Report leaves the order "Report", and a renamed tag shows no Undo arrow), failing since
   0.4.376 (logbook 0.4.378 and 0.4.381: "the tag map checks fail as at 0.4.376, not touched"); `tools/frames.js` on the
   four tag map scenes (what is drawn differs from the approved census in `test/frames/`), "the tag map scenes fail as
@@ -126,9 +126,9 @@ Facts only, each with where it is recorded.
   about [[Blood in stool]]", Provider would be filled with Dr. Chen while the node holds Dr. Mei Chen), first seen in
   this check on 2026-10-24.
 - The two-way rows' settings still say "field" and "record" in their titles ("Fields read backwards", "Fields shown
-  from one end only"), against the owner's words; the header of `parts/two-way.js` still says "Nothing is written to
-  the graph"; `parts/link-suggest.js`'s says "nothing is written until Tab"; the comment above `PART_FILES` in
-  `main.js` describes the plugin of 0.4.294 (2026-10-24, this document).
+  from one end only"), against the owner's words (2026-10-24, this document; the stale code comments found with it
+  were fixed at 0.4.382). `package.json`'s description, shown in Logseq's Plugins panel, still names journal-day
+  dates, rich copy and todos.
 - The ring on a capsule Logseq's own keys put the keyboard on shows in every graph; keep or limit is the owner's
   question, open since the audit of 2026-10-22 (CLAUDE.md).
 - Logseq's narrow name column cuts a long property name short ("Therapy regimen"); since 0.4.353 the whole name shows on

@@ -1,6 +1,6 @@
 /* Loaded by main.js after parts/chrome.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Logseq's search window, easier to read (docs/LAYERS.md layer 4, docs/FINISHING-PROMPT.md section 5, Phase 2 piece 3,
+/* Logseq's search window, easier to read (docs/LAYERS.md layer 4, docs/history/FINISHING-PROMPT-2026-10-23.md section 5, Phase 2 piece 3,
    step 1 of 5). Logseq's search is Logseq's: its list, its order, its keys and its highlight stay; this part only quiets.
    Two switches:
    - Tidy: no grey bars, a small quiet heading over each group, one weight of text in the rows, a quiet path, the searched

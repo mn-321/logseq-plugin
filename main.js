@@ -405,7 +405,8 @@ function main() {
   onUnload(() => window.refinementShared.popups.stopFollowing());
   // The main view keeps room for its scroll bar (0.4.182), so a page growing past the window's height, or a list
   // unfolding, no longer moves everything 8px sideways as the bar comes and goes (seen in the owner's Logseq).
-  // Off until layer 3 (0.4.251: page looks wait for their layer); put back with the rest of layer 3:
+  // Off since 0.4.251; on 2026-10-23 the owner dropped it after looking (the Mac's scroll bars take no room), kept here
+  // as the line it was:
   // logseq.provideStyle({ key: 'refinements-steady-scroll', style: '#main-content-container { scrollbar-gutter: stable; }' });
   // The parts (parts/*.js, loaded before this file). Each keeps its own clean-up, run from here; one
   // that fails to start leaves the rest of the plugin working. Three steps, each over every part before the
@@ -455,17 +456,15 @@ function main() {
 
   registerCommands(running);
 }
-/* Search, journal-day dates, copy as rich text, todos, the tag tree and the settings panel live in parts/*.js. Each file adds itself to
-   window.refinementParts; they are loaded here, in order, before the settings are given, because
-   Logseq can keep an older loader.js cached that only loads this file. */
+/* Every part lives in parts/*.js and adds itself to window.refinementParts; they are loaded here, in order, before the
+   settings are given, because Logseq can keep an older loader.js cached that only loads this file. */
 // shared.js first: the other parts read window.refinementShared as they load. model.js second: the Logseq
 // model, which every part reads the graph through (core.provided). sidebar.js (back at 0.4.336, layer 4) after the
 // page pieces, with a heading of its own under Around the page.
-// Resting (0.4.175, at the owner's word: "just running the foundations and tag tree ... for the sake of understanding
-// what is important"): the plugin loads only the foundation, the tag and property map, and the two-way links that the
-// map writes the wording of. The other parts stay in parts/ unchanged, listed in RESTING_FILES (never loaded; the
-// check compares parts/ with both lists), and come back one layer at a time, each by moving its file back into
-// PART_FILES at its old place: editor, pages, properties, links after diagnostics; the rest after two-way.
+// Resting (since 0.4.175, at the owner's word: "just running the foundations and tag tree ... for the sake of
+// understanding what is important"; the layers came back one at a time since): the parts in RESTING_FILES stay in
+// parts/ but are never loaded (the check compares parts/ with both lists). docs/STATE.md says what each holds and why it
+// rests; one comes back only by being rebuilt on the kit and the model, then moved into PART_FILES.
 const PART_FILES = ['parts/shared.js', 'parts/model.js', 'parts/diagnostics.js', 'parts/two-way.js', 'parts/tag-path.js', 'parts/title-row.js', 'parts/property-kinds.js', 'parts/pdf-quote.js', 'parts/sidebar.js', 'parts/chrome.js', 'parts/search-look.js', 'parts/page-look.js', 'parts/tags-graph.js', 'parts/tags-props.js', 'parts/tags.js', 'parts/link-text.js', 'parts/link-suggest.js', 'parts/block-commands.js', 'parts/alike.js', 'parts/shadow-rules.js', 'parts/shadow.js', 'parts/shadow-steps.js', 'parts/shadow-page.js', 'parts/picker.js', 'parts/settings-panel.js'];
 const RESTING_FILES = ['parts/pages.js', 'parts/links.js', 'parts/search.js', 'parts/inline-props.js', 'parts/rich-copy.js', 'parts/todos.js'];
 void RESTING_FILES;

@@ -20,7 +20,8 @@
    0.4.371 it waits for five letters (the words of a name together) and for a pause in the typing, both settings.
    Which page: the name that starts with the words first (then the shortest), else the shortest whose word starts with
    them; a page with one of your tags before an untagged one. The pages come from the model (propPages); nothing is
-   written until Tab, and only the link, so it needs no list of graphs.
+   written until the link is taken (Right arrow or the Hyper tap since 0.4.362, 0.4.366; Tab is Logseq's indent), and
+   only the link, so it needs no list of graphs.
    The tap is seen the way the old Hyper tap of 0.4.148 saw it (seen working on the owner's Mac): the modifiers go down
    together, then one comes up within 600 ms with no other key between; an Escape some setups send on the tap is
    swallowed for 300 ms so Logseq does not leave the bullet. Holding Hyper with another key is untouched.

@@ -1,4 +1,5 @@
-/* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* Pages part of DB Refinements (moved out of main.js in the October 2026 cleanup): what the plugin
    draws around a page's title. The title chrome (the tags and actions above the title, always shown),

@@ -5,8 +5,8 @@ down to a short handoff on 2026-10-24; the longer version of that morning is `do
 
 ## 1. Where everything is
 
-- **State (2026-10-24):** `main` at version **0.4.381**: every layer of `docs/LAYERS.md` built or decided, the record
-  tidied (2026-10-24). What each part is today, by layer, is `docs/STATE.md`; what changed in each version is
+- **State (2026-10-24):** `main` at version **0.4.382**: every layer of `docs/LAYERS.md` built or decided, the record
+  tidied (2026-10-24; 0.4.382 changed comments only). What each part is today, by layer, is `docs/STATE.md`; what changed in each version is
   `CHANGELOG.md`; the work behind it is `docs/LOGBOOK.md`.
 - **Code:** GitHub `mn-321/logseq-plugin` (public since 2026-10-22), branch `main`. On the owner's Mac:
   `/Users/admin/logseq-plugin`, a git clone that pushes over an SSH key already on GitHub.
@@ -96,7 +96,7 @@ Tools, Troubleshooting) loads only the foundation; if the owner says "nothing sh
 
 `sh tools/check.sh` before every commit; `sh tools/stress.sh` before a big change is called done. Node, jsdom and
 Playwright's Chromium are on the Mac, so they run in full; if any is skipped, say so. What each test guards is
-`docs/STATE.md` section 3. Three checks already fail at 0.4.381 (the tag map's rename checks and frame scenes, one
+`docs/STATE.md` section 3. Three checks already fail at 0.4.381 and 0.4.382 (the tag map's rename checks and frame scenes, one
 proposal on the real graph; `docs/STATE.md` section 2): say so in each logbook entry until they are mended.
 The app tests drive Logseq over its debugging port (`open -a Logseq --args --remote-debugging-port=9222`). Reload:
 in the Plugins panel (`t p`) press Reload, or `await LSPluginCore.reload('logseq-db-refinements')` in the console; if

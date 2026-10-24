@@ -1,4 +1,5 @@
-/* Loaded by loader.js before main.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* Copy-as-rich-text part of DB Refinements (was the Copy as Rich Text plugin 0.5.2): turns a Logseq page or block into plain, tidy formatted text for people who
    don't use Logseq. Paste it into Pages, Word, Mail or Google Docs; from there it can become a PDF.

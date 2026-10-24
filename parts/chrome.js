@@ -1,6 +1,6 @@
 /* Loaded by main.js after parts/sidebar.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Logseq's own chrome made quieter (docs/LAYERS.md layer 4, back on the kit 2026-10-23, docs/FINISHING-PROMPT.md section 5,
+/* Logseq's own chrome made quieter (docs/LAYERS.md layer 4, back on the kit 2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 5,
    Phase 2 piece 2). Four things, each with its own switch:
    - The right sidebar's header without the Page graph and the (Dev) tabs (RTC, Undo/Redo, Profiler): Contents and Help
      stay. Found by their words, since Logseq gives them no names of their own, and hidden, so nothing else moves.

@@ -1,4 +1,5 @@
-/* Loaded by loader.js before main.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* Properties in the line (0.4.94): a property typed at the end of the block you are writing, predicted
    as you type, written when you pick, undone from the bar.

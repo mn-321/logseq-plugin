@@ -1,4 +1,4 @@
-/* Loaded by main.js after parts/sidebar.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* Loaded by main.js after parts/search-look.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
 /* How Logseq's own page looks (0.4.337, docs/LAYERS.md layer 5, begun early at the owner's word: a picture of a bullet
    with its capsules and blue links, "no the capsule, plus there is no underline for links"). Three rules of the
@@ -10,7 +10,7 @@
      dot between one property and the next.
    Stylesheets only; nothing moves on the page (the pills keep their height, the slots their width). A page's own property
    list and Logseq's tables are left as Logseq draws them.
-   Four more from the old styles part, emptied into here and deleted at 0.4.359 (docs/STYLES-AUDIT.md): Logseq's "+ Add
+   Four more from the old styles part, emptied into here and deleted at 0.4.359 (docs/history/STYLES-AUDIT-2026-10-23.md): Logseq's "+ Add
    property" under a page's properties only with the pointer there, its room kept; an empty property faint, never hidden
    (the owner, 0.4.79); the pencil after a date value left out (the owner, 0.4.85); the nesting line beside the branch
    under the pointer or being written firmer. */

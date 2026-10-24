@@ -607,7 +607,7 @@ const css = `
 .rfs-ghost { color: var(--rf-faint); font-style: italic; white-space: nowrap; opacity: 1; transition: opacity .15s ease, color .15s ease; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 @starting-style { .rfs-ghost { opacity: 0; } }
 .rfs-ghost .rfs-ghost-tag { opacity: 1; border-bottom: 0; color: inherit; }
-/* No ring of the plugin's own (2026-10-23, docs/FINISHING-PROMPT.md section 1C): the property Option-Enter or Logseq's
+/* No ring of the plugin's own (2026-10-23, docs/history/FINISHING-PROMPT-2026-10-23.md section 1C): the property Option-Enter or Logseq's
    own Down, Left and Right rest on is shown by Logseq's ring round a focused capsule (kept since 0.4.343, the owner: "I use
    keyboard") and by its own grey on a property row; the plugin's ring (0.4.207, 0.4.270, 0.4.291) said the same again. */
 /* A pill row the plugin made (an untagged bullet, 0.4.213): the pills side by side, as Logseq lays out its own. */

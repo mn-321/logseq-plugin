@@ -1,6 +1,6 @@
 /* Loaded by main.js after parts/link-text.js. Kept in its own scope; main.js adds its settings and starts it. */
 (() => {
-/* Two things from the old editor part kept for writing (docs/FINISHING-PROMPT.md section 5, Phase 2 piece 4; the rest of
+/* Two things from the old editor part kept for writing (docs/history/FINISHING-PROMPT-2026-10-23.md section 5, Phase 2 piece 4; the rest of
    its commands went, docs/DECISIONS-AUTONOMOUS.md 18):
    - New bullet at the outermost level: from anywhere inside a bullet, a new empty bullet at the page's outermost
      level, after the top bullet holding this one and all it holds, with an empty bullet before it as a spacer. In the

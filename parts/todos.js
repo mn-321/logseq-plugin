@@ -1,4 +1,5 @@
-/* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* Todos (0.4.18): a window listing every task in the graph, easier to scan than Logseq's Tasks
    table and changeable in place. Opened from the toolbar button, the command palette ("Todos") or

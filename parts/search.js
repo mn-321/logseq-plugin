@@ -1,4 +1,5 @@
-/* Loaded by loader.js before main.js. Kept in its own scope; main.js adds its settings and starts it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* Search extras, resting (was the Calmer Search plugin 1.0.1): details, grouping, a preview panel, typed filters and the sidebar
    search button. The window's look moved to the loaded parts/search-look.js at 0.4.356; why the rest rests:

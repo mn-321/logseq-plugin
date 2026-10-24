@@ -1,4 +1,5 @@
-/* Loaded by main.js with the other parts. Kept in its own scope; main.js starts and stops it. */
+/* RESTING: kept in parts/ but not loaded (main.js, RESTING_FILES); what it holds and why it rests: docs/STATE.md.
+   Kept in its own scope. */
 (() => {
 /* RESTING, judged 2026-10-23 (docs/DECISIONS-AUTONOMOUS.md 19): everything here goes but the child asset cues, which
    rest for want of a file to judge them on. The PDF citations were rebuilt on the kit as parts/pdf-quote.js (0.4.364);
