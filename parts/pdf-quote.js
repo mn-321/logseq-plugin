@@ -166,7 +166,11 @@ const css = `
 [data-rf-cite]::after { content: attr(data-rf-cite); display: inline-block; margin-left: .3em; text-indent: 0; font-size: .82em; font-weight: 400; color: var(--rf-faint); white-space: nowrap; cursor: pointer; text-decoration: none; }
 [data-rf-cite]:hover::after { color: var(--rf-quiet); }
 .ls-block .block-content:not(:has(a.page-ref)) .block-title-wrap[data-rf-pdf="text"] { cursor: pointer; }
-/* The highlight's own bullet: an opening quotation mark in place of the dot. */
+/* The highlight's own bullet: an opening quotation mark in place of the dot. Logseq shows its fold arrow beside any
+   bullet the pointer is over, even with nothing under it, which read as a second mark beside the quotation (the owner,
+   2026-10-23: "why is there a chevron? the quotes should be the bullet"): with nothing to fold, the arrow is not shown;
+   its room is kept, so nothing moves. A highlight with notes under it keeps its arrow. */
+.ls-block[data-rf-pdf-quote] > .block-main-container > .block-control-wrap[data-has-children="false"] .block-control { visibility: hidden; }
 .ls-block[data-rf-pdf-quote] > .block-main-container .bullet-container:not(.typed-list) { background: transparent !important; }
 .ls-block[data-rf-pdf-quote] > .block-main-container .bullet-container:not(.typed-list) > .bullet {
   background: transparent !important; border: 0 !important; width: .65em; height: .65em; border-radius: 0 !important;

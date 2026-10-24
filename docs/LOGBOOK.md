@@ -2,6 +2,13 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · No fold arrow beside a quotation (0.4.365)
+
+**Asked** (with a picture): "why is there a chevron? the quotes should be the bullet". **Found:** Logseq 2.0.2 shows a
+bullet's fold arrow while the pointer is over it, even with no children. **Built:** in `parts/pdf-quote.js`, the arrow
+hidden (its room kept) on a highlight's bullet whose `data-has-children` is false. **Seen in the app:** pointer on each
+highlight, the arrow hidden; on the bullet holding the papers, shown. **Checks:** pdf-quote, boot.
+
 ## 2026-10-23 · PDF highlights as quotations, rebuilt (0.4.364)
 
 **Asked:** "What happened to the quotes and the citation style that was in an earlier version?", then to rebuild it on
