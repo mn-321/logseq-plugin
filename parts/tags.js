@@ -58,6 +58,8 @@ const settingsSchema = [
     description: 'A tree button at the top right of Logseq opens the tag tree. Applies after you reload the plugin.' },
   { key: 'tagTreeShortcut', type: 'string', title: 'Open the tag tree', default: 'mod+alt+g',
     description: 'mod+alt+g is Cmd+Option+G on a Mac. Leave empty for no shortcut. Applies after you reload the plugin.' },
+  { key: 'tagTreeGoShortcut', type: 'string', title: 'Go to the tag tree', default: 'g m',
+    description: 'A chord like Logseq\'s own g j (journals) and g a (all pages): press g, then m. It is listed with them under Settings, Keymap. Leave empty for none. Applies after you reload the plugin.' },
 ];
 const TM = shared.feature('tagMap');
 const setting = shared.settingReader(settingsSchema);
@@ -1403,6 +1405,7 @@ function start() {
   // The commands in the one register: the palette, the toolbar (with the kit's icon) and the shortcut from its setting.
   part.commands.push(
     { key: 'show-tag-tree', label: 'Tag tree', icon: 'map', shortcut: 'tagTreeShortcut', places: setting('tagTreeToolbarButton') ? ['palette', 'toolbar'] : ['palette'], run: openAs },
+    { key: 'go-to-tag-tree', label: 'Go to tag tree', icon: 'map', shortcut: 'tagTreeGoShortcut', places: ['palette'], run: openAs },
     { key: 'show-tag-tree-page', label: 'Tag tree as a page', icon: 'page', run: openPage },
     { key: 'show-tag-tree-sidebar', label: 'Tag tree in the right sidebar', icon: 'sidebar', run: openSidebar });
   c.onSettingsChange(() => { orderOverride = null; resetGroups(); for (const redraw of openViews) redraw(); });

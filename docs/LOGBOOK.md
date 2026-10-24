@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · g m opens the tag map, listed in the Keymap (0.4.377)
+
+**Asked:** "add the map in the shortcuts section of main app with g m". **Built:** a second command \`go-to-tag-tree\` ("Go to tag tree") in \`parts/tags.js\` with the setting \`tagTreeGoShortcut\` (default \`g m\`), registered through the command palette so Logseq's Keymap lists it; the README row. **Seen in the app:** g m opened the map; Settings, Keymap, "tag tree" lists Tag tree (Cmd Option G) and Go to tag tree (G M). **Checks:** see check.sh below.
+
 ## 2026-10-24 · Two-way rows: group a row, + in a group, write into a node (0.4.376)
 
 **Asked:** the owner kept five ideas from the ideas page (docs/TWO-WAY-IDEAS.html) and then said "just write 1 to 3":
