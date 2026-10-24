@@ -271,7 +271,8 @@ function propMoves(view, tag, prop) { return view.fresh(tag).parents.filter(p =>
 
 function propMenu(view, tag, prop, from, anchor, alone) {
   tag = tag ? view.fresh(tag) : null;
-  const items = [{ icon: 'rename', label: 'Rename …', run: () => view.askRenameProp(prop, anchor) }];
+  const items = [{ icon: 'rename', label: 'Rename …', run: () => view.askRenameProp(prop, anchor) },
+    { icon: 'help', label: prop.desc ? 'Change the description …' : 'Add a description …', kbd: alone ? 'i' : undefined, run: () => view.askDescription(prop, anchor) }];
   if (prop.type === 'node') items.push({ icon: 'tag', label: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ icon: 'choice', label: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
   if (prop.choices.length && tag && !tag.builtIn && !alone) items.push({ icon: 'map', label: 'Make a choice its own child tag …', run: () => view.askChildTag(tag, prop, anchor) });

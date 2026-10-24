@@ -24,6 +24,13 @@ next animation frame after Logseq resizes the box, the font loaded at start with
 link-suggest (73), boot, leaning, parts-apart; the font in a headless Chromium. **Seen:** by the owner in the app,
 "smooth now". Built while two other sessions worked in this folder; committed once only its own files were left.
 
+## 2026-10-24 · The description in the right-click menus with its key (0.4.371)
+
+**Asked:** "no i just wanted i as a shortcut like connected to items in the contextual menu". **Built:** `kbd: 'i'` on a
+tag's Add/Change the description item (`rowMenu`, `parts/tags.js`); a property's menu (`propMenu`,
+`parts/tags-props.js`) gets the same item, with `i` shown in the Properties view. The key itself was 0.4.368.
+**Seen in the app:** not yet. **Checks:** check.sh.
+
 ## 2026-10-23 · The key i for a description, not a button (0.4.368)
 
 **Asked:** "no, I just wanted I as a shortcut on keyboard". **Built:** the i button of 0.4.367 removed from

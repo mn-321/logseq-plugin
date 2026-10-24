@@ -721,7 +721,7 @@ function rowMenu(view, item, anchor) {
     if (at >= 0 && at < list.length - 1) items.push({ icon: 'order', label: 'Move down', kbd: '⌘ ⇧ ↓', run: () => view.moveAmong(tag, parent, 1) });
     items.push('-', { icon: 'property', label: 'Add a property …', kbd: 'p', run: () => view.askProperty(tag, anchor) },
       { icon: 'rename', label: 'Rename', kbd: 'r', run: () => { view.renaming = item.key; view.draw(); } },
-      { icon: 'help', label: tag.desc ? 'Change the description …' : 'Add a description …', run: () => view.askDescription(tag, anchor) },
+      { icon: 'help', label: tag.desc ? 'Change the description …' : 'Add a description …', kbd: 'i', run: () => view.askDescription(tag, anchor) },
       { icon: 'tag', label: 'Merge into …', kbd: 'j', run: () => view.askMerge(tag, parent, anchor) });
   }
   if (view.picked.size > 1 && view.picked.has(tag.id)) items.unshift({ label: `Move the ${view.picked.size} picked tags to the top level`, run: () => view.topFromPicked() }, { label: `Move the ${view.picked.size} picked tags to …`, run: () => view.movePicked(anchor) }, '-');
