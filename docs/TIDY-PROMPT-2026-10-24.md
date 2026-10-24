@@ -1,6 +1,6 @@
 # Prompt: take stock of DB Refinements, describe it by layer, tidy the record
 
-Written 2026-10-24 at 0.4.380, for a fresh Claude Code session in `/Users/admin/logseq-plugin`. Paste this as the first
+Written 2026-10-24 at 0.4.380 (brought to 0.4.381), for a fresh Claude Code session in `/Users/admin/logseq-plugin`. Paste this as the first
 message, or say "follow docs/TIDY-PROMPT-2026-10-24.md".
 
 ---
@@ -38,9 +38,9 @@ fix it in this job.
 
 ## 1. Before you start: the state of the folder
 
-1. `git status` and `git log --oneline -15`. **At the time of writing, `parts/two-way.js` and two pictures in
-   `test/pictures/` had uncommitted edits from another session.** Do not touch, stage, commit, stash or revert files
-   you did not change. If they are still uncommitted, work around them; if your work needs them settled, stop and say so.
+1. `git status` and `git log --oneline -15`. Start from a clean `main` (it was clean at 0.4.381, the two-way rows'
+   wrapping, when this prompt was last touched). If you find uncommitted edits you did not make, ask the owner whether
+   that work is finished before building on it; never stash or revert it.
 2. Check whether another session is running in this folder (`mcp__ccd_session_mgmt__list_sessions` if you have it,
    or ask). Two sessions must not drive Logseq at once; this job mostly does not need Logseq at all.
 3. Run `sh tools/check.sh` once and keep its output. It is your baseline: the same checks must pass at the end.
@@ -284,7 +284,7 @@ At the end, run `sh tools/check.sh` again and compare with the baseline: the sam
 - The owner's rulings and everything tried and rejected are in one dated record, written as facts about the past.
 - `CLAUDE.md` is a short handoff a new session can act on, and `tools/docs-check.sh` still passes.
 - `check.log/` holds only what tools use. Nothing the owner sees in Logseq changed.
-- The same checks pass as at the start. Everything committed and pushed; files other sessions were editing untouched.
+- The same checks pass as at the start. Everything committed and pushed.
 
 ---
 
