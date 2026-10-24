@@ -246,7 +246,10 @@ function rowHtml(group) {
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
     const dateFirst = orderOf(group) === 'date';
-    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}<span class="rf-tw-day rf-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; }).join('');
+    // The words lead (0.4.377, the owner: "it is fine if properties follow the end of a wrapped line"): the day, the
+    // tag and the + follow the words wherever they end, together (a + never alone on a line); the sidebar icon at the
+    // line's far right.
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; const day = item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>` : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${day}${recordLink(item)}<span class="rf-tw-tail">${tagLink(item)}${last}</span>${sideLink(item)}</span>${nodeBoxHtml(item)}`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}<span class="rf-tw-tail">${day}${tagLink(item)}${last}</span>${sideLink(item)}</span>${nodeBoxHtml(item)}`; }).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -1171,21 +1174,29 @@ const twoWayCss = `
 .refinement-two-way {
   margin: calc(.15rem + var(--rf-tw-hold, 0px)) 0 .5rem; padding: 0;
   line-height: 1.5; user-select: text;
+  /* One name column for every row (0.4.377, the owner: "alignment of second column"): each row is a subgrid of the box,
+     so the longest name sets where every row's values start, as in Logseq's own property list. */
+  display: grid; grid-template-columns: minmax(150px, max-content) minmax(0, 1fr); column-gap: 12px;
 }
+.refinement-two-way > * { grid-column: 1 / -1; }
 /* Waiting unseen in its place for Logseq's property list on a first visit (0.4.333). */
 .refinement-two-way[data-rf-waiting] { visibility: hidden; }
 /* Only holding room while the page settles: no field, no rows. */
 .refinement-two-way:not(:has(.rf-tw-row)) { margin: var(--rf-tw-hold, 0px) 0 0; }
 /* The room held while the page settled eases away (0.4.283), only then: while the page settles the held room shrinks in the same frame Logseq's list grows, and must not lag. */
 .refinement-two-way[data-rf-settling] { transition: margin-top .25s ease; }
-.refinement-two-way .rf-tw-row { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; column-gap: 12px; padding: 2px 0; }
+.refinement-two-way .rf-tw-row { display: grid; grid-template-columns: subgrid; column-gap: 12px; padding: 2px 0; }
 .refinement-two-way .rf-tw-name { color: var(--rf-faint); font-size: var(--rf-name, .94em); white-space: nowrap; cursor: default; padding-left: 19px; position: relative; }
 .refinement-two-way .rf-tw-arrow { display: inline-flex; margin-left: .35em; vertical-align: -2px; }
 .refinement-two-way .rf-tw-value { min-width: 0; padding-left: 22px; display: flex; flex-wrap: wrap; column-gap: 1.1em; row-gap: 4px; position: relative; }
 .refinement-two-way a { color: inherit; text-decoration: none; cursor: pointer; }
 .refinement-two-way .rf-tw-line a.rf-tw-record { justify-self: start; }
-.refinement-two-way a.rf-tw-record { border-bottom: 1px solid var(--rf-line); }
-.refinement-two-way a.rf-tw-record:hover { border-bottom-color: currentColor; }
+/* The underline under the words, on every line of a name that wraps (0.4.377, the owner: "you can underline the words of a whole
+   sentence not just the bottom part of wrapped line"). */
+.refinement-two-way a.rf-tw-record { text-decoration: underline; text-decoration-color: var(--rf-line); text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.refinement-two-way a.rf-tw-record:hover { text-decoration-color: currentColor; }
+/* In an open list the name keeps the pixel the old underline (a border) took, so the lines stay where they were. */
+.refinement-two-way .rf-tw-line a.rf-tw-record { padding-bottom: 1px; }
 /* A little more room between records (0.4.230, the owner: "just increase line spacing of items", in place of taking the line away). */
 .refinement-two-way .rf-tw-line { padding-top: 2px; padding-bottom: 2px; }
 .refinement-two-way .rf-tw-day { margin-left: .45em; }
@@ -1223,15 +1234,10 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-row { position: relative; }
 .refinement-two-way .rf-tw-add { margin-left: .6em; height: 20px; padding: 0 5px; }
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
-.refinement-two-way .rf-tw-item > .rf-tw-add { grid-column: 2; justify-self: start; margin-left: 0; }
+.refinement-two-way .rf-tw-item .rf-tw-add { margin-left: .5em; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst { grid-template-columns: 3.6em minmax(0, max-content) auto 1fr 1.4em; }
-.refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { grid-column: 1; }
-.refinement-two-way .rf-tw-namecell { grid-column: 2; display: flex; align-items: baseline; min-width: 0; }
-.refinement-two-way .rf-tw-namecell > a.rf-tw-record { min-width: 0; }
-.refinement-two-way .rf-tw-namecell > .rf-tw-add { flex: none; margin-left: .6em; }
+.refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { margin-left: 0; margin-right: .5em; }
 .refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; }
-.refinement-two-way .rf-tw-day > .rf-tw-add { margin-left: .6em; }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
 .refinement-two-way .rf-tw-draft-main .rf-field { flex: 1; min-width: 0; }
@@ -1279,15 +1285,17 @@ const twoWayCss = `
    the right edge from 0.4.297, the owner then: "the tags under decided should be right aligned"). */
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
-.refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
-.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; column-gap: .5em; align-items: baseline; }
-.refinement-two-way .rf-tw-item .rf-tw-day { margin-left: 0; }
-/* A record with no day still has its tag and the sidebar icon in the last two columns. */
-.refinement-two-way .rf-tw-item .rf-tw-tag { grid-column: 3; }
+.refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 calc(.35rem + 1.6em) 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
+.refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: block; }
+.refinement-two-way .rf-tw-tail { white-space: nowrap; }
+/* The same room as in an open list: half a letter before the day, a letter before the tag. */
+.refinement-two-way .rf-tw-tail > .rf-tw-day { margin-left: .5em; }
+.refinement-two-way .rf-tw-tail > .rf-tw-tag { margin-left: 1em; }
 /* The sidebar icon at the far right of its line (0.4.327, the owner: "the sidebar items should be on far right and have
    some sort of arrow to the right signifying sidebar opening"): the last column; the icon is a sidebar with an arrow. */
-.refinement-two-way :is(.rf-tw-item, .rf-tw-line) .rf-tw-side { grid-column: -2; justify-self: end; }
-.refinement-two-way .rf-tw-item a.rf-tw-record { justify-self: start; min-width: 0; } /* a long name wraps, never cut (0.4.263) */
+.refinement-two-way .rf-tw-line .rf-tw-side { grid-column: -2; justify-self: end; }
+.refinement-two-way .rf-tw-item .rf-tw-side { position: absolute; right: .2rem; top: 1px; }
+/* a long name wraps, never cut (0.4.263) */
 /* The room left of a record, where its box sits, counts as the record under the pointer, so the box shows there too. */
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -36px; width: 36px; }
 .refinement-two-way .rf-tw-item::before { left: -26px; width: 26px; }

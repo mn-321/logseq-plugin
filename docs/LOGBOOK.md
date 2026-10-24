@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The two-way rows line up and read as words (0.4.378)
+
+**Asked:** the owner on the rows of Tingling fingers: "this has become really clunky ui", then, on a sketch with the day
+first, "it is not about dates. the issue is alignment of second column and you can underline the words of a whole
+sentence", then "it is fine if properties follow the end of a wrapped line". **Built** (`parts/two-way.js`): the box a
+grid whose name column every row shares (`grid-template-columns: subgrid`), measured before: values at 458 px on
+"symptom type of", 448 px on the others, now 458 on all; a short row's node as running words, the day, tag and + in one
+`.rf-tw-tail` that never breaks; the name's underline as a text decoration on every line; the open list's line height
+kept (its name keeps the pixel the old border took). **Seen in the app:** Tingling fingers as above, hover too.
+**Checks:** two-way-rows-test, boot, leaning, pictures (re-approved after looking: only the short row), the two-way frame
+scenes (re-approved: only `.rf-tw-tail`), check.sh (the tag map checks fail as at 0.4.376, not touched).
+
 ## 2026-10-24 · g m opens the tag map, listed in the Keymap (0.4.377)
 
 **Asked:** "add the map in the shortcuts section of main app with g m". **Built:** a second command \`go-to-tag-tree\` ("Go to tag tree") in \`parts/tags.js\` with the setting \`tagTreeGoShortcut\` (default \`g m\`), registered through the command palette so Logseq's Keymap lists it; the README row. **Seen in the app:** g m opened the map; Settings, Keymap, "tag tree" lists Tag tree (Cmd Option G) and Go to tag tree (G M). **Checks:** see check.sh below.

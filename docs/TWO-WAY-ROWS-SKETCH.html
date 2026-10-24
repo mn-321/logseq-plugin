@@ -1,0 +1,179 @@
+<title>Short Rows Sketch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: a short page, three drawings of the same rows: as they are, as proposed, and the proposed one under the pointer. */
+:root {
+  --bench: #eef0f2; --ink: #1d2329; --ink2: #49515a; --rule: #d3d8dd;
+  --sheet: #ffffff; --sfg: #262a30; --squiet: #4d535b; --sfaint: #5f6670; --sline: #c3c8ce; --shair: #e4e7ea; --swash: #f1f3f5; --link: #2d6cc0;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; --f-ls: Inter, system-ui, -apple-system, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bench: #14171a; --ink: #e3e6ea; --ink2: #a9b0b8; --rule: #2c3238;
+  --sheet: #1f2328; --sfg: #d8dce1; --squiet: #b6bdc5; --sfaint: #9ba3ad; --sline: #4b525b; --shair: #343a42; --swash: #2a2f36; --link: #8ab4f8; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bench: #14171a; --ink: #e3e6ea; --ink2: #a9b0b8; --rule: #2c3238;
+  --sheet: #1f2328; --sfg: #d8dce1; --squiet: #b6bdc5; --sfaint: #9ba3ad; --sline: #4b525b; --shair: #343a42; --swash: #2a2f36; --link: #8ab4f8; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bench); color: var(--ink); font: 18px/1.6 var(--f-body); }
+.wrap { max-width: 880px; margin: 0 auto; padding-block: 40px 90px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 36px; }
+h1, h2 { font-family: var(--f-body); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.15; }
+h2 { font-size: 1.2rem; }
+p { margin: 0; max-width: 62ch; }
+section { display: flex; flex-direction: column; gap: 10px; }
+.shot { overflow-x: auto; }
+.sheet { min-width: 640px; background: var(--sheet); color: var(--sfg); border: 1px solid var(--shair); border-radius: 10px; padding: 20px 24px; font: 16px/1.5 var(--f-ls); }
+.sheet a { color: inherit; text-decoration: none; }
+.tag { font: 13px var(--f-mono); color: var(--squiet); }
+.rname { color: var(--sfaint); font-size: 15px; white-space: nowrap; }
+.day { color: var(--sfaint); font-size: 13px; font-variant-numeric: tabular-nums; }
+.plus { color: var(--sfaint); font-size: 15px; }
+.side { color: var(--sfaint); font-size: 13px; }
+
+/* As it is: each line its own grid, the name wrapping under a full underline, the + between the date and the tag. */
+.old .row { display: grid; grid-template-columns: 150px minmax(0, 1fr); column-gap: 16px; padding: 3px 0; align-items: baseline; }
+.old .val { display: flex; flex-direction: column; gap: 4px; }
+.old .line { display: grid; grid-template-columns: minmax(0, max-content) max-content auto 1fr; column-gap: .6em; align-items: baseline; }
+.old .line.wide { grid-template-columns: minmax(0, 36ch) max-content auto 1fr; }
+.old a.rec { display: block; border-bottom: 1px solid var(--sline); padding-bottom: 1px; }
+
+/* As proposed: the name first, as now; one grid for the whole row, so the dates and tags of its lines share one
+   column; the underline under the words of every line; the tag right after the date; one + at the end of the row. */
+.new .row { display: grid; grid-template-columns: 150px minmax(0, max-content) max-content auto 1fr; column-gap: 14px; row-gap: 5px; padding: 3px 0; align-items: baseline; }
+.new .row > .rname { grid-column: 1; grid-row: 1; }
+.new .row > .name { grid-column: 2; min-width: 0; position: relative; }
+.new .row > .day { grid-column: 3; }
+.new .row > .tag { grid-column: 4; white-space: nowrap; }
+.new .row > .end { grid-column: 5; display: flex; justify-content: flex-start; align-items: baseline; gap: .6em; }
+.new a.rec { display: inline; text-decoration: underline; text-decoration-color: var(--sline); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.new .lit { background: var(--swash); }
+.new .mark { position: absolute; left: -2.2em; top: .15em; display: inline-flex; gap: 4px; align-items: center; }
+.new .box { display: inline-block; width: 13px; height: 13px; border: 1px solid var(--sline); border-radius: 3px; vertical-align: -1px; }
+.new .chev { color: var(--sfaint); font-size: 12px; }
+.new .sideic { color: var(--sfaint); font-size: 13px; margin-left: auto; }
+/* The same, with one name column for every row of the page. */
+.page .row { grid-template-columns: 150px minmax(0, 30ch) max-content auto 1fr; }
+.note { color: var(--ink2); font-size: 1rem; }
+.legend { display: grid; gap: 4px; font-size: 1rem; color: var(--ink2); max-width: 62ch; }
+.legend b { color: var(--ink); font-weight: 700; }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Short rows: as they are, and as proposed</h1>
+  <p class="note">The same three rows from the Tingling fingers page. Only how they are drawn changes. Nothing in your notes changes. Second try: the name stays first, the second column lines up, the underline follows every line.</p>
+</header>
+
+<section>
+  <h2>As they are now</h2>
+  <div class="shot"><div class="sheet old">
+    <div class="row"><span class="rname">symptom type of →</span><div class="val">
+      <div class="line"><a class="rec" href="#">Good energy today.</a><span class="day">Oct 17</span><span class="tag">Symptom Log</span><span></span></div>
+      <div class="line"><a class="rec" href="#">Tingling fingers again tonight, and tired.</a><span class="day">Oct 9</span><span class="tag">Symptom Log</span><span></span></div>
+      <div class="line"><a class="rec" href="#">Tingling fingers worse today.</a><span class="day">Oct 3 &nbsp;<span class="plus">+</span></span><span class="tag">Symptom Log</span><span></span></div>
+    </div></div>
+    <div class="row"><span class="rname">topic of →</span><div class="val">
+      <div class="line wide"><a class="rec" href="#">Talked to Hannah Reyes about Tingling fingers.</a><span class="day">Oct 21</span><span class="tag">Consultation</span><span></span></div>
+      <div class="line wide"><a class="rec" href="#">Pashtoon Kasi told us about Tingling fingers</a><span class="day">Aug 18 &nbsp;<span class="plus">+</span></span><span class="tag">Consultation</span><span></span></div>
+    </div></div>
+    <div class="row"><span class="rname">side Effects of →</span><div class="val">
+      <div class="line"><a class="rec" href="#">Oxaliplatin</a><span class="plus">+</span><span class="tag">Pharmacological Agent</span><span></span></div>
+    </div></div>
+  </div></div>
+  <div class="legend">
+    <span>Each line is laid out on its own, so the dates and tags land in different places.</span>
+    <span>The + sits between the date and the tag, wherever the last line happens to be.</span>
+    <span>A long name wraps under one wide underline, like a form field.</span>
+  </div>
+</section>
+
+<section>
+  <h2>As proposed</h2>
+  <div class="shot"><div class="sheet new">
+    <div class="row">
+      <span class="rname">symptom type of →</span>
+      <span class="name"><a class="rec" href="#">Good energy today.</a></span><span class="day">Oct 17</span><span class="tag">Symptom Log</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Tingling fingers again tonight, and tired.</a></span><span class="day">Oct 9</span><span class="tag">Symptom Log</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Tingling fingers worse today.</a></span><span class="day">Oct 3</span><span class="tag">Symptom Log</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">topic of →</span>
+      <span class="name"><a class="rec" href="#">Talked to Hannah Reyes about Tingling fingers.</a></span><span class="day">Oct 21</span><span class="tag">Consultation</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Pashtoon Kasi told us about Tingling fingers</a></span><span class="day">Aug 18</span><span class="tag">Consultation</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">side Effects of →</span>
+      <span class="name"><a class="rec" href="#">Oxaliplatin</a></span><span class="day"></span><span class="tag">Pharmacological Agent</span><span class="end"><span class="plus">+</span></span>
+    </div>
+  </div></div>
+  <div class="legend">
+    <span><b>The name stays first.</b> The dates and tags of a row share one column, so they line up down the row instead of trailing each name.</span>
+    <span><b>The underline runs under every line of a wrapped name,</b> following the words, not a box.</span>
+    <span><b>One + per row,</b> at the end of its last line, faint until the pointer is on the row.</span>
+  </div>
+</section>
+
+<section>
+  <h2>Or: one column for the whole page</h2>
+  <div class="shot"><div class="sheet new page">
+    <div class="row">
+      <span class="rname">symptom type of →</span>
+      <span class="name"><a class="rec" href="#">Good energy today.</a></span><span class="day">Oct 17</span><span class="tag">Symptom Log</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Tingling fingers again tonight, and tired.</a></span><span class="day">Oct 9</span><span class="tag">Symptom Log</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Tingling fingers worse today.</a></span><span class="day">Oct 3</span><span class="tag">Symptom Log</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">topic of →</span>
+      <span class="name"><a class="rec" href="#">Talked to Hannah Reyes about Tingling fingers.</a></span><span class="day">Oct 21</span><span class="tag">Consultation</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Pashtoon Kasi told us about Tingling fingers</a></span><span class="day">Aug 18</span><span class="tag">Consultation</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">side Effects of →</span>
+      <span class="name"><a class="rec" href="#">Oxaliplatin</a></span><span class="day"></span><span class="tag">Pharmacological Agent</span><span class="end"><span class="plus">+</span></span>
+    </div>
+  </div></div>
+  <div class="legend">
+    <span>The same, but every row on the page shares the one name column, so all the dates and tags on the page line up. Names longer than the column wrap. Tidier on a page like this one; on a page where one row has very long names, the others get a wide gap.</span>
+  </div>
+</section>
+
+<section>
+  <h2>With the pointer on a line</h2>
+  <div class="shot"><div class="sheet new">
+    <div class="row">
+      <span class="rname">symptom type of →</span>
+      <span class="name"><a class="rec" href="#">Good energy today.</a></span><span class="day">Oct 17</span><span class="tag">Symptom Log</span><span class="end"></span>
+      <span class="name lit"><span class="mark"><span class="box"></span><span class="chev">›</span></span><a class="rec" href="#">Tingling fingers again tonight, and tired.</a></span><span class="day lit">Oct 9</span><span class="tag lit">Symptom Log</span><span class="end lit"><span class="sideic">⇥</span></span>
+      <span class="name"><a class="rec" href="#">Tingling fingers worse today.</a></span><span class="day">Oct 3</span><span class="tag">Symptom Log</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">topic of →</span>
+      <span class="name"><a class="rec" href="#">Talked to Hannah Reyes about Tingling fingers.</a></span><span class="day">Oct 21</span><span class="tag">Consultation</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Pashtoon Kasi told us about Tingling fingers</a></span><span class="day">Aug 18</span><span class="tag">Consultation</span><span class="end"><span class="plus">+</span></span>
+    </div>
+    <div class="row">
+      <span class="rname">side Effects of →</span>
+      <span class="name"><a class="rec" href="#">Oxaliplatin</a></span><span class="day"></span><span class="tag">Pharmacological Agent</span><span class="end"><span class="plus">+</span></span>
+    </div>
+  </div></div>
+  <div class="legend">
+    <span>The line is lit. The tick box and the small arrow that opens the node's bullets sit in the margin to its left, the sidebar icon at the far right. Nothing moves.</span>
+  </div>
+</section>
+
+<section>
+  <h2>A long name that wraps</h2>
+  <div class="shot"><div class="sheet new" style="max-width: 620px">
+    <div class="row">
+      <span class="rname">topic of →</span>
+      <span class="name"><a class="rec" href="#">Talked to Hannah Reyes about Tingling fingers and whether the gloves on the fridge door are helping at all.</a></span><span class="day">Oct 21</span><span class="tag">Consultation</span><span class="end"></span>
+      <span class="name"><a class="rec" href="#">Pashtoon Kasi told us about Tingling fingers</a></span><span class="day">Aug 18</span><span class="tag">Consultation</span><span class="end"><span class="plus">+</span></span>
+    </div>
+  </div></div>
+  <div class="legend">
+    <span>In a narrow window the words wrap like a sentence and the underline follows each line. The date and tag stay in their column, beside the first line.</span>
+  </div>
+</section>
+</div>
