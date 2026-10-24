@@ -2,6 +2,14 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · Suggested links: no ⇪, Right arrow takes them (0.4.366)
+
+**Asked:** "I don't like the caps arrow you created. also add right arrow as well to be able to complete". **Built:** in
+`parts/link-suggest.js` the ⇪ removed (the whole name, when the words sit inside it, follows faint and small with no
+mark); Right arrow with no modifier takes the suggestion while grey words show, before Logseq's own Right (which steps
+into a bullet's properties), setting `linkSuggestRightArrow` (on); four more checks (61). **Seen in the app:** as the
+CHANGELOG line says; the scratch bullet removed, no warning. **Checks:** link-suggest, boot.
+
 ## 2026-10-23 · No fold arrow beside a quotation (0.4.365)
 
 **Asked** (with a picture): "why is there a chevron? the quotes should be the bullet". **Found:** Logseq 2.0.2 shows a

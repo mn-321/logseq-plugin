@@ -4,9 +4,12 @@
    autosuggestion like on an iphone … I can easily ignore it by just keeping writing"). While a bullet is written, when
    the last word or words typed start a page's name, or a word inside it, the rest of the name shows in grey right after
    the cursor: "Spoke with Dr. Mei" shows " Chen", "Mei" alone shows " Chen" too (the name is Dr. Mei Chen). A tap of the
-   Hyper key takes it (0.4.362; the owner's Caps Lock sends Cmd+Ctrl+Opt+Shift, and "Tab moves a bullet"): the words
+   Hyper key takes it (0.4.362; the owner's Caps Lock sends Cmd+Ctrl+Opt+Shift, and "Tab moves a bullet"), and so does
+   Right arrow (0.4.366, the owner: "add right arrow as well to be able to complete"), as on a phone: the words
    typed become [[Dr. Mei Chen]], typed as if by hand, so Cmd+Z takes it back. Anything else ignores it:
-   keep writing and it changes or goes; a space, Enter, an arrow, a click or Escape leaves the words as they are. It shows nothing inside [[ ]], after #, while one of Logseq's own lists is open, or
+   keep writing and it changes or goes; a space, Enter, Left, Up, Down, a click or Escape leaves the words as they are.
+   No mark follows the grey words (0.4.366: the owner did not like the ⇪); when the words sit inside a name, the whole
+   name follows them, faint and small, so what is taken is no surprise. It shows nothing inside [[ ]], after #, while one of Logseq's own lists is open, or
    for a short lower-case word (three letters capitalised, or four, before it looks: "the" never shows a page).
    Which page: the name that starts with the words first (then the shortest), else the shortest whose word starts with
    them; a page with one of your tags before an untagged one. The pages come from the model (propPages); nothing is
@@ -25,11 +28,13 @@ const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
   { key: 'linkSuggestHeading', type: 'heading', group: 'writing', rank: 4, title: 'Suggested links', default: null,
-    legend: 'While you write, the rest of a page’s name shows in grey after the cursor; a tap of the Hyper key makes the link',
-    zone: '<div><span class="m">Spoke with Dr. Mei</span><span class="m" style="opacity:.45"> Chen ⇪</span></div>',
+    legend: 'While you write, the rest of a page’s name shows in grey after the cursor; Right arrow or a tap of the Hyper key makes the link',
+    zone: '<div><span class="m">Spoke with Dr. Mei</span><span class="m" style="opacity:.45"> Chen</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'linkSuggest', type: 'boolean', title: 'Suggest links while typing', default: true,
-    description: 'When the last words typed start a page’s name, or a word in it, the rest of the name shows in grey right after the cursor. A tap of the Hyper key turns the words into [[the page]]; Cmd+Z takes it back. Anything else ignores it: keep writing, press space, an arrow or Enter, and the words stay as typed. Nothing shows inside [[ ]], after #, or for a short lower-case word.' },
+    description: 'When the last words typed start a page’s name, or a word in it, the rest of the name shows in grey right after the cursor. Right arrow, or a tap of the Hyper key, turns the words into [[the page]]; Cmd+Z takes it back. Anything else ignores it: keep writing, press space, Left, Up, Down or Enter, and the words stay as typed. Nothing shows inside [[ ]], after #, or for a short lower-case word.' },
+  { key: 'linkSuggestRightArrow', type: 'boolean', title: 'Right arrow takes the suggested link', default: true,
+    description: 'While grey words show after the cursor, Right arrow makes the link, as on a phone. Without grey words, Right arrow does what it always does. Changes here apply right away.' },
   { key: 'linkSuggestHyperTap', type: 'boolean', title: 'A tap of the Hyper key takes the suggested link', default: true,
     description: 'If Caps Lock is your Hyper key (⌘⌃⌥⇧, set up with Karabiner or the Hyperkey app), tapping it on its own while grey words show makes the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored. Changes here apply right away.' },
   { key: 'linkSuggestKeys', type: 'string', title: 'Keys for Suggested links', default: '',
@@ -163,6 +168,12 @@ function acceptSuggestion(event) {
 }
 function onKey(event) {
   if (!showing) return;
+  // Right arrow, alone, with the cursor where the grey words start: take them (it would move nowhere anyway, at the end
+  // of the words). Taken before Logseq's own Right, which steps into the bullet's properties.
+  if (event.key === 'ArrowRight' && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && setting('linkSuggestRightArrow')
+      && event.target === showing.box && showing.box.selectionStart === showing.box.selectionEnd && acceptSuggestion(event)) {
+    event.preventDefault(); event.stopImmediatePropagation(); return;
+  }
   if (event.key === 'Escape') { quiet = { box: showing.box, text: showing.box.value }; clear(); return; } // Logseq's Escape still leaves the bullet
   if (/^(Arrow|Enter|Home|End|Page)/.test(event.key)) clear();                                           // moving on leaves the words as typed
 }
@@ -189,8 +200,7 @@ const css = `
 .refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; background: none; }
 .refinement-link-suggest .rf-typed { color: transparent; }
 .refinement-link-suggest .rf-ghost { opacity: .45; }
-.refinement-link-suggest .rf-ghost::after { content: " ⇪"; font-family: var(--rf-mono); font-size: .8em; opacity: .7; }
-.refinement-link-suggest .rf-ghost[data-name]::after { content: " ⇪ " attr(data-name); }
+.refinement-link-suggest .rf-ghost[data-name]::after { content: "  " attr(data-name); font-size: .8em; opacity: .75; }
 `;
 
 function start() {

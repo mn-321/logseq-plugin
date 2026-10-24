@@ -22,7 +22,7 @@ const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), 
   page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('Riverside General Hospital', 'Hospital'), { title: 'Hospitalization', lower: 'hospitalization', isTag: true, tags: [{ title: 'Tag' }] }, page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
-window.logseq = { settings: { linkSuggest: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
+window.logseq = { settings: { linkSuggest: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
@@ -119,6 +119,18 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   window.logseq.settings.linkSuggest = false; await type('Spoke with Mei');
   check(!inner.showing, 'off in the settings, nothing shows');
   window.logseq.settings.linkSuggest = true;
+  // Right arrow takes it; Shift-Right and Right without grey words are Logseq's.
+  await type('Spoke with Mei');
+  const right = key('ArrowRight');
+  check(right.defaultPrevented && box.value === 'Spoke with [[Dr. Mei Chen]]', 'Right arrow takes the suggested link: ' + box.value);
+  await type('Spoke with Mei');
+  check(!key('ArrowRight', { shiftKey: true }).defaultPrevented && box.value === 'Spoke with Mei', 'Shift-Right selects, as always');
+  await type('nothing here');
+  check(!key('ArrowRight').defaultPrevented, 'without grey words Right arrow is Logseq’s');
+  window.logseq.settings.linkSuggestRightArrow = false;
+  await type('Spoke with Mei');
+  check(!key('ArrowRight').defaultPrevented && box.value === 'Spoke with Mei', 'off in the settings, Right arrow is Logseq’s');
+  window.logseq.settings.linkSuggestRightArrow = true;
   // The Hyper tap: the modifiers down together, one up with nothing between.
   await type('Spoke with Mei');
   key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);
