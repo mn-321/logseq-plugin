@@ -17,16 +17,23 @@ const dom = new JSDOM('<!doctype html><html><body><div class="ls-block" blockid=
 const { window } = dom;
 window.parent = window;
 const doc = window.document;
-const page = (title, kind) => ({ title, lower: title.toLowerCase(), isTag: false, tags: [{ title: kind }] });
+const KIND_IDS = { Doctor: 11, Oncologist: 12, Treatment: 13, Hospital: 14, Symptom: 15, Page: 16, Person: 17 };
+let nextId = 1000;
+const page = (title, kind) => ({ id: nextId++, title, lower: title.toLowerCase(), isTag: false, tags: [{ id: KIND_IDS[kind] || 99, title: kind }] });
+const rates = new Map();
 const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), page('Chemo cycle 4', 'Treatment'), page('Northgate Cancer Center', 'Hospital'),
   page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('Riverside General Hospital', 'Hospital'), { title: 'Hospitalization', lower: 'hospitalization', isTag: true, tags: [{ title: 'Tag' }] }, page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
-window.logseq = { settings: { linkSuggest: true, linkSuggestMinLetters: 0, linkSuggestPause: 0, linkSuggestUnderline: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
+window.logseq = { settings: { linkSuggest: true, linkSuggestLearn: true, linkSuggestMemory: {}, linkSuggestMinLetters: 0, linkSuggestPause: 0, linkSuggestUnderline: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
-window.refinementCore = { provided: {}, propPages: async () => pages, onPageChange: () => {}, sendStyle: () => {}, screen: { ...window.refinementShared.screen, popupOpen: () => popup } };
+const saved = [];
+const schema = { byId: new Map([[101, { id: 101, title: 'Provider', classes: [{ id: 11, title: 'Doctor' }] }], [102, { id: 102, title: 'Topic', classes: [1, 2, 3, 4, 5].map(id => ({ id })) }]]), classProps: new Map([[21, [101, 102]]]), parentsOf: new Map([[12, [11]]]) };
+window.refinementCore = { provided: {}, propPages: async () => pages, propSchema: async () => schema, linkRates: async () => rates, blockInEdit: async () => ({ 'block/tags': [{ 'db/id': 21 }] }),
+  currentGraph: async () => ({ name: 'Test' }), saveSettings: patch => { saved.push(patch); Object.assign(window.logseq.settings, patch); }, pick: (node, name) => node?.[name], idOf: v => v?.['db/id'] ?? v,
+  onPageChange: () => {}, onDatabaseChange: () => {}, onGraphChange: () => {}, sendStyle: () => {}, screen: { ...window.refinementShared.screen, popupOpen: () => popup } };
 window.refinementCore.provide = things => Object.assign(window.refinementCore.provided, things);
 const part = window.refinementParts.find(p => p.name === 'link suggest');
 part.provide(window.refinementCore);
@@ -65,6 +72,27 @@ check(at('Spoke with Dr. Mei Chen and Nor') === 'Northgate Cancer Center|thgate 
 check(at('Tingling fing') === 'Tingling fingers|ers|Tingling fing', 'two words of a name: ' + at('Tingling fing'));
 check(at('see https://exa') === null, 'nothing in a web address');
 check(at('Doc') === 'Doctor|tor|Doc', 'a tag page counts: ' + at('Doc'));
+// What the graph taught (0.4.373): a name usually linked from three letters and after its space; one usually plain not at all.
+const learned = (text, extra = {}) => { const hit = inner.suggestFor(text, text.length, pages, { min: 5, rates, ...extra }); return hit ? `${hit.title}|${hit.ghost}|${hit.after ? 'after' : 'typing'}` : null; };
+rates.set('dr. mei chen', { linked: 9, plain: 1 }); rates.set('nausea', { linked: 0, plain: 6 }); rates.set('riverside general hospital', { linked: 3, plain: 0 });
+check(inner.usual('dr. mei chen', rates, null) && !inner.usual('nausea', rates, null) && inner.rarelyLinked('nausea', rates, null), 'usual and rarely linked, from the counts');
+check(learned('Spoke with Mei') === 'Dr. Mei Chen| Chen|typing', 'a usually linked name from three letters: ' + learned('Spoke with Mei'));
+check(learned('Spoke with Dr. Mei Chen ') === 'Dr. Mei Chen||after', 'and still right after the space that ends it: ' + learned('Spoke with Dr. Mei Chen '));
+check(learned('Spoke with Dr. Mei Chen  ') === null && learned('Spoke with Mei Chen ') === null, 'not after two spaces, nor after a space that ends only part of it');
+check(!learned('Felt nausea')?.startsWith('Nausea|') && !learned('Felt nause')?.startsWith('Nausea|'), 'a name usually written plain is not offered: ' + learned('Felt nausea'));
+check(learned('Felt Nausea') === 'Nausea||typing', 'unless typed whole with its own capitals');
+check(inner.usual('nausea', rates, { nausea: [5, 0] }), 'what was taken counts twice: five taken outweigh six plain');
+check(!inner.usual('dr. mei chen', rates, { 'dr. mei chen': [0, 8] }), 'what was passed over counts against');
+// A long name needs a third of itself typed; a short one its first letters as before.
+pages.push(page('Surgery first, then chemotherapy depending on the lymph nodes', 'Page'));
+check(learned('Why the surgery first') === null, 'five words of a nine-word name are not enough: ' + learned('Why the surgery first'));
+check(learned('Surgery first, then chemothe') !== null, 'a third of its letters are');
+// The bullet's empty properties: a page that would fill one comes first, from three letters.
+const boost = inner.boostFor([21], schema, pages);
+check(boost && boost.has(pages.find(p => p.title === 'Dr. Mei Chen').id) && !boost.has(pages.find(p => p.title === 'Nausea').id), 'Provider takes doctors: the doctors are boosted, the symptom is not');
+check(boost.size < pages.length / 2, 'the wide property Topic is left out: ' + boost.size + ' of ' + pages.length);
+const e = inner.suggestFor('Saw Raj', 7, pages, { min: 5, boost }); 
+check(e?.title === 'Dr. Raj Patel', 'a boosted page from three letters: ' + e?.title);
 // The letters the setting asks for (5 as it comes): the words of a name count together.
 const at5 = text => { const hit = inner.suggestFor(text, text.length, pages, { min: 5 }); return hit ? hit.title : null; };
 check(at5('Spoke with Mei') === null && at5('Spoke with Mei Ch') === 'Dr. Mei Chen' && at5('Spoke with Dr. Mei') === 'Dr. Mei Chen', 'five letters: Mei alone waits, “Mei Ch” and “Dr. Mei” show');
@@ -178,6 +206,27 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   await type('Spoke with Mei'); key('ArrowRight');
   check(!inner.bare && box.value === 'Spoke with [[Dr. Mei Chen]]', 'off in the settings, the brackets show as typed');
   window.logseq.settings.linkSuggestUnderline = true;
+  // What is taken or passed over is remembered, by name, for this graph (the takes and pass-overs above forgotten first).
+  await wait(600); window.logseq.settings.linkSuggestMemory = {};
+  await type('Spoke with Mei Ch');
+  key('ArrowRight'); await wait(600);
+  check(JSON.stringify(window.logseq.settings.linkSuggestMemory) === JSON.stringify({ Test: { 'dr. mei chen': [1, 0] } }), 'the link taken is remembered: ' + JSON.stringify(window.logseq.settings.linkSuggestMemory));
+  await type('Spoke with Mei Ch');
+  check(!!inner.showing, 'shows');
+  typeNow('x'); await wait(600);
+  check(JSON.stringify(window.logseq.settings.linkSuggestMemory) === JSON.stringify({ Test: { 'dr. mei chen': [1, 1] } }), 'a letter past the grey words is a pass-over: ' + JSON.stringify(window.logseq.settings.linkSuggestMemory));
+  window.logseq.settings.linkSuggestLearn = false;
+  await type('Spoke with Mei Ch'); key('ArrowRight'); await wait(600);
+  check(JSON.stringify(window.logseq.settings.linkSuggestMemory) === JSON.stringify({ Test: { 'dr. mei chen': [1, 1] } }), 'learning off: nothing remembered');
+  window.logseq.settings.linkSuggestLearn = true;
+  // After the space: a dotted line under the words, Right arrow takes it and the cursor lands past the space.
+  rates.set('mri', { linked: 5, plain: 0 }); pages.push(page('MRI', 'Page'));
+  await type('Booked an MRI '); await wait(20);
+  check(inner.showing?.hit.after && doc.querySelector('.refinement-link-suggest .rf-offer')?.textContent === 'MRI' && doc.querySelector('.refinement-link-suggest .rf-ghost').textContent === '', 'after the space: a dotted line under MRI, nothing grey');
+  key('ArrowRight');
+  check(box.value === 'Booked an [[MRI]] ' && box.selectionStart === box.value.length, 'Right arrow links it and the cursor is past the space: ' + JSON.stringify(box.value));
+  await type('Booked an MRI '); typeNow('t');
+  check(!inner.showing && box.value === 'Booked an MRI t', 'the next letter ends the offer, the word stays plain');
   // The Hyper tap: the modifiers down together, one up with nothing between.
   await type('Spoke with Mei');
   key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);

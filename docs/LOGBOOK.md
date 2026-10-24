@@ -2,6 +2,22 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The suggested links learn: link rates, empty properties, what is taken (0.4.379)
+
+**Asked:** "the replay score first, then offer links by how often the words are linked in my graph (and what I take
+or ignore), with the bullet's empty properties as a boost. Show me the scores before and after." **Built:**
+`tools/link-suggest-score.js` (every link in the graph typed again letter by letter: caught, letters to catch, short
+names, by the space, wrong first, pops per 100 plain words; before and after; links by uuid or by name, as the seed
+import stores them); the model's `linkRates` (every block's words read once: linked and plain mentions by name);
+in `parts/link-suggest.js` `usual`, `rarelyLinked`, `boostFor` (a wide property left out, WIDE 3), the long-name
+cover (a third of the letters past three words), the after-space offer (a whole sure name, the dotted line
+`.rf-offer`), the memory (`linkSuggestMemory` by graph and name, taken and passed over, unsaved counts counted at
+once, 400 names kept), the switch `linkSuggestLearn`. **Scores** (Illness Test Graph, 98 links, 1866 plain words):
+before caught 98 at 5 letters, wrong first 9, pops 5.4 per 100; after caught 98 at 3 letters, wrong first 11, pops
+5.8 per 100 (most of the new pops are people's names and medicines written plain, which the graph itself links
+elsewhere). Short names: none linked in this graph yet, so that line reads 0 of 0. **Checks:** link-suggest (97),
+boot, leaning, parts-apart, the score. **Seen in the app:** as the CHANGELOG line says; the scratch bullet removed.
+
 ## 2026-10-24 · The two-way rows line up and read as words (0.4.378)
 
 **Asked:** the owner on the rows of Tingling fingers: "this has become really clunky ui", then, on a sketch with the day

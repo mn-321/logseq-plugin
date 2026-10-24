@@ -81,6 +81,7 @@ fi
 if command -v node >/dev/null 2>&1 && [ -d node_modules/jsdom ]; then
   node tools/two-way-check.js || problem "the two-way rows differ from the graph (see above)"
   node tools/shadow-check.js || problem "the proposals' rules proposed something wrong on the graph (see above)"
+  node tools/link-suggest-score.js || problem "the suggested links' replay score failed (see above)"
 fi
 
 # 11. The documents keep up: CHANGELOG.md, CLAUDE.md's State line and the logbook name this version (tools/docs-check.sh).

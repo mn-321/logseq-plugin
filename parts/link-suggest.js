@@ -30,7 +30,7 @@
 const shared = window.refinementShared;
 const { host, el } = shared;
 const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (suggested links): ', leaves: { elements: '.refinement-link-suggest, .refinement-link-marks' } });
-let propPages, onPageChange, sendStyle, screen;
+let propPages, propSchema, linkRates, blockInEdit, currentGraph, saveSettings, pick, idOf, onPageChange, onDatabaseChange, onGraphChange, sendStyle, screen;
 const take = (core, names) => shared.take(core, names, warnOnce);
 
 const settingsSchema = [
@@ -48,6 +48,10 @@ const settingsSchema = [
     description: 'How many letters the words before the cursor need before grey words show; the words of a name count together (“Dr. Mei” is 5). Fewer shows suggestions sooner and more often. Changes here apply right away.' },
   { key: 'linkSuggestPause', type: 'number', title: 'Pause before a suggestion shows (milliseconds)', default: 350,
     description: 'Grey words appear only once you stop typing for this long, so nothing pops up while you type quickly. Once they show, they follow each letter at once. 0 shows them as you type. Changes here apply right away.' },
+  { key: 'linkSuggestLearn', type: 'boolean', title: 'Learn from the graph and from what you take', default: true,
+    description: 'A name the graph usually links (Dr. Mei Chen) is offered from three letters, and still right after the space that ends it; one the graph usually writes plain is not offered. A page that would fill one of the bullet’s empty properties comes first and early. What you take or pass over is remembered, by name, for this graph. Off, the suggestions go by the letters alone. Changes here apply right away.' },
+  { key: 'linkSuggestMemory', type: 'object', title: 'What was taken or passed over', default: {}, hidden: true,
+    description: 'Kept by the plugin: for each graph, by name, how often a suggestion was taken and how often passed over.' },
   { key: 'linkSuggestUnderline', type: 'boolean', title: 'A link just taken shows underlined, without [[ ]]', default: true,
     description: 'While you go on writing the bullet, a link taken from a suggestion shows as its words with a line under them, the brackets hidden. Typing [, deleting a bracket, moving the cursor back into the words or leaving the bullet shows them again; the next time you open the bullet it reads [[ ]] as always. Changes here apply right away.' },
   { key: 'linkSuggestKeys', type: 'string', title: 'Keys for Suggested links', default: '',
@@ -68,35 +72,96 @@ function wordStarts(lower) {
 }
 /* The suggestion for the words before the cursor, or null: { start, end, span, title, ghost }. start..end is the span the
    link replaces (span its words), ghost the rest of the name to show. Pure, so tools/link-suggest-test.js can try it. */
-function suggestFor(text, caret, pages, { min = 0 } = {}) {
-  const head = text.slice(0, caret), next = text[caret] || '';
-  if (!WORD.test(head.slice(-1)) || WORD.test(next)) return null;           // not at the end of a word
+/* What the graph has taught (0.4.373, the owner: "is this where contextual understand and learning can come in?"):
+   usual(lower): a name the graph usually links (linked at least USUAL_LEAST times and USUAL_SHARE of its mentions), with
+   what the owner took or passed over counted in (memory: [taken, ignored] by name, each worth MEMORY_WEIGHT mentions).
+   Such a name is offered from three letters, and still after the space that ends it. */
+const USUAL_LEAST = 2, USUAL_SHARE = 0.6, PLAIN_LEAST = 3, PLAIN_SHARE = 0.2, MEMORY_WEIGHT = 2;
+function tallyOf(lower, rates, memory) {
+  const r = rates?.get(lower), m = memory?.[lower];
+  return { linked: (r?.linked || 0) + (m?.[0] || 0) * MEMORY_WEIGHT, plain: (r?.plain || 0) + (m?.[1] || 0) * MEMORY_WEIGHT };
+}
+function usual(lower, rates, memory) {
+  const { linked, plain } = tallyOf(lower, rates, memory);
+  return linked >= USUAL_LEAST && linked / (linked + plain) >= USUAL_SHARE;
+}
+// The other way round: a name the graph writes plain (mentioned PLAIN_LEAST times, linked in PLAIN_SHARE of them or
+// fewer) is not offered unless it fills a property or is typed whole with its own capitals.
+function rarelyLinked(lower, rates, memory) {
+  const { linked, plain } = tallyOf(lower, rates, memory);
+  return linked + plain >= PLAIN_LEAST && linked / (linked + plain) <= PLAIN_SHARE;
+}
+/* The pages that would fill an empty link property of the bullet (0.4.373, the owner: "looking at properties of the
+   bullet and prefering those that would fill them"): the link properties of its tags and of the tags they extend, each
+   taken as empty while the bullet is written; a wide property (one taking more than WIDE tags, Topic with fifteen) is
+   left out, as the proposals leave it out, since it would make nearly every page sure. Returns the page ids, or null. */
+const WIDE = 3;
+function fitsTags(page, classIds, schema) {
+  const seen = new Set(), queue = page.tags.map(t => t.id);
+  while (queue.length) { const c = queue.shift(); if (seen.has(c)) continue; seen.add(c); if (classIds.has(c)) return true; queue.push(...(schema.parentsOf.get(c) || [])); }
+  return false;
+}
+function boostFor(tagIds, schema, pages) {
+  const classIds = new Set(), seen = new Set(), queue = [...tagIds];
+  while (queue.length) {
+    const t = queue.shift(); if (seen.has(t)) continue; seen.add(t);
+    for (const pid of schema.classProps.get(t) || []) { const prop = schema.byId.get(pid); if (prop && prop.classes.length && prop.classes.length <= WIDE) for (const c of prop.classes) classIds.add(c.id); }
+    queue.push(...(schema.parentsOf.get(t) || []));
+  }
+  if (!classIds.size) return null;
+  return new Set(pages.filter(page => fitsTags(page, classIds, schema)).map(page => page.id));
+}
+// A long name needs more of itself typed before it is offered (0.4.373, from the replay score: "the" offered a nine-word
+// name): a name of up to three words from its first letters as before, a longer one only once a third of its letters
+// are typed, unless the page is sure.
+const WORDS_FREE = 3, COVER = 1 / 3;
+/* The suggestion for the words before the cursor, or null: { start, end, span, title, ghost, name, after }. start..end
+   is the span the link replaces (span its words), ghost the rest of the name to show, name the whole name as the cue,
+   after true when the words are already finished by a space (nothing grey: a dotted line under them, until the next
+   letter). Options: min, the setting's letters; rates and memory (usual, above); boost, the ids of pages that would
+   fill one of the bullet's empty properties (offered from three letters, and first). Pure, for the tests and the
+   replay score (tools/link-suggest-score.js). */
+function suggestFor(text, caret, pages, { min = 0, rates = null, memory = null, boost = null } = {}) {
+  let head = text.slice(0, caret), next = text[caret] || '';
   if (text.slice(caret).trim()) return null;                                 // only while writing on, not editing inside the words
+  // Just after the space that ends a word: only a whole name that is sure (below) is offered, with nothing to add.
+  const after = / $/.test(head) && !/ {2}$/.test(head);
+  if (after) head = head.slice(0, -1); else if (!WORD.test(head.slice(-1)) || WORD.test(next)) return null; // not at the end of a word
   const lastOpen = head.lastIndexOf('[['); if (lastOpen >= 0 && head.indexOf(']]', lastOpen) < 0) return null; // inside [[ ]]
   const lastTick = head.lastIndexOf('`'); if (lastTick >= 0 && (head.match(/`/g) || []).length % 2) return null; // inside `code`
   const run = /(\S+(?:\s+\S+){0,3})$/.exec(head); if (!run) return null;
-  const base = caret - run[1].length, words = [];
+  const base = head.length - run[1].length, words = [];
   for (const m of run[1].matchAll(/\S+/g)) words.push({ at: base + m.index, word: m[0] });
   const current = words[words.length - 1].word;
   if (/^#|:\/\//.test(current)) return null;                                 // a tag, a web address
+  const sure = (page, span) => (boost?.has(page.id) ? 3 : 0) + (usual(page.lower, rates, memory) ? 2 : 0) + (page.title === span ? 1 : 0);
   for (let k = Math.min(4, words.length); k >= 1; k--) {
     let start = words[words.length - k].at, span = head.slice(start);
     const lead = span.match(/^[^\p{L}\p{N}]*/u)[0]; span = span.slice(lead.length); start += lead.length; // "(Mei" → "Mei"
     if (!span || /^#/.test(span)) continue;
-    const q = span.toLowerCase().replace(/\s+/g, ' ');
-    if (letters(q) < 3 || letters(q) < min) continue;     // the setting's letters, the words of a name together (0.4.371)
-    if (k === 1 && letters(q) < 4 && !/^\p{Lu}/u.test(span)) continue;        // "the" never shows a page
-    const starts = [], inner = [];
+    const q = span.toLowerCase().replace(/\s+/g, ' '), n = letters(q);
+    if (n < 2) continue;
+    const found = [];
     for (const page of pages) {
       if (page.lower.length < q.length) continue;
-      if (page.lower.startsWith(q)) { starts.push({ page, at: 0 }); continue; }
-      const at = wordStarts(page.lower).find(i => page.lower.startsWith(q, i));
-      if (at !== undefined) inner.push({ page, at });
+      if (after && page.lower !== q) continue;
+      let at = page.lower.startsWith(q) ? 0 : wordStarts(page.lower).find(i => page.lower.startsWith(q, i));
+      if (at === undefined) continue;
+      const s = sure(page, span);
+      if (!s && rarelyLinked(page.lower, rates, memory)) continue;
+      if (!s && (page.lower.split(/\s+/).length > WORDS_FREE) && n < letters(page.lower) * COVER) continue;
+      // A sure page from three letters (a name typed whole with its own capitals from two); any other page from the
+      // setting's letters, never a short lower-case word ("the" never shows a page).
+      const enough = s ? n >= (page.title === span ? 2 : 3) : n >= Math.max(3, min) && !(k === 1 && n < 4 && !/^\p{Lu}/u.test(span));
+      if (enough) found.push({ page, at, s });
     }
-    const hit = (starts.length ? starts : inner).sort(better)[0];
+    if (!found.length) continue;
+    // Boosted first, then usual, then a name that starts with the words, then one of your tags, then the shortest.
+    found.sort((a, b) => (b.s - a.s) || ((a.at > 0) - (b.at > 0)) || better(a, b));
+    const hit = found[0], ghost = hit.page.title.slice(hit.at + q.length);
     // ghost: the rest of the name after the words; name: the whole name, shown as the cue when the words sit inside it
     // ("general hospital" → Riverside General Hospital) or finish it, so what the tap writes is never a surprise.
-    if (hit) { const ghost = hit.page.title.slice(hit.at + q.length); return { start, end: caret, span, title: hit.page.title, ghost, name: hit.at > 0 || !ghost ? hit.page.title : '' }; }
+    return { start, end: head.length, span, title: hit.page.title, ghost, name: hit.at > 0 || !ghost ? hit.page.title : '', after };
   }
   return null;
 }
@@ -112,9 +177,11 @@ function layOver(box, over, hit) {
   for (const p of COPIED) over.style[p] = style[p];
   Object.assign(over.style, { left: outer.left + 'px', top: (outer.top - box.scrollTop) + 'px', width: outer.width + 'px', minHeight: outer.height + 'px', borderStyle: 'solid', borderColor: 'transparent', color: style.color });
   const [typed, grey] = over.children;
-  typed.textContent = box.value.slice(0, hit.end);
-  grey.textContent = hit.ghost;
-  if (hit.name) grey.setAttribute('data-name', hit.name); else grey.removeAttribute('data-name');
+  // After the space that ends a name (hit.after): nothing grey, a dotted line under the words until the next letter.
+  typed.replaceChildren(doc.createTextNode(box.value.slice(0, hit.after ? hit.start : hit.end)));
+  if (hit.after) { typed.append(el(doc, 'u', { class: 'rf-offer' }, box.value.slice(hit.start, hit.end)), doc.createTextNode(box.value.slice(hit.end, box.selectionStart))); }
+  grey.textContent = hit.after ? '' : hit.ghost;
+  if (hit.name && !hit.after) grey.setAttribute('data-name', hit.name); else grey.removeAttribute('data-name');
   grey.title = `Hyper: [[${hit.title}]]`;
 }
 // What shows: the box, the suggestion and the grey words; the pages last read, for a tap on words the screen is behind on.
@@ -143,9 +210,53 @@ async function look(box) {
   const pages = lastPages = await propPages().catch(error => { warnOnce('the pages could not be read', error); return []; });
   if (mine !== version || !box.isConnected || box.value !== text || box.selectionStart !== caret || box.ownerDocument.activeElement !== box) return;
   if (screen.popupOpen()) return clear();                             // Logseq's own list ([[, /, a picker) has the keys
-  const hit = suggestFor(text, caret, pages, { min: minLetters() });
+  const learn = setting('linkSuggestLearn');
+  const [rates, boost] = learn ? await Promise.all([linkRates().catch(() => null), boostOf(box, pages)]) : [null, null];
+  if (mine !== version || !box.isConnected || box.value !== text || box.selectionStart !== caret) return;
+  const hit = suggestFor(text, caret, pages, { min: minLetters(), rates, memory: learn ? memoryNow() : null, boost });
   if (!hit) return clear();
   draw(box, hit);
+}
+/* What the graph and the owner have taught, for the rule (0.4.373). boostOf: the pages that would fill an empty link
+   property of the bullet, by its tags, read once per bullet (the model's blockInEdit, the schema) and forgotten when the
+   graph changes. The memory: what the owner took or passed over, by name, kept in the setting linkSuggestMemory under
+   the graph's name (the plugin's settings are shared by every graph), the last MEMORY_MOST names. */
+const boosts = new Map();
+async function boostOf(box, pages) {
+  const uuid = box.closest('.ls-block[blockid]')?.getAttribute('blockid') || '';
+  if (!uuid) return null;
+  if (!boosts.has(uuid)) boosts.set(uuid, (async () => {
+    const [block, schema] = await Promise.all([blockInEdit(uuid), propSchema()]);
+    const tagIds = (pick(block, 'block/tags') || []).map(idOf).filter(Boolean);
+    return tagIds.length ? boostFor(tagIds, schema, pages) : null;
+  })().catch(error => { warnOnce('the bullet’s properties could not be read for the suggestions', error); return null; }));
+  return boosts.get(uuid);
+}
+const MEMORY_MOST = 400;
+let graph = '';
+const graphName = () => Promise.resolve(currentGraph()).then(g => { graph = String(g?.name || '').replace(/^logseq_db_/, ''); }).catch(() => { graph = ''; });
+// What is remembered but not yet saved counts at once (the save waits half a second).
+let memoryAll = null, saveTimer = 0;
+const memoryNow = () => (memoryAll || setting('linkSuggestMemory') || {})[graph] || null;
+function remember(lower, taken) {
+  if (!graph || !setting('linkSuggestLearn')) return;
+  const all = { ...(memoryAll || setting('linkSuggestMemory') || {}) }, mine = { ...(all[graph] || {}) };
+  const entry = [...(mine[lower] || [0, 0])];
+  entry[taken ? 0 : 1]++;
+  delete mine[lower]; mine[lower] = entry; // the newest last, so the oldest go first when there are too many
+  const keys = Object.keys(mine);
+  for (const key of keys.slice(0, Math.max(0, keys.length - MEMORY_MOST))) delete mine[key];
+  all[graph] = mine;
+  memoryAll = all;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveSettings({ linkSuggestMemory: all }); if (memoryAll === all) memoryAll = null; }, 500);
+}
+// A suggestion shown and then passed over (the next letter did not take it, or the bullet was left): once per showing.
+const passed = new WeakSet();
+function passedOver(box, hit) {
+  if (!hit || hit.after || passed.has(hit)) return;
+  passed.add(hit);
+  remember(hit.title.toLowerCase(), false);
 }
 /* The brackets hidden in the bullet being written (0.4.367): the box's font starts with RfZeroBrackets, whose [ and ] are
    empty and have no width (every other letter falls through to the box's own font, so nothing moves), and a copy of the
@@ -231,7 +342,7 @@ function keepUp(box) {
       && typed.length <= hit.ghost.length && hit.ghost.slice(0, typed.length).toLowerCase() === typed.toLowerCase()) {
     showing.hit = { ...hit, end: caret, span: value.slice(hit.start, caret), ghost: hit.ghost.slice(typed.length) };
     layOver(box, showing.ghost, showing.hit);
-  } else clear();
+  } else { if (caret > hit.end) passedOver(box, hit); clear(); }
 }
 // Logseq takes Backspace and Delete itself in places (pairs of brackets, the start of a bullet) and sets the words without
 // the usual typing signal, so the grey words stayed as they were (the owner, 2026-10-23: "if I press back the text just
@@ -260,8 +371,9 @@ function acceptSuggestion(event) {
     box.setRangeText(link, hit.start, hit.end, 'end');
     box.dispatchEvent(new box.ownerDocument.defaultView.InputEvent('input', { bubbles: true, inputType: 'insertText', data: link }));
   }
-  const after = hit.start + link.length;
+  const after = hit.start + link.length + (hit.after && box.value[hit.start + link.length] === ' ' ? 1 : 0);
   box.setSelectionRange(after, after);
+  remember(hit.title.toLowerCase(), true);
   drawMarks();
   return true;
 }
@@ -301,12 +413,17 @@ const css = `
 .refinement-link-marks u { text-decoration: underline; text-decoration-color: var(--rf-link-line); text-decoration-thickness: 1px; text-underline-offset: .22em; }
 .refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; background: none; }
 .refinement-link-suggest .rf-typed { color: transparent; }
+.refinement-link-suggest .rf-typed .rf-offer { text-decoration: underline dotted; text-decoration-color: var(--rf-faint); text-underline-offset: .22em; }
 .refinement-link-suggest .rf-ghost { opacity: .45; }
 .refinement-link-suggest .rf-ghost[data-name]::after { content: "  " attr(data-name); font-size: .8em; opacity: .75; }
 `;
 
 function start() {
-  ({ propPages, onPageChange, sendStyle, screen } = take(window.refinementCore, ['propPages', 'onPageChange', 'sendStyle', 'screen']));
+  ({ propPages, propSchema, linkRates, blockInEdit, currentGraph, saveSettings, pick, idOf, onPageChange, onDatabaseChange, onGraphChange, sendStyle, screen } = take(window.refinementCore,
+    ['propPages', 'propSchema', 'linkRates', 'blockInEdit', 'currentGraph', 'saveSettings', 'pick', 'idOf', 'onPageChange', 'onDatabaseChange', 'onGraphChange', 'sendStyle', 'screen']));
+  graphName();
+  onGraphChange(() => { graphName(); boosts.clear(); });
+  onDatabaseChange(() => boosts.clear());
   sendStyle('refinement-link-suggest', css);
   // The bracket font read now, not on the first link taken: a font still loading hides the letters drawn with it. The
   // stylesheet reaches Logseq's window a moment after it is sent (seen 2026-10-24: asked for at once, the font was never
@@ -321,13 +438,13 @@ function start() {
   listen(win, ['keydown'], onHyperDown);
   listen(win, ['keyup'], onHyperUp);
   listen(win, ['blur'], () => { hyperTap.armedAt = 0; });
-  listen(win, ['focusout', 'pointerdown', 'mousedown'], () => { clear(); showBrackets(); });
+  listen(win, ['focusout', 'pointerdown', 'mousedown'], () => { if (showing) passedOver(showing.box, showing.hit); clear(); showBrackets(); });
   listen(win, ['scroll', 'resize'], () => { clear(); drawMarks(); });
   onPageChange(() => { clear(); showBrackets(); });
   onUnload(() => { clear(); showBrackets(); clearTimeout(pauseTimer); version++; });
 }
 // For tools/link-suggest-test.js (read-only): the rule and what shows, through the core.
-const provide = core => core.provide({ linkSuggestInner: { suggestFor, get showing() { return showing; }, get bare() { return bare; } } });
+const provide = core => core.provide({ linkSuggestInner: { suggestFor, boostFor, usual, rarelyLinked, get showing() { return showing; }, get bare() { return bare; } } });
 (window.refinementParts ||= []).push({ name: 'link suggest', schema: settingsSchema, provide, start, stop: runUnloadTasks,
   commands: [{ key: 'accept-suggested-link', label: 'Take the suggested link', icon: 'link', shortcut: 'linkSuggestKeys', places: ['keys'], run: acceptSuggestion }] });
 })();

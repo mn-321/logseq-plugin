@@ -742,6 +742,34 @@ const showSidebar = (on = true) => Promise.resolve(logseq.App.setRightSidebarVis
 // Every tag's title, for a list to offer (the settings window).
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
+/* How often each page's name is linked, and how often written plain (0.4.373, for the suggested links' learning): every
+   block's words read once, each [[uuid]] counted for its page, and each page's name counted where it stands as whole
+   words outside a link. By the page's lower-case name: { linked, plain }. Pages are the model's own list (journals and
+   properties left out). Read at most every 30 s (graphWide), as the page list is. */
+async function loadLinkRates() {
+  const [pages, rows] = await Promise.all([propPages(), dsQuery('[:find ?t :where [?b :block/page _] [?b :block/title ?t] [(not= ?t "")] (not [?b :logseq.property/deleted-at _])]').catch(() => [])]);
+  return linkRatesOf(pages, rows.map(([t]) => String(t)));
+}
+function linkRatesOf(pages, titles) {
+  const rates = new Map(), byUuid = new Map();
+  for (const page of pages) { rates.set(page.lower, { linked: 0, plain: 0 }); if (page.uuid) byUuid.set(page.uuid.toLowerCase(), page.lower); }
+  // Names as whole words, longest first so "Colon cancer" is not also counted as "Colon".
+  const names = [...rates.keys()].filter(n => n.length >= 2).sort((a, b) => b.length - a.length);
+  const escape = n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const finder = names.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.map(escape).join('|')})(?![\\p{L}\\p{N}])`, 'giu') : null;
+  for (const title of titles) {
+    // A link by uuid (as the app writes it) or by name (as an import may): each counts for its page.
+    const plain = title.replace(/\[\[([^\[\]]+)\]\]/g, (m, inner) => {
+      const key = inner.trim().toLowerCase(), lower = byUuid.get(key) || (rates.has(key) ? key : null);
+      if (lower) rates.get(lower).linked++;
+      return ' ';
+    }).replace(storedRef, ' ');
+    if (finder) for (const m of plain.matchAll(finder)) { const r = rates.get(m[0].toLowerCase()); if (r) r.plain++; }
+  }
+  return rates;
+}
+const linkRates = () => graphWide('linkRates', loadLinkRates);
+
 /* PDF highlights (0.4.364, for parts/pdf-quote.js): for highlight nodes by uuid, the page of the PDF they are on, the PDF
    they come from (its uuid) and its title. In a DB graph a highlight is a child of its PDF, tagged Pdf-annotation, with
    the page in logseq.property.pdf/hl-page and the PDF in logseq.property/asset (seen in Logseq 2.0.2, 2026-10-23). */
@@ -764,7 +792,7 @@ function provide(core) {
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, nodeValues, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
-    propTextValues, propNamed, propUse, propHolders, pdfSources, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
+    propTextValues, propNamed, propUse, propHolders, pdfSources, linkRates, linkRatesOf, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));
