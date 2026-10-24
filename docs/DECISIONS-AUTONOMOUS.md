@@ -186,7 +186,8 @@ list, the rows), the date links and headings (page-look's quiet dates do the loo
 (a DB page's title holds no #tag), the link box settings (the old link box went at 0.4.357), the picker marks
 (`picker.js` owns Logseq's lists), Escape taking [[ and # out and links inside a reference (Logseq's own behaviour),
 the Hyper tap (decision 16), the empty [[ menu (in `chrome.js` since 0.4.355), quiet links (`page-look.js`). **Resting,
-written down:** PDF citations and child asset cues, since the Illness Test Graph has no PDF or file to judge them on;
+written down:** child asset cues, since the Illness Test Graph has no file to judge them on (the PDF citations were rebuilt
+as `parts/pdf-quote.js` at the owner's word, 0.4.364, on two papers the owner gave);
 `parts/links.js` stays resting for them, its header says so. **Flip:** the deleted part is in git history at 0.4.357.
 **Also resting, as the plan says:** `parts/pages.js` (the tag summary box, the owner's "no" of 2026-10-23; the page-kind
 line above the title, dropped 2026-10-21; its title tags are `tag-path.js` now) and `parts/inline-props.js` (the `p::`

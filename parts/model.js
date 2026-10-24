@@ -699,6 +699,19 @@ const showSidebar = (on = true) => Promise.resolve(logseq.App.setRightSidebarVis
 // Every tag's title, for a list to offer (the settings window).
 const tagTitles = async () => [...new Set(((await logseq.Editor.getAllTags?.()) || []).map(tag => tag.title || tag.originalName || tag.name).filter(Boolean))].sort();
 
+/* PDF highlights (0.4.364, for parts/pdf-quote.js): for highlight nodes by uuid, the page of the PDF they are on, the PDF
+   they come from (its uuid) and its title. In a DB graph a highlight is a child of its PDF, tagged Pdf-annotation, with
+   the page in logseq.property.pdf/hl-page and the PDF in logseq.property/asset (seen in Logseq 2.0.2, 2026-10-23). */
+async function pdfSources(uuids) {
+  const list = [...new Set(uuids)].filter(u => UUID.test(u));
+  const sources = new Map();
+  if (!list.length) return sources;
+  const rows = await dsQuery(`[:find ?u ?page ?su ?title :where [(ground [${list.map(u => `#uuid "${u}"`).join(' ')}]) [?u ...]] [?a :block/uuid ?u]
+      [?a :logseq.property.pdf/hl-page ?page] [?a :logseq.property/asset ?s] [?s :block/uuid ?su] [(get-else $ ?s :block/title "PDF") ?title]]`);
+  for (const [uuid, page, sourceUuid, title] of rows || []) sources.set(String(uuid).toLowerCase(), { page: Number(page), sourceUuid: String(sourceUuid).toLowerCase(), title: String(title || 'PDF') });
+  return sources;
+}
+
 function provide(core) {
   core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentBlock, pickedBlocks, getBlock, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
@@ -708,7 +721,7 @@ function provide(core) {
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
     linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
-    propTextValues, propNamed, propUse, propHolders, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
+    propTextValues, propNamed, propUse, propHolders, pdfSources, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
 function start() {
   ({ dsQuery, graphWide } = take(window.refinementCore, ['dsQuery', 'graphWide']));

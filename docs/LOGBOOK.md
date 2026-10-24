@@ -2,6 +2,24 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-23 · PDF highlights as quotations, rebuilt (0.4.364)
+
+**Asked:** "What happened to the quotes and the citation style that was in an earlier version?", then to rebuild it on
+the kit with two papers the owner gave (`41416_2022_Article_1824.pdf`, `PIIS0748798323007023.pdf` in Downloads).
+**Put in the graph** (Illness Test Graph, today's journal, kept as the fixture): a bullet "Papers on cholangiocarcinoma
+from the oncology team" with both PDFs pasted under it (Logseq turns the pasted bullet into the PDF; renamed to the
+articles' titles), a highlight of words on page 1 of the first and page 2 of the second, a highlight of an area (the
+abstract box) on page 1 of the first, and a note "Dr. Mei Chen pointed to this when she ordered the MRI: [[highlight]]".
+**Found** (Logseq 2.0.2): a highlight is a child of its PDF tagged Pdf-annotation, page in `hl-page`, PDF in `asset`;
+it draws a dot and a "P1" label before the words, the same in a reference; an area's picture sits inside that label;
+the label opens the PDF on the press of the pointer, not on a click. **Built:** `parts/pdf-quote.js` (nothing of
+Logseq's moved: its label hidden and pressed for it, the marks and citation drawn from attributes, the citation on the
+line's holder so it is small while the closing mark keeps the words' size), the model's door `pdfSources`,
+`tools/pdf-quote-test.js` (25 checks) in check.sh, the boot test's sign, the leaning baseline, parts-apart. The setting
+keeps its old key `pdfCitations`. `parts/links.js` now rests only for the child asset cues. **Seen in the app:** as
+the CHANGELOG line says; three faults found by looking and fixed before the commit (the plugin's own press stopped by
+its own listener; an area's picture hidden with the label; an area's citation on a line of its own).
+
 ## 2026-10-23 · Suggested links: alignment, Backspace, the tap, words inside a name (0.4.363)
 
 **Asked** (with three pictures): "general hospital" should find Riverside General Hospital; the grey words sat off the
