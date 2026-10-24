@@ -1,3 +1,7 @@
+> **Record, not a plan.** Written 2026-10-24 at 0.4.380 as `docs/TIDY-PROMPT-2026-10-24.md`, the prompt for taking
+> stock of the repo and tidying its record; carried out the same day (the logbook entry "The record tidied") and
+> moved here when it was done. A record of what was asked, not standing orders; the current state is `docs/STATE.md`.
+
 # Prompt: take stock of DB Refinements, describe it by layer, tidy the record
 
 Written 2026-10-24 at 0.4.380 (brought to 0.4.381), for a fresh Claude Code session in `/Users/admin/logseq-plugin`. Paste this as the first

@@ -28,6 +28,7 @@ moved, unchanged below their banners:
 | `docs/PROMPT-TWO-WAY-VALUE.md` | `PROMPT-TWO-WAY-VALUE-2026-10-23.md` |
 | `docs/TWO-WAY-IDEAS.html` | `TWO-WAY-IDEAS-2026-10-24.html` |
 | `docs/TWO-WAY-ROWS-SKETCH.html` | `TWO-WAY-ROWS-SKETCH-2026-10-24.html` |
+| `docs/TIDY-PROMPT-2026-10-24.md` | `TIDY-PROMPT-2026-10-24.md` |
 
 ## In order of date
 
@@ -50,3 +51,18 @@ moved, unchanged below their banners:
 | `STYLES-AUDIT-2026-10-23.md` | The old `styles.js` judged rule by rule (done at 0.4.359) |
 | `PROMPT-TWO-WAY-VALUE-2026-10-23.md`, `TWO-WAY-IDEAS-2026-10-24.html` | The design prompt for the two-way rows and the ideas page the owner chose from |
 | `TWO-WAY-ROWS-SKETCH-2026-10-24.html` | The sketch behind 0.4.378 |
+| `DECISIONS-AND-RULINGS-2026-10-24.md` | The owner's rulings, what was tried and rejected, what Logseq taught, gathered when CLAUDE.md was cut down |
+| `CLAUDE-2026-10-24.md` | CLAUDE.md as it stood that morning, word for word |
+| `README-RESTING-PARTS-2026-10-24.md` | The README's descriptions of the resting parts, word for word |
+| `TIDY-PROMPT-2026-10-24.md` | The prompt for the tidy of the record, carried out the same day |
+
+## Pages published from the project
+
+claude.ai pages the owner can open. The living ones (the feature map, the elements and views pages) are in CLAUDE.md.
+
+| Page | Link |
+|---|---|
+| Tag and property map sketch (the design the in-plugin map was built from) | https://claude.ai/artifact/XSiVNeF1VzzPwuumJeKatG |
+| DB Refinements Field Guide (`VISUAL-GUIDE-2026-10-19.html`) | claude.ai/artifact/4QaqVXXJM8fxT1EPhw7hSZ |
+| Layers 1 and 2 audit report (`LAYERS-1-2-AUDIT-REPORT-2026-10-22.html`) | https://claude.ai/artifact/UE8XQ3WfRg1DDT911Tt2c3 |
+| Two-way rows ideas (`TWO-WAY-IDEAS-2026-10-24.html`) | https://claude.ai/artifact/48DQdpxk2WDA6NTFB7KvcG |

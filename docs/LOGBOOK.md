@@ -2,6 +2,37 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The record tidied: the plugin by layer, history as history (no version)
+
+**Asked:** "follow docs/TIDY-PROMPT-2026-10-24.md": take stock of the plugin from the code, describe it by layer,
+clean up, settle the documents that disagree, keep history as history; nothing in Logseq to change. **Done:** an
+inventory of every file (the scratchpad, not the repo); 68 scratch files deleted from `check.log/` (copies of parts,
+saved check outputs, probes), keeping what tools write (`frames/`, `pictures/`, `stress/`, `graph-fingerprint.json`);
+the audit report page of 2026-10-22 kept as `docs/history/LAYERS-1-2-AUDIT-REPORT-2026-10-22.html`; sixteen records
+moved into `docs/history/` under a "Record, not a plan" banner (HANDOFF.md, NEXT, GRAMMAR, the Field Guide, the
+baselines, both audits, the finishing prompt with its finish line and report, the styles audit, the two-way prompt,
+ideas page and sketch, this prompt), the older records given the same banner, and `docs/history/README.md` mapping
+every old path to the new one (the logbook and CHANGELOG keep the paths of their day and were not edited);
+`docs/history/DECISIONS-AND-RULINGS-2026-10-24.md` (every ruling of the owner, newest first, with the words; tried
+and rejected; what Logseq taught; the two layer numberings; the standing rules and when they were made); the old
+CLAUDE.md kept word for word as `docs/history/CLAUDE-2026-10-24.md`; the README's descriptions of resting parts as
+`docs/history/README-RESTING-PARTS-2026-10-24.md`; `docs/STATE.md`, new, built from the code (each part's settings
+and commands dumped from the parts themselves); README, GUIDE, LAYERS, PROCESS, ALIKE and MODELLING corrected;
+CLAUDE.md cut to a short handoff. **Settled:** the README's "only the foundation and the second layer run" (0.4.294)
+against the 25 files loaded; proposals "only in the graphs named" against `shadowSkipGraphs`, every graph but those
+named (0.4.360); GUIDE's "no node on this machine" and Plugin Test Graph against node v24 and the Illness Test Graph;
+CLAUDE.md's `PART_FILES` list without `parts/link-suggest.js`; the memory note and the two-way prompt saying no
+two-way idea was built, against 0.4.376 (ideas 1 to 3 built); the tag map's colours and `#` in the README against the
+kit (none since 0.4.319); LAYERS.md's "tags at the right edge" against 0.4.320 and 0.4.378. **Checks:** `sh
+tools/check.sh` at the start and the end, the same three failing both times and nothing else (the tag map checks,
+failing since 0.4.376; the four tag map frame scenes; on the real graph one wrong proposal, Provider would be Dr. Chen
+on "Spoke with [[Dr. Chen]] about [[Blood in stool]]", first seen in this run); `tools/leaning-test.js` 0, 0, 0;
+`tools/docs-check.sh` on every commit. **Not seen:** nothing in the app changed, so nothing was looked at there.
+**Not done:** the feature map page stands at 0.4.359 and the elements and views pages at 0.4.319 (not republished:
+no layer changed today); `package.json`'s description still names journal-day dates, rich copy and todos (it shows in
+Logseq's Plugins panel, so it was left for a versioned change); the three old `claude/project-thread-*` branches kept
+(their commits are in `main` in substance). **For the owner:** the questions in CLAUDE.md section 6.
+
 ## 2026-10-24 · The rows' date, tag and + wrap like words; the bullets arrow on the right (0.4.381)
 
 **Asked:** "can you allow properties to wrap naturally if necessary so it looks more natural. also, it is too crowded with
