@@ -2,6 +2,24 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · Two-way rows: group a row, + in a group, write into a node (0.4.376)
+
+**Asked:** the owner kept five ideas from the ideas page (docs/TWO-WAY-IDEAS.html) and then said "just write 1 to 3":
+group a row by anything, add a node inside a group already filled in, write into a node without leaving. **Built:**
+`parts/two-way.js`: `groupingOf` / `groupHtml` / `groupMenu` (grouping by tag, month or a property's value, kept in
+localStorage `refinementTwoWayGroup`, numbers in order and named with their property), `startGroupDraft` and
+`setGroupValue` (the + in a group; no "where" question, today's journal), `intoBtn` / `nodeBoxHtml` / `writeBullet`
+(a node's bullets under its line, a new one typed in); `parts/model.js`: `nodeValues(uuids)` (what many nodes hold, one
+round of four questions) and `addLineTo(uuid, text)` (a node's last bullet). The "group" word sits after the + so the +
+does not move (a picture check caught it). **Seen in the app:** Fatigue grouped by Severity, again after a reload; the +
+under "Severity 3" made a log with Severity 3, Undo took it away; a bullet written into a consultation on Colon cancer
+sat under it as the last child, Undo took it away; Colon cancer grouped by tag; the arrow on a short row. The app showed
+that a number is kept in a value node (Severity read as ids): fixed. The graph was searched for left-over test blocks
+(none). **Checks:** `tools/two-way-rows-test.js` (new, 42 checks, fails on the old part), model-test (141, nodeValues
+added), boot, leaning, pictures, the two-way frame scenes approved (new buttons only), check.sh. **Not done:** ideas 4
+and 5 (explained on the page, 5 is the one to build next); the stress tests against the real app; a page that is itself a
+node (writing into its blocks) and a Date group's + were not tried in the app.
+
 ## 2026-10-24 · The number of nodes with each tag, in place of tags inside (0.4.375)
 
 **Asked:** "I meant number of nodes with that tag next to its name. same style as this". **Built:** \`rowLabels\` in \`parts/tags.js\` shows \`tag.count\` (nodes tagged directly) after the name, faint grey, none at 0; the 0.4.374 count of tags inside removed. **Seen in the app:** Symptom 10, Consultation 16, Conversation 8, Expectation 13. **Checks:** pictures (tag map re-approved).

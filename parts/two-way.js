@@ -31,7 +31,7 @@ const settingsSchema = [
     zone: '<div><span class="m">doctor of →</span> &nbsp;<u>9 Appointments</u> <span class="m">· next Nov 12</span></div>',
     description: 'Changes here apply right away.' },
   { key: 'twoWayRows', type: 'boolean', title: 'Links read the same from both ends', default: true,
-    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the sidebar icon at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field; right-click it to change how it reads here. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo is the faded arrow after the row’s name). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them.' },
+    description: 'On a page that one of your fields points to (a doctor named as the “doctor” of visits, a report named as the “report” of a scan), each such field becomes a row in the page’s own property list, with an arrow after its name: “doctor of →   9 Appointments · next Nov 12”. Up to three records show by name; more show as a count that opens into the list. Click a record’s line to open it (Shift-click or the sidebar icon at its end: in the sidebar); rest the pointer on it to see its fields and first lines. Click the field’s name to open the field; right-click it to change how it reads here. In a list with several kinds of records, click a kind to show only those. The + at the end of a row adds a new record with that field pointing here (Undo is the faded arrow after the row’s name). Tick the box before records (Shift-click a box: every one between) to act on them together: open in the sidebar, change this page to another one in their field, take the link off, add a tag, copy, set or clear a property, or delete them. A list of more than three can be grouped: the word “group” after its count (or right-click the name, “Group by…”) groups it by tag, month or any property its nodes hold, each group folding, and the + at the end of a group adds a node with that group’s tag or value already set. The small arrow before a node opens its first bullets under it, with a line to add a new one inside it.' },
   { key: 'twoWayNames', type: 'string', title: 'Fields read backwards', default: 'symptoms = logged in; ask = asked; works at = works here; insurer = insurer of; related = related to',
     description: 'How a field’s name reads from the other end, as “field = words; field = words”. A field not listed reads as “field of”; a field ending in “by” or “of” loses it (“prescribed by” reads “prescribed”, “report of” reads “report”), and one ending in another joining word such as “to” or “with” reads the same both ways (“related to”).' },
   { key: 'twoWayOneEnd', type: 'string', title: 'Fields shown from one end only', default: '',
@@ -48,7 +48,7 @@ const take = (core, names) => shared.take(core, names, warnOnce);
 // indexed (0.4.182): every page's rows were read in one look-up, so a page not in byPage has none, and a page
 // opened for the first time gets its rows in the same frame as its title instead of half a second later.
 // open, all and only (0.4.184): per row, whether its list is open, shows every record, or only one kind ("Infusion").
-const state = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '', picked: new Set(), lastPick: '' };
+const state = { version: 0, pageUuid: '', groups: [], byPage: new Map(), indexed: false, open: new Map(), all: new Set(), only: new Map(), box: null, html: '', picked: new Set(), lastPick: '', group: new Map(), values: new Map(), opened: new Set(), bullets: new Map(), nodeDraft: null };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const todayNumber = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 const dayText = day => {
@@ -115,6 +115,7 @@ async function load() {
       if (page && !page.page && isEntityId(page.id) && !page['journal?'] && !page.journalDay) {
         pageUuid = String(page.uuid || '');
         groups = await groupsFor(page.id);
+        await readValues(groupedUuids(groups)).catch(error => warnOnce('could not read the values the rows are grouped by', error));
       }
     }
   } catch (error) { warnOnce('could not find the fields that point at this page', error); }
@@ -126,6 +127,7 @@ async function load() {
   state.readAt = performance.now();
   peek.cache.clear();
   if (pageUuid) state.byPage.set(pageUuid, groups);
+  for (const uuid of state.opened) readBullets(uuid).catch(error => warnOnce('could not read the bullets of a node', error));
   draw(host());
   // Asked the moment the page changed, Logseq can still have named the page being left: ask once more for the one on screen.
   const shown = shownPage(host());
@@ -188,6 +190,8 @@ async function loadIndex() {
   if (state.pageUuid && state.byPage.has(state.pageUuid)) fresh.set(state.pageUuid, state.byPage.get(state.pageUuid));
   state.byPage = fresh;
   state.indexed = true;
+  const want = [...fresh.values()].flatMap(groupedUuids);
+  if (want.length) await readValues(want.slice(0, 2000)).catch(error => warnOnce('could not read the values the rows are grouped by', error));
 }
 
 // "9 Appointments · next Nov 12", "4 Lab panels, 3 Imaging studies · Aug 2 – Oct 9"
@@ -242,7 +246,7 @@ function rowHtml(group) {
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
     const dateFirst = orderOf(group) === 'date';
-    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day rf-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>`; }).join('');
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}<span class="rf-tw-day rf-day">${item.day ? esc(dayText(item.day)) : ''}</span><span class="rf-tw-namecell">${recordLink(item)}${last}</span>${tagLink(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}${item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}${last}</span>` : last}${tagLink(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; }).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -257,17 +261,206 @@ function rowHtml(group) {
     const chip = (tag, text) => `<button type="button" class="rf-chip rf-tw-chip" data-key="${esc(key)}" data-tag="${esc(tag)}" aria-pressed="${tag === only}">${esc(text)}</button>`;
     const chips = counts.size > 1 ? `<div class="rf-tw-chips">${chip('', `All ${group.items.length}`)}${[...counts].sort((a, b) => b[1] - a[1]).map(([tag, n]) => chip(tag, `${tag} ${n}`)).join('')}</div>` : '';
     const today = todayNumber();
-    const lines = shown.map((item, i) => {
-      const earlier = i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier rf-note">earlier</div>' : '';
-      const tag = tagLink(item);
-      if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>`;
-      return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>`;
-    }).join('');
-    const more = items.length > LISTED ? `<button type="button" class="rf-quiet rf-faint rf-tw-more" data-key="${esc(key)}">${all ? 'show fewer' : `show all ${items.length}`}</button>` : '';
-    list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
+    // Grouped (0.4.369): the nodes in groups by a tag, a month or a property's value, each group folding.
+    const grouping = groupingOf(group, items);
+    if (grouping) list = `<div class="rf-tw-list">${chips}${grouping.parts.map(part => groupHtml(group, part, grouping.by)).join('')}</div>`;
+    else {
+      const lines = shown.map((item, i) => lineFor(group, item, i > 0 && item.day && item.day < today && shown[i - 1].day >= today ? '<div class="rf-tw-earlier rf-note">earlier</div>' : '')).join('');
+      const more = items.length > LISTED ? `<button type="button" class="rf-quiet rf-faint rf-tw-more" data-key="${esc(key)}">${all ? 'show fewer' : `show all ${items.length}`}</button>` : '';
+      list = `<div class="rf-tw-list">${chips}${lines}${more}</div>`;
+    }
   }
-  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}</div>${list}${addLineHtml(group)}</div>`;
+  return `<div class="rf-tw-row" data-field="${esc(group.name)}"${open ? ' data-open=""' : ''}>${name}<div class="rf-tw-value">${fold}<a class="rf-tw-toggle" data-key="${esc(key)}" href="#" title="${open ? 'Fold the list' : 'Open the list'}">${esc(summary(group.items))}</a>${addLink(group)}${groupBtn(group)}</div>${list}${addLineHtml(group)}</div>`;
 }
+// One node of an open list (0.4.369, so a group can draw the same line): its box, its arrow, its day, name and tag.
+function lineFor(group, item, earlier = '') {
+  const tag = tagLink(item);
+  if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
+  return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
+}
+/* Write into a node without leaving (0.4.369, the owner kept it from the ideas page: "write into a node"): a small arrow
+   before a node, shown with the pointer on its line, opens the node's own first bullets under it, with a line to type
+   a new one. Enter adds it as the node's last bullet, in the node itself, as if typed there; the faded Undo arrow takes
+   it away. The bullets are read as words (a link in one opens its page); the existing ones are not edited here. */
+const BULLETS = 8;
+const intoBtn = item => { const on = state.opened.has(item.uuid); return `<a class="rf-quiet rf-tw-into" data-uuid="${esc(item.uuid)}" href="#"${on ? ' data-on=""' : ''} title="${on ? 'Close its bullets' : 'Open its bullets here, to read them and add one'}" aria-label="${on ? 'Close' : 'Open'} the bullets of ${esc(shortName(item.title))}">${iconHtml('fold')}</a>`; };
+function nodeBoxHtml(item) {
+  if (!state.opened.has(item.uuid)) return '';
+  const data = state.bullets.get(item.uuid);
+  const lines = data
+    ? data.lines.map(line => `<div class="rf-tw-bullet" data-uuid="${esc(line.uuid)}"><span class="rf-tw-bdot rf-faint" aria-hidden="true">•</span><span class="rf-tw-btext">${lineHtml(line.text, 400)}</span></div>`).join('')
+      + (data.more ? `<div class="rf-tw-bullet"><span class="rf-tw-bdot" aria-hidden="true"></span><a class="rf-tw-record rf-faint" data-uuid="${esc(item.uuid)}" href="#">and more: open it</a></div>` : '')
+    : '<div class="rf-tw-bullet rf-faint"><span class="rf-tw-bdot" aria-hidden="true"></span>Reading…</div>';
+  const hint = data && !data.lines.length ? 'Write its first bullet' : 'Add a bullet';
+  return `<div class="rf-tw-node" data-uuid="${esc(item.uuid)}">${lines}<div class="rf-tw-bullet rf-tw-bnew"><span class="rf-tw-bdot rf-faint" aria-hidden="true">+</span><span class="rf-field rf-field-inline"><input type="text" class="rf-tw-node-field" data-uuid="${esc(item.uuid)}" placeholder="${hint}" spellcheck="false" aria-label="A new bullet inside ${esc(shortName(item.title))}"></span></div></div>`;
+}
+async function readBullets(uuid) {
+  const lines = await provided.firstLines(uuid, BULLETS + 1, true);
+  const read = await Promise.all(lines.map(async line => ({ uuid: line.uuid, text: String(await provided.readableTitle(line.title).catch(() => line.title) || '').trim() })));
+  state.bullets.set(uuid, { lines: read.filter(line => line.text).slice(0, BULLETS), more: lines.length > BULLETS });
+  if (state.opened.has(uuid)) { state.html = null; draw(host()); }
+}
+function toggleInto(uuid) {
+  if (state.opened.has(uuid)) { state.opened.delete(uuid); if (state.nodeDraft?.uuid === uuid) state.nodeDraft = null; }
+  else { state.opened.add(uuid); readBullets(uuid).catch(error => warnOnce('could not read the bullets of a node', error)); }
+  state.html = null; draw(host());
+  if (state.opened.has(uuid)) focusNodeField(uuid);
+}
+function focusNodeField(uuid) {
+  const field = state.box?.querySelector(`.rf-tw-node-field[data-uuid="${CSS.escape(uuid)}"]`);
+  if (field) { field.focus({ preventScroll: true }); field.setSelectionRange(field.value.length, field.value.length); }
+}
+// The lines to type in are drawn again with the rows; what was typed comes back with them.
+function keepNodeField(box) {
+  for (const field of box.querySelectorAll('.rf-tw-node-field')) {
+    const uuid = field.dataset.uuid;
+    if (state.nodeDraft?.uuid === uuid) field.value = state.nodeDraft.text;
+    field.addEventListener('input', () => { state.nodeDraft = { uuid, text: field.value }; });
+    field.addEventListener('keydown', event => {
+      event.stopPropagation();
+      if (event.isComposing) return;
+      if (event.key === 'Enter') { event.preventDefault(); writeBullet(uuid, field.value).catch(error => warnOnce('could not add the bullet', error)); }
+      else if (event.key === 'Escape') { event.preventDefault(); field.blur(); }
+    });
+    for (const type of ['keyup', 'keypress']) field.addEventListener(type, event => event.stopPropagation());
+  }
+}
+async function writeBullet(uuid, typed) {
+  const text = String(typed || '').trim();
+  if (!text) return;
+  state.nodeDraft = null;
+  const group = state.groups.find(g => g.items.some(item => item.uuid === uuid));
+  try {
+    const block = await model.addLineTo(uuid, text);
+    if (!block?.uuid) throw new Error('the bullet was not made');
+    await readBullets(uuid);
+    focusNodeField(uuid);
+    offerUndo(`Added a bullet to “${shortName(titleFor(uuid))}”`, async () => { await model.removeBlock(block.uuid); await readBullets(uuid); later(300); }, group?.name);
+  } catch (error) { warnOnce('could not add the bullet', error); notify('The bullet could not be added', 'warning'); }
+  later(300);
+}
+// A click inside an opened node: a link in a bullet opens its page, a bullet opens itself, "and more" opens the node.
+function onNodeClick(event, node) {
+  if (event.target.closest('input')) return true;
+  const page = event.target.closest('[data-open-page]')?.dataset.openPage;
+  if (page) { event.preventDefault(); event.stopPropagation(); openPage(page, event.shiftKey); return true; }
+  const more = event.target.closest('a.rf-tw-record');
+  if (more) return false;
+  const bullet = event.target.closest('.rf-tw-bullet[data-uuid]');
+  if (bullet) { event.preventDefault(); event.stopPropagation(); openEntity(bullet.dataset.uuid, event.shiftKey); return true; }
+  return true;
+}
+
+/* Group a row by anything (0.4.369, the owner kept it from the ideas page): a list of nodes (more than three) can be
+   grouped by their tag, their month, or the value of any property they hold (a claim's Confidence, a task's Project),
+   each group folding, biggest first, those with none last. Chosen from the word after the count ("group", then "by
+   Confidence") or from the right-click menu on the row's name, and remembered per property. Only how the row is shown:
+   nothing is written. The values are read through the model (nodeValues) when a property is chosen and again whenever
+   the rows are read, so a row grouped on a page opens grouped. */
+const GROUP_KEY = 'refinementTwoWayGroup', GROUP_LISTED = 12;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const groupOf = group => state.group.get(group.name) || '';
+const groupName = by => by === 'tag' ? 'tag' : by === 'month' ? 'month' : by.slice(2);
+function readGroup() { try { state.group = new Map(Object.entries(JSON.parse(host().defaultView.localStorage.getItem(GROUP_KEY) || '{}'))); } catch { state.group = new Map(); } }
+function setGroup(field, by) {
+  if (by) state.group.set(field, by); else state.group.delete(field);
+  try { host().defaultView.localStorage.setItem(GROUP_KEY, JSON.stringify(Object.fromEntries(state.group))); } catch { /* kept for this session */ }
+}
+function groupingOf(group, items) {
+  const by = groupOf(group);
+  if (!by) return null;
+  const buckets = new Map();
+  const put = (key, label, item, value, none) => { let b = buckets.get(key); if (!b) buckets.set(key, b = { key: String(key), label, items: [], value, none: !!none }); b.items.push(item); };
+  if (by === 'tag') for (const item of items) { const none = !item.tag || item.tag === 'note'; put(none ? '' : item.tag, none ? 'No tag' : item.tag, item, null, none); }
+  else if (by === 'month') for (const item of items) { if (!item.day) put('', 'No date', item, null, true); else { const m = Math.floor(item.day / 100); put(m, `${MONTH_NAMES[m % 100 - 1]} ${Math.floor(m / 100)}`, item, null); } }
+  else if (by.startsWith('p:')) {
+    const name = by.slice(2);
+    // Not read yet: the plain list until it is.
+    if (!items.some(item => state.values.has(item.uuid))) return null;
+    for (const item of items) {
+      const held = state.values.get(item.uuid)?.get(name);
+      if (!held?.values.length) { put('', `No ${name}`, item, null, true); continue; }
+      const seen = new Set();
+      for (const v of held.values) {
+        let label = v.day ? dayText(v.day) : v.text;
+        if (!label || seen.has(label)) continue;
+        seen.add(label);
+        // A bare number says nothing as a group's name: "Severity 3".
+        put(label, /^-?\d+(\.\d+)?$/.test(label) ? `${name} ${label}` : label, item, { ident: held.ident, ...v });
+      }
+    }
+  } else return null;
+  // Biggest first; a month newest first; numbers, a scale, in order; those with none last.
+  const parts = [...buckets.values()], numbers = by.startsWith('p:') && parts.filter(p => !p.none).every(p => p.value && typeof p.value.number === 'number');
+  parts.sort((a, b) => a.none - b.none || (by === 'month' ? Number(b.key) - Number(a.key) : numbers ? a.value.number - b.value.number : b.items.length - a.items.length) || a.label.localeCompare(b.label));
+  return { by, parts };
+}
+const groupKey = (group, by, part) => `${state.pageUuid}|${group.name}|${by}|${part.key}`;
+function groupHtml(group, part, by) {
+  const gkey = groupKey(group, by, part);
+  const open = isOpen(gkey), all = state.all.has(gkey);
+  const adding = state.draft?.field === group.name && state.draft.gkey === gkey;
+  // The + puts a node here with the row's field pointing at this page and the group's value set (not for a month, nor for "none").
+  const addable = group.ident && by !== 'month' && (by === 'tag' || !part.none);
+  const plus = addable ? `<button type="button" class="rf-quiet rf-faint rf-tw-gadd" data-gkey="${esc(gkey)}" data-field="${esc(group.name)}" title="Add a node here: “${esc(group.name)}” set to this page${by === 'tag' ? `, tagged ${esc(part.label)}` : `, ${esc(groupName(by))} set to ${esc(part.label)}`}">+</button>` : '';
+  const shown = all ? part.items : part.items.slice(0, GROUP_LISTED);
+  const more = open && part.items.length > GROUP_LISTED ? `<button type="button" class="rf-quiet rf-faint rf-tw-more" data-key="${esc(gkey)}">${all ? 'show fewer' : `show all ${part.items.length}`}</button>` : '';
+  const label = by === 'tag' && !part.none ? `<span class="rf-tag rf-tw-gname">${esc(part.label)}</span>` : `<span class="rf-tw-gname">${esc(part.label)}</span>`;
+  return `<div class="rf-tw-group"${open ? ' data-open=""' : ''}><div class="rf-tw-ghead"><a class="rf-tw-gtoggle" data-gkey="${esc(gkey)}" href="#" title="${open ? 'Fold' : 'Open'} this group"><span class="rf-tw-gchev">${iconHtml('fold')}</span>${label}<span class="rf-note rf-tw-gn">${part.items.length}</span></a>${plus}</div>${open && adding ? draftLineHtml(group, state.draft) : ''}${open ? shown.map(item => lineFor(group, item)).join('') : ''}${more}</div>`;
+}
+const groupBtn = group => { const by = groupOf(group); return `<button type="button" class="rf-quiet rf-faint rf-tw-groupby"${by ? ' data-on=""' : ''} data-field="${esc(group.name)}" title="Group the list by a tag, a month or a property">${by ? `by ${esc(groupName(by))}` : 'group'}${iconHtml('chevron-down')}</button>`; };
+// The values of these nodes, read through the model (400 at a time) into the cache the groups are made from.
+async function readValues(uuids) {
+  const need = [...new Set(uuids)].filter(uuid => UUID.test(uuid));
+  for (let at = 0; at < need.length; at += 400) {
+    const part = need.slice(at, at + 400), found = await provided.nodeValues(part);
+    for (const uuid of part) state.values.set(uuid, found.get(uuid) || new Map());
+  }
+}
+const groupedUuids = groups => groups.filter(g => g.items.length > INLINE && groupOf(g).startsWith('p:')).flatMap(g => g.items.map(item => item.uuid));
+// What a row can be grouped by, as the kit's menu: nothing, the tag, the month, then each property its nodes hold.
+async function groupMenu(group, anchor) {
+  closeAdd(); hidePeek();
+  await readValues(group.items.map(item => item.uuid)).catch(error => warnOnce('could not read the values to group by', error));
+  const by = groupOf(group), held = new Map();
+  for (const item of group.items) for (const [name, entry] of state.values.get(item.uuid) || []) {
+    if (name === group.name) continue;
+    if (!held.has(name)) held.set(name, { nodes: 0, values: new Set() });
+    const h = held.get(name); h.nodes++;
+    for (const v of entry.values) h.values.add(v.day ? `d${v.day}` : v.text);
+  }
+  const choose = to => { setGroup(group.name, to); if (state.draft?.gkey) { state.draft = null; closeAdd(); } state.html = null; draw(host()); };
+  const items = [{ label: 'Nothing', chosen: !by, run: () => choose('') }];
+  if (new Set(group.items.map(item => item.tag)).size > 1) items.push({ icon: 'tag', label: 'Tag', chosen: by === 'tag', run: () => choose('tag') });
+  if (group.items.some(item => item.day)) items.push({ icon: 'date', label: 'Month', chosen: by === 'month', run: () => choose('month') });
+  const props = [...held].filter(([, h]) => h.values.size > 1 || h.nodes < group.items.length).sort((a, b) => b[1].nodes - a[1].nodes || a[0].localeCompare(b[0]));
+  if (props.length) items.push({ sep: true }, ...props.map(([name, h]) => ({ icon: 'property', label: name, right: `${h.values.size} ${h.values.size === 1 ? 'value' : 'values'}`, chosen: by === `p:${name}`, run: () => choose(`p:${name}`) })));
+  else items.push({ note: 'These nodes hold no property to group by' });
+  adding.pop = shared.popup({ at: anchor, head: `Group “${group.label}” by`, width: 250, items, onClose: () => { adding.pop = null; } });
+}
+// The + in a group: the line to type in opens under the group's name, with what the group has in common set when it is made.
+function startGroupDraft(group, gkey) {
+  const grouping = groupingOf(group, group.items);
+  const part = grouping?.parts.find(p => groupKey(group, grouping.by, p) === gkey);
+  if (!part) return;
+  closeAdd(); state.draft = null;
+  const d = draftFor(group);
+  d.gkey = gkey; d.step = 'name';
+  if (grouping.by === 'tag') d.kind = part.none ? '' : part.label;
+  d.set = grouping.by.startsWith('p:') && !part.none ? part.value : null;
+  setOpen(gkey, true);
+  state.html = null; draw(host()); focusDraft();
+}
+// What a group has in common, put on the new node: a node, a choice or a day by its id, a number or words as they are.
+async function setGroupValue(uuid, set) {
+  const prop = (await provided.propSchema()).props.find(p => p.ident === set.ident);
+  if (!prop) return;
+  if (prop.choices.length || ['node', 'page', 'date'].includes(prop.type)) { if (set.id != null) await setValues(uuid, prop, [set.id]); }
+  else if (set.number != null) await model.setValue(uuid, prop.ident, set.number);
+  else if (set.boolean != null) await model.setValue(uuid, prop.ident, set.boolean);
+  else if (set.text != null) await model.setValue(uuid, prop.ident, set.text);
+}
+
 // Open or folded, per page and field, kept in Logseq's window storage (0.4.184): open unless you folded it.
 /* Date first or name first, per property on every page (0.4.304, the owner: "allow name or date to be chosen for each
    group through a right click"). Unless chosen: a list (more than three) dated first, a short row by name. */
@@ -317,8 +510,8 @@ async function peekData(uuid, field) {
   return data;
 }
 // A line's words with its links open: [[Page]] as Page, [words]([[Page]]) as words, each opening the page.
-function lineHtml(text) {
-  const short = text.length > 140 ? text.slice(0, 139) + '…' : text;
+function lineHtml(text, limit = 140) {
+  const short = text.length > limit ? text.slice(0, limit - 1) + '…' : text;
   let html = '', at = 0;
   for (const m of short.matchAll(/\[([^\[\]]+)\]\(\[\[([^\]]+)\]\]\)|\[\[([^\]]+)\]\]/g)) {
     html += esc(short.slice(at, m.index)) + `<span class="rf-tw-peek-open" data-open-page="${esc(m[2] ?? m[3])}">${esc(m[1] ?? m[3])}</span>`;
@@ -445,7 +638,7 @@ function easeHold(box) {
   settle.ease = setTimeout(() => { box.removeAttribute('data-rf-settling'); if (box.style.getPropertyValue('--rf-tw-hold') === '0px') setHold(box, 0); }, 300);
 }
 function onRoute() {
-  hidePeek(); closeAdd(); state.draft = null; state.picked.clear(); state.lastPick = '';
+  hidePeek(); closeAdd(); state.draft = null; state.picked.clear(); state.lastPick = ''; state.opened.clear(); state.nodeDraft = null;
   // The page being left, which may still be on screen for a moment and must not take the new page's place.
   settle.leaving = settle.page || shownPage(host());
   Object.assign(settle, { since: performance.now(), page: '', saved: false });
@@ -487,7 +680,13 @@ function draw(doc) {
   }
   if (!rows) state.picked.clear();
   const html = rows ? barHtml() + state.groups.map(rowHtml).join('') : '';
-  if (state.html !== html) { const typing = box.contains(box.ownerDocument.activeElement) && box.ownerDocument.activeElement.matches('.rf-tw-draft-name'); state.html = html; box.innerHTML = html; keepDraft(box); if (typing) focusDraft(); }
+  if (state.html !== html) {
+    const active = box.contains(box.ownerDocument.activeElement) ? box.ownerDocument.activeElement : null;
+    const typing = active?.matches('.rf-tw-draft-name'), typingNode = active?.matches('.rf-tw-node-field') ? active.dataset.uuid : '';
+    state.html = html; box.innerHTML = html; keepDraft(box); keepNodeField(box);
+    if (typing) focusDraft();
+    if (typingNode) focusNodeField(typingNode);
+  }
   box.toggleAttribute('data-picking', state.picked.size > 0);
   if (anchor.nextElementSibling !== box) anchor.after(box);
   holdRoom(doc, box, mode, page);
@@ -500,10 +699,23 @@ const drawEarly = (doc, records) => { if (performance.now() - settle.since < SET
 function onClick(event) {
   const pickEl = event.target.closest?.('.rf-tw-bar [data-act]') || event.target.closest?.('.rf-tw-row .rf-tw-pick');
   if (pickEl) { event.preventDefault(); event.stopPropagation(); hidePeek(); return pickEl.dataset.act ? act(pickEl.dataset.act, pickEl) : togglePick(pickEl, event.shiftKey); }
+  const inNode = event.target.closest?.('.rf-tw-node');
+  if (inNode && onNodeClick(event, inNode)) return;
+  const into = event.target.closest?.('.rf-tw-into');
+  if (into) { event.preventDefault(); event.stopPropagation(); hidePeek(); return toggleInto(into.dataset.uuid); }
+  const groupBy = event.target.closest?.('.rf-tw-groupby');
+  if (groupBy) {
+    event.preventDefault(); event.stopPropagation();
+    const group = state.groups.find(g => g.name === groupBy.dataset.field);
+    if (group) groupMenu(group, groupBy).catch(error => warnOnce('could not open the group menu', error));
+    return;
+  }
+  const groupAdd = event.target.closest?.('.rf-tw-gadd');
+  if (groupAdd) { event.preventDefault(); event.stopPropagation(); hidePeek(); const group = state.groups.find(g => g.name === groupAdd.dataset.field); if (group) startGroupDraft(group, groupAdd.dataset.gkey); return; }
   // A click that just misses the box, anywhere in the room left of the record, ticks it too (0.4.297, the owner: "make
   // checkbox tap area bigger"): before, it opened the record and took you off the page.
   const rowEl = !event.target.closest?.('a, button') && event.target.closest?.('.rf-tw-line, .rf-tw-item');
-  const first = rowEl && rowEl.querySelector(':scope > :not(.rf-tw-pick)');
+  const first = rowEl && rowEl.querySelector(':scope > :not(.rf-tw-pick):not(.rf-tw-into)');
   const box = rowEl && rowEl.querySelector(':scope > .rf-tw-pick');
   if (box && first && event.clientX < first.getBoundingClientRect().left) { event.preventDefault(); event.stopPropagation(); hidePeek(); return togglePick(box, event.shiftKey); }
   const plus = event.target.closest?.('.rf-tw-add');
@@ -521,7 +733,8 @@ function onClick(event) {
   if (target.matches('.rf-tw-tag[data-tag-page]')) return openPage(target.dataset.tagPage, event.shiftKey);
   if (target.matches('[data-draft="tag"]')) return tagList(target);
   const key = target.dataset.key;
-  if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
+  if (target.matches('.rf-tw-gtoggle')) setOpen(target.dataset.gkey, !isOpen(target.dataset.gkey));
+  else if (target.matches('.rf-tw-toggle, .rf-tw-fold')) setOpen(key, !isOpen(key));
   else if (target.matches('.rf-tw-more')) { if (state.all.has(key)) state.all.delete(key); else state.all.add(key); }
   else if (target.matches('.rf-tw-chip')) {
     const tag = target.dataset.tag || '';
@@ -552,6 +765,7 @@ function onRename(event) {
   adding.pop = shared.popup({ at: nameEl.querySelector('.rf-tw-field') || nameEl, head: group.label, width: 220, onClose: () => { adding.pop = null; }, items: [
     { label: 'Date first', chosen: now === 'date', run: () => pick('date') },
     { label: 'Name first', chosen: now === 'name', run: () => pick('name') },
+    ...(group.items.length > INLINE ? [{ icon: 'order', label: 'Group by…', run: () => { groupMenu(group, nameEl.querySelector('.rf-tw-field') || nameEl).catch(error => warnOnce('could not open the group menu', error)); } }] : []),
     { sep: true },
     { icon: 'rename', label: 'Rename how it reads…', run: () => { renameRow(group, nameEl).catch(error => warnOnce('could not rename the row', error)); } },
   ] });
@@ -589,7 +803,7 @@ function kindsOf(group) {
 function draftFor(group) {
   if (state.draft?.field === group.name) return state.draft;
   const kinds = kindsOf(group);
-  state.draft = { field: group.name, kinds, kind: kinds[0] || '', step: 'name', name: '', where: '', asPage: null, lit: 0 };
+  state.draft = { field: group.name, kinds, kind: kinds[0] || '', step: 'name', name: '', where: '', asPage: null, lit: 0, gkey: '', set: null };
   readTitle().catch(() => {});
   provided.pagesAmong(group.items.map(item => item.uuid), uuidsIn).then(pages => { if (state.draft?.field === group.name) state.draft.asPage = pages * 2 > group.items.length; }).catch(() => {});
   return state.draft;
@@ -598,8 +812,12 @@ function addLineHtml(group) {
   if (!group.ident) return '';
   const d = state.draft?.field === group.name ? state.draft : null;
   // The + in the gap under the row (0.4.303, the owner: "you can just have a plus in the gap that then open input"):
-  // shown with the pointer on the row, it takes no room; the line comes only once it is clicked.
-  if (!d) return '';
+  // shown with the pointer on the row, it takes no room; the line comes only once it is clicked. A line begun from a
+  // group's + is drawn in that group (0.4.369).
+  if (!d || d.gkey) return '';
+  return draftLineHtml(group, d);
+}
+function draftLineHtml(group, d) {
   const kind = d ? d.kind : kindsOf(group)[0] || '';
   const tag = `<a class="rf-tag rf-tw-tag rf-tw-draft-tag" href="#" data-draft="tag" title="The tag it gets (click for the others)">${kind ? esc(kind) : 'no tag'}</a>`;
   const field = d?.step === 'where'
@@ -645,6 +863,8 @@ function onDraftKey(event) {
     event.preventDefault();
     if (!d?.name.trim()) return;
     if (onWhere) { const lit = adding.pop?.body.querySelectorAll('.rf-item')[d.lit]; return makeDraft(lit?.item?.act || 'journal', event.metaKey || event.ctrlKey); }
+    // From a group's +: no question where, today's journal (a page of its own where the nodes are pages).
+    if (d.gkey) return makeDraft(d.asPage ? 'page-itself' : 'journal', event.metaKey || event.ctrlKey);
     if (d.asPage) return makeDraft('page-itself', event.metaKey || event.ctrlKey);
     d.step = 'where'; d.lit = 0;
     draw(host()); focusDraft();
@@ -677,7 +897,7 @@ async function makeDraft(target, open) {
   const where = asPage || target === 'journal' ? 'journal' : target === 'here' ? 'here' : 'page';
   const other = where === 'page' ? target.slice(5) : '';
   dropDraft();
-  try { await addRecord({ group, page, name, kind: d.kind, open, asPage, where, other }); }
+  try { await addRecord({ group, page, name, kind: d.kind, open, asPage, where, other, set: d.set }); }
   catch (error) { warnOnce('could not add the new record', error); notify('The new record could not be added', 'warning'); }
 }
 // The other tags, under the tag at the line's right: the kit's pop-up, the one in force ticked.
@@ -691,7 +911,7 @@ function tagList(anchor) {
   adding.pop = shared.popup({ at, cls: 'refinement-two-way-add', width: 200, onClose: () => { adding.pop = null; },
     items: [...d.kinds, ''].map(k => ({ icon: k ? 'tag' : null, label: k || 'no tag', faint: !k, chosen: k === d.kind, run: () => { d.kind = k; draw(host()); focusDraft(); } })) });
 }
-async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '', edit = false }) {
+async function addRecord({ group, page, name, kind, open, asPage, where = 'journal', other = '', edit = false, set = null }) {
   if (asPage && await model.getPage(name).catch(() => null)) return notify(`A page named “${name}” already exists, so nothing was added`, 'warning');
   const prop = (await provided.propSchema()).props.find(p => p.ident === group.ident);
   let tagUuid = '';
@@ -728,6 +948,7 @@ async function addRecord({ group, page, name, kind, open, asPage, where = 'journ
     if (tagUuid) await model.addTag(block.uuid, tagUuid);
     if (prop?.many) await model.setValue(block.uuid, group.ident, [page.id], { entityId: true, reset: true });
     else await model.setValue(block.uuid, group.ident, page.id, { entityId: true });
+    if (set?.ident) await setGroupValue(block.uuid, set);
   } catch (error) { await undo().catch(() => {}); throw error; }
   later(300);
   offerUndo(`Added “${name}”${kind ? ` (${kind})` : ''}${asPage ? ' as a page' : where === 'here' ? ' to this page' : where === 'page' ? ` to ${other}` : ' to today’s journal'}`, undo, group.name);
@@ -1016,6 +1237,35 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-draft-main .rf-field { flex: 1; min-width: 0; }
 .refinement-two-way .rf-tw-draft-typed { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refinement-two-way .rf-tw-draft .rf-tw-draft-tag { margin-left: 0; white-space: nowrap; }
+/* Group a row by anything (0.4.369): the word after the count, a group's name with its count and its +, the lines
+   under it. Write into a node (0.4.369): the small arrow before a node, its bullets under its line. */
+.refinement-two-way .rf-tw-groupby { margin-left: .6em; height: 20px; padding: 0 5px; gap: 2px; visibility: hidden; }
+.refinement-two-way .rf-tw-row:hover .rf-tw-groupby, .refinement-two-way .rf-tw-groupby[data-on], .refinement-two-way .rf-tw-groupby:focus-visible { visibility: visible; }
+.refinement-two-way .rf-tw-groupby .ti { font-size: 12px; }
+.refinement-two-way .rf-tw-ghead { display: flex; align-items: baseline; gap: .3em; margin: .4rem 0 .05rem; }
+.refinement-two-way .rf-tw-group:first-child .rf-tw-ghead { margin-top: .1rem; }
+.refinement-two-way .rf-tw-gtoggle { display: inline-flex; align-items: baseline; gap: .35em; border-radius: 4px; padding: 0 .25em; margin-left: -.25em; color: var(--rf-quiet); }
+.refinement-two-way .rf-tw-gtoggle:hover { background: var(--rf-wash); color: inherit; }
+.refinement-two-way .rf-tw-gchev { display: inline-flex; align-self: center; width: 14px; justify-content: center; }
+.refinement-two-way .rf-tw-gchev .ti { font-size: 13px; transition: transform .16s ease; }
+.refinement-two-way .rf-tw-group[data-open] .rf-tw-gchev .ti { transform: rotate(90deg); }
+.refinement-two-way .rf-tw-gn { font-size: .88em; }
+.refinement-two-way .rf-tw-gadd { height: 20px; padding: 0 5px; visibility: hidden; }
+.refinement-two-way .rf-tw-ghead:hover .rf-tw-gadd, .refinement-two-way .rf-tw-gadd:focus-visible { visibility: visible; }
+.refinement-two-way .rf-tw-group .rf-tw-draft { padding-left: .35rem; }
+.refinement-two-way .rf-tw-group .rf-tw-draft-plus { display: none; }
+.refinement-two-way .rf-tw-into { position: absolute; left: -15px; top: .3em; width: 14px; height: 16px; padding: 0; justify-content: center; visibility: hidden; }
+.refinement-two-way .rf-tw-item > .rf-tw-into { left: -9px; }
+.refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-into, .refinement-two-way .rf-tw-into[data-on], .refinement-two-way .rf-tw-into:focus-visible { visibility: visible; }
+.refinement-two-way .rf-tw-into .ti { font-size: 13px; transition: transform .16s ease; }
+.refinement-two-way .rf-tw-into[data-on] .ti { transform: rotate(90deg); }
+.refinement-two-way .rf-tw-node { flex-basis: 100%; min-width: 0; margin: .05rem 0 .35rem 4em; padding-left: .6rem; border-left: 1px solid var(--rf-line); display: grid; gap: 1px; }
+.refinement-two-way .rf-tw-namefirst + .rf-tw-node, .refinement-two-way .rf-tw-item:not(.rf-tw-datefirst) + .rf-tw-node { margin-left: .4em; }
+.refinement-two-way .rf-tw-bullet { display: grid; grid-template-columns: 1em minmax(0, 1fr); column-gap: .3em; align-items: baseline; }
+.refinement-two-way .rf-tw-bullet[data-uuid] { cursor: pointer; }
+.refinement-two-way .rf-tw-bdot { text-align: center; }
+.refinement-two-way .rf-tw-btext .rf-tw-peek-open { border-bottom: 1px solid var(--rf-line); cursor: pointer; }
+.refinement-two-way .rf-tw-bnew .rf-field { min-width: 0; }
 /* Picking (0.4.228): the kit's tick box before each record, in the room left of it; shown under the pointer and on
    every record while any is picked. The bar is the kit's, above the rows. */
 .refinement-two-way .rf-tw-row .rf-tw-pick { position: absolute; left: -15px; top: .45em; visibility: hidden; }
@@ -1093,6 +1343,7 @@ function start() {
   readHeights();
   readOpen();
   readOrder();
+  readGroup();
   watchDomEarly(drawEarly);
   draw(host());
   // At once (0.4.150): the look-up waits in line behind Logseq loading the page anyway. The box stays until the next
@@ -1104,7 +1355,7 @@ function start() {
     if (settingsSchema.some(item => now?.[item.key] !== before?.[item.key])) { applyStyles(); later(0); indexLater(0); }
   });
   // A click away from an empty draft line drops it; one with words keeps them.
-  const away = event => { if (state.draft && !state.draft.name.trim() && !event.target.closest?.('.rf-tw-draft, .refinement-two-way-add, .rf-tw-add')) { state.draft = null; closeAdd(); draw(host()); } };
+  const away = event => { if (state.draft && !state.draft.name.trim() && !event.target.closest?.('.rf-tw-draft, .refinement-two-way-add, .rf-tw-add, .rf-tw-gadd')) { state.draft = null; closeAdd(); draw(host()); } };
   host().addEventListener('mousedown', away, true);
   onUnload(() => host().removeEventListener('mousedown', away, true));
   const escape = event => { if (event.key === 'Escape' && state.picked.size && !event.target.closest?.('input, textarea, [contenteditable="true"]')) { state.picked.clear(); draw(host()); } };

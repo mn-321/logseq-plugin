@@ -115,7 +115,7 @@ a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   </div></div>
 </section>
 
-<div class="part">Kept, to build later (owner, 2026-10-24)</div>
+<div class="part">Built: 1, 2 and 3 (working in Logseq, 2026-10-24)</div>
 
 <section class="idea">
   <h2>1. Group a row by anything</h2>
@@ -193,15 +193,21 @@ a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   </div></div>
 </section>
 
+<div class="part">Not built: 4 and 5, explained</div>
+
 <section class="idea">
   <h2>4. Follow a chain without leaving</h2>
-  <p class="where"><b>Where you are:</b> the Spaced repetition page. A claim says "Cepeda 2006". You want to know what that source is, who wrote it, and what else it claims, without opening three pages.</p>
-  <ol class="steps">
-    <li>Click the arrow before the claim. Under its line you see its properties, and its own rows: what points at the claim.</li>
-    <li>Click the arrow before its Source, Cepeda 2006. The source opens one step deeper: its authors, and every claim it backs.</li>
-    <li>Keep going as far as the links go. Each step sits under the one before, so you can see the whole path.</li>
-  </ol>
-  <p class="result"><b>In your notes:</b> nothing changes. You read what is already linked, several steps away, on one page.</p>
+  <p class="where"><b>The idea in one line:</b> the small arrow you now have before a node opens its bullets. For 4, it would also list the node's properties. Each one that links to another node gets its own small arrow, so you can keep going, one node under the next, without leaving the page.</p>
+  <p class="where"><b>What happens, step by step:</b> you click the arrow before a node. Under it you see its properties as lines. A property that holds a link, such as Source or Provider, has its own arrow. You click that, and the linked node opens under it with its own properties, and so on. Reading only. Nothing is written. It stops after three steps, and it will not open a node that is already open above it, so a loop cannot run away.</p>
+  <p class="where"><b>Examples, on any kind of notes:</b></p>
+  <ul class="steps">
+    <li><b>Illness graph.</b> On Colon cancer, open "First appointment with my oncologist". Open its Provider, Dr. Mei Chen. Open her Works at, Northgate. You see where she works without opening three pages.</li>
+    <li><b>Research notes.</b> On a concept page, open a claim. Open its Source, then the source's Authors. You see who stands behind the claim.</li>
+    <li><b>Projects.</b> On a project page, open a task. Open its Owner. You see that person's other properties, such as their team.</li>
+    <li><b>Reading list.</b> On a topic page, open a book. Open its Author, then the author's other books.</li>
+  </ul>
+  <p class="where"><b>Where it falls short:</b> if you only want one fact, resting the pointer on a node already shows its properties in a card. And a long chain gets tall. So it is a convenience, not a new ability. The part that is new is keeping the path in front of you as you go deeper.</p>
+  <p class="where"><b>My view:</b> a small extra on top of what you now have. The cheapest version is a single step: the opened node also lists its properties. I would do that one step later, and skip the deeper chain unless you miss it.</p>
   <div class="shot"><div class="sheet">
     <div class="row"><div class="rname">claims about →</div><div>
       <div class="line"><span class="fold">⌄</span><a class="rec" href="#">Spacing beats cramming for recall a week later</a><a class="tag" href="#">Claim</a></div>
@@ -222,13 +228,19 @@ a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 
 <section class="idea">
   <h2>5. A row for what sits two steps away</h2>
-  <p class="where"><b>Where you are:</b> the Spaced repetition page. No source points at the concept directly. Sources point at claims, and the claims point here. So the page cannot tell you what the evidence rests on.</p>
-  <ol class="steps">
-    <li>Right-click the "claims about" row and choose "Add a row through this".</li>
-    <li>Pick the claims' property to follow: Source.</li>
-    <li>A new row appears, "sources behind →", listing every source reached through the claims, each saying how many claims it carries. Click a source to see only its claims above.</li>
-  </ol>
-  <p class="result"><b>In your notes:</b> nothing changes. The row is built from links that already exist, and stays on the page.</p>
+  <p class="where"><b>The idea in one line:</b> a page's rows show what points straight at it. A new row would show what those nodes point at, which sits two steps away. For example, this concept page shows its claims, and the new row shows the sources those claims rest on.</p>
+  <p class="where"><b>What happens, step by step:</b> you right-click a row's name and choose "Add a row through this". A list shows the properties those nodes hold, the same list the "group" menu shows. You pick one. A new row appears under the first, showing every different node that property points at, each with how many of the row's nodes point there. Click a name to open it. The choice is remembered for that row. Nothing is written, since it only reads links that already exist.</p>
+  <p class="where"><b>Examples, on any kind of notes:</b></p>
+  <ul class="steps">
+    <li><b>Research notes.</b> Spaced repetition, row "claims about", through Source: <i>Cepeda 2006 (3 claims), Roediger 2011 (2), Rohrer 2015 (2)</i>. You see what the evidence rests on.</li>
+    <li><b>Illness graph, a condition.</b> Colon cancer, row "topic of" (consultations and conversations), through Provider: <i>Dr. Mei Chen 2, Dr. Raj Patel 1, Dr. Helen Brooks 1</i>. You see who has been involved.</li>
+    <li><b>Illness graph, a doctor.</b> Dr. Mei Chen, row "provider of", through Topic: <i>Colon cancer 3, Peripheral neuropathy 1</i>. You see what she has dealt with.</li>
+    <li><b>Illness graph, a hospital.</b> Northgate Cancer Center, row "works at" (doctors), through Specialty: <i>Oncology 2</i>. You see what is practised there.</li>
+    <li><b>Projects.</b> A project page, row "project of" (tasks), through Owner: <i>Alex 5, Sam 3</i>. You see who is on it.</li>
+    <li><b>People.</b> A person page, row "attendee of" (meetings), through Project: <i>Mobile app 4, Search 2</i>. You see what they are part of.</li>
+  </ul>
+  <p class="where"><b>Where it falls short:</b> it only follows one property at a time, and only one step. If just some nodes hold the property, the count can mislead, so the row would say "3 of 5 have it". It cannot say why two things are linked. It is only a count of links.</p>
+  <p class="where"><b>My view:</b> the more practical of the two. The reading it needs is the same one that now powers "group by", so it is cheap, and it answers a question the page cannot answer today: what do these nodes lead to? I would build this one next.</p>
   <div class="shot"><div class="sheet">
     <div class="row"><div class="rname">claims about →</div><div class="line"><span class="fold">›</span><a class="rec" href="#">9 Claims</a></div></div>
     <div class="row new"><div class="rname">sources behind →</div><div>

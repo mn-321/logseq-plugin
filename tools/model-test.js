@@ -95,6 +95,9 @@ function largeGraph(pages = 20000, propCount = 300) {
 
 /* The stand-in for Logseq's datascriptQuery: it recognises each query the model sends by its shape and answers
    from the pretend graph, in Logseq's shape (pulled maps with shortened keys). */
+// What nodeValues (0.4.369) reads: rows of what nodes hold under your properties, in the four shapes of its four queries.
+let VALUE_ROWS = [];
+const askedUuids = query => [...query.matchAll(/#uuid "([^"]+)"/g)].map(m => m[1]);
 function fakeDb(graph, log) {
   const all = () => Object.values(graph);
   const ref = id => ({ id });
@@ -123,8 +126,17 @@ function fakeDb(graph, log) {
     [/:find \?d :where \[\?p :block\/uuid #uuid "([^"]+)"\] \[\?p :logseq\.property\/deleted-at \?d\]/, m => all().filter(x => x.uuid === m[1] && x.deleted).map(() => [1]),],
     [/:find \(pull \?p \[:db\/id\]\) :where \[\?p :block\/journal-day (\d+)\]\]/, m => all().filter(x => x.journalDay === Number(m[1])).map(x => [ref(x.id)])],
   ];
+  // nodeValues: the four queries share their first clause, a ground list of the nodes asked about.
+  const valueShape = find => new RegExp(`:find ${find} :where \\[\\(ground \\[[^\\]]*\\]\\) \\[\\?u \\.\\.\\.\\]\\]`);
+  const heldBy = query => VALUE_ROWS.filter(r => askedUuids(query).includes(r.u));
+  shapes.push(
+    [valueShape('\\?u \\?name \\?attr \\?v'), (m, query) => heldBy(query).map(r => [r.u, r.name, ':' + r.attr, r.v])],
+    [valueShape('\\?u \\?name \\?attr \\?v \\?t \\?vu'), (m, query) => heldBy(query).filter(r => r.title != null).map(r => [r.u, r.name, ':' + r.attr, r.v, r.title, r.vu])],
+    [valueShape('\\?u \\?name \\?attr \\?v \\?d'), (m, query) => heldBy(query).filter(r => r.day != null).map(r => [r.u, r.name, ':' + r.attr, r.v, r.day])],
+    [valueShape('\\?u \\?name \\?attr \\?v \\?n'), (m, query) => heldBy(query).filter(r => 'n' in r).map(r => [r.u, r.name, ':' + r.attr, r.v, r.n])],
+  );
   return async query => {
-    for (const [shape, answer] of shapes) { const m = query.match(shape); if (m) { log.push(shape.source.slice(0, 30)); return answer(m); } }
+    for (const [shape, answer] of shapes) { const m = query.match(shape); if (m) { log.push(shape.source.slice(0, 30)); return answer(m, query); } }
     problem('a query the stand-in does not know (add its shape, and check it in the app): ' + query.replace(/\s+/g, ' ').slice(0, 200));
     return [];
   };
@@ -336,6 +348,26 @@ async function main() {
     }
   }
 
+  // What many nodes hold (nodeValues, 0.4.369): a node, a choice, text, a day, a number and a yes/no, each as its own kind of value.
+  VALUE_ROWS = [
+    { u: U(60), name: 'Confidence', attr: 'user.property/confidence', v: 301, title: 'Strong', vu: U(301) },
+    { u: U(60), name: 'Severity', attr: 'user.property/severity', v: 410, n: 3 },
+    { u: U(60), name: 'Date', attr: 'user.property/date', v: 77, day: 20261001 },
+    { u: U(60), name: 'Done', attr: 'user.property/done', v: 411, n: true },
+    { u: U(60), name: 'Notes', attr: 'user.property/notes', v: 'plain words' },
+    { u: U(60), name: 'Notes', attr: 'user.property/notes', v: 412, title: 'a text value is a node', vu: U(412) },
+    { u: U(61), name: 'Confidence', attr: 'user.property/confidence', v: 302, title: 'Disputed', vu: U(302) },
+    { u: U(61), name: 'Confidence', attr: 'user.property/confidence', v: 302, title: 'Disputed', vu: U(302) }, // the same row twice: one value
+  ];
+  const held = await model.nodeValues([U(60), U(61), U(62), 'not a uuid']);
+  same([...held.keys()].sort(), [U(60), U(61)], 'nodeValues: a node holding nothing of yours has no entry, a bad uuid is left out');
+  same(held.get(U(60)).get('Confidence'), { ident: 'user.property/confidence', values: [{ text: 'Strong', id: 301, uuid: U(301) }] }, 'nodeValues: a choice, with its id');
+  same(held.get(U(60)).get('Severity').values, [{ text: '3', number: 3 }], 'nodeValues: a number from its value node');
+  same(held.get(U(60)).get('Date').values, [{ day: 20261001, id: 77 }], 'nodeValues: a day');
+  same(held.get(U(60)).get('Done').values, [{ text: 'yes', boolean: true }], 'nodeValues: a yes/no');
+  same(held.get(U(60)).get('Notes').values, [{ text: 'a text value is a node', id: 412, uuid: U(412) }, { text: 'plain words' }], 'nodeValues: text, whether a node or plain');
+  same(held.get(U(61)).get('Confidence').values.length, 1, 'nodeValues: a value asked twice is one');
+  same((await model.nodeValues([])).size, 0, 'nodeValues of no nodes');
   console.log(`model-test: ${passed} checks passed`);
   if (problems.length) { console.log(`model-test: FAILED (${problems.length})`); process.exit(1); }
   console.log('model-test: OK');

@@ -27,11 +27,11 @@
    - tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid, descriptionOf, titleNow,
      valuesOf, userValues, mergeFacts                               what a tag, property, choice or node holds right now
    - linksInto(pageId), nodeFields(uuid), firstLines(uuid, n)       the nodes pointing at a page through your properties,
-     pagesAmong, tagUuidNamed, uuidById                             a node's own values and first lines
+     nodeValues(uuids), pagesAmong, tagUuidNamed, uuidById          a node's own values and first lines, many nodes' values at once
    - pagesNamed, blockInEdit, BLOCK_PULL, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag,
      valueTitle, numberValues, linkedPages, hasTag, pageLines       what the proposals read while a bullet is written
    - propTextValues, propNamed                                     turning a property into links (0.4.241)
-   - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentGraph, tagTitles,
+   - setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, addLineTo, currentPage, currentGraph, tagTitles,
      getPage, createPage, deletePage, appendBlock, removeBlock, renamePage, moveBlock, pageBlocksTree, addTagExtends,
      removeTagExtends, openInSidebar, showSidebar, EXTENDS, ALIAS, ICON, PARENT_TAGS
                                                                     THE writes (0.4.315, docs/LAYERS.md layer 1): the one door a
@@ -502,6 +502,37 @@ async function firstLines(uuid, n, withIds = false) {
   // withIds (0.4.262): { uuid, title } each, so a card can open the bullet a line is.
   return (children || []).slice(0, n).map(child => withIds ? { uuid: String(child?.uuid || ''), title: titleOf(child) } : titleOf(child));
 }
+/* What many nodes hold under each of your properties, at once (0.4.369, for grouping a row, parts/two-way.js):
+   uuid -> property name -> { ident, values }, each value { text } with { id, uuid } when it is a node or a choice (a
+   text value is a node of its own in Logseq, so it has an id too), { day, id } for a day, and for a number or a yes/no
+   { text, number } or { text, boolean }: Logseq keeps those in a small value node of their own, the number in its
+   logseq.property/value (seen in the app, 2026-10-24: Severity on a symptom log). A node holding nothing of yours has no entry. */
+async function nodeValues(uuids) {
+  const list = [...new Set((uuids || []).map(String))].filter(u => UUID.test(u));
+  const out = new Map();
+  if (!list.length) return out;
+  const where = `[(ground [${list.map(u => `#uuid "${u}"`).join(' ')}]) [?u ...]] [?b :block/uuid ?u] [?b ?attr ?v] [?prop :db/ident ?attr] [(namespace ?attr) ?ns] [(= ?ns "user.property")] [?prop :block/title ?name]`;
+  const [raw, titled, dated, typed] = await Promise.all([
+    dsQuery(`[:find ?u ?name ?attr ?v :where ${where}]`),
+    dsQuery(`[:find ?u ?name ?attr ?v ?t ?vu :where ${where} [?v :block/title ?t] [?v :block/uuid ?vu]]`),
+    dsQuery(`[:find ?u ?name ?attr ?v ?d :where ${where} [?v :block/journal-day ?d]]`),
+    dsQuery(`[:find ?u ?name ?attr ?v ?n :where ${where} [?v :logseq.property/value ?n]]`),
+  ]);
+  const known = new Set();
+  const slot = (u, name, attr) => {
+    const id = String(u);
+    if (!out.has(id)) out.set(id, new Map());
+    const held = out.get(id);
+    if (!held.has(name)) held.set(name, { ident: bare(attr), values: [] });
+    return held.get(name).values;
+  };
+  const once = (u, name, v) => { const key = `${u}|${name}|${v}`; if (known.has(key)) return false; known.add(key); return true; };
+  for (const [u, name, attr, v, d] of dated) if (once(u, name, v)) slot(u, name, attr).push({ day: Number(d), id: v });
+  for (const [u, name, attr, v, t, vu] of titled) if (once(u, name, v)) slot(u, name, attr).push({ text: String(t), id: v, uuid: String(vu) });
+  for (const [u, name, attr, v, n] of typed) if (once(u, name, v)) slot(u, name, attr).push(typeof n === 'boolean' ? { text: n ? 'yes' : 'no', boolean: n } : typeof n === 'number' ? { text: String(n), number: n } : { text: String(n) });
+  for (const [u, name, attr, v] of raw) if (typeof v === 'string' && once(u, name, v)) slot(u, name, attr).push({ text: v });
+  return out;
+}
 // The words of the bullets written straight on a page, for the page's own proposals (0.4.239); a property's text value
 // is not one (it has a property of its own pointing at it).
 const pageLines = async uuid => !UUID.test(uuid) ? [] : (await dsQuery(`[:find ?t :where [?p :block/uuid #uuid "${uuid}"] [?b :block/parent ?p] [?b :block/page ?p] [?b :block/title ?t] (not [?b :logseq.property/created-from-property _])]`).catch(() => [])).map(([t]) => String(t));
@@ -669,6 +700,16 @@ const setWords = (uuid, text) => logseq.Editor.updateBlock(uuid, text);
 const editBlock = (uuid, opts) => logseq.Editor.editBlock(uuid, opts);
 const exitEditing = () => logseq.Editor.exitEditingMode();
 const insertBlock = (uuid, text, opts) => logseq.Editor.insertBlock(uuid, text, opts);
+/* A new last bullet inside a node (0.4.369, "write into a node without leaving", parts/two-way.js): at the end of a
+   page's blocks, after the last child of a block, or as a block's first child when it has none. Not put in edit.
+   Returns the new block, which removeBlock takes away again. */
+async function addLineTo(uuid, text) {
+  const entity = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+  if (!entity) throw new Error('the node was not found');
+  if (entity.name || entity.originalName) return logseq.Editor.appendBlockInPage(uuid, text);
+  const last = (entity.children || []).filter(child => child && child.uuid).slice(-1)[0];
+  return last ? logseq.Editor.insertBlock(String(last.uuid), text, { sibling: true, focus: false }) : logseq.Editor.insertBlock(uuid, text, { sibling: false, focus: false });
+}
 const currentPage = () => logseq.Editor.getCurrentPage();
 // The block being written in, the blocks picked, and a block by its id (with its parent and page), for a command (0.4.357).
 const currentBlock = () => Promise.resolve(logseq.Editor.getCurrentBlock()).catch(() => null);
@@ -715,13 +756,13 @@ async function pdfSources(uuids) {
 }
 
 function provide(core) {
-  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, currentPage, currentBlock, pickedBlocks, getBlock, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
+  core.provide({ setValue, unsetValue, addTag, removeTag, setWords, editBlock, exitEditing, insertBlock, addLineTo, currentPage, currentBlock, pickedBlocks, getBlock, currentGraph, tagTitles, getPage, createPage, deletePage, appendBlock, removeBlock, inRecycle, restorePage,
     renamePage, moveBlock, pageBlocksTree, EXTENDS, ALIAS, ICON, PARENT_TAGS, addTagExtends, removeTagExtends, openInSidebar, showSidebar,
     titleOf, trailingTags, storedRef, readableTitle, bare, pick, idOf,
     propSchema, propPages, fieldsOf, kindOfPage, tagChain, tagChains, tagChainIndex, parseDay, dayNumber, sameDay, dayAfter, DAYS,
     tagGraph, propInfo, ownProps, inheritedProps, tagPropIds, acceptedIds, choicesOf, choiceUse, choiceCounts, choiceNodes, idByUuid,
     descriptionOf, titleNow, valuesOf, userValues, mergeFacts, TAG_PROPS, ACCEPTS, DESCRIPTION,
-    linksInto, nodeFields, firstLines, pagesAmong, tagUuidNamed, uuidById,
+    linksInto, nodeFields, nodeValues, firstLines, pagesAmong, tagUuidNamed, uuidById,
     pagesNamed, BLOCK_PULL, blockInEdit, userTagIds, taggedNodes, nodesById, aliasPairs, plainLines, journalDays, datedByTag, valueTitle, numberValues, linkedPages, hasTag, pageLines,
     propTextValues, propNamed, propUse, propHolders, pdfSources, journalIdFor, journalTitleFor, formatJournalTitle, CHECKED_WITH, PAGE_TITLE, screenChecks, pageTitles, titleAnchor });
 }
