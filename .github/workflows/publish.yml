@@ -1,8 +1,8 @@
 # Builds the plugin's zip and attaches it to a GitHub Release whenever a version tag (v0.4.280, …) is pushed.
 # The zip holds a folder logseq-db-refinements/ with exactly what Logseq needs: package.json, loader.js, main.js,
 # parts/*.js, README.md, CHANGELOG.md (the same as tools/release.sh builds on the Mac). There is no build step.
-# To install on another computer: open the release on GitHub, download the zip under Assets, unzip it, and in
-# Logseq (Developer mode on) use Plugins → Load unpacked plugin on the unzipped folder.
+# To install on another computer: Logseq's Install plugin from GitHub release with https://github.com/mn-321/logseq-plugin,
+# with the effect box ticked (README, Install); the zip under Assets can also be unzipped and loaded unpacked.
 name: Release zip
 on:
   push:
