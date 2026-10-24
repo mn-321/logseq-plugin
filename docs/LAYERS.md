@@ -12,6 +12,10 @@ draws. The two pages it was decided on, with every element and every view drawn 
 The pages are the picture; this file is the words. Where they differ, the pages win: they were looked at and commented
 on, this file was written afterwards. `tools/pages/` rebuilds them (see the end).
 
+This file is the design of the layers and the rule of leaning. What each layer holds today, part by part, is
+`docs/STATE.md`. Marks in brackets ("built at 0.4.3NN", "the owner, later") were added on 2026-10-24 where the code
+has since done what is planned here, or a later word of the owner changed it.
+
 ## 1. The six layers
 
 A layer may use the layers below it, never the ones above, and never its neighbours. A layer is about leaning, not about
@@ -28,17 +32,20 @@ when it was built.
 3. **Features.** Two-way links, the tag map, the proposals, the pickers, link selected text. Each stands alone, draws
    nothing of its own, and uses only layers 1 and 2. A feature that needs a new kind of thing adds it to the kit first,
    under a name and with a line on the elements page.
-4. **Where things sit.** What goes on a page, where, and how you get to it: the trimmed page plan (CLAUDE.md section 3),
-   sidebars, search, moving about, the `p::` typing. Most of the resting parts belong here.
+4. **Where things sit.** What goes on a page, where, and how you get to it: the trimmed page plan, sidebars, search,
+   moving about. Most of the resting parts belong here. (The owner, 2026-10-23: no `p::` typing and no tag summary box;
+   `docs/history/DECISIONS-AND-RULINGS-2026-10-24.md`.)
 5. **How things look.** Colour, size, spacing. The look half of the old `styles.js`, emptied into `page-look.js` and deleted at 0.4.359. Deliberately last.
 6. **Separate tools.** Rich copy, todos. Decided one by one.
 
-**Where things stand (2026-10-22).** Layer 3 is built and each feature can be left out (`tools/parts-apart-test.js`).
+**Where things stood (2026-10-22, before the kit was built).** Layer 3 is built and each feature can be left out (`tools/parts-apart-test.js`).
 Layers 1 and 2 exist but leak: features call Logseq directly (the tag map about fifty times, the two-way rows
 twenty-five, the proposals twenty-three), find each other through nine names on Logseq's window, and draw their own
 pop-ups, buttons, fields, tick boxes, chips, bars and icons: about forty drawings of fourteen kinds, five ways of placing
 a box, three of waiting for Logseq, two of showing a notice, three of registering a shortcut. The elements page has the
-count per kind. Layers 4 to 6 are not started.
+count per kind. Layers 4 to 6 are not started. (Since then: the kit was built and every feature moved onto it at
+0.4.311 to 0.4.319, and `tools/leaning-test.js` has counted 0 direct Logseq calls outside layer 1 since 0.4.319;
+layers 4 and 5 were begun at 0.4.336 to 0.4.359, layer 6 decided on 2026-10-23: both its tools rest.)
 
 ## 2. The grammar (the owner's, in their words)
 
@@ -47,8 +54,8 @@ count per kind. Layers 4 to 6 are not started.
 - **Differences by weight and grey, not by boxes.** No pills, no fills, no edges on buttons. Four greys mixed from
   Logseq's text colour (quiet .7, faint .5, hairline 12%, line 26%), a wash at 7% for the row under the pointer.
 - **No colour of the plugin's own.** Only Logseq's pop-up colours (`--popover` and its partner) and its text colour,
-  in both themes. Today's violet accent, the tag map's four hues, the orange for warnings and the settings window's blues
-  all go.
+  in both themes. The violet accent of that time, the tag map's four hues, the orange for warnings and the settings
+  window's blues all go (gone by 0.4.319).
 - **A tag is a class, not a tag.** Its name alone, no `#`, in a monospace face, the tag grey, with the faint underline of
   a link. Everywhere: after a node in a two-way row, in a pill, in a menu, beside a title. Never Logseq's blue `#tag`.
 - **Property names lighter than their values**, on pills under a bullet and on page rows alike.
@@ -64,13 +71,15 @@ count per kind. Layers 4 to 6 are not started.
   once. The elements page shows adding a property to a tag in four stages: faint "+ Property" on hover, a line opens
   to type the name, Enter shows the kinds as quiet words on the same line, Enter again makes it with a faded Undo arrow.
 - **Italic is only for a value the proposals pencil in, and every such value has a dotted line under it**, whether the
-  plugin was sure or guessing (the owner, late on 22 October: "they are essentially the same thing"; today only a guess
-  has the line). The keys stay: Enter takes all, a click away only the sure ones, Option-Enter stops on each guess.
+  plugin was sure or guessing (the owner, late on 22 October: "they are essentially the same thing"; built at 0.4.315: before it
+  only a guess had the line). The keys stay: Enter takes all, a click away only the sure ones, Option-Enter stops on each guess.
   Nothing else is italic: what a property accepts is its tags in mono, a choice list is quiet words.
 - **Everything on a row sits on one set of columns**: days where Logseq's values start, names at one edge, tags at
-  the right edge, tick boxes and fold chevrons in the margin.
+  the right edge, tick boxes and fold chevrons in the margin. (The owner, later: at 0.4.320 the two-way rows' tags moved
+  right after each node's name, "move tags for two-way link next to item, not right aligned"; at 0.4.378 every row
+  shares one name column, and since 0.4.381 a short row's day, tag and + follow its words and wrap with them.)
 - **Undo is the faded arrow** at the end of what changed; waiting at the bottom right-hand corner when nothing is left
-  on screen to sit beside. The old dark bar is deleted.
+  on screen to sit beside. The old dark bar is deleted (0.4.311).
 - **Plain words** on the Properties view's lines: Value, On tags, Links to, Seen from Doctor as, Group, Nodes with it.
 
 ## 3. The kit: what each piece comes from
@@ -140,7 +149,8 @@ on a page that did not move before (`tools/parts-apart-test.js` and the jump che
 4. **Both pages rebuilt** from the code once everything is moved, so "today" on the elements page shows one drawing per
    kind and the proposals match.
 
-Then layer 4, one piece at a time, the tag summary box first, as CLAUDE.md section 3 says.
+Then layer 4, one piece at a time. (The plan of 2026-10-22 put the tag summary box first; on 2026-10-23 the owner said
+no to it, and layer 4 began with the right sidebar at 0.4.336.)
 
 ## 5. Rebuilding the two pages
 
