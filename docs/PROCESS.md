@@ -1,37 +1,39 @@
 # How each piece of work is done and checked
 
-Agreed with the owner on 2026-10-19. This is the loop every change goes through, so a session can run alone for a long
-stretch and the owner can still trust what comes out. CLAUDE.md says what to build; this file says how it is proved.
+Agreed with the owner on 2026-10-19; brought to how it is run on 2026-10-24 (0.4.381). This is the loop every change goes
+through, so a session can run alone for a long stretch and the owner can still trust what comes out. The owner says what
+to build; CLAUDE.md holds the working rules; this file says how a change is proved.
 
 ## 1. Before the change: what "done" looks like
 
-Write, in plain words in the logbook (`docs/LOGBOOK.md`), what the owner should see in the Illness Test Graph when the
-piece works: which page, what shows, what a click does, what Undo does. If that cannot be written, the piece is not
-clear yet: ask the owner instead of guessing.
+Know, in plain words, what the owner should see in the Illness Test Graph when the piece works: which page, what shows,
+what a click does, what Undo does. The logbook entry opens with the owner's own words (**Asked:**), which usually say it.
+If it cannot be said, the piece is not clear yet: ask the owner instead of guessing.
 
 ## 2. Three levels of checking
 
 **a. Automatic, every commit (`sh tools/check.sh`, no screen needed).**
 
-| Check | File | What it catches |
-|---|---|---|
-| Syntax, version, parts listed, no `TEMP-DEV` | `tools/check.sh` | broken files, forgotten bumps |
-| Boot test | `tools/boot-test.js` | the plugin not starting, warnings, things left behind after unload or reload |
-| Tag map checks | `tools/tags-test.js` | an open property's box left acting for another property after a redraw; moving choices, which Logseq refuses |
-| Model test | `tools/model-test.js` | the plugin misreading pages, tags, properties, days (123+ checks) |
-| Tag map speed | `tools/tags-speed.js` | the map getting slower or rows jumping (limits on the Mac: first drawing 1 s, a change 0.4 s, no jump) |
-| Two-way rows | `tools/two-way-check.js` | the plugin's own row-finding run on the real Illness Test Graph (through the command line) against an answer key worked out from the raw graph: every link, the order, the counts |
-| Proposals' rules | `tools/shadow-test.js` | the rules on a pretend graph: every mistake found so far (the page filling two properties, two doctors spilling into "with", a dietitian offered as a hospital, the journal day on an appointment written ahead) |
-| Proposals | `tools/shadow-check.js` | the proposals' rules on the real Illness Test Graph with every filled property hidden in turn: right, wrong (must stay 0) and silent |
-| Pictures | `tools/pictures.js` | anything the plugin draws looking different, light and dark |
+It runs, in this order: the syntax of every file, no `TEMP-DEV` block, the version agreeing, every part listed; the
+pretend-window tests (the boot test, each feature's own test, parts-apart, leaning-down, the proposals' stress); the
+model test; the tag map's timings; the frame and picture tests in Chromium; the checks against the real Illness Test
+Graph through the command line (two-way rows, proposals, suggested links); and the documents check. `docs/STATE.md`
+section 3 lists every test with what it guards. While working on one part, its own test, the boot test, leaning and
+parts-apart are run first, then check.sh in full. `sh tools/stress.sh` (the stress tests, two of them over Logseq's
+debugging port) runs before a big change is called done.
 
-Each layer adds its own speed limits and its own pictures as it is rebuilt.
+A check that already fails is said to fail in the logbook entry ("the tag map checks fail as at 0.4.376, not touched"),
+never left unsaid.
 
-**Pictures:** when a picture changes on purpose, look at `check.log/pictures/` (the new one, and `-changes.png` with
-the changed pixels in red), and only then run `node tools/pictures.js --approve`. Never approve without looking. The
-approved pictures are in `test/pictures/` and are committed.
+**Pictures and frames:** when a picture changes on purpose, look at `check.log/pictures/` (the new one, and
+`-changes.png` with the changed pixels in red), and only then run `node tools/pictures.js --approve`. The same for the
+frame scenes: look at `check.log/frames/<scene>/`, then `node tools/frames.js --approve`. Never approve without
+looking. The approved pictures are in `test/pictures/`, the approved frame censuses in `test/frames/`, both committed.
 
-**b. The tour in real Logseq, after each finished piece.**
+**b. In real Logseq, after each finished piece.** Reload the plugin and look at the piece on the page it belongs to
+(computer use on the Mac, Logseq only), and say in the logbook what was seen (**Seen in the app:**) and what was not.
+`node tools/app-frames.js` records the tour stops off and on over Logseq's debugging port, for jumps and late pieces.
+The full tour, for a layer or a change that touches every page:
 
 1. `node tools/graph-check.js save` (a fingerprint of every page and block of the Illness Test Graph).
 2. Reload the plugin.
@@ -77,8 +79,9 @@ without a check failing.
 ## 6. Gates between layers
 
 A layer is finished when every "done" list is met, the full tour is clean including the layers below, speed is no
-worse than the limits, the feature map page is updated, and the owner has looked and said go. Then the commit is
-tagged `layer-N-good`, a point that can always be gone back to.
+worse than the limits, the feature map page is updated, and the owner has looked and said go. The plan was to tag that
+commit `layer-N-good`; no such tag was ever made (2026-10-24): every version has its `v0.4.N` tag instead, and a
+layer's close is the logbook entry that says the owner looked.
 
 ## 7. Limits when working alone
 
@@ -93,13 +96,15 @@ failed attempts.
 
 ## 8. The logbook
 
-`docs/LOGBOOK.md`, newest first. One entry per piece: what "done" meant, what changed on screen, which checks ran and
-their results, the tour's findings, what could **not** be checked and why, what waits on the owner. At the end of a
-stretch, the entries are gathered on one page for the owner with the pictures.
+`docs/LOGBOOK.md`, newest first. One entry per piece, headed `## YYYY-MM-DD · what changed (0.4.N)` (the documents
+check looks for the version), in short labelled parts: **Asked:** the owner's words; **Built:** what changed and where;
+**Seen in the app:** what was looked at, or "not yet"; **Checks:** which ran and how they came out, failures included;
+**Not done** or **Not seen:** what could not be checked and why, what waits on the owner. Old entries are never edited.
 
 ## Lessons
 
-- Press a test's Undo at once: the plugin's Undo bar lasts a few seconds. Check the result after, with the graph check.
+- Check a test's Undo with the graph check afterwards. (Until 0.4.258 the plugin's Undo was a bar lasting a few seconds,
+  hence the old habit of pressing it at once; the faded arrow waits.)
 - Do not type into Logseq's developer console through the screen: a missed click sends the keys to Logseq as
   shortcuts. Read values with the tour, the troubleshooting tools or the command line instead.
 - Before typing into a bullet, zoom in and see the caret: a click beside the words can leave Logseq out of edit, and
@@ -107,8 +112,7 @@ stretch, the entries are gathered on one page for the owner with the pictures.
 - Taking a value off with `logseq upsert block --remove-properties` leaves Logseq's link records (`block/refs`) behind, so
   the bullet still shows in the old value's Linked references: re-save its words with `--content "<the same words>"`,
   then run the graph check.
-- The Undo bar lasts 7 seconds: press Undo in the same batch as the action that shows it, or take the test values off
-  with the command line.
+- Test values can always be taken off with the command line when an Undo was missed.
 - Run the tag map speed test with the screen released: while Claude controls the screen it ran six times slower and failed.
 - Logseq's own Cmd+Z goes back further than the test: undo one step at a time and run the graph check after each.
 - Take a screenshot before every click on a dialog: a changed wording moves its buttons, and a missed click looks like
