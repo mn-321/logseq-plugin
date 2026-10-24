@@ -22,7 +22,7 @@ const pages = [page('Dr. Mei Chen', 'Doctor'), page('Dr. Raj Patel', 'Doctor'), 
   page('Nausea', 'Symptom'), page('Nausea diary', 'Page'), page('Riverside General Hospital', 'Hospital'), { title: 'Hospitalization', lower: 'hospitalization', isTag: true, tags: [{ title: 'Tag' }] }, page('The plan', 'Page'), page('Theodore Finch', 'Person'), page('Tingling fingers', 'Symptom'),
   { title: 'Doctor', lower: 'doctor', isTag: true, tags: [{ title: 'Tag' }] }];
 const notes = [];
-window.logseq = { settings: { linkSuggest: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
+window.logseq = { settings: { linkSuggest: true, linkSuggestUnderline: true, linkSuggestRightArrow: true, linkSuggestHyperTap: true, linkSuggestKeys: 'tab' }, UI: { showMsg: text => notes.push(text) } };
 for (const file of ['parts/shared.js', 'parts/link-suggest.js']) window.eval(fs.readFileSync(path.join(root, file), 'utf8'));
 window.refinementShared.notify = text => notes.push(text);
 let popup = false;
@@ -131,6 +131,42 @@ async function type(text) { box.focus(); box.value = text; box.setSelectionRange
   await type('Spoke with Mei');
   check(!key('ArrowRight').defaultPrevented && box.value === 'Spoke with Mei', 'off in the settings, Right arrow is Logseq’s');
   window.logseq.settings.linkSuggestRightArrow = true;
+  // The grey words follow each letter at once, before the pages are read again.
+  await type('Spoke with Mei');
+  const typeNow = text => { box.value += text; box.setSelectionRange(box.value.length, box.value.length); box.dispatchEvent(new window.InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })); };
+  typeNow(' ');
+  check(inner.showing?.hit.ghost === 'Chen' && doc.querySelector('.refinement-link-suggest .rf-ghost')?.textContent === 'Chen', 'a letter matching the next grey one takes it off at once: ' + inner.showing?.hit.ghost);
+  typeNow('x');
+  check(!inner.showing, 'a letter that does not match hides the grey words at once');
+  await wait(20);
+  // A link taken shows underlined with its brackets hidden, until a [ is typed, a bracket deleted or the cursor moved back.
+  await type('Spoke with Mei');
+  key('ArrowRight');
+  const marks = () => doc.querySelector('.refinement-link-marks');
+  check(inner.bare?.box === box && /^RfZeroBrackets, /.test(box.style.fontFamily), 'the brackets are drawn with no width: ' + box.style.fontFamily);
+  check(marks()?.querySelector('u')?.textContent === 'Dr. Mei Chen', 'a line under the link’s words: ' + marks()?.innerHTML);
+  box.value += ' and'; box.setSelectionRange(box.value.length, box.value.length); box.dispatchEvent(new window.InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'd' })); await wait(20);
+  check(inner.bare?.box === box && marks()?.textContent.endsWith(' and'), 'writing on keeps them hidden, the lines follow');
+  key('Backspace');
+  check(!!inner.bare, 'deleting a letter of the words keeps them hidden');
+  key('[');
+  check(!inner.bare && !marks() && !/RfZeroBrackets/.test(box.style.fontFamily), 'typing [ brings the brackets back at once');
+  await type('Spoke with Mei'); key('ArrowRight');
+  box.setSelectionRange(box.value.length, box.value.length); key('Backspace');
+  check(!inner.bare, 'deleting a bracket brings them back');
+  await type('Spoke with Mei'); key('ArrowRight');
+  key('ArrowLeft');
+  check(!inner.bare, 'moving the cursor back into the words brings them back');
+  await type('Spoke with Mei'); key('ArrowRight');
+  box.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true }));
+  check(!inner.bare && !marks(), 'leaving the bullet brings them back');
+  await type('Spoke with Mei'); key('ArrowRight');
+  box.dispatchEvent(new window.InputEvent('input', { bubbles: true, inputType: 'insertFromPaste' }));
+  check(!inner.bare, 'a paste brings them back');
+  window.logseq.settings.linkSuggestUnderline = false;
+  await type('Spoke with Mei'); key('ArrowRight');
+  check(!inner.bare && box.value === 'Spoke with [[Dr. Mei Chen]]', 'off in the settings, the brackets show as typed');
+  window.logseq.settings.linkSuggestUnderline = true;
   // The Hyper tap: the modifiers down together, one up with nothing between.
   await type('Spoke with Mei');
   key('Meta', hyper); key('Control', hyper); key('Alt', hyper); key('Shift', hyper);

@@ -8,6 +8,12 @@
    Right arrow (0.4.366, the owner: "add right arrow as well to be able to complete"), as on a phone: the words
    typed become [[Dr. Mei Chen]], typed as if by hand, so Cmd+Z takes it back. Anything else ignores it:
    keep writing and it changes or goes; a space, Enter, Left, Up, Down, a click or Escape leaves the words as they are.
+   A link taken this way shows underlined, with no [[ ]], while the bullet is still being written (0.4.367, the owner:
+   "having the line is less obtrusive while you type … it can be [[ ]], but just for the first time"): the brackets are
+   in the words from the start (the proposals read the link at once, Cmd+Z takes it back in one step), only drawn with no
+   width by a tiny font of two empty glyphs (tools/make-zero-brackets-font.js), and a line laid under each link's words.
+   Typing [, deleting a bracket, moving the cursor back into the words or leaving the bullet brings the brackets back;
+   the next time the bullet is opened they show as always.
    No mark follows the grey words (0.4.366: the owner did not like the ⇪); when the words sit inside a name, the whole
    name follows them, faint and small, so what is taken is no surprise. It shows nothing inside [[ ]], after #, while one of Logseq's own lists is open, or
    for a short lower-case word (three letters capitalised, or four, before it looks: "the" never shows a page).
@@ -22,7 +28,7 @@
    indent away); the page change comes from the core; no logseq.* call here. */
 const shared = window.refinementShared;
 const { host, el } = shared;
-const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (suggested links): ', leaves: { elements: '.refinement-link-suggest' } });
+const { warnOnce, onUnload, runUnloadTasks, listen } = shared.lifecycle({ prefix: 'Refinements (suggested links): ', leaves: { elements: '.refinement-link-suggest, .refinement-link-marks' } });
 let propPages, onPageChange, sendStyle, screen;
 const take = (core, names) => shared.take(core, names, warnOnce);
 
@@ -37,6 +43,8 @@ const settingsSchema = [
     description: 'While grey words show after the cursor, Right arrow makes the link, as on a phone. Without grey words, Right arrow does what it always does. Changes here apply right away.' },
   { key: 'linkSuggestHyperTap', type: 'boolean', title: 'A tap of the Hyper key takes the suggested link', default: true,
     description: 'If Caps Lock is your Hyper key (⌘⌃⌥⇧, set up with Karabiner or the Hyperkey app), tapping it on its own while grey words show makes the link. Holding Hyper with another key works as before. An Escape your setup sends on a tap is ignored. Changes here apply right away.' },
+  { key: 'linkSuggestUnderline', type: 'boolean', title: 'A link just taken shows underlined, without [[ ]]', default: true,
+    description: 'While you go on writing the bullet, a link taken from a suggestion shows as its words with a line under them, the brackets hidden. Typing [, deleting a bracket, moving the cursor back into the words or leaving the bullet shows them again; the next time you open the bullet it reads [[ ]] as always. Changes here apply right away.' },
   { key: 'linkSuggestKeys', type: 'string', title: 'Keys for Suggested links', default: '',
     description: 'A plain key that takes the suggested link as well, in Logseq’s spelling, for example mod+ctrl+alt+shift+space or tab (tab would then no longer indent while grey words show). Empty, as it comes, binds none. Changes here apply right away.' },
 ];
@@ -133,10 +141,86 @@ async function look(box) {
   if (!hit) return clear();
   draw(box, hit);
 }
+/* The brackets hidden in the bullet being written (0.4.367): the box's font starts with RfZeroBrackets, whose [ and ] are
+   empty and have no width (every other letter falls through to the box's own font, so nothing moves), and a copy of the
+   box laid over it draws a line under the words of each [[link]]. */
+const ZERO_BRACKETS = 'AAEAAAAKAIAAAwAgT1MvMl5OWIMAAACsAAAAYGNtYXAAcQCWAAABDAAAADRnbHlmAAAAAAAAAUAAAAAEaGVhZF8eQOUAAAFEAAAANmhoZWEDIf88AAABfAAAACRobXR4AAAAAAAAAaAAAAAMbG9jYQAAAAAAAAGsAAAACG1heHAABAAAAAABtAAAACBuYW1lC50cQgAAAdQAAACocG9zdP+fADIAAAJ8AAAAIAAEAAABkAAFAAACigJYAAAASwKKAlgAAAFeADIA+gAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAABOT05FAEAAWwBdAyD/OAAAAyAAyAAAAAEAAAAAAfQCvAAAACAAAAAAAAEAAwABAAAADAAEACgAAAAGAAQAAQACAFsAXf//AAAAWwBd////pv+lAAEAAAAAAAAAAAAAAAEAAAABAAANGTDZXw889QALA+gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAIAAAAAAAAAAQAAAyD/OAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAA2AAMAAQQJAAEAHAAAAAMAAQQJAAIADgAcAAMAAQQJAAQAHAAqAAMAAQQJAAYALABGAFIAZgBaAGUAcgBvAEIAcgBhAGMAawBlAHQAcwBSAGUAZwB1AGwAYQByAFIAZgBaAGUAcgBvAEIAcgBhAGMAawBlAHQAcwBSAGYAWgBlAHIAbwBCAHIAYQBjAGsAZQB0AHMALQBSAGUAZwB1AGwAYQByAAMAAAAAAAD/nAAyAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+let bare = null; // { box, font (the box's own inline font, to give back), marks (the overlay) }
+const LINKS = /\[\[([^\[\]]+)\]\]/g;
+function hideBrackets(box) {
+  if (!setting('linkSuggestUnderline') || !isBlockBox(box)) return;
+  if (bare?.box !== box) {
+    showBrackets();
+    const doc = box.ownerDocument, own = box.style.fontFamily;
+    box.style.fontFamily = `RfZeroBrackets, ${doc.defaultView.getComputedStyle(box).fontFamily}`;
+    bare = { box, font: own, marks: el(doc, 'div', { class: 'refinement-link-marks', 'aria-hidden': 'true' }) };
+    doc.body.append(bare.marks);
+  }
+  drawMarks();
+}
+function drawMarks() {
+  if (!bare) return;
+  const { box, marks } = bare;
+  if (!box.isConnected) return showBrackets();
+  const doc = box.ownerDocument, style = doc.defaultView.getComputedStyle(box), outer = box.getBoundingClientRect();
+  for (const p of COPIED) marks.style[p] = style[p];
+  Object.assign(marks.style, { left: outer.left + 'px', top: (outer.top - box.scrollTop) + 'px', width: outer.width + 'px', minHeight: outer.height + 'px',
+    borderStyle: 'solid', borderColor: 'transparent' });
+  marks.style.setProperty('--rf-link-line', `color-mix(in srgb, ${style.color} 45%, transparent)`);
+  const value = box.value, pieces = [];
+  let at = 0;
+  for (const m of value.matchAll(LINKS)) {
+    pieces.push(doc.createTextNode(value.slice(at, m.index + 2)), el(doc, 'u', {}, m[1]), doc.createTextNode(']]'));
+    at = m.index + m[0].length;
+  }
+  pieces.push(doc.createTextNode(value.slice(at) || '\u200b'));
+  marks.replaceChildren(...pieces);
+}
+function showBrackets() {
+  if (!bare) return;
+  const { box, font, marks } = bare;
+  bare = null;
+  marks.remove();
+  if (box.isConnected) box.style.fontFamily = font;
+}
+// What brings the brackets back: a [ or ] typed or pasted, a bracket deleted, the cursor moved back into the words.
+function bracketsBack(event) {
+  if (!bare || event.target !== bare.box) return;
+  const box = bare.box, key = event.key;
+  if (key === '[' || key === ']') return showBrackets();
+  if (key === 'Backspace' || key === 'Delete') {
+    const from = box.selectionStart === box.selectionEnd ? (key === 'Backspace' ? box.selectionStart - 1 : box.selectionStart) : box.selectionStart;
+    const to = box.selectionStart === box.selectionEnd ? from + 1 : box.selectionEnd;
+    if (/[[\]]/.test(box.value.slice(Math.max(0, from), to))) showBrackets();
+    return;
+  }
+  if (/^(Arrow|Home|End|Page)/.test(key)) showBrackets();
+}
+
 function onInput(event) {
   const box = event.target;
   if (!isBlockBox(box)) return;
+  // A paste or a drop may bring brackets of its own: they show. Typing (the link taken, too) only moves the lines.
+  if (bare?.box === box) { if (/^insertFrom(Paste|Drop)/.test(event.inputType || '')) showBrackets(); else drawMarks(); }
+  keepUp(box);
   look(box).catch(error => warnOnce('the suggestion could not be made', error));
+  // Logseq makes the box taller after this (a new line): both drawings are placed again before the screen is painted.
+  const win = box.ownerDocument.defaultView;
+  win.cancelAnimationFrame(keepUp.frame);
+  keepUp.frame = win.requestAnimationFrame(() => { drawMarks(); if (showing?.box === box && box.isConnected) layOver(box, showing.ghost, showing.hit); });
+}
+/* The grey words follow each letter at once, as on a phone (0.4.367): the reading of the pages comes a moment later, and
+   until then the old grey words sat over the letter just typed. A letter that matches the next grey one takes it off
+   the front; anything else hides them until the reading is back. */
+function keepUp(box) {
+  if (!showing || showing.box !== box) return;
+  const { hit } = showing, value = box.value, caret = box.selectionStart;
+  const typed = value.slice(hit.end, caret);
+  if (caret > hit.end && box.selectionStart === box.selectionEnd && value.slice(hit.start, hit.end) === hit.span && caret === value.length
+      && typed.length <= hit.ghost.length && hit.ghost.slice(0, typed.length).toLowerCase() === typed.toLowerCase()) {
+    showing.hit = { ...hit, end: caret, span: value.slice(hit.start, caret), ghost: hit.ghost.slice(typed.length) };
+    layOver(box, showing.ghost, showing.hit);
+  } else clear();
 }
 // Logseq takes Backspace and Delete itself in places (pairs of brackets, the start of a bullet) and sets the words without
 // the usual typing signal, so the grey words stayed as they were (the owner, 2026-10-23: "if I press back the text just
@@ -155,6 +239,9 @@ function acceptSuggestion(event) {
   if (!hit) return false;
   const link = `[[${hit.title}]]`;
   box.focus();
+  // The brackets are hidden before they are typed, so they never show for a moment (0.4.367, the owner: "a little
+  // jumpy and flashes sometimes").
+  hideBrackets(box);
   box.setSelectionRange(hit.start, hit.end);
   let typed = false;
   try { typed = box.ownerDocument.execCommand('insertText', false, link); } catch (error) { typed = false; }
@@ -164,6 +251,7 @@ function acceptSuggestion(event) {
   }
   const after = hit.start + link.length;
   box.setSelectionRange(after, after);
+  drawMarks();
   return true;
 }
 function onKey(event) {
@@ -197,6 +285,9 @@ function onHyperUp(event) {
 }
 
 const css = `
+@font-face { font-family: RfZeroBrackets; src: url(data:font/ttf;base64,${ZERO_BRACKETS}) format('truetype'); unicode-range: U+5B, U+5D; font-display: block; }
+.refinement-link-marks { position: fixed; z-index: 8; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; color: transparent; background: none; }
+.refinement-link-marks u { text-decoration: underline; text-decoration-color: var(--rf-link-line); text-decoration-thickness: 1px; text-underline-offset: .22em; }
 .refinement-link-suggest { position: fixed; z-index: 9; pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; background: none; }
 .refinement-link-suggest .rf-typed { color: transparent; }
 .refinement-link-suggest .rf-ghost { opacity: .45; }
@@ -206,20 +297,23 @@ const css = `
 function start() {
   ({ propPages, onPageChange, sendStyle, screen } = take(window.refinementCore, ['propPages', 'onPageChange', 'sendStyle', 'screen']));
   sendStyle('refinement-link-suggest', css);
+  // The bracket font read now, not on the first link taken: a font still loading hides the letters drawn with it.
+  try { host().fonts?.load('16px RfZeroBrackets', '[]').catch(() => {}); } catch (error) { /* an old window without the fonts list */ }
   const win = host().defaultView;
   listen(win, ['input'], onInput);
   listen(win, ['keydown'], onKey);
+  listen(win, ['keydown'], bracketsBack);
   listen(win, ['keyup'], onKeyUp);
   listen(win, ['keydown'], onHyperDown);
   listen(win, ['keyup'], onHyperUp);
   listen(win, ['blur'], () => { hyperTap.armedAt = 0; });
-  listen(win, ['focusout', 'pointerdown', 'mousedown'], () => clear());
-  listen(win, ['scroll', 'resize'], () => clear());
-  onPageChange(() => clear());
-  onUnload(() => { clear(); version++; });
+  listen(win, ['focusout', 'pointerdown', 'mousedown'], () => { clear(); showBrackets(); });
+  listen(win, ['scroll', 'resize'], () => { clear(); drawMarks(); });
+  onPageChange(() => { clear(); showBrackets(); });
+  onUnload(() => { clear(); showBrackets(); version++; });
 }
 // For tools/link-suggest-test.js (read-only): the rule and what shows, through the core.
-const provide = core => core.provide({ linkSuggestInner: { suggestFor, get showing() { return showing; } } });
+const provide = core => core.provide({ linkSuggestInner: { suggestFor, get showing() { return showing; }, get bare() { return bare; } } });
 (window.refinementParts ||= []).push({ name: 'link suggest', schema: settingsSchema, provide, start, stop: runUnloadTasks,
   commands: [{ key: 'accept-suggested-link', label: 'Take the suggested link', icon: 'link', shortcut: 'linkSuggestKeys', places: ['keys'], run: acceptSuggestion }] });
 })();

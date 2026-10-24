@@ -2,6 +2,19 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · A link just taken shows underlined, without [[ ]] (0.4.369)
+
+**Asked:** "is there a way to underline the work that will become a link while I type instead of [[ ]] … just for the
+first time", then "it is a little jumpy and flashes sometimes". **Built** (`parts/link-suggest.js`): the brackets typed
+as before (the proposals see the link at once, Cmd+Z undoes it in one step) but drawn by `RfZeroBrackets`, a font of
+two empty zero-width glyphs made by hand in `tools/make-zero-brackets-font.js` (no library on the Mac), put first in the
+box's font while the bullet is written; an overlay copy of the box underlines each [[link]]'s words; typing [, deleting
+a bracket, an arrow or Home/End, a click, a paste or leaving brings them back; setting `linkSuggestUnderline`. Then the
+smoothing: brackets hidden before the link is typed, the grey words kept up letter by letter (`keepUp`), a redraw in the
+next animation frame after Logseq resizes the box, the font loaded at start with `font-display: block`. **Checks:**
+link-suggest (73), boot, leaning, parts-apart; the font in a headless Chromium. **Seen:** by the owner in the app,
+"smooth now". Built while two other sessions worked in this folder; committed once only its own files were left.
+
 ## 2026-10-23 · The key i for a description, not a button (0.4.368)
 
 **Asked:** "no, I just wanted I as a shortcut on keyboard". **Built:** the i button of 0.4.367 removed from
