@@ -246,10 +246,13 @@ function rowHtml(group) {
     : `<div class="rf-tw-name" title="${tip}">${label}</div>`;
   if (group.items.length <= INLINE) {
     const dateFirst = orderOf(group) === 'date';
-    // The words lead (0.4.377, the owner: "it is fine if properties follow the end of a wrapped line"): the day, the
-    // tag and the + follow the words wherever they end, together (a + never alone on a line); the sidebar icon at the
-    // line's far right.
-    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; const day = item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>` : ''; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${day}${recordLink(item)}<span class="rf-tw-tail">${tagLink(item)}${last}</span>${sideLink(item)}</span>${nodeBoxHtml(item)}`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}<span class="rf-tw-tail">${day}${tagLink(item)}${last}</span>${sideLink(item)}</span>${nodeBoxHtml(item)}`; }).join('');
+    // The words lead (0.4.378, the owner: "it is fine if properties follow the end of a wrapped line"): the day, the tag
+    // and the + follow the words wherever they end. They wrap like words (0.4.381, the owner: "allow properties to wrap
+    // naturally"): a real space between them, widened, so a line can break there and a piece starting a line has no gap
+    // before it; only the tag and its + stay together. The arrow for the node's bullets and the sidebar icon sit at the
+    // line's far right (0.4.381, the owner: "too crowded with the box and chevron"), the tick box alone on the left.
+    const sp = '<span class="rf-tw-sp"> </span>', wide = '<span class="rf-tw-sp rf-tw-sp-wide"> </span>';
+    const values = group.items.map((item, i, all) => { const last = i === all.length - 1 ? addLink(group) : ''; const day = item.day ? `<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>` : ''; const tail = `${wide}<span class="rf-tw-tail">${tagLink(item)}${last}</span>`; if (dateFirst) return `<span class="rf-tw-item rf-tw-datefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${day}${day ? sp : ''}${recordLink(item)}${tail}${intoBtn(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; return `<span class="rf-tw-item" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}${day ? sp + day : ''}${tail}${intoBtn(item)}${sideLink(item)}</span>${nodeBoxHtml(item)}`; }).join('');
     return `<div class="rf-tw-row" data-field="${esc(group.name)}">${name}<div class="rf-tw-value">${values}</div>${addLineHtml(group)}</div>`;
   }
   const open = isOpen(key), all = state.all.has(key);
@@ -278,15 +281,15 @@ function rowHtml(group) {
 // One node of an open list (0.4.369, so a group can draw the same line): its box, its arrow, its day, name and tag.
 function lineFor(group, item, earlier = '') {
   const tag = tagLink(item);
-  if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}${recordLink(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${tag}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
-  return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${intoBtn(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
+  if (orderOf(group) === 'name') return `${earlier}<div class="rf-tw-line rf-tw-namefirst" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}${recordLink(item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${tag}${intoBtn(item)}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
+  return `${earlier}<div class="rf-tw-line" data-uuid="${esc(item.uuid)}">${pickBox(group, item)}<span class="rf-tw-day rf-day">${esc(dayText(item.day))}</span>${recordLink(item)}${tag}${intoBtn(item)}${sideLink(item)}</div>${nodeBoxHtml(item)}`;
 }
 /* Write into a node without leaving (0.4.369, the owner kept it from the ideas page: "write into a node"): a small arrow
    before a node, shown with the pointer on its line, opens the node's own first bullets under it, with a line to type
    a new one. Enter adds it as the node's last bullet, in the node itself, as if typed there; the faded Undo arrow takes
    it away. The bullets are read as words (a link in one opens its page); the existing ones are not edited here. */
 const BULLETS = 8;
-const intoBtn = item => { const on = state.opened.has(item.uuid); return `<a class="rf-quiet rf-tw-into" data-uuid="${esc(item.uuid)}" href="#"${on ? ' data-on=""' : ''} title="${on ? 'Close its bullets' : 'Open its bullets here, to read them and add one'}" aria-label="${on ? 'Close' : 'Open'} the bullets of ${esc(shortName(item.title))}">${iconHtml('fold')}</a>`; };
+const intoBtn = item => { const on = state.opened.has(item.uuid); return `<a class="rf-quiet rf-tw-into" data-uuid="${esc(item.uuid)}" href="#"${on ? ' data-on=""' : ''} title="${on ? 'Close its bullets' : 'Open its bullets here, to read them and add one'}" aria-label="${on ? 'Close' : 'Open'} the bullets of ${esc(shortName(item.title))}">${iconHtml('list')}</a>`; };
 function nodeBoxHtml(item) {
   if (!state.opened.has(item.uuid)) return '';
   const data = state.bullets.get(item.uuid);
@@ -1236,7 +1239,6 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-row:hover .rf-tw-add { color: inherit; }
 .refinement-two-way .rf-tw-item .rf-tw-add { margin-left: .5em; }
 /* Date first in a short row, name first in a list (0.4.304): the same columns as the other kind, the other way round. */
-.refinement-two-way .rf-tw-item.rf-tw-datefirst > .rf-tw-day { margin-left: 0; margin-right: .5em; }
 .refinement-two-way .rf-tw-line.rf-tw-namefirst { grid-template-columns: minmax(0, max-content) max-content auto 1fr 1.4em; }
 .refinement-two-way .rf-tw-draft-plus { position: absolute; left: calc(.35rem + 3px); width: 16px; text-align: center; }
 .refinement-two-way .rf-tw-draft-main { display: flex; align-items: baseline; gap: .5em; min-width: 0; }
@@ -1260,11 +1262,11 @@ const twoWayCss = `
 .refinement-two-way .rf-tw-ghead:hover .rf-tw-gadd, .refinement-two-way .rf-tw-gadd:focus-visible { visibility: visible; }
 .refinement-two-way .rf-tw-group .rf-tw-draft { padding-left: .35rem; }
 .refinement-two-way .rf-tw-group .rf-tw-draft-plus { display: none; }
-.refinement-two-way .rf-tw-into { position: absolute; left: -15px; top: .3em; width: 14px; height: 16px; padding: 0; justify-content: center; visibility: hidden; }
-.refinement-two-way .rf-tw-item > .rf-tw-into { left: -9px; }
+.refinement-two-way .rf-tw-into { position: absolute; right: calc(.35rem + 1.5em); top: 1px; width: 20px; height: 20px; padding: 0; justify-content: center; visibility: hidden; }
+.refinement-two-way .rf-tw-item > .rf-tw-into { right: calc(.2rem + 22px); }
 .refinement-two-way :is(.rf-tw-line, .rf-tw-item):hover .rf-tw-into, .refinement-two-way .rf-tw-into[data-on], .refinement-two-way .rf-tw-into:focus-visible { visibility: visible; }
-.refinement-two-way .rf-tw-into .ti { font-size: 13px; transition: transform .16s ease; }
-.refinement-two-way .rf-tw-into[data-on] .ti { transform: rotate(90deg); }
+.refinement-two-way .rf-tw-into .ti { font-size: 14px; }
+.refinement-two-way .rf-tw-into[data-on] { color: inherit; }
 .refinement-two-way .rf-tw-node { flex-basis: 100%; min-width: 0; margin: .05rem 0 .35rem 4em; padding-left: .6rem; border-left: 1px solid var(--rf-line); display: grid; gap: 1px; }
 .refinement-two-way .rf-tw-namefirst + .rf-tw-node, .refinement-two-way .rf-tw-item:not(.rf-tw-datefirst) + .rf-tw-node { margin-left: .4em; }
 .refinement-two-way .rf-tw-bullet { display: grid; grid-template-columns: 1em minmax(0, 1fr); column-gap: .3em; align-items: baseline; }
@@ -1285,12 +1287,15 @@ const twoWayCss = `
    the right edge from 0.4.297, the owner then: "the tags under decided should be right aligned"). */
 /* In the wrapping row a negative margin shifts a node instead of widening it (measured in the app, 0.4.299: its right edge
    5 px and its tag 10 px short of an open list's): so it is widened by the margins themselves, the open list's .35rem. */
-.refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 calc(.35rem + 1.6em) 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
+.refinement-two-way .rf-tw-value > .rf-tw-item { margin: 0 -.35rem; padding: 0 calc(.35rem + 3.2em) 0 .35rem; flex-basis: calc(100% + .7rem); max-width: calc(100% + .7rem); box-sizing: border-box; }
 .refinement-two-way .rf-tw-item { flex-basis: 100%; min-width: 0; display: block; }
 .refinement-two-way .rf-tw-tail { white-space: nowrap; }
 /* The same room as in an open list: half a letter before the day, a letter before the tag. */
-.refinement-two-way .rf-tw-tail > .rf-tw-day { margin-left: .5em; }
-.refinement-two-way .rf-tw-tail > .rf-tw-tag { margin-left: 1em; }
+.refinement-two-way .rf-tw-item :is(.rf-tw-day, .rf-tw-tag) { margin-left: 0; margin-right: 0; white-space: nowrap; }
+/* The room between the words and the day, and before the tag: a space, widened, which a line may break at and which
+   leaves no gap at the start of a line. */
+.refinement-two-way .rf-tw-sp { word-spacing: .25em; }
+.refinement-two-way .rf-tw-sp-wide { word-spacing: .7em; }
 /* The sidebar icon at the far right of its line (0.4.327, the owner: "the sidebar items should be on far right and have
    some sort of arrow to the right signifying sidebar opening"): the last column; the icon is a sidebar with an arrow. */
 .refinement-two-way .rf-tw-line .rf-tw-side { grid-column: -2; justify-self: end; }

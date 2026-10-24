@@ -2,6 +2,17 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The rows' date, tag and + wrap like words; the bullets arrow on the right (0.4.381)
+
+**Asked:** "can you allow properties to wrap naturally if necessary so it looks more natural. also, it is too crowded with
+the box and chevron for another bullet". **Built** (`parts/two-way.js`): in a short row the day and the tag follow the
+name after real spaces (`.rf-tw-sp`, widened with word-spacing), so a line breaks there and leaves no gap at its start;
+`.rf-tw-tail` now holds only the tag and the +; the margins that did the spacing are gone. `intoBtn` is a list icon,
+absolutely placed left of the sidebar icon in short rows and open lists; a short row keeps room for both icons.
+**Seen in the app:** Tingling fingers in a narrow window, hovered and with a node opened. **Checks:** two-way-rows-test,
+boot, leaning, parts-apart, pictures and the two-way frame scenes re-approved after looking (only the gap before a tag
+and the new spaces); the tag map scenes fail as before.
+
 ## 2026-10-24 · The dotted line after a space seen (0.4.380)
 
 **Found** (in the app, from the picture of 0.4.379): no dotted line under Northgate. **Why:** `--rf-faint` mixes

@@ -21,6 +21,8 @@
  ".rf-tw-record": 2,
  ".rf-tw-row": 1,
  ".rf-tw-side": 2,
+ ".rf-tw-sp": 4,
+ ".rf-tw-sp-wide": 2,
  ".rf-tw-tag": 2,
  ".rf-tw-tail": 2,
  ".rf-tw-to-side": 1,
