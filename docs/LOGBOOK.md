@@ -2,6 +2,10 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The number of nodes with each tag, in place of tags inside (0.4.375)
+
+**Asked:** "I meant number of nodes with that tag next to its name. same style as this". **Built:** \`rowLabels\` in \`parts/tags.js\` shows \`tag.count\` (nodes tagged directly) after the name, faint grey, none at 0; the 0.4.374 count of tags inside removed. **Seen in the app:** Symptom 10, Consultation 16, Conversation 8, Expectation 13. **Checks:** pictures (tag map re-approved).
+
 ## 2026-10-24 · The number of tags inside each tag (0.4.374)
 
 **Asked:** "put number of tags for each tag". **Built:** `rowLabels` in `parts/tags.js` adds a faint number after a tag's name, `below(tag).size`, with a tooltip; none for a tag with nothing inside. **Seen in the app:** see the CHANGELOG line. **Checks:** pictures (tag map re-approved).

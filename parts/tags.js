@@ -960,9 +960,8 @@ function renameBox(view, tag, key) {
 // The small grey words after a tag's name, only when they matter (0.4.223): its other parents, a namesake. How many
 // nodes and tags are inside it is in the name's tooltip.
 function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
-  // How many tags are inside this one, all the way down (0.4.374, the owner: "put number of tags for each tag").
-  const inside = below(tag).size;
-  if (inside) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-inside', title: `${plural(inside, 'tag')} inside ${tag.title}` }, String(inside)));
+  // How many nodes carry this tag (0.4.375, the owner: "number of nodes with that tag next to its name").
+  if (tag.count) line.append(el(view.doc, 'span', { class: 'rtg-small rtg-count', title: `${plural(tag.count, 'node')} tagged ${tag.title}` }, String(tag.count)));
   const others = tag.parents.filter(p => p.id !== parent?.id);
   // Each other parent can be acted on where it is named (0.4.310): go there, take the tag out of it, keep it only here.
   if (parent && others.length) {
