@@ -381,7 +381,8 @@ const until = async test => { for (let i = 0; i < 50; i++) { const found = test(
     [...doc.querySelectorAll('button')].find(b => b.textContent === 'Tags')?.click();
     const row = await until(() => [...doc.querySelectorAll('.rtg-row')].find(r => /Report$/.test(r.querySelector('.rtg-name')?.textContent || '')));
     row?.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true }));
-    const field = await until(() => doc.querySelector('.rtg-row input'));
+    // The name box, not the row's tick box (every row has one for Select since 0.4.373).
+    const field = await until(() => doc.querySelector('.rtg-row input:not([type=checkbox])'));
     if (!field) problem('double-clicking the #Report row opened no name field');
     else { field.value = 'Reports'; field.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
     await until(() => window.logseq.settings.tagTreeRoots === 'Reports');

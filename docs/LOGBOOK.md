@@ -2,6 +2,18 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · Two tag map checks were the tests' fault (no version)
+
+**Asked:** "look into the three failing checks … Tell me what each one is before fixing anything", then "ok do it".
+**Found:** both tag map failures began at 0.4.373, not 0.4.376 as the entries below say (each test run on the code of
+0.4.371, 0.4.373, 0.4.374 and 0.4.375 in a scratch copy). The rename check looked for the first box on the #Report
+row to type the new name; since 0.4.373 that is the row's tick box for Select, so "Reports" went into the tick box and
+nothing was renamed. With the test reading the name box, the rename and its Undo arrow both work. The four tag map
+frame scenes differed from their approved census only by the ten node counts after the tags' names (0.4.374,
+0.4.375), for which the pictures had been re-approved and the frame censuses not. **Built:** `tools/tags-test.js`
+reads the name box; the four scenes re-approved after looking at their picture (Medicine 9, Person 2, Doctor 6; the
+census gains `.rtg-count` 10, nothing else). **Checks:** tags-test, frames. **Seen in the app:** nothing to see.
+
 ## 2026-10-24 · Stale comments in the code put right (0.4.382)
 
 **Asked:** the tidy of the record (the entry below), whose prompt asked for the code's wrong comments to be fixed in
