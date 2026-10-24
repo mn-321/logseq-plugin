@@ -236,6 +236,28 @@ function askAddToTag(view, prop, anchor) {
   if (!choices.length) { notify(`Every tag already has ${prop.title}`, 'info'); return; }
   view.pickTag(anchor, `Put ${prop.title} on …`, choices, tag => view.addProp(tag, prop));
 }
+// The ticked properties are put on one tag, chosen in the list; Undo takes each off the tags that did not have it.
+function addPickedToTag(view, anchor) {
+  const props = [...view.data.propInfo.values()].filter(p => view.pickedProps.has(p.id));
+  if (!props.length) return;
+  const choices = [...view.data.tags.values()].filter(t => !t.builtIn).sort(view.data.byTitle).map(t => ({ tag: t, path: pathOf(t) }));
+  view.pickTag(anchor, `Put ${plural(props.length, 'property', 'properties')} on …`, choices, async tag => {
+    const fresh = view.fresh(tag), lacking = props.filter(p => !fresh.propList.some(q => q.ident === p.ident));
+    if (!lacking.length) { notify(`${tag.title} already has them`, 'info'); return; }
+    const done = await view.act(async () => { for (const p of lacking) await addTagProp(view.fresh(tag), p); }, 'The properties could not be added');
+    if (done) view.showToast(`${tag.title} now has ${plural(lacking.length, 'more property', 'more properties')}`, async () => { for (const p of lacking) await removeTagProp(view.fresh(tag), p); });
+  });
+}
+// The ticked properties go into one group (or out of every group); only the map's own order changes.
+function putPickedInGroup(view, anchor) {
+  const props = [...view.data.propInfo.values()].filter(p => view.pickedProps.has(p.id));
+  if (!props.length) return;
+  const put = name => { const before = readGroups(); for (const p of props) placeInGroup(p.title, name); view.showToast(name ? `${plural(props.length, 'property', 'properties')} in ${name} now` : `${plural(props.length, 'property', 'properties')} in no group now`, async () => saveGroups(before)); };
+  const items = readGroups().map(g => ({ label: g.name, run: () => put(g.name) }));
+  items.push({ icon: 'add', label: 'New group …', run: () => view.askGroupName(null, anchor, name => put(name)) });
+  items.push('-', { icon: 'remove', label: 'Take them out of their groups', run: () => put(null) });
+  view.showMenu(anchor, `Put ${plural(props.length, 'property', 'properties')} in a group`, items);
+}
 // The explanation under a property, opened with its i: the kit's help paragraph.
 function propGuide(view, tag, prop) {
   const doc = view.doc, inside = [...below(tag)].map(id => view.data.tags.get(id)).filter(Boolean);
@@ -271,7 +293,9 @@ function propMoves(view, tag, prop) { return view.fresh(tag).parents.filter(p =>
 
 function propMenu(view, tag, prop, from, anchor, alone) {
   tag = tag ? view.fresh(tag) : null;
-  const items = [{ icon: 'rename', label: 'Rename …', run: () => view.askRenameProp(prop, anchor) },
+  const items = [{ icon: 'page', label: `Open ${prop.title}`, kbd: alone ? 'Enter' : undefined, run: () => shared.openEntity(prop.uuid, false) },
+    { icon: 'sidebar', label: 'Open in the right sidebar', kbd: alone ? '⇧ Enter' : undefined, run: () => shared.openEntity(prop.uuid, true) }, '-',
+    { icon: 'rename', label: 'Rename …', run: () => view.askRenameProp(prop, anchor) },
     { icon: 'help', label: prop.desc ? 'Change the description …' : 'Add a description …', kbd: alone ? 'i' : undefined, run: () => view.askDescription(prop, anchor) }];
   if (prop.type === 'node') items.push({ icon: 'tag', label: 'Change what it accepts …', run: () => view.askAccepts(prop, anchor) });
   if (prop.choices.length || CHOICE_TYPES.has(prop.type)) items.push({ icon: 'choice', label: prop.choices.length ? 'Edit the choices …' : 'Give it choices …', run: () => view.askChoices(prop, anchor) });
@@ -742,10 +766,10 @@ function propTopRow(view, pass, prop) {
   const describe = at => { aim(); view.askDescription(prop, at); };
   const main = el(doc, 'div', { class: 'rtg-main' }, line);
   if (prop.desc) main.append(el(doc, 'div', { class: 'rtg-desc', title: 'Change the description', click: event => { event.stopPropagation(); describe(event.currentTarget); } }, prop.desc));
-  const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key, draggable: 'true' }, fold, main);
+  const row = el(doc, 'div', { class: 'rtg-row rtg-prow rtg-ptop', 'data-key': key, draggable: 'true' }, el(doc, 'span', { class: 'rtg-tick' }, shared.tick(doc, { checked: view.pickedProps.has(prop.id), title: `Select ${prop.title}`, change: on => { if (on) view.pickedProps.add(prop.id); else view.pickedProps.delete(prop.id); view.mark(false); } })), fold, main);
   row.addEventListener('dragstart', event => { view.draggingProp = prop; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', prop.title); event.stopPropagation(); });
   row.addEventListener('dragend', () => { view.draggingProp = null; for (const h of doc.querySelectorAll('.rtg-gdrop')) h.classList.remove('rtg-gdrop'); });
-  row.addEventListener('click', event => { view.propAim = prop; if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag, .rf-kind')) fold.click(); });
+  row.addEventListener('click', event => { view.propAim = prop; if (!event.target.closest('button, input, .rtg-pname, .rtg-ontag, .rf-kind, .rtg-tick')) fold.click(); });
   row.addEventListener('mouseenter', () => { view.propAim = prop; });
   row.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); aim(); view.propMenu(tag, prop, null, rectAt(event), true); });
   const nodes = [row];
@@ -753,7 +777,7 @@ function propTopRow(view, pass, prop) {
   return nodes;
 }
 
-Object.assign(TM, { KINDS, NEW_KINDS, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, fillNodes, groupHeading, groupMenu, hasRows, holdersOf, infoButton, kindMenu, makeNewProp, movePropUp, newPropRow, newProperty, passesDown, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, startNewProp, takePropOff, typeHtml, useOf });
+Object.assign(TM, { addPickedToTag, putPickedInGroup, KINDS, NEW_KINDS, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, confirmChildTag, drawProps, fillNodes, groupHeading, groupMenu, hasRows, holdersOf, infoButton, kindMenu, makeNewProp, movePropUp, newPropRow, newProperty, passesDown, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propTopRow, putInGroup, startNewProp, takePropOff, typeHtml, useOf });
 TM.propsLoaded = true;
 (window.refinementParts ||= []).push({ name: 'tag map: properties', schema: [], start() {}, stop: runUnloadTasks });
 })();

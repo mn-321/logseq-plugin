@@ -64,7 +64,7 @@ const setting = shared.settingReader(settingsSchema);
 TM.setting = setting;
 // What the other two pieces have (parts/tags-graph.js, parts/tags-props.js); undefined when one is not loaded, and then
 // start() below starts nothing.
-const { PARENT_BUILT_INS, acts, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, fillNodes, folded, groupHeading, groupMenu, hasRows, holdersOf, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newProperty, newPropRow, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, startNewProp, tagHtml, tagWord, takePropOff, twoWay, typeHtml, useOf } = TM;
+const { PARENT_BUILT_INS, addPickedToTag, putPickedInGroup, acts, addProp, askAccepts, askAddToTag, askChildTag, askChoices, askDescription, askGroupName, askLinks, askNewPropAccepts, askNewPropKind, askNewPropTag, askProperty, askPutInGroup, askRenameProp, below, confirmChildTag, drawProps, el, escapeHtml, fillNodes, folded, groupHeading, groupMenu, hasRows, holdersOf, infoButton, isAbove, keepKeys, kindMenu, loadTags, makeNewProp, makeTag, movePropUp, newProperty, newPropRow, openTag, openViews, passesDown, pathOf, planMerge, plural, propDetails, propGuide, propInfoOf, propMenu, propMoves, propRow, propRows, propsOpen, putInGroup, resetGroups, runMerge, saveFolded, saveInherited, saveProps, setParents, shown, startNewProp, tagHtml, tagWord, takePropOff, twoWay, typeHtml, useOf } = TM;
 const core = () => window.refinementCore;
 const model = () => core().provided;
 // (pointerRow, the "Shows up here as" line, is this piece's own since 0.4.310: each link on it opens a menu.)
@@ -84,7 +84,12 @@ const css = `
 .refinement-tags:focus { outline: none; }
 .refinement-tags button { font: inherit; color: inherit; }
 .refinement-tags [hidden] { display: none !important; }
-.refinement-tags .rtg-title { margin: 0 0 18px; padding: 0 10px; font-size: 2em; font-weight: 600; line-height: 1.2; }
+.refinement-tags .rtg-title { margin: 0 0 18px; padding: 0 10px; line-height: 1.2; }
+.refinement-tags .rtg-title .rtg-by { font-size: 1.5em; font-weight: 400; color: var(--rf-faint); }
+.refinement-tags .rtg-title .rtg-by + .rtg-by { border-left: 2px solid var(--rf-quiet); }
+.refinement-tags .rtg-title .rtg-by[aria-pressed=true] { font-weight: 700; color: inherit; }
+.refinement-tags .rtg-tick { display: none; flex: none; width: 22px; height: 24px; align-items: center; justify-content: center; }
+.refinement-tags.rtg-selecting .rtg-row > .rtg-tick { display: inline-flex; }
 .refinement-tags header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 0 0 10px 10px; border-bottom: 1px solid var(--rf-hair); }
 .refinement-tags header .rf-field { flex: 1; min-width: 180px; }
 .refinement-tags .rtg-tools { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -241,7 +246,9 @@ function createView(doc, mode) {
   view.adding = null; // { key, parent } while a new tag is being typed
   view.addingProp = null; // { name } while a new property is being typed in the Properties view (0.4.305)
   view.renaming = null; // key of the row being renamed
-  view.picked = new Set(); // ids of tags picked with Cmd-click, Shift-click or x
+  view.picked = new Set(); // ids of tags picked with Cmd-click, Shift-click, x or the tick box
+  view.pickedProps = new Set(); // ids of properties ticked in the Properties view (0.4.372)
+  view.selecting = false; // Select is on: every row has its tick box and the bar of actions shows
   view.dragging = null; // { tag, parent }
   view.busy = false;
   view.loaded = false; // nothing is drawn until the tags have been read once
@@ -271,8 +278,20 @@ function createView(doc, mode) {
   view.pickBar = shared.bar(view.doc, { count: 0, actions: [
     { label: 'To the top level', title: 'Take the picked tags out of their parents, to the top level', run: () => view.topFromPicked() },
     { label: 'Move to …', title: 'Put the picked tags inside another tag', run: event => view.movePicked(event.currentTarget) },
+    { label: 'Add a property …', title: 'Give every picked tag a property', run: event => view.addPropToPicked(event.currentTarget) },
+    { label: 'Open in the sidebar', title: 'Open the picked tags in the right sidebar', run: () => view.openPicked() },
   ], clear: () => { view.picked.clear(); view.mark(false); }, all: () => { for (const item of view.shown) if (!item.tag.builtIn) view.picked.add(item.tag.id); view.mark(false); } });
   view.pickBar.hidden = true;
+  // The same for properties: what can be done to several at once is putting them on a tag, in a group, or opening them.
+  view.propBar = shared.bar(view.doc, { count: 0, actions: [
+    { label: 'Add to a tag …', title: 'Put the ticked properties on a tag', run: event => view.addPickedToTag(event.currentTarget) },
+    { label: 'Put in a group …', title: 'Put the ticked properties in a group (only for the order in this map)', run: event => view.putPickedInGroup(event.currentTarget) },
+    { label: 'Open in the sidebar', title: 'Open the ticked properties in the right sidebar', run: () => view.openPicked() },
+  ], clear: () => { view.pickedProps.clear(); view.mark(false); }, all: () => { for (const prop of view.data.propInfo?.values() || []) if (prop.title) view.pickedProps.add(prop.id); view.mark(false); } });
+  view.propBar.hidden = true;
+  // Select (0.4.372, the owner: "have a select button and selector buttons appear, this would allow multiple actions"):
+  // a tick box shows before every row, in both views, and the bar of actions on what is ticked.
+  view.selectButton = shared.quiet(view.doc, { label: 'Select', title: 'Tick several tags or properties and act on them together', faint: true, cls: 'rtg-tool', run: () => view.setSelecting(!view.selecting) });
   // By tag or by property (0.4.236). The sidebar has the same tools as the page now (the owner: "fully functional").
   const byButton = (on, text, title) => shared.quiet(view.doc, { label: text, title, pressed: byProp === on, cls: 'rtg-by',
     run: () => { if (byProp === on) return; byProp = on; saveBy(); view.cursorKey = null; view.cursorTag = null; view.cursorSub = null; view.closeMenu(); for (const draw of openViews) draw(); } });
@@ -282,8 +301,8 @@ function createView(doc, mode) {
   view.byTags.setAttribute('aria-pressed', String(!byProp)); view.byProps.setAttribute('aria-pressed', String(byProp));
   view.toggle2 = el(view.doc, 'div', { class: 'rf-seg rtg-switch', role: 'group', 'aria-label': 'Arrange by' }, view.byTags, view.byProps);
   view.box = el(view.doc, 'div', { class: 'refinement-tags rtg-mode-' + view.mode, role: 'region', 'aria-label': 'Tag tree', tabindex: '-1' });
-  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.findField, view.moveButton, el(view.doc, 'div', { class: 'rtg-tools' }, view.toggle2, view.inherited, view.foldAll, view.openAll)), view.pickBar, view.body);
-  else view.box.append(el(view.doc, 'h1', { class: 'rtg-title' }, 'Tags and properties'), el(view.doc, 'header', {}, view.findField, view.toggle2, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.body);
+  if (view.compact) view.box.append(el(view.doc, 'header', {}, view.findField, view.moveButton, el(view.doc, 'div', { class: 'rtg-tools' }, view.toggle2, view.selectButton, view.inherited, view.foldAll, view.openAll)), view.pickBar, view.propBar, view.body);
+  else view.box.append(el(view.doc, 'div', { class: 'rtg-title' }, view.toggle2), el(view.doc, 'header', {}, view.findField, view.selectButton, view.inherited, view.foldAll, view.openAll, view.moveButton), view.pickBar, view.propBar, view.body);
 
   view.box.addEventListener('keydown', view.onKey);
   // Clicking a blank part of the tree gives it the keyboard, for the arrow keys.
@@ -592,6 +611,33 @@ function pickClick(view, item, event) {
   if (view.picked.size) { view.picked.clear(); view.mark(false); }
 }
 
+// Select on or off; off puts every tick away.
+function setSelecting(view, on) {
+  view.selecting = on;
+  if (!on) { view.picked.clear(); view.pickedProps.clear(); }
+  view.selectButton.textContent = on ? 'Done' : 'Select';
+  view.selectButton.setAttribute('aria-pressed', String(on));
+  view.mark(false);
+}
+// The picked tags, or the ticked properties, each opened in the right sidebar.
+function openPicked(view) {
+  if (byProp) { for (const prop of view.data.propInfo?.values() || []) if (view.pickedProps.has(prop.id)) shared.openEntity(prop.uuid, true); }
+  else for (const tag of view.pickedTags()) openTag(tag, true).catch(error => warnOnce('a tag could not be opened', error));
+}
+// Every picked tag is given one property, chosen in the list; Undo takes it off the ones that did not have it.
+async function addPropToPicked(view, anchor) {
+  const tags = view.pickedTags().filter(t => !t.builtIn);
+  if (!tags.length) return;
+  let all = [];
+  try { all = await TM.loadProps(); } catch (error) { warnOnce('properties could not be read', error); }
+  const choices = all.map(p => ({ tag: p, label: p.title, path: '' }));
+  view.pickTag(anchor, `Add a property to ${plural(tags.length, 'tag')}`, choices, async prop => {
+    const lacking = tags.filter(t => !view.fresh(t).propList.some(p => p.ident === prop.ident));
+    if (!lacking.length) { notify(`Every picked tag already has ${prop.title}`, 'info'); return; }
+    const done = await view.act(async () => { for (const t of lacking) await TM.addTagProp(view.fresh(t), prop); }, `${prop.title} could not be added`);
+    if (done) view.showToast(`${prop.title} added to ${plural(lacking.length, 'tag')}`, async () => { for (const t of lacking) await TM.removeTagProp(view.fresh(t), prop); });
+  }, { placeholder: 'Type to find a property' });
+}
 function pickedTags(view) { return [...view.picked].map(id => view.data.tags.get(id)).filter(Boolean).sort(view.data.byTitle); }
 
 // The picked tags all go to the top level, out of every parent; Undo puts each back.
@@ -879,7 +925,8 @@ function drawBranch(view, pass, tag, parent, depth, path, keyBase) {
   const acts = el(view.doc, 'span', { class: 'rtg-acts' });
   if (!tag.builtIn || PARENT_BUILT_INS.has(tag.ident)) acts.append(el(view.doc, 'button', { type: 'button', class: 'rf-quiet rtg-act', tabindex: '-1', title: `New tag inside ${tag.title} (n)`, html: iconHtml('add'), click: event => { event.stopPropagation(); view.setCursor(key); view.startAdd(tag, key); } }));
   acts.append(el(view.doc, 'button', { type: 'button', class: 'rf-quiet rtg-act rtg-more', tabindex: '-1', title: 'More', html: iconHtml('more'), click: event => { event.stopPropagation(); view.setCursor(key); view.rowMenu(item, event.currentTarget); } }));
-  row.append(fold, main, acts);
+  const tickBox = tag.builtIn ? null : shared.tick(view.doc, { checked: view.picked.has(tag.id), title: `Select ${tag.title}`, change: on => { if (on) view.picked.add(tag.id); else view.picked.delete(tag.id); view.cursorKey = key; view.cursorTag = tag.id; view.mark(false); } });
+  row.append(el(view.doc, 'span', { class: 'rtg-tick' }, tickBox), fold, main, acts);
   rowListeners(view, row, item, tag, key);
   view.dragRow(row, item);
   const nodes = [row];
@@ -926,7 +973,7 @@ function rowLabels(view, line, tag, parent, key, open, kids, isRoot) {
 // Clicks on a row: the cursor, picking, the menu, renaming.
 function rowListeners(view, row, item, tag, key) {
   row.addEventListener('mousedown', event => { if (!event.target.closest('input')) { if (event.shiftKey || event.metaKey || event.ctrlKey) event.preventDefault(); else view.setCursor(key, false); } });
-  row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-name')) view.pickClick(item, event); });
+  row.addEventListener('click', event => { if (!event.target.closest('button, input, .rtg-name, .rtg-tick')) view.pickClick(item, event); });
   row.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); view.setCursor(key); view.rowMenu(item, { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }); });
   row.addEventListener('dblclick', event => { if (!tag.builtIn && !event.target.closest('button, input')) { view.renaming = key; view.draw(); } });
 }
@@ -1060,10 +1107,24 @@ async function askWording(view, tag, prop, anchor) {
 }
 
 function mark(view, scroll) {
-  for (const item of view.shown) { item.row.classList.toggle('rtg-current', item.key === view.cursorKey); item.row.classList.toggle('rtg-picked', view.picked.has(item.tag.id)); }
+  for (const item of view.shown) {
+    item.row.classList.toggle('rtg-current', item.key === view.cursorKey); item.row.classList.toggle('rtg-picked', view.picked.has(item.tag.id));
+    const box = item.row.querySelector(':scope > .rtg-tick input'); if (box) box.checked = view.picked.has(item.tag.id);
+  }
   for (const id of [...view.picked]) if (!view.data.tags.has(id)) view.picked.delete(id);
-  view.pickBar.hidden = !view.picked.size;
+  const propsHere = view.data.propInfo;
+  if (propsHere?.size) for (const id of [...view.pickedProps]) if (!propsHere.has(id)) view.pickedProps.delete(id);
+  const ticked = new Set([...view.pickedProps].map(String));
+  for (const row of view.body.querySelectorAll('.rtg-ptop')) {
+    const on = ticked.has(row.dataset.key.slice(1));
+    row.classList.toggle('rtg-picked', on);
+    const box = row.querySelector(':scope > .rtg-tick input'); if (box) box.checked = on;
+  }
+  view.box.classList.toggle('rtg-selecting', view.selecting);
+  view.pickBar.hidden = byProp || !(view.selecting || view.picked.size);
+  view.propBar.hidden = !byProp || !(view.selecting || view.pickedProps.size);
   view.pickBar.update({ count: view.picked.size, total: 0 });
+  view.propBar.update({ count: view.pickedProps.size, total: 0 });
   const item = view.shown.find(i => i.key === view.cursorKey);
   if (scroll && item) scrollToRow(item.row);
 }
@@ -1168,7 +1229,8 @@ function onKey(view, event) {
   if (event.key === 'Escape') {
     if (view.menu) view.closeMenu();
     else if (event.target === view.find && view.find.value) { view.find.value = ''; view.draw(); }
-    else if (view.picked.size) { view.picked.clear(); view.mark(false); }
+    else if (view.picked.size || view.pickedProps.size) { view.picked.clear(); view.pickedProps.clear(); view.mark(false); }
+    else if (view.selecting) view.setSelecting(false);
     else { view.doc.activeElement?.blur?.(); view.cursorKey = null; view.mark(false); }
     event.preventDefault(); event.stopPropagation();
     return;
@@ -1195,6 +1257,13 @@ function onKey(view, event) {
     return;
   }
   if (typing && !(event.key === 'Enter' && event.target === view.find)) return;
+  if (!item && byProp && view.propAim && !event.metaKey && !event.ctrlKey && !event.altKey && (event.key === 'Enter' || event.key.toLowerCase() === 'x')) {
+    event.preventDefault(); event.stopPropagation();
+    const prop = view.data.propInfo?.get(view.propAim.id) || view.propAim;
+    if (event.key === 'Enter') shared.openEntity(prop.uuid, event.shiftKey);
+    else { view.selecting = true; view.selectButton.textContent = 'Done'; view.selectButton.setAttribute('aria-pressed', 'true'); if (view.pickedProps.has(prop.id)) view.pickedProps.delete(prop.id); else view.pickedProps.add(prop.id); view.mark(false); }
+    return;
+  }
   if (!item && byProp && event.key.toLowerCase() === 'i' && !event.metaKey && !event.ctrlKey && !event.altKey && view.propAim) {
     event.preventDefault(); event.stopPropagation();
     const prop = view.data.propInfo?.get(view.propAim.id) || view.propAim, row = view.box.querySelector(`[data-key="P${prop.id}"]`);
@@ -1303,7 +1372,7 @@ function destroy(view) {
   view.box.remove();
 }
 // The pieces of createView, each given the view's state; createView binds them to the view by name.
-const CREATEVIEW_FUNCTIONS = [closeMenu, morph, showMenu, pickTag, askText, planPanel, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, refresh, destroy, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp, holdersOf, fillNodes];
+const CREATEVIEW_FUNCTIONS = [addPickedToTag, putPickedInGroup, setSelecting, openPicked, addPropToPicked, closeMenu, morph, showMenu, pickTag, askText, planPanel, showToast, act, fresh, parentsTitle, reparent, moveTo, alsoUnder, takeOut, targetsFor, askMove, askAlso, addTags, submitAdd, startAdd, rename, keepOnly, askMerge, confirmMerge, pickClick, pickedTags, topFromPicked, movePicked, sameTag, sortSiblings, topTags, siblingsIn, saveOrder, place, moveAmong, hasRows, typeHtml, propInfoOf, infoButton, askRenameProp, askAccepts, kindMenu, askChoices, askChildTag, confirmChildTag, askLinks, groupHeading, putInGroup, groupMenu, askGroupName, askPutInGroup, askDescription, propRows, propRow, propDetails, pointerRow, propGuide, passesDown, propMoves, propMenu, addProp, takePropOff, movePropUp, newProperty, askProperty, rowMenu, highlight, draw, addRow, toggle, setCursor, addsRow, parentMenu, revealTag, goToProp, pointerMenu, askWording, mark, dragRow, endDrag, clearDrop, dropZone, dropTarget, onKey, refresh, destroy, useOf, askAddToTag, startNewProp, newPropRow, askNewPropKind, askNewPropAccepts, askNewPropTag, makeNewProp, holdersOf, fillNodes];
 
 /* ---------- The main view and the sidebar panel ---------- */
 // Hosted by Logseq's own React through the core (core.mountView, 0.4.319): a route page and a sidebar panel.

@@ -2,6 +2,16 @@
 
 Newest first. One entry per piece of work, in the shape `docs/PROCESS.md` describes.
 
+## 2026-10-24 · The tag map: Tags | Properties on top, Select with tick boxes, a property's own page (0.4.373)
+
+**Asked:** "allow multiple items to be selected in both tags and properties … a select button and selector buttons
+appear … replace current title of page with `Tags | Properties` picker on top … allow to access specific property
+page". **Built:** `parts/tags.js`: the picker in the title's place (page view), `view.selectButton` (Select / Done),
+`view.selecting`, `view.pickedProps`, a tick box (`.rtg-tick`) before each tag row, `view.propBar` beside `view.pickBar`,
+`setSelecting`, `openPicked`, `addPropToPicked`; `parts/tags-props.js`: a tick in each property row, `addPickedToTag`,
+`putPickedInGroup`, Open and Open in the right sidebar first in a property's menu; keys over a property in the
+Properties view: Enter, Shift-Enter, x. **Seen in the app:** not yet. **Checks:** check.sh.
+
 ## 2026-10-24 · Suggested links less often: five letters and a pause (0.4.372)
 
 **Asked:** "suggestions are popping too often just with a couple letters. it is somewhat distracting". **Built**
